@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: front-keepguard-core-ingress
+  namespace: keepguard
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+spec:
+  tls:
+  - hosts:
+    - app-core.keepguard.com.br
+    secretName: front-keepguard-core-tls
+  rules:
+  - host: app-core.keepguard.com.br
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: front-keepguard-core-service
+            port:
+              number: 80

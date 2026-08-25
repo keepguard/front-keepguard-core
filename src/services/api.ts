@@ -1,0 +1,67 @@
+import { getDeviceInfo } from '../utils/deviceUtils';
+
+export const BFF_AUTH_URL = import.meta.env.VITE_BFF_AUTH_URL || 'http://localhost:8381';
+export const BFF_CORE_URL = import.meta.env.VITE_BFF_CORE_URL || 'http://localhost:8382';
+export const DEFAULT_TENANT_ID = import.meta.env.VITE_DEFAULT_TENANT_ID || 'f7fc7350-b9fc-4e54-9c58-ac9385b23ae3';
+export const DEFAULT_CLIENT_ID = 'keepguard-web';
+
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export async function customFetch<T>(
+  url: string,
+  options: RequestInit = {},
+  token?: string
+): Promise<T> {
+  const correlationId = generateUUID();
+  const deviceInfo = getDeviceInfo();
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-Tenant-Id': DEFAULT_TENANT_ID,
+    'X-Client-Id': DEFAULT_CLIENT_ID,
+    'X-Client-ID': DEFAULT_CLIENT_ID,
+    'X-Correlation-ID': correlationId,
+    'X-Device-Id': deviceInfo.deviceId,
+    'X-Device-Name': deviceInfo.deviceName,
+    'X-Device-Type': deviceInfo.deviceType,
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  const contentType = response.headers.get('content-type');
+  let data: any = null;
+  if (contentType && contentType.includes('application/json')) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    data = text ? { message: text } : {};
+  }
+
+  if (!response.ok) {
+    const errorMessage = data?.message || data?.detail || data?.error || `Erro HTTP ${response.status}`;
+    const errorObj = new Error(errorMessage) as any;
+    errorObj.status = response.status;
+    errorObj.data = data;
+    throw errorObj;
+  }
+
+  return data as T;
+}

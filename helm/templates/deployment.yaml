@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-keepguard-core
+  namespace: keepguard
+  labels:
+    app: front-keepguard-core
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: front-keepguard-core
+  template:
+    metadata:
+      labels:
+        app: front-keepguard-core
+    spec:
+      containers:
+      - name: front-keepguard-core
+        image: ghcr.io/keepguard/front-keepguard-core:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 2
+          periodSeconds: 3
+          failureThreshold: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
