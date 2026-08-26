@@ -6,7 +6,7 @@ import { ResetPasswordModal } from '../components/auth/ResetPasswordModal';
 import { RegisterTokenModal } from '../components/register/RegisterTokenModal';
 import { useAuth } from '../context/AuthContext';
 import type { RegisterConfirmResponse } from '../types/register';
-import { Shield, Lock, Zap, CheckCircle } from 'lucide-react';
+import { Shield, Lock, Zap, CheckCircle2 } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
@@ -38,7 +38,6 @@ export const AuthPage: React.FC = () => {
 
   const handleRegisterConfirmSuccess = (response: RegisterConfirmResponse) => {
     if (response.token && registerSessionData?.email) {
-      // Efetua login automático com o JWT retornado e redireciona para a área logada
       login(
         {
           accessToken: response.token,
@@ -56,10 +55,6 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div className="auth-page-container">
-      {/* Background glow ornaments */}
-      <div className="glow-orb orb-1" />
-      <div className="glow-orb orb-2" />
-
       <div className="auth-card-wrapper animate-fade-in">
         <div className="auth-hero-section">
           <div className="hero-badge">
@@ -68,36 +63,36 @@ export const AuthPage: React.FC = () => {
           </div>
 
           <h1 className="hero-heading">
-            Proteção de Acesso <br />
-            <span className="text-gradient">de Nova Geração.</span>
+            Tudo o que você precisa <br />
+            para <span className="text-gradient">proteger sua aplicação.</span>
           </h1>
 
           <p className="hero-subtext">
-            Plataforma de segurança com autenticação JWT de alta disponibilidade, controle contra ataques de força bruta e renovação contínua de credenciais.
+            Plataforma de segurança com autenticação JWT de alta disponibilidade, proteção inteligente contra força bruta e controle unificado de tenants.
           </p>
 
           <div className="feature-list">
             <div className="feature-item">
-              <div className="feature-icon"><Lock size={16} /></div>
+              <div className="feature-icon"><Lock size={18} /></div>
               <div>
                 <strong>Proteção Força Bruta</strong>
-                <p>Bloqueio inteligente e revogação dinâmica</p>
+                <p>Bloqueio inteligente e revogação dinâmica de sessões</p>
               </div>
             </div>
 
             <div className="feature-item">
-              <div className="feature-icon"><Zap size={16} /></div>
+              <div className="feature-icon"><Zap size={18} /></div>
               <div>
                 <strong>Auto Refresh Token</strong>
-                <p>Renovação proativa com detecção de atividade</p>
+                <p>Renovação proativa de credenciais em segundo plano</p>
               </div>
             </div>
 
             <div className="feature-item">
-              <div className="feature-icon"><CheckCircle size={16} /></div>
+              <div className="feature-icon"><CheckCircle2 size={18} /></div>
               <div>
                 <strong>Verificação em 2 Etapas</strong>
-                <p>Tokens de 6 dígitos com expiração e cooldown</p>
+                <p>Tokens de 6 dígitos com expiração e cooldown seguro</p>
               </div>
             </div>
           </div>
@@ -119,7 +114,7 @@ export const AuthPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="auth-form-card">
+          <div>
             {activeTab === 'login' ? (
               <LoginForm
                 onForgotPasswordClick={() => setIsForgotModalOpen(true)}

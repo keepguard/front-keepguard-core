@@ -5,8 +5,6 @@ import { ChangePasswordModal } from '../components/auth/ChangePasswordModal';
 import { DeviceSessionsCard } from '../components/dashboard/DeviceSessionsCard';
 import {
   User,
-  Shield,
-  Key,
   LogOut,
   RefreshCw,
   Clock,
@@ -14,6 +12,9 @@ import {
   Activity,
   Layers,
   Fingerprint,
+  Lock,
+  ArrowRightLeft,
+  Plus,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -79,41 +80,76 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="dashboard-container animate-fade-in">
+      {/* Top Header do Dashboard */}
       <div className="dashboard-header">
-        <div>
-          <div className="dashboard-badge">
-            <Shield size={14} className="text-primary" />
-            <span>Área Logada Segura</span>
-          </div>
-          <h1 className="dashboard-title">
-            Bem-vindo(a), <span className="text-gradient">{user?.name || user?.username}</span>
-          </h1>
+        <div className="dashboard-title-group">
+          <h1 className="dashboard-title">Meus domínios</h1>
           <p className="dashboard-subtitle">
-            Gerencie sua sessão ativa, credenciais e monitore a renovação automática de segurança.
+            Gerencie seus domínios, identidades ativas e monitore a segurança da sua conta.
           </p>
         </div>
 
         <div className="dashboard-top-actions">
           <button
-            className="btn btn-outline"
+            className="btn btn-outline btn-pill"
             onClick={() => setIsChangePasswordOpen(true)}
           >
-            <Key size={16} /> Alterar Senha
+            <ArrowRightLeft size={16} />
+            <span>Migrar um domínio existente</span>
           </button>
+          
           <button
-            className="btn btn-danger"
-            onClick={handleLogout}
+            className="btn btn-primary btn-pill"
+            onClick={() => setIsChangePasswordOpen(true)}
           >
-            <LogOut size={16} /> Sair
+            <Plus size={16} />
+            <span>Registrar um novo domínio</span>
           </button>
         </div>
       </div>
 
+      {/* Card Promocional Estilo Hostinger (Proteja sua identidade) */}
+      <div className="promo-card">
+        <div className="promo-info">
+          <div className="promo-icon-box">
+            <Lock size={20} />
+          </div>
+          <div>
+            <div className="promo-title-row">
+              <Lock size={14} />
+              <span>Proteja sua identidade na internet</span>
+            </div>
+            <div className="promo-title">
+              {user?.username || 'investbot'}.<span className="promo-highlight">shop</span>{' '}
+              <span style={{ fontSize: '0.9rem', color: '#673de6', fontWeight: 600, cursor: 'pointer' }}>
+                ou Ver mais opções
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="promo-actions">
+          <div className="promo-price-group">
+            <span className="promo-discount-badge">Economize 98%</span>
+            <div className="promo-old-price">R$179,99/1º ano</div>
+            <div className="promo-main-price">R$2.99</div>
+          </div>
+
+          <button className="btn btn-outline btn-pill" style={{ borderColor: '#e3e5e8', color: '#1d2129', fontWeight: 600 }}>
+            Compre agora
+          </button>
+        </div>
+      </div>
+
+      {/* Tabela de Domínios / Sessões do Usuário */}
+      <DeviceSessionsCard />
+
+      {/* Informações de Identidade e Sessão em Cards Limpos */}
       <div className="dashboard-grid">
         {/* Card de Identidade do Usuário */}
         <div className="dash-card">
           <div className="dash-card-header">
-            <div className="dash-card-icon"><User size={20} /></div>
+            <div className="dash-card-icon"><User size={18} /></div>
             <h3>Identidade & Permissões</h3>
           </div>
           <div className="dash-card-body">
@@ -147,13 +183,13 @@ export const DashboardPage: React.FC = () => {
         {/* Card de Sessão e Auto-Refresh */}
         <div className="dash-card">
           <div className="dash-card-header">
-            <div className="dash-card-icon"><Activity size={20} /></div>
+            <div className="dash-card-icon"><Activity size={18} /></div>
             <h3>Sessão Ativa & Auto-Refresh</h3>
           </div>
           <div className="dash-card-body">
             <div className="refresh-status-box">
               <div className="refresh-status-icon">
-                <CheckCircle size={24} className="text-success" />
+                <CheckCircle size={22} className="text-success" />
               </div>
               <div>
                 <strong>Monitor de Atividade Ativo</strong>
@@ -173,40 +209,45 @@ export const DashboardPage: React.FC = () => {
               <span className="info-value"><strong>{refreshCount}</strong> ciclos</span>
             </div>
 
-            <button
-              id="btn-force-refresh"
-              className="btn btn-secondary btn-block mt-4"
-              onClick={handleManualRefresh}
-              disabled={isManualRefreshing}
-            >
-              <RefreshCw size={16} className={isManualRefreshing ? 'spin' : ''} />
-              {isManualRefreshing ? 'Renovando Sessão...' : 'Forçar Renovação de Token (POST /auth/refresh)'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+              <button
+                id="btn-force-refresh"
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+                onClick={handleManualRefresh}
+                disabled={isManualRefreshing}
+              >
+                <RefreshCw size={16} className={isManualRefreshing ? 'spin' : ''} />
+                {isManualRefreshing ? 'Renovando...' : 'Forçar Renovação (POST /auth/refresh)'}
+              </button>
+
+              <button
+                className="btn btn-danger"
+                onClick={handleLogout}
+              >
+                <LogOut size={16} /> Sair
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Seção de Dispositivos e Sessões Ativas */}
-      <div className="mt-6">
-        <DeviceSessionsCard />
-      </div>
-
       {/* Seção de Inspeção de Tokens */}
-      <div className="dash-card full-width mt-6">
+      <div className="dash-card full-width">
         <div className="dash-card-header">
-          <div className="dash-card-icon"><Fingerprint size={20} /></div>
+          <div className="dash-card-icon"><Fingerprint size={18} /></div>
           <h3>Tokens de Segurança em Memória</h3>
         </div>
         <div className="dash-card-body">
           <div className="token-display-group">
-            <label className="form-label">Access Token (JWT)</label>
+            <label className="form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>Access Token (JWT)</label>
             <div className="token-code-box">
               <code>{accessToken || 'Nenhum token ativo'}</code>
             </div>
           </div>
 
           <div className="token-display-group mt-4">
-            <label className="form-label">Refresh Token</label>
+            <label className="form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>Refresh Token</label>
             <div className="token-code-box">
               <code>{refreshToken || 'Nenhum refresh token ativo'}</code>
             </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { Header } from './components/layout/Header';
+import { Sidebar } from './components/layout/Sidebar';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { authService } from './services/authService';
@@ -10,6 +11,7 @@ const MainContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { addToast } = useToast();
   const [healthStatus, setHealthStatus] = useState<'healthy' | 'unhealthy' | 'checking'>('checking');
+  const [activeTab, setActiveTab] = useState('domains');
 
   const checkHealth = async (showSuccessToast = false) => {
     setHealthStatus('checking');
@@ -36,11 +38,20 @@ const MainContent: React.FC = () => {
     <div className="app-layout">
       <Header
         healthStatus={healthStatus}
-        onCheckHealth={checkHealth}
+        onCheckHealth={() => checkHealth(true)}
       />
-      <main>
-        {isAuthenticated ? <DashboardPage /> : <AuthPage />}
-      </main>
+      {isAuthenticated ? (
+        <div className="app-body-container">
+          <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
+          <main className="app-content">
+            <DashboardPage />
+          </main>
+        </div>
+      ) : (
+        <main className="app-content">
+          <AuthPage />
+        </main>
+      )}
     </div>
   );
 };

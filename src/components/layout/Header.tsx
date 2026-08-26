@@ -1,5 +1,6 @@
 import React from 'react';
-import { Shield, Sparkles, Activity } from 'lucide-react';
+import { Gift, Bot, Search, User as UserIcon, Activity } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface HeaderProps {
   healthStatus?: 'healthy' | 'unhealthy' | 'checking';
@@ -10,31 +11,64 @@ export const Header: React.FC<HeaderProps> = ({
   healthStatus = 'healthy',
   onCheckHealth,
 }) => {
+  const { user } = useAuth();
+
+  const getInitials = (name?: string, email?: string) => {
+    if (name) return name.charAt(0).toUpperCase();
+    if (email) return email.charAt(0).toUpperCase();
+    return 'U';
+  };
+
   return (
     <header className="app-header">
-      <div className="header-logo-group">
-        <div className="logo-icon-box">
-          <Shield className="logo-shield" size={24} />
-          <Sparkles className="logo-sparkle" size={12} />
+      <div className="header-left">
+        <div className="header-logo-group">
+          <div className="logo-icon-box">
+            {/* H stylized Hostinger / K KeepGuard */}
+            <span>H</span>
+          </div>
+          <div className="logo-text-group">
+            <span className="logo-title">KEEP<span className="logo-accent">GUARD</span></span>
+          </div>
         </div>
-        <div className="logo-text-group">
-          <span className="logo-title">KEEP<span className="logo-accent">GUARD</span></span>
-          <span className="logo-badge">ENTERPRISE SEC</span>
-        </div>
+
+        <a href="#promo" className="header-badge-promo" onClick={(e) => e.preventDefault()}>
+          <Gift size={15} />
+          <span>Indique e ganhe até $225</span>
+        </a>
       </div>
 
       <div className="header-actions">
         <button
+          className="header-btn-action"
+          title="Agente IA Integrado"
+        >
+          <Bot size={16} className="text-primary" />
+          <span>Agente</span>
+        </button>
+
+        <button
+          className="header-btn-action"
+          title="Pesquisar recursos"
+        >
+          <Search size={16} />
+        </button>
+
+        <button
           className="health-badge-btn"
           onClick={onCheckHealth}
-          title="Clique para verificar saúde do BFF-Auth"
+          title="Clique para verificar integridade do BFF-Auth"
         >
           <Activity size={14} className={healthStatus === 'checking' ? 'spin' : ''} />
           <span className={`status-indicator status-${healthStatus}`} />
           <span className="status-label">
-            BFF-Auth: {healthStatus === 'healthy' ? 'Online' : healthStatus === 'unhealthy' ? 'Offline' : 'Verificando...'}
+            BFF: {healthStatus === 'healthy' ? 'Online' : healthStatus === 'unhealthy' ? 'Offline' : 'Verificando...'}
           </span>
         </button>
+
+        <div className="header-user-avatar" title={user?.email || 'Minha Conta'}>
+          {user ? getInitials(user.name, user.email) : <UserIcon size={16} />}
+        </div>
       </div>
     </header>
   );
