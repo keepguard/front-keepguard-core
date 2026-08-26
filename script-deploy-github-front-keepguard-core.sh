@@ -4,16 +4,19 @@
 # Script de Deploy Automatizado para Frontend React (front-keepguard-core)
 # =============================================================================
 # Uso:
-#   ./script-deploy-github-front-keepguard-core.sh up       # Incrementa versão + Build + Push + Deploy K8s
-#   ./script-deploy-github-front-keepguard-core.sh 1.0.0 up # Versão explícita + Deploy K8s
+#   ./script-deploy-github-front-keepguard-core.sh up       # Incrementa versão + Build + Push + Deploy Docker
+#   ./script-deploy-github-front-keepguard-core.sh 1.0.1 up # Versão explícita + Deploy Docker
 #   ./script-deploy-github-front-keepguard-core.sh          # Incrementa versão + Build + Push apenas
+#   ./script-deploy-github-front-keepguard-core.sh --current up # Mantém versão atual + Deploy Docker
 # =============================================================================
 
 set -e
 
 SERVICE_NAME="front-keepguard-core"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PACKAGE_JSON="${SCRIPT_DIR}/package.json"
+DOCKER_COMPOSE_FILE="${PROJECT_ROOT}/docker/docker-compose.yml"
 
 # Cores
 GREEN='\033[0;32m'
@@ -53,13 +56,54 @@ update_package_version() {
     log_success "package.json atualizado para: ${new_version}"
 }
 
-DEPLOY_K8S=false
+commit_and_push_release() {
+    local release_version=$1
+    local repo_dir=${2:-"${SCRIPT_DIR}"}
+
+    log_step "Commit e push das alterações (Release ${release_version})..."
+
+    if ! git -C "${repo_dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        log_warning "Diretório não é um repositório git: ${repo_dir}. Pulando commit/push."
+        return 0
+    fi
+
+    pushd "${repo_dir}" > /dev/null
+
+    git add -A
+    if git diff --cached --quiet; then
+        log_info "Nenhuma alteração pendente para commit."
+        popd > /dev/null
+        return 0
+    fi
+
+    if ! git commit -m "$(cat <<EOF
+Release ${release_version}
+
+EOF
+)"; then
+        log_error "Falha ao criar commit do release ${release_version}"
+        popd > /dev/null
+        return 1
+    fi
+
+    if ! git push; then
+        log_error "Falha ao fazer push do release ${release_version}"
+        popd > /dev/null
+        return 1
+    fi
+
+    log_success "Commit e push concluídos (Release ${release_version})"
+    popd > /dev/null
+    return 0
+}
+
+DEPLOY_DOCKER=false
 TARGET_VERSION=""
 KEEP_CURRENT_VERSION=false
 
 for arg in "$@"; do
     if [ "$arg" = "up" ]; then
-        DEPLOY_K8S=true
+        DEPLOY_DOCKER=true
     elif [ "$arg" = "--current" ]; then
         KEEP_CURRENT_VERSION=true
     elif [[ "$arg" =~ ^[0-9]+\.[0-9]+ ]]; then
@@ -85,9 +129,9 @@ IMAGE_LATEST="${REGISTRY}/${SERVICE_NAME}:latest"
 log_info "============================================"
 log_info "  Deploy ${SERVICE_NAME}"
 log_info "============================================"
-log_info "Versão:       ${VERSION}"
-log_info "Deploy K8s:   ${DEPLOY_K8S}"
-log_info "Imagem Tag:   ${IMAGE_TAG}"
+log_info "Versão:        ${VERSION}"
+log_info "Deploy Docker: ${DEPLOY_DOCKER}"
+log_info "Imagem Tag:    ${IMAGE_TAG}"
 log_info "============================================"
 
 # 1. Build Docker Image
@@ -102,39 +146,29 @@ docker push "${IMAGE_TAG}"
 docker push "${IMAGE_LATEST}"
 log_success "Push concluído com sucesso"
 
-# 3. Commit e Push no Git
-log_step "3/4 Commit e push das alterações no Git..."
-git add -A
-if ! git diff --cached --quiet; then
-    git commit -m "Release ${VERSION}" || true
-    git push origin main || true
-    log_success "Commit e push concluídos (Release ${VERSION})"
-fi
-
-# 4. Deploy no Kubernetes se 'up' foi passado
-if [ "$DEPLOY_K8S" = true ]; then
-    log_step "4/4 Aplicando manifestos e executando rollout no Kubernetes..."
-    # Atualiza a tag no deployment.yaml do Helm
+# 3. Atualização e Deploy Docker Compose Local se 'up' foi passado
+if [ -f "$DOCKER_COMPOSE_FILE" ]; then
+    log_step "3/4 Atualizando docker-compose.yml..."
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s|image: ghcr.io/keepguard/front-keepguard-core:.*|image: ${IMAGE_TAG}|g" "${SCRIPT_DIR}/helm/templates/deployment.yaml"
+        sed -i '' "s|image: ${REGISTRY}/${SERVICE_NAME}:.*|image: ${IMAGE_TAG}|g" "${DOCKER_COMPOSE_FILE}"
     else
-        sed -i "s|image: ghcr.io/keepguard/front-keepguard-core:.*|image: ${IMAGE_TAG}|g" "${SCRIPT_DIR}/helm/templates/deployment.yaml"
+        sed -i "s|image: ${REGISTRY}/${SERVICE_NAME}:.*|image: ${IMAGE_TAG}|g" "${DOCKER_COMPOSE_FILE}"
     fi
-
-    # Aplica os manifestos na VPS remota
-    ssh root@31.97.175.92 "kubectl apply -f - << 'EOF'
-$(cat "${SCRIPT_DIR}/helm/templates/deployment.yaml")
----
-$(cat "${SCRIPT_DIR}/helm/templates/service.yaml")
----
-$(cat "${SCRIPT_DIR}/helm/templates/ingress.yaml")
-EOF"
-
-    ssh root@31.97.175.92 "kubectl rollout restart deployment/front-keepguard-core -n keepguard"
-    log_success "Rollout disparado no Kubernetes!"
+    log_success "docker-compose.yml atualizado para ${IMAGE_TAG}"
 fi
+
+if [ "$DEPLOY_DOCKER" = true ]; then
+    log_info "Iniciando container no Docker Compose (pull & recreate)..."
+    cd "${PROJECT_ROOT}/docker"
+    docker compose pull "${SERVICE_NAME}" || true
+    docker compose up -d "${SERVICE_NAME}"
+    log_success "Container ${SERVICE_NAME} recriado com sucesso no Docker!"
+fi
+
+# 4. Commit e push no repositório
+commit_and_push_release "${VERSION}" "${SCRIPT_DIR}"
 
 log_success "============================================"
-log_success "  Deploy de ${SERVICE_NAME} finalizado!"
-log_success "  URL: https://app-core.keepguard.com.br"
+log_success "  Deploy de ${SERVICE_NAME} finalizado com sucesso!"
+log_success "  Porta Local: http://localhost:5173"
 log_success "============================================"
