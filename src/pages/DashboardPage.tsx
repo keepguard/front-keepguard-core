@@ -18,6 +18,7 @@ import {
   Copy,
   Check,
   FileText,
+  Lock,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -32,7 +33,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const {
     user,
     accessToken,
-    refreshToken,
     lastRefreshTime,
     refreshCount,
     logout,
@@ -42,7 +42,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const { addToast } = useToast();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
-  const [copiedToken, setCopiedToken] = useState<'access' | 'refresh' | null>(null);
+  const [copiedToken, setCopiedToken] = useState<boolean>(false);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -53,17 +53,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     });
   };
 
-  const handleCopyToken = (text: string, type: 'access' | 'refresh') => {
+  const handleCopyToken = (text: string) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
-    setCopiedToken(type);
+    setCopiedToken(true);
     addToast({
       type: 'info',
-      title: 'Token copiado!',
-      description: `${type === 'access' ? 'Access Token (JWT)' : 'Refresh Token'} copiado para a área de transferência.`,
+      title: 'Token JWT Copiado!',
+      description: 'Access Token copiado para a área de transferência.',
       duration: 3000,
     });
-    setTimeout(() => setCopiedToken(null), 2500);
+    setTimeout(() => setCopiedToken(false), 2500);
   };
 
   const handleManualRefresh = async () => {
@@ -74,7 +74,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         addToast({
           type: 'success',
           title: 'Token Renovado com Sucesso!',
-          description: 'Um novo par de Access Token e Refresh Token foi gerado e validado no servidor.',
+          description: 'Um novo par de Access Token foi gerado e validado no servidor.',
         });
       } else {
         addToast({
@@ -247,7 +247,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </div>
                   <div>
                     <strong>Monitor de Atividade Ativo</strong>
-                    <p>Enquanto você interage com a plataforma, as credenciais são renovadas automaticamente a cada 45 segundos no BFF-Auth.</p>
+                    <p>Enquanto você interage com a plataforma, o token é renovado automaticamente a cada 45 segundos no BFF-Auth.</p>
                   </div>
                 </div>
 
@@ -308,44 +308,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
 
-          {/* Tokens em Memória */}
+          {/* Token Único em Memória */}
           <div className="dash-card full-width" style={{ marginTop: '1.5rem' }}>
             <div className="dash-card-header">
               <div className="dash-card-icon"><Fingerprint size={18} /></div>
-              <h3>Tokens de Segurança em Memória</h3>
+              <div>
+                <h3 style={{ margin: 0 }}>Token de Autenticação JWT Ativo (Bearer Token)</h3>
+                <span style={{ fontSize: '0.8rem', color: '#5f6368' }}>
+                  Utilizado para autorização segura e rotação contínua de sessão no BFF-Auth
+                </span>
+              </div>
             </div>
             <div className="dash-card-body">
               <div className="token-display-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <label className="form-label">Access Token (JWT)</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Lock size={14} className="text-primary" />
+                    <span className="form-label" style={{ fontSize: '0.85rem' }}>JSON Web Token (Assinado via RS256)</span>
+                  </div>
                   <button
-                    className="link-btn"
-                    onClick={() => handleCopyToken(accessToken || '', 'access')}
+                    className="link-btn bold"
+                    onClick={() => handleCopyToken(accessToken || '')}
                     disabled={!accessToken}
                   >
-                    {copiedToken === 'access' ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-                    <span>{copiedToken === 'access' ? 'Copiado' : 'Copiar Token'}</span>
+                    {copiedToken ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+                    <span>{copiedToken ? 'Copiado!' : 'Copiar Token'}</span>
                   </button>
                 </div>
                 <div className="token-code-box">
                   <code>{accessToken || 'Nenhum token ativo'}</code>
-                </div>
-              </div>
-
-              <div className="token-display-group mt-4">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <label className="form-label">Refresh Token</label>
-                  <button
-                    className="link-btn"
-                    onClick={() => handleCopyToken(refreshToken || '', 'refresh')}
-                    disabled={!refreshToken}
-                  >
-                    {copiedToken === 'refresh' ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-                    <span>{copiedToken === 'refresh' ? 'Copiado' : 'Copiar Token'}</span>
-                  </button>
-                </div>
-                <div className="token-code-box">
-                  <code>{refreshToken || 'Nenhum refresh token ativo'}</code>
                 </div>
               </div>
             </div>
