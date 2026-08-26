@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ChangePasswordModal } from '../components/auth/ChangePasswordModal';
 import { DeviceSessionsCard } from '../components/dashboard/DeviceSessionsCard';
+import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
 import {
   User,
   LogOut,
@@ -12,12 +13,22 @@ import {
   Activity,
   Layers,
   Fingerprint,
-  Lock,
-  ArrowRightLeft,
-  Plus,
+  Shield,
+  Key,
+  Copy,
+  Check,
+  FileText,
 } from 'lucide-react';
 
-export const DashboardPage: React.FC = () => {
+interface DashboardPageProps {
+  activeTab?: string;
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const DashboardPage: React.FC<DashboardPageProps> = ({
+  activeTab = 'overview',
+  onNavigateTab,
+}) => {
   const {
     user,
     accessToken,
@@ -31,6 +42,7 @@ export const DashboardPage: React.FC = () => {
   const { addToast } = useToast();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<'access' | 'refresh' | null>(null);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -39,6 +51,19 @@ export const DashboardPage: React.FC = () => {
       minute: '2-digit',
       second: '2-digit',
     });
+  };
+
+  const handleCopyToken = (text: string, type: 'access' | 'refresh') => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedToken(type);
+    addToast({
+      type: 'info',
+      title: 'Token copiado!',
+      description: `${type === 'access' ? 'Access Token (JWT)' : 'Refresh Token'} copiado para a área de transferência.`,
+      duration: 3000,
+    });
+    setTimeout(() => setCopiedToken(null), 2500);
   };
 
   const handleManualRefresh = async () => {
@@ -80,180 +105,321 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="dashboard-container animate-fade-in">
-      {/* Top Header do Dashboard */}
-      <div className="dashboard-header">
-        <div className="dashboard-title-group">
-          <h1 className="dashboard-title">Meus domínios</h1>
-          <p className="dashboard-subtitle">
-            Gerencie seus domínios, identidades ativas e monitore a segurança da sua conta.
-          </p>
-        </div>
+      {/* 1. SE ABA: TEMPLATES / SHOWCASE */}
+      {activeTab === 'templates' && <TemplateShowcaseView />}
 
-        <div className="dashboard-top-actions">
-          <button
-            className="btn btn-outline btn-pill"
-            onClick={() => setIsChangePasswordOpen(true)}
-          >
-            <ArrowRightLeft size={16} />
-            <span>Migrar um domínio existente</span>
-          </button>
-          
-          <button
-            className="btn btn-primary btn-pill"
-            onClick={() => setIsChangePasswordOpen(true)}
-          >
-            <Plus size={16} />
-            <span>Registrar um novo domínio</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Card Promocional Estilo Hostinger (Proteja sua identidade) */}
-      <div className="promo-card">
-        <div className="promo-info">
-          <div className="promo-icon-box">
-            <Lock size={20} />
-          </div>
-          <div>
-            <div className="promo-title-row">
-              <Lock size={14} />
-              <span>Proteja sua identidade na internet</span>
-            </div>
-            <div className="promo-title">
-              {user?.username || 'investbot'}.<span className="promo-highlight">shop</span>{' '}
-              <span style={{ fontSize: '0.9rem', color: '#673de6', fontWeight: 600, cursor: 'pointer' }}>
-                ou Ver mais opções
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="promo-actions">
-          <div className="promo-price-group">
-            <span className="promo-discount-badge">Economize 98%</span>
-            <div className="promo-old-price">R$179,99/1º ano</div>
-            <div className="promo-main-price">R$2.99</div>
-          </div>
-
-          <button className="btn btn-outline btn-pill" style={{ borderColor: '#e3e5e8', color: '#1d2129', fontWeight: 600 }}>
-            Compre agora
-          </button>
-        </div>
-      </div>
-
-      {/* Tabela de Domínios / Sessões do Usuário */}
-      <DeviceSessionsCard />
-
-      {/* Informações de Identidade e Sessão em Cards Limpos */}
-      <div className="dashboard-grid">
-        {/* Card de Identidade do Usuário */}
-        <div className="dash-card">
-          <div className="dash-card-header">
-            <div className="dash-card-icon"><User size={18} /></div>
-            <h3>Identidade & Permissões</h3>
-          </div>
-          <div className="dash-card-body">
-            <div className="info-row">
-              <span className="info-label">Nome de Usuário</span>
-              <span className="info-value">{user?.username}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">E-mail</span>
-              <span className="info-value">{user?.email}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Código Único (UUID)</span>
-              <span className="info-value text-mono text-muted">{user?.codeUser || '—'}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Aplicação (Tenant)</span>
-              <span className="info-value text-mono text-muted">{user?.tenantId}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Perfis de Acesso (Roles)</span>
-              <div className="roles-list">
-                {user?.roles?.map((r, i) => (
-                  <span key={i} className="badge-role">{r}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Card de Sessão e Auto-Refresh */}
-        <div className="dash-card">
-          <div className="dash-card-header">
-            <div className="dash-card-icon"><Activity size={18} /></div>
-            <h3>Sessão Ativa & Auto-Refresh</h3>
-          </div>
-          <div className="dash-card-body">
-            <div className="refresh-status-box">
-              <div className="refresh-status-icon">
-                <CheckCircle size={22} className="text-success" />
-              </div>
-              <div>
-                <strong>Monitor de Atividade Ativo</strong>
-                <p>Enquanto você interage com a página, a sessão é renovada automaticamente em segundo plano a cada 45 segundos.</p>
-              </div>
+      {/* 2. SE ABA: VISÃO GERAL (OVERVIEW) */}
+      {activeTab === 'overview' && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">Visão Geral de Segurança</h1>
+              <p className="dashboard-subtitle">
+                Bem-vindo(a), <strong>{user?.name || user?.username}</strong>. Acompanhe a saúde da sua conta e credenciais ativas.
+              </p>
             </div>
 
-            <div className="info-row">
-              <span className="info-label"><Clock size={14} /> Último Refresh</span>
-              <span className="info-value">
-                {formatRefreshTime(lastRefreshTime)}
-              </span>
-            </div>
-
-            <div className="info-row">
-              <span className="info-label"><Layers size={14} /> Total de Renovações</span>
-              <span className="info-value"><strong>{refreshCount}</strong> ciclos</span>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+            <div className="dashboard-top-actions">
               <button
-                id="btn-force-refresh"
-                className="btn btn-secondary"
-                style={{ flex: 1 }}
-                onClick={handleManualRefresh}
-                disabled={isManualRefreshing}
+                className="btn btn-outline btn-pill"
+                onClick={() => setIsChangePasswordOpen(true)}
               >
-                <RefreshCw size={16} className={isManualRefreshing ? 'spin' : ''} />
-                {isManualRefreshing ? 'Renovando...' : 'Forçar Renovação (POST /auth/refresh)'}
+                <Key size={16} />
+                <span>Alterar Senha</span>
               </button>
-
+              
               <button
-                className="btn btn-danger"
+                className="btn btn-danger btn-pill"
                 onClick={handleLogout}
               >
-                <LogOut size={16} /> Sair
+                <LogOut size={16} />
+                <span>Sair</span>
               </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Seção de Inspeção de Tokens */}
-      <div className="dash-card full-width">
-        <div className="dash-card-header">
-          <div className="dash-card-icon"><Fingerprint size={18} /></div>
-          <h3>Tokens de Segurança em Memória</h3>
-        </div>
-        <div className="dash-card-body">
-          <div className="token-display-group">
-            <label className="form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>Access Token (JWT)</label>
-            <div className="token-code-box">
-              <code>{accessToken || 'Nenhum token ativo'}</code>
+          {/* KPI Cards de Resumo */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+            <div className="dash-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <div className="dash-card-icon"><Shield size={18} /></div>
+                <span style={{ fontSize: '0.88rem', color: '#5f6368', fontWeight: 600 }}>Status da Conta</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#00b090', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <CheckCircle size={22} />
+                <span>Protegida</span>
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#5f6368', marginTop: '0.35rem' }}>
+                Tenant: <span className="text-mono" style={{ fontWeight: 600, color: '#1d2129' }}>{user?.tenantId?.substring(0, 8)}...</span>
+              </div>
+            </div>
+
+            <div className="dash-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <div className="dash-card-icon"><Activity size={18} /></div>
+                <span style={{ fontSize: '0.88rem', color: '#5f6368', fontWeight: 600 }}>Auto-Refresh Ativo</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1d2129' }}>
+                {refreshCount} <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#5f6368' }}>ciclos</span>
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#5f6368', marginTop: '0.35rem' }}>
+                Última renovação: <strong>{formatRefreshTime(lastRefreshTime)}</strong>
+              </div>
+            </div>
+
+            <div className="dash-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <div className="dash-card-icon"><User size={18} /></div>
+                <span style={{ fontSize: '0.88rem', color: '#5f6368', fontWeight: 600 }}>Permissão Principal</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#673de6' }}>
+                {user?.roles?.[0] || 'ROLE_USER'}
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#5f6368', marginTop: '0.35rem' }}>
+                {user?.email}
+              </div>
             </div>
           </div>
 
-          <div className="token-display-group mt-4">
-            <label className="form-label" style={{ marginBottom: '0.35rem', display: 'block' }}>Refresh Token</label>
-            <div className="token-code-box">
-              <code>{refreshToken || 'Nenhum refresh token ativo'}</code>
+          {/* Tabela de Dispositivos Conectados */}
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1d2129' }}>Dispositivos & Sessões Conectadas</h2>
+              {onNavigateTab && (
+                <button className="link-btn bold" onClick={() => onNavigateTab('sessions')}>
+                  Ver detalhes completos &rarr;
+                </button>
+              )}
+            </div>
+            <DeviceSessionsCard />
+          </div>
+        </>
+      )}
+
+      {/* 3. SE ABA: DISPOSITIVOS & SESSÕES (SESSIONS) */}
+      {activeTab === 'sessions' && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">Dispositivos & Sessões Ativas</h1>
+              <p className="dashboard-subtitle">
+                Monitore todos os navegadores e smartphones conectados à sua conta KeepGuard.
+              </p>
             </div>
           </div>
-        </div>
-      </div>
+          <DeviceSessionsCard />
+        </>
+      )}
+
+      {/* 4. SE ABA: SEGURANÇA & TOKENS (SECURITY) */}
+      {activeTab === 'security' && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">Segurança & Credenciais JWT</h1>
+              <p className="dashboard-subtitle">
+                Monitore o mecanismo proativo de rotação de tokens JWT e gerencie sua senha de acesso.
+              </p>
+            </div>
+
+            <div className="dashboard-top-actions">
+              <button
+                className="btn btn-primary btn-pill"
+                onClick={() => setIsChangePasswordOpen(true)}
+              >
+                <Key size={16} />
+                <span>Alterar Senha</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="dashboard-grid">
+            {/* Card de Sessão e Auto-Refresh */}
+            <div className="dash-card">
+              <div className="dash-card-header">
+                <div className="dash-card-icon"><Activity size={18} /></div>
+                <h3>Sessão Ativa & Auto-Refresh Proativo</h3>
+              </div>
+              <div className="dash-card-body">
+                <div className="refresh-status-box">
+                  <div className="refresh-status-icon">
+                    <CheckCircle size={22} className="text-success" />
+                  </div>
+                  <div>
+                    <strong>Monitor de Atividade Ativo</strong>
+                    <p>Enquanto você interage com a plataforma, as credenciais são renovadas automaticamente a cada 45 segundos no BFF-Auth.</p>
+                  </div>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label"><Clock size={14} /> Último Refresh</span>
+                  <span className="info-value">
+                    {formatRefreshTime(lastRefreshTime)}
+                  </span>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label"><Layers size={14} /> Total de Renovações</span>
+                  <span className="info-value"><strong>{refreshCount}</strong> ciclos</span>
+                </div>
+
+                <div style={{ marginTop: '1.25rem' }}>
+                  <button
+                    id="btn-force-refresh"
+                    className="btn btn-secondary btn-block"
+                    onClick={handleManualRefresh}
+                    disabled={isManualRefreshing}
+                  >
+                    <RefreshCw size={16} className={isManualRefreshing ? 'spin' : ''} />
+                    {isManualRefreshing ? 'Renovando Token...' : 'Forçar Renovação (POST /auth/refresh)'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card de Identidade & Tenant */}
+            <div className="dash-card">
+              <div className="dash-card-header">
+                <div className="dash-card-icon"><User size={18} /></div>
+                <h3>Identidade & Permissões</h3>
+              </div>
+              <div className="dash-card-body">
+                <div className="info-row">
+                  <span className="info-label">Nome de Usuário</span>
+                  <span className="info-value">{user?.username}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">E-mail</span>
+                  <span className="info-value">{user?.email}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Aplicação (Tenant)</span>
+                  <span className="info-value text-mono text-muted">{user?.tenantId}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Perfis de Acesso (Roles)</span>
+                  <div className="roles-list">
+                    {user?.roles?.map((r, i) => (
+                      <span key={i} className="badge-role">{r}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tokens em Memória */}
+          <div className="dash-card full-width" style={{ marginTop: '1.5rem' }}>
+            <div className="dash-card-header">
+              <div className="dash-card-icon"><Fingerprint size={18} /></div>
+              <h3>Tokens de Segurança em Memória</h3>
+            </div>
+            <div className="dash-card-body">
+              <div className="token-display-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label">Access Token (JWT)</label>
+                  <button
+                    className="link-btn"
+                    onClick={() => handleCopyToken(accessToken || '', 'access')}
+                    disabled={!accessToken}
+                  >
+                    {copiedToken === 'access' ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+                    <span>{copiedToken === 'access' ? 'Copiado' : 'Copiar Token'}</span>
+                  </button>
+                </div>
+                <div className="token-code-box">
+                  <code>{accessToken || 'Nenhum token ativo'}</code>
+                </div>
+              </div>
+
+              <div className="token-display-group mt-4">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label">Refresh Token</label>
+                  <button
+                    className="link-btn"
+                    onClick={() => handleCopyToken(refreshToken || '', 'refresh')}
+                    disabled={!refreshToken}
+                  >
+                    {copiedToken === 'refresh' ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+                    <span>{copiedToken === 'refresh' ? 'Copiado' : 'Copiar Token'}</span>
+                  </button>
+                </div>
+                <div className="token-code-box">
+                  <code>{refreshToken || 'Nenhum refresh token ativo'}</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 5. SE ABA: IDENTIDADE & LGPD (IDENTITY) */}
+      {activeTab === 'identity' && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">Identidade & Conformidade LGPD</h1>
+              <p className="dashboard-subtitle">
+                Dados cadastrais da conta e termos de consentimento legal registrados.
+              </p>
+            </div>
+          </div>
+
+          <div className="dashboard-grid">
+            <div className="dash-card">
+              <div className="dash-card-header">
+                <div className="dash-card-icon"><User size={18} /></div>
+                <h3>Dados do Titular da Conta</h3>
+              </div>
+              <div className="dash-card-body">
+                <div className="info-row">
+                  <span className="info-label">Nome Completo</span>
+                  <span className="info-value">{user?.name || user?.username}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">E-mail Cadastrado</span>
+                  <span className="info-value">{user?.email}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Código Único (UUID)</span>
+                  <span className="info-value text-mono text-muted">{user?.codeUser || '—'}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Tenant ID</span>
+                  <span className="info-value text-mono text-muted">{user?.tenantId}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="dash-card">
+              <div className="dash-card-header">
+                <div className="dash-card-icon"><FileText size={18} /></div>
+                <h3>Documentos & Consentimentos LGPD</h3>
+              </div>
+              <div className="dash-card-body">
+                <div className="refresh-status-box">
+                  <div className="refresh-status-icon">
+                    <CheckCircle size={22} className="text-success" />
+                  </div>
+                  <div>
+                    <strong>Consentimentos Válidos</strong>
+                    <p>Você concordou com os Termos de Uso e Política de Privacidade durante o cadastro.</p>
+                  </div>
+                </div>
+
+                <div className="info-row">
+                  <span className="info-label">Termos de Uso</span>
+                  <span className="badge-role" style={{ background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' }}>Aceito</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Política de Privacidade</span>
+                  <span className="badge-role" style={{ background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' }}>Aceito</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Modal de Alteração de Senha */}
       <ChangePasswordModal

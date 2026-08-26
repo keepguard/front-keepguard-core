@@ -5,9 +5,10 @@ import {
   Tablet,
   CheckCircle2,
   Trash2,
-  MoreVertical,
   Search,
   Calendar,
+  LogOut,
+  RefreshCw,
 } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
@@ -20,6 +21,7 @@ export const DeviceSessionsCard: React.FC = () => {
   const [sessions, setSessions] = useState<DeviceSession[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [isRevokingAll, setIsRevokingAll] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [autoRenewMap, setAutoRenewMap] = useState<Record<string, boolean>>({});
 
@@ -76,6 +78,28 @@ export const DeviceSessionsCard: React.FC = () => {
     }
   };
 
+  const handleRevokeAllOtherSessions = async () => {
+    if (!accessToken) return;
+    setIsRevokingAll(true);
+    try {
+      await authService.revokeAllOtherSessions(accessToken);
+      addToast({
+        type: 'success',
+        title: 'Sessões encerradas',
+        description: 'Todas as outras sessões foram revogadas com sucesso.',
+      });
+      setSessions((prev) => prev.filter((s) => s.isCurrent));
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Erro ao revogar sessões',
+        description: err?.message || 'Não foi possível desconectar as outras sessões.',
+      });
+    } finally {
+      setIsRevokingAll(false);
+    }
+  };
+
   const getDeviceIcon = (deviceType: string) => {
     const type = (deviceType || '').toLowerCase();
     if (type.includes('mobile') || type.includes('phone') || type.includes('ios') || type.includes('android')) {
@@ -94,9 +118,11 @@ export const DeviceSessionsCard: React.FC = () => {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
       });
     } catch {
-      return '2028-05-04';
+      return 'Data não disponível';
     }
   };
 
@@ -111,24 +137,40 @@ export const DeviceSessionsCard: React.FC = () => {
 
   return (
     <div>
-      {/* Toolbar no estilo Hostinger hPanel */}
+      {/* Toolbar no estilo Hostinger hPanel com Ação Global Real */}
       <div className="table-toolbar">
         <div className="search-input-wrapper">
           <Search size={16} className="search-icon" />
           <input
             type="text"
             className="search-input"
-            placeholder="Pesquisar domínios..."
+            placeholder="Pesquisar por dispositivo, IP ou localização..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        <select className="filter-select">
-          <option>Todos os domínios</option>
-          <option>Apenas ativas</option>
-          <option>Sessão atual</option>
-        </select>
+        <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+          <button
+            className="btn btn-secondary btn-pill"
+            onClick={loadSessions}
+            disabled={loading}
+            title="Recarregar lista de dispositivos"
+          >
+            <RefreshCw size={15} className={loading ? 'spin' : ''} />
+            <span>Atualizar</span>
+          </button>
+
+          <button
+            className="btn btn-danger btn-pill"
+            onClick={handleRevokeAllOtherSessions}
+            disabled={isRevokingAll || sessions.filter(s => !s.isCurrent).length === 0}
+            title="Encerrar todas as outras sessões abertas"
+          >
+            <LogOut size={15} />
+            <span>{isRevokingAll ? 'Encerrando...' : 'Desconectar outros dispositivos'}</span>
+          </button>
+        </div>
       </div>
 
       {/* 1. VISÃO DESKTOP (Tabela Completa > 768px) */}
@@ -139,10 +181,10 @@ export const DeviceSessionsCard: React.FC = () => {
               <th style={{ width: '40px' }}>
                 <input type="checkbox" style={{ accentColor: '#673de6' }} />
               </th>
-              <th>Domínio ↑↓</th>
+              <th>Dispositivo / Identificador ↑↓</th>
               <th>Status ↑↓</th>
-              <th>Data de expiração ↑↓</th>
-              <th>Renovação automática</th>
+              <th>Última Atividade ↑↓</th>
+              <th>Sessão Segura</th>
               <th style={{ textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
@@ -152,91 +194,16 @@ export const DeviceSessionsCard: React.FC = () => {
                 <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div className="btn-spinner-content" style={{ justifyContent: 'center' }}>
                     <span className="spinner-small" style={{ borderTopColor: '#673de6', borderColor: '#dcd2f9' }} />
-                    <span>Carregando dispositivos e domínios ativos...</span>
+                    <span>Carregando dispositivos e sessões conectadas...</span>
                   </div>
                 </td>
               </tr>
             ) : filteredSessions.length === 0 ? (
-              <>
-                {/* Fallback ilustrativo conforme imagem da Hostinger */}
-                <tr>
-                  <td>
-                    <input type="checkbox" style={{ accentColor: '#673de6' }} />
-                  </td>
-                  <td>
-                    <div className="table-cell-title">
-                      {getDeviceIcon('desktop')}
-                      <span>investbot.tech</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="status-badge-hostinger">
-                      <CheckCircle2 size={16} className="status-icon" />
-                      <span>Ativo</span>
-                    </div>
-                  </td>
-                  <td>2027-02-14</td>
-                  <td>
-                    <label className="switch-wrapper">
-                      <input
-                        type="checkbox"
-                        className="switch-input"
-                        checked={true}
-                        readOnly
-                      />
-                      <span className="switch-slider" />
-                    </label>
-                  </td>
-                  <td>
-                    <div className="table-actions-group">
-                      <button className="btn-table-outline">Renovar</button>
-                      <button className="btn-table-outline">Gerenciar</button>
-                      <button className="btn-table-icon" title="Opções">
-                        <MoreVertical size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    <input type="checkbox" style={{ accentColor: '#673de6' }} />
-                  </td>
-                  <td>
-                    <div className="table-cell-title">
-                      {getDeviceIcon('desktop')}
-                      <span>keepguard.com.br</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="status-badge-hostinger">
-                      <CheckCircle2 size={16} className="status-icon" />
-                      <span>Ativo</span>
-                    </div>
-                  </td>
-                  <td>2028-05-04</td>
-                  <td>
-                    <label className="switch-wrapper">
-                      <input
-                        type="checkbox"
-                        className="switch-input"
-                        checked={false}
-                        readOnly
-                      />
-                      <span className="switch-slider" />
-                    </label>
-                  </td>
-                  <td>
-                    <div className="table-actions-group">
-                      <button className="btn-table-outline">Renovar</button>
-                      <button className="btn-table-outline">Gerenciar</button>
-                      <button className="btn-table-icon" title="Opções">
-                        <MoreVertical size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </>
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                  Nenhum dispositivo encontrado para a pesquisa.
+                </td>
+              </tr>
             ) : (
               filteredSessions.map((session) => (
                 <tr key={session.deviceId}>
@@ -246,7 +213,7 @@ export const DeviceSessionsCard: React.FC = () => {
                   <td>
                     <div className="table-cell-title">
                       {getDeviceIcon(session.deviceType || '')}
-                      <span>{session.deviceName || 'Dispositivo KeepGuard'}</span>
+                      <span>{session.deviceName || 'Dispositivo Conectado'}</span>
                     </div>
                     <div className="table-cell-muted" style={{ marginLeft: '1.6rem' }}>
                       {session.ipAddress} • {session.location || 'Localidade protegida'}
@@ -279,11 +246,11 @@ export const DeviceSessionsCard: React.FC = () => {
                       >
                         {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
                       </button>
-                      <button className="btn-table-outline">Gerenciar</button>
                       <button
                         className="btn-table-icon"
                         title="Desconectar dispositivo"
                         onClick={() => handleRevokeSession(session.deviceId)}
+                        disabled={session.isCurrent}
                       >
                         <Trash2 size={15} />
                       </button>
@@ -301,75 +268,12 @@ export const DeviceSessionsCard: React.FC = () => {
         {loading ? (
           <div className="mobile-loading-card">
             <span className="spinner-small" style={{ borderTopColor: '#673de6', borderColor: '#dcd2f9' }} />
-            <span>Carregando domínios...</span>
+            <span>Carregando dispositivos...</span>
           </div>
         ) : filteredSessions.length === 0 ? (
-          <>
-            {/* Cards Fallback para Celular */}
-            <div className="mobile-domain-card">
-              <div className="mobile-card-top">
-                <div className="mobile-card-identity">
-                  {getDeviceIcon('desktop')}
-                  <span className="mobile-domain-name">investbot.tech</span>
-                </div>
-                <div className="status-badge-hostinger">
-                  <CheckCircle2 size={15} className="status-icon" />
-                  <span>Ativo</span>
-                </div>
-              </div>
-
-              <div className="mobile-card-meta">
-                <div className="meta-item">
-                  <Calendar size={14} className="text-muted" />
-                  <span>Expira em <strong>2027-02-14</strong></span>
-                </div>
-                <div className="meta-item-switch">
-                  <span>Auto-renovação:</span>
-                  <label className="switch-wrapper">
-                    <input type="checkbox" className="switch-input" checked={true} readOnly />
-                    <span className="switch-slider" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="mobile-card-actions">
-                <button className="btn-table-outline" style={{ flex: 1 }}>Renovar</button>
-                <button className="btn-table-outline" style={{ flex: 1 }}>Gerenciar</button>
-              </div>
-            </div>
-
-            <div className="mobile-domain-card">
-              <div className="mobile-card-top">
-                <div className="mobile-card-identity">
-                  {getDeviceIcon('desktop')}
-                  <span className="mobile-domain-name">keepguard.com.br</span>
-                </div>
-                <div className="status-badge-hostinger">
-                  <CheckCircle2 size={15} className="status-icon" />
-                  <span>Ativo</span>
-                </div>
-              </div>
-
-              <div className="mobile-card-meta">
-                <div className="meta-item">
-                  <Calendar size={14} className="text-muted" />
-                  <span>Expira em <strong>2028-05-04</strong></span>
-                </div>
-                <div className="meta-item-switch">
-                  <span>Auto-renovação:</span>
-                  <label className="switch-wrapper">
-                    <input type="checkbox" className="switch-input" checked={false} readOnly />
-                    <span className="switch-slider" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="mobile-card-actions">
-                <button className="btn-table-outline" style={{ flex: 1 }}>Renovar</button>
-                <button className="btn-table-outline" style={{ flex: 1 }}>Gerenciar</button>
-              </div>
-            </div>
-          </>
+          <div className="mobile-loading-card">
+            <span>Nenhum dispositivo encontrado.</span>
+          </div>
         ) : (
           filteredSessions.map((session) => (
             <div key={session.deviceId} className="mobile-domain-card">
@@ -416,7 +320,6 @@ export const DeviceSessionsCard: React.FC = () => {
                 >
                   {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
                 </button>
-                <button className="btn-table-outline" style={{ flex: 1 }}>Gerenciar</button>
               </div>
             </div>
           ))

@@ -11,7 +11,7 @@ const MainContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { addToast } = useToast();
   const [healthStatus, setHealthStatus] = useState<'healthy' | 'unhealthy' | 'checking'>('checking');
-  const [activeTab, setActiveTab] = useState('domains');
+  const [activeTab, setActiveTab] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const checkHealth = async (showSuccessToast = false) => {
@@ -52,7 +52,7 @@ const MainContent: React.FC = () => {
             onCloseMobile={() => setIsMobileMenuOpen(false)}
           />
           <main className="app-content">
-            <DashboardPage />
+            <DashboardPage activeTab={activeTab} onNavigateTab={setActiveTab} />
           </main>
         </div>
       ) : (

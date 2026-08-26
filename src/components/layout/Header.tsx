@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gift, Bot, Search, User as UserIcon, Activity, Menu, X } from 'lucide-react';
+import { User as UserIcon, Activity, Menu, X, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface HeaderProps {
@@ -47,28 +47,16 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        <a href="#promo" className="header-badge-promo hide-on-mobile" onClick={(e) => e.preventDefault()}>
-          <Gift size={15} />
-          <span>Indique e ganhe até $225</span>
-        </a>
+        {/* Badge de Segurança & Tenant Real */}
+        {isAuthenticated && user?.tenantId && (
+          <div className="header-badge-promo hide-on-mobile" style={{ background: '#ede8ff', borderColor: '#dcd2f9', color: '#673de6' }}>
+            <ShieldCheck size={15} />
+            <span>Tenant: {user.tenantId.substring(0, 8)}...</span>
+          </div>
+        )}
       </div>
 
       <div className="header-actions">
-        <button
-          className="header-btn-action hide-on-mobile"
-          title="Agente IA Integrado"
-        >
-          <Bot size={16} className="text-primary" />
-          <span>Agente</span>
-        </button>
-
-        <button
-          className="header-btn-action hide-on-mobile"
-          title="Pesquisar recursos"
-        >
-          <Search size={16} />
-        </button>
-
         <button
           className="health-badge-btn"
           onClick={onCheckHealth}

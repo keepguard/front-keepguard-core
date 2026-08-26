@@ -1,17 +1,10 @@
 import React from 'react';
 import {
   Home,
-  Globe,
-  Mail,
-  Server,
   Shield,
-  Key,
   Smartphone,
-  Layers,
+  UserCheck,
   Sparkles,
-  Bot,
-  Activity,
-  Cpu,
   X,
 } from 'lucide-react';
 
@@ -23,7 +16,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  activeTab = 'domains',
+  activeTab = 'overview',
   onSelectTab,
   isOpenMobile = false,
   onCloseMobile,
@@ -57,30 +50,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Menu Principal */}
+        {/* Menu Principal Funcional */}
         <div className="sidebar-section">
+          <span className="sidebar-heading">Navegação Principal</span>
+
           <button
-            className={`sidebar-nav-item ${activeTab === 'home' ? 'active' : ''}`}
-            onClick={() => handleItemClick('home')}
+            className={`sidebar-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => handleItemClick('overview')}
           >
             <Home size={18} className="sidebar-icon" />
-            <span>Página Inicial</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'sites' ? 'active' : ''}`}
-            onClick={() => handleItemClick('sites')}
-          >
-            <Layers size={18} className="sidebar-icon" />
-            <span>Sites & Aplicações</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'domains' ? 'active' : ''}`}
-            onClick={() => handleItemClick('domains')}
-          >
-            <Globe size={18} className="sidebar-icon" />
-            <span>Domínios & Tenants</span>
+            <span>Visão Geral</span>
           </button>
 
           <button
@@ -100,69 +79,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
-            className={`sidebar-nav-item ${activeTab === 'emails' ? 'active' : ''}`}
-            onClick={() => handleItemClick('emails')}
+            className={`sidebar-nav-item ${activeTab === 'identity' ? 'active' : ''}`}
+            onClick={() => handleItemClick('identity')}
           >
-            <Mail size={18} className="sidebar-icon" />
-            <span>E-mails & 2FA</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'services' ? 'active' : ''}`}
-            onClick={() => handleItemClick('services')}
-          >
-            <Server size={18} className="sidebar-icon" />
-            <span>Mais serviços</span>
+            <UserCheck size={18} className="sidebar-icon" />
+            <span>Identidade & LGPD</span>
           </button>
         </div>
 
-        {/* Aplicativos KeepGuard */}
-        <div className="sidebar-section">
-          <span className="sidebar-heading">Aplicativos do KeepGuard</span>
+        {/* Templates e Design System Preservados */}
+        <div className="sidebar-section" style={{ marginTop: 'auto' }}>
+          <span className="sidebar-heading">Biblioteca de Templates</span>
 
           <button
-            className={`sidebar-nav-item ${activeTab === 'ai-creator' ? 'active' : ''}`}
-            onClick={() => handleItemClick('ai-creator')}
+            className={`sidebar-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
+            onClick={() => handleItemClick('templates')}
           >
-            <Sparkles size={18} className="sidebar-icon" />
-            <span>Criador com IA</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'keys' ? 'active' : ''}`}
-            onClick={() => handleItemClick('keys')}
-          >
-            <Key size={18} className="sidebar-icon" />
-            <span>Chaves & Certificados</span>
-          </button>
-        </div>
-
-        {/* Agentes de IA & Monitoramento */}
-        <div className="sidebar-section">
-          <span className="sidebar-heading">Agentes de Segurança & IA</span>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'agent' ? 'active' : ''}`}
-            onClick={() => handleItemClick('agent')}
-          >
-            <Bot size={18} className="sidebar-icon" />
-            <span>Agente Guardião</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'telemetry' ? 'active' : ''}`}
-            onClick={() => handleItemClick('telemetry')}
-          >
-            <Activity size={18} className="sidebar-icon" />
-            <span>Telemetria & BFF</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'nodes' ? 'active' : ''}`}
-            onClick={() => handleItemClick('nodes')}
-          >
-            <Cpu size={18} className="sidebar-icon" />
-            <span>Cluster VPS Nodes</span>
+            <Sparkles size={18} className="sidebar-icon text-primary" />
+            <span>Galeria de Templates</span>
           </button>
         </div>
       </aside>
