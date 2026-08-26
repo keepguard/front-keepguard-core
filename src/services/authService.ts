@@ -31,6 +31,13 @@ export const authService = {
     });
   },
 
+  async validateToken(token: string): Promise<void> {
+    return customFetch<void>(`${BFF_AUTH_URL}/api/v1/auth/validate`, {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }, token);
+  },
+
   async logout(token?: string): Promise<{ success: boolean; message: string }> {
     return customFetch<{ success: boolean; message: string }>(`${BFF_AUTH_URL}/api/v1/auth/logout`, {
       method: 'POST',

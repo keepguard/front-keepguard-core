@@ -61,7 +61,17 @@ export const DeviceSessionsCard: React.FC = () => {
       setAutoRenewMap(renewState);
     } catch (err: any) {
       console.error('Erro ao carregar sessões:', err);
-      // Fallback em caso de erro de rede
+      // Se for 401 ou token revogado, não exibe fallback local (deixa o deslogamento ocorrer)
+      if (err?.status === 401 || err?.data?.error === 'TOKEN_REVOKED') {
+        addToast({
+          type: 'error',
+          title: 'Sessão Encerrada',
+          description: 'Sua sessão foi revogada ou expirou. Redirecionando para login...',
+        });
+        return;
+      }
+
+      // Fallback apenas em caso de instabilidade temporária de rede
       const currentDev = getDeviceInfo();
       setSessions([
         {

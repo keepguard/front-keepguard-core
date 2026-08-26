@@ -179,6 +179,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [refreshToken, accessToken, logout]);
 
+  // Validação ativa do token no backend/Redis ao inicializar a página (F5 / Mount)
+  useEffect(() => {
+    const initialToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!initialToken) return;
+
+    authService.validateToken(initialToken).catch((err: any) => {
+      console.warn('Sessão inválida ou revogada no carregamento inicial:', err);
+      // Se a validação falhar com 401 ou token inválido, desloga imediatamente
+      if (err?.status === 401 || err?.data?.error === 'TOKEN_REVOKED') {
+        logout();
+      }
+    });
+  }, [logout]);
+
+  // Escuta evento global de não autorizado (401) disparado pelo api.ts
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setAccessToken(null);
+      setRefreshToken(null);
+      setUser(null);
+      setLastRefreshTime(null);
+      setRefreshCount(0);
+    };
+
+    window.addEventListener('keepguard_auth_unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('keepguard_auth_unauthorized', handleUnauthorized);
+  }, []);
+
   // Intervalo de auto-refresh se usuário esteve ativo nos últimos 5 minutos
   useEffect(() => {
     if (!accessToken && !localStorage.getItem(TOKEN_STORAGE_KEY)) return;

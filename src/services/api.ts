@@ -69,6 +69,18 @@ export async function customFetch<T>(
   }
 
   if (!response.ok) {
+    // Se for 401 (Não autorizado / Token Revogado / Sessão encerrada), limpa a sessão local e avisa a aplicação
+    if (response.status === 401 || data?.error === 'TOKEN_REVOKED') {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('keepguard_access_token');
+        localStorage.removeItem('keepguard_refresh_token');
+        localStorage.removeItem('keepguard_user');
+        localStorage.removeItem('keepguard_last_refresh_time');
+        localStorage.removeItem('keepguard_refresh_count');
+        window.dispatchEvent(new CustomEvent('keepguard_auth_unauthorized', { detail: data }));
+      }
+    }
+
     const errorMessage = data?.message || data?.detail || data?.error || `Erro HTTP ${response.status}`;
     const errorObj = new Error(errorMessage) as any;
     errorObj.status = response.status;
