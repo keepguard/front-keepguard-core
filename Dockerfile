@@ -10,8 +10,12 @@ RUN npm ci
 # Copia código-fonte e arquivos de configuração
 COPY . .
 
-# Build com variáveis de produção embutidas
-RUN npm run build
+# Argumento para definir o modo de build (padrão development para Docker local)
+ARG BUILD_MODE=development
+ENV NODE_ENV=production
+
+# Build com o modo selecionado
+RUN npx vite build --mode ${BUILD_MODE}
 
 # Stage 2: Servidor Web Nginx Alpine de alta performance
 FROM nginx:1.27-alpine
