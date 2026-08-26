@@ -26,11 +26,14 @@ export const DeviceSessionsCard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [autoRenewMap, setAutoRenewMap] = useState<Record<string, boolean>>({});
 
-  const loadSessions = async () => {
-    if (!accessToken) return;
-    setLoading(true);
+  const loadSessions = async (showLoadingSpinner = true) => {
+    const currentToken = accessToken || localStorage.getItem('keepguard_access_token');
+    if (!currentToken) return;
+    if (showLoadingSpinner) {
+      setLoading(true);
+    }
     try {
-      const data = await authService.listUserSessions(accessToken);
+      const data = await authService.listUserSessions(currentToken);
       let sessionList = data || [];
 
       // Fallback inteligente: se o backend retornar lista vazia, exibe o dispositivo atual
@@ -88,13 +91,15 @@ export const DeviceSessionsCard: React.FC = () => {
         },
       ]);
     } finally {
-      setLoading(false);
+      if (showLoadingSpinner) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadSessions();
-  }, [accessToken]);
+    loadSessions(true);
+  }, []);
 
   const handleToggleAutoRenew = (deviceId: string) => {
     setAutoRenewMap((prev) => ({
@@ -200,7 +205,7 @@ export const DeviceSessionsCard: React.FC = () => {
         <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
           <button
             className="btn btn-secondary btn-pill"
-            onClick={loadSessions}
+            onClick={() => loadSessions(true)}
             disabled={loading}
             title="Recarregar lista de dispositivos"
           >
