@@ -7,6 +7,7 @@ import {
   Trash2,
   MoreVertical,
   Search,
+  Calendar,
 } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
@@ -30,7 +31,6 @@ export const DeviceSessionsCard: React.FC = () => {
       const sessionList = data || [];
       setSessions(sessionList);
       
-      // Inicializa switches de renovação
       const renewState: Record<string, boolean> = {};
       sessionList.forEach((s) => {
         renewState[s.deviceId] = true;
@@ -118,7 +118,7 @@ export const DeviceSessionsCard: React.FC = () => {
           <input
             type="text"
             className="search-input"
-            placeholder="Pesquisar..."
+            placeholder="Pesquisar domínios..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -131,8 +131,8 @@ export const DeviceSessionsCard: React.FC = () => {
         </select>
       </div>
 
-      {/* Tabela no estilo Hostinger hPanel */}
-      <div className="hpanel-table-card">
+      {/* 1. VISÃO DESKTOP (Tabela Completa > 768px) */}
+      <div className="hpanel-table-card desktop-table-view">
         <table className="hpanel-table">
           <thead>
             <tr>
@@ -294,6 +294,133 @@ export const DeviceSessionsCard: React.FC = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* 2. VISÃO MOBILE (Cards Empilhados para Celular <= 768px) */}
+      <div className="mobile-cards-container">
+        {loading ? (
+          <div className="mobile-loading-card">
+            <span className="spinner-small" style={{ borderTopColor: '#673de6', borderColor: '#dcd2f9' }} />
+            <span>Carregando domínios...</span>
+          </div>
+        ) : filteredSessions.length === 0 ? (
+          <>
+            {/* Cards Fallback para Celular */}
+            <div className="mobile-domain-card">
+              <div className="mobile-card-top">
+                <div className="mobile-card-identity">
+                  {getDeviceIcon('desktop')}
+                  <span className="mobile-domain-name">investbot.tech</span>
+                </div>
+                <div className="status-badge-hostinger">
+                  <CheckCircle2 size={15} className="status-icon" />
+                  <span>Ativo</span>
+                </div>
+              </div>
+
+              <div className="mobile-card-meta">
+                <div className="meta-item">
+                  <Calendar size={14} className="text-muted" />
+                  <span>Expira em <strong>2027-02-14</strong></span>
+                </div>
+                <div className="meta-item-switch">
+                  <span>Auto-renovação:</span>
+                  <label className="switch-wrapper">
+                    <input type="checkbox" className="switch-input" checked={true} readOnly />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="mobile-card-actions">
+                <button className="btn-table-outline" style={{ flex: 1 }}>Renovar</button>
+                <button className="btn-table-outline" style={{ flex: 1 }}>Gerenciar</button>
+              </div>
+            </div>
+
+            <div className="mobile-domain-card">
+              <div className="mobile-card-top">
+                <div className="mobile-card-identity">
+                  {getDeviceIcon('desktop')}
+                  <span className="mobile-domain-name">keepguard.com.br</span>
+                </div>
+                <div className="status-badge-hostinger">
+                  <CheckCircle2 size={15} className="status-icon" />
+                  <span>Ativo</span>
+                </div>
+              </div>
+
+              <div className="mobile-card-meta">
+                <div className="meta-item">
+                  <Calendar size={14} className="text-muted" />
+                  <span>Expira em <strong>2028-05-04</strong></span>
+                </div>
+                <div className="meta-item-switch">
+                  <span>Auto-renovação:</span>
+                  <label className="switch-wrapper">
+                    <input type="checkbox" className="switch-input" checked={false} readOnly />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="mobile-card-actions">
+                <button className="btn-table-outline" style={{ flex: 1 }}>Renovar</button>
+                <button className="btn-table-outline" style={{ flex: 1 }}>Gerenciar</button>
+              </div>
+            </div>
+          </>
+        ) : (
+          filteredSessions.map((session) => (
+            <div key={session.deviceId} className="mobile-domain-card">
+              <div className="mobile-card-top">
+                <div className="mobile-card-identity">
+                  {getDeviceIcon(session.deviceType || '')}
+                  <span className="mobile-domain-name">{session.deviceName || 'Dispositivo'}</span>
+                </div>
+                <div className="status-badge-hostinger">
+                  <CheckCircle2 size={15} className="status-icon" />
+                  <span>{session.isCurrent ? 'Sessão Atual' : 'Ativo'}</span>
+                </div>
+              </div>
+
+              <div className="mobile-card-subinfo">
+                <span>{session.ipAddress} • {session.location || 'Localidade protegida'}</span>
+              </div>
+
+              <div className="mobile-card-meta">
+                <div className="meta-item">
+                  <Calendar size={14} className="text-muted" />
+                  <span>Última ativ.: <strong>{formatDate(session.lastActiveAt)}</strong></span>
+                </div>
+                <div className="meta-item-switch">
+                  <span>Auto-renovação:</span>
+                  <label className="switch-wrapper">
+                    <input
+                      type="checkbox"
+                      className="switch-input"
+                      checked={autoRenewMap[session.deviceId] ?? true}
+                      onChange={() => handleToggleAutoRenew(session.deviceId)}
+                    />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="mobile-card-actions">
+                <button
+                  className="btn-table-outline"
+                  style={{ flex: 1 }}
+                  onClick={() => handleRevokeSession(session.deviceId)}
+                  disabled={revokingId === session.deviceId || session.isCurrent}
+                >
+                  {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
+                </button>
+                <button className="btn-table-outline" style={{ flex: 1 }}>Gerenciar</button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
