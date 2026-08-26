@@ -1,7 +1,20 @@
 import { getDeviceInfo } from '../utils/deviceUtils';
 
-export const BFF_AUTH_URL = import.meta.env.VITE_BFF_AUTH_URL || 'http://localhost:8381';
-export const BFF_CORE_URL = import.meta.env.VITE_BFF_CORE_URL || 'http://localhost:8382';
+// Determina automaticamente a URL do BFF com base no host atual
+const isProductionDomain = typeof window !== 'undefined' && 
+  (window.location.hostname.endsWith('keepguard.com.br') || window.location.hostname === '31.97.175.92');
+
+const defaultBffUrl = isProductionDomain ? 'https://api.keepguard.com.br' : 'http://localhost:8381';
+const defaultCoreUrl = isProductionDomain ? 'https://api.keepguard.com.br' : 'http://localhost:8382';
+
+export const BFF_AUTH_URL = import.meta.env.VITE_BFF_AUTH_URL && import.meta.env.VITE_BFF_AUTH_URL !== 'http://localhost:8381'
+  ? import.meta.env.VITE_BFF_AUTH_URL
+  : defaultBffUrl;
+
+export const BFF_CORE_URL = import.meta.env.VITE_BFF_CORE_URL && import.meta.env.VITE_BFF_CORE_URL !== 'http://localhost:8382'
+  ? import.meta.env.VITE_BFF_CORE_URL
+  : defaultCoreUrl;
+
 export const DEFAULT_TENANT_ID = import.meta.env.VITE_DEFAULT_TENANT_ID || 'f7fc7350-b9fc-4e54-9c58-ac9385b23ae3';
 export const DEFAULT_CLIENT_ID = 'keepguard-web';
 
