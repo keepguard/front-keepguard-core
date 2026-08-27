@@ -5,7 +5,6 @@ import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { authService } from './services/authService';
 import { termsSyncService, type CheckTermsResult } from './services/termsSyncService';
 import { TermsConsentModal } from './components/common/TermsConsentModal';
 import { DEFAULT_TENANT_ID } from './services/api';
@@ -13,11 +12,9 @@ import { DEFAULT_TENANT_ID } from './services/api';
 const MainContent: React.FC = () => {
   const { isAuthenticated, user, accessToken, logout } = useAuth();
   const { addToast } = useToast();
-  const [healthStatus, setHealthStatus] = useState<'healthy' | 'unhealthy' | 'checking'>('checking');
   const [activeTab, setActiveTab] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Estado para controle de consentimento de termos
   const [termsState, setTermsState] = useState<CheckTermsResult>({
     hasPending: false,
     pendingDocuments: [],
@@ -25,28 +22,6 @@ const MainContent: React.FC = () => {
   });
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
 
-  const checkHealth = async (showSuccessToast = false) => {
-    setHealthStatus('checking');
-    try {
-      await authService.getHealth();
-      setHealthStatus('healthy');
-      if (showSuccessToast) {
-        addToast({
-          type: 'success',
-          title: 'BFF-Auth Online',
-          description: 'Serviço de autenticação e comunicação operando normalmente.',
-        });
-      }
-    } catch (e) {
-      setHealthStatus('unhealthy');
-    }
-  };
-
-  useEffect(() => {
-    checkHealth(false);
-  }, []);
-
-  // Executa checagem semanal de termos de forma não-bloqueante após login
   useEffect(() => {
     if (isAuthenticated && user) {
       const tenantId = user.tenantId || DEFAULT_TENANT_ID;
@@ -70,13 +45,23 @@ const MainContent: React.FC = () => {
     }
   }, [isAuthenticated, user]);
 
+  const handleLogout = async () => {
+    await logout();
+    setActiveTab('overview');
+    addToast({
+      type: 'info',
+      title: 'Sessão finalizada',
+      description: 'Você saiu da sua conta com segurança.',
+    });
+  };
+
   return (
     <div className="app-layout">
       <Header
-        healthStatus={healthStatus}
-        onCheckHealth={() => checkHealth(true)}
         isMobileMenuOpen={isMobileMenuOpen}
         onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+        onNavigateTab={setActiveTab}
+        onLogout={handleLogout}
       />
       {isAuthenticated ? (
         <div className="app-body-container">
@@ -96,7 +81,6 @@ const MainContent: React.FC = () => {
         </main>
       )}
 
-      {/* Modal Bloqueante de Aceite de Termos quando pendente */}
       {isAuthenticated && user && (
         <TermsConsentModal
           isOpen={isTermsModalOpen}

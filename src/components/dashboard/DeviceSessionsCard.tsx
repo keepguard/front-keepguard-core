@@ -26,7 +26,6 @@ export const DeviceSessionsCard: React.FC = () => {
   const [blockingId, setBlockingId] = useState<string | null>(null);
   const [isRevokingAll, setIsRevokingAll] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [autoRenewMap, setAutoRenewMap] = useState<Record<string, boolean>>({});
 
   const loadSessions = async (showLoadingSpinner = true) => {
     const currentToken = accessToken || localStorage.getItem('keepguard_access_token');
@@ -58,12 +57,6 @@ export const DeviceSessionsCard: React.FC = () => {
       }
 
       setSessions(sessionList);
-      
-      const renewState: Record<string, boolean> = {};
-      sessionList.forEach((s) => {
-        renewState[s.deviceId] = true;
-      });
-      setAutoRenewMap(renewState);
     } catch (err: any) {
       console.error('Erro ao carregar sessões:', err);
       // Se for 401 ou token revogado, não exibe fallback local (deixa o deslogamento ocorrer)
@@ -102,13 +95,6 @@ export const DeviceSessionsCard: React.FC = () => {
   useEffect(() => {
     loadSessions(true);
   }, []);
-
-  const handleToggleAutoRenew = (deviceId: string) => {
-    setAutoRenewMap((prev) => ({
-      ...prev,
-      [deviceId]: !prev[deviceId],
-    }));
-  };
 
   const handleBlockAndRevoke = async (session: DeviceSession) => {
     if (!accessToken || session.isCurrent) return;
@@ -315,12 +301,15 @@ export const DeviceSessionsCard: React.FC = () => {
                   </td>
                   <td>{formatDate(session.lastActiveAt)}</td>
                   <td>
-                    <label className="switch-wrapper">
+                    <label className="switch-wrapper switch-wrapper-disabled">
                       <input
                         type="checkbox"
                         className="switch-input"
-                        checked={autoRenewMap[session.deviceId] ?? true}
-                        onChange={() => handleToggleAutoRenew(session.deviceId)}
+                        checked
+                        disabled
+                        readOnly
+                        aria-readonly="true"
+                        aria-label="Sessão segura"
                       />
                       <span className="switch-slider" />
                     </label>
@@ -334,7 +323,12 @@ export const DeviceSessionsCard: React.FC = () => {
                       >
                         {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
                       </button>
-                      {!session.isCurrent && (
+                      {session.isCurrent ? (
+                        <span className="btn-table-outline table-actions-placeholder" aria-hidden="true">
+                          <Ban size={14} />
+                          Encerrar e bloquear
+                        </span>
+                      ) : (
                         <button
                           className="btn-table-outline"
                           title="Encerrar sessão e impedir novos logins neste aparelho"
@@ -345,14 +339,18 @@ export const DeviceSessionsCard: React.FC = () => {
                           {blockingId === session.deviceId ? 'Bloqueando...' : 'Encerrar e bloquear'}
                         </button>
                       )}
-                      <button
-                        className="btn-table-icon"
-                        title="Desconectar dispositivo"
-                        onClick={() => handleRevokeSession(session.deviceId)}
-                        disabled={session.isCurrent || blockingId === session.deviceId}
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {session.isCurrent ? (
+                        <span className="btn-table-icon table-actions-placeholder" aria-hidden="true" />
+                      ) : (
+                        <button
+                          className="btn-table-icon"
+                          title="Desconectar dispositivo"
+                          onClick={() => handleRevokeSession(session.deviceId)}
+                          disabled={blockingId === session.deviceId}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -398,35 +396,52 @@ export const DeviceSessionsCard: React.FC = () => {
                 </div>
                 <div className="meta-item-switch">
                   <span>Auto-renovação:</span>
-                  <label className="switch-wrapper">
+                  <label className="switch-wrapper switch-wrapper-disabled">
                     <input
                       type="checkbox"
                       className="switch-input"
-                      checked={autoRenewMap[session.deviceId] ?? true}
-                      onChange={() => handleToggleAutoRenew(session.deviceId)}
+                      checked
+                      disabled
+                      readOnly
+                      aria-readonly="true"
+                      aria-label="Sessão segura"
                     />
                     <span className="switch-slider" />
                   </label>
                 </div>
               </div>
 
-              <div className="mobile-card-actions">
+              <div className="mobile-card-actions table-actions-group">
                 <button
                   className="btn-table-outline"
-                  style={{ flex: 1 }}
                   onClick={() => handleRevokeSession(session.deviceId)}
                   disabled={revokingId === session.deviceId || blockingId === session.deviceId || session.isCurrent}
                 >
                   {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
                 </button>
-                {!session.isCurrent && (
+                {session.isCurrent ? (
+                  <span className="btn-table-outline table-actions-placeholder" aria-hidden="true">
+                    Encerrar e bloquear
+                  </span>
+                ) : (
                   <button
                     className="btn-table-outline"
-                    style={{ flex: 1 }}
                     onClick={() => handleBlockAndRevoke(session)}
                     disabled={blockingId === session.deviceId || revokingId === session.deviceId}
                   >
                     {blockingId === session.deviceId ? 'Bloqueando...' : 'Encerrar e bloquear'}
+                  </button>
+                )}
+                {session.isCurrent ? (
+                  <span className="btn-table-icon table-actions-placeholder" aria-hidden="true" />
+                ) : (
+                  <button
+                    className="btn-table-icon"
+                    title="Desconectar dispositivo"
+                    onClick={() => handleRevokeSession(session.deviceId)}
+                    disabled={blockingId === session.deviceId}
+                  >
+                    <Trash2 size={15} />
                   </button>
                 )}
               </div>

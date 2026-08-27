@@ -13,11 +13,17 @@ import type {
   AdminBlacklistSearchParams,
   PaginatedDeviceBlacklist,
 } from '../types/auth';
-import { BFF_AUTH_URL, customFetch } from './api';
+import { BFF_AUTH_URL, BFF_CORE_URL, customFetch } from './api';
 
 export const authService = {
   async getHealth(): Promise<HealthResponse> {
     return customFetch<HealthResponse>(`${BFF_AUTH_URL}/health`, {
+      method: 'GET',
+    });
+  },
+
+  async getCoreHealth(): Promise<HealthResponse> {
+    return customFetch<HealthResponse>(`${BFF_CORE_URL}/health`, {
       method: 'GET',
     });
   },

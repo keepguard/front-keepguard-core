@@ -1,29 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
 import { ChangePasswordModal } from '../components/auth/ChangePasswordModal';
 import { DeviceSessionsCard } from '../components/dashboard/DeviceSessionsCard';
 import { MyDeviceBlacklistCard } from '../components/dashboard/MyDeviceBlacklistCard';
 import { AdminDeviceBlacklistCard } from '../components/dashboard/AdminDeviceBlacklistCard';
+import { SecurityCredentialsView } from '../components/dashboard/SecurityCredentialsView';
+import { ConnectionsView } from '../components/dashboard/ConnectionsView';
 import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
 import { hasAdminOrManagerRole } from '../utils/roles';
 import {
   User,
-  LogOut,
-  RefreshCw,
-  Clock,
   CheckCircle,
   Activity,
-  Layers,
-  Fingerprint,
   Shield,
   Key,
-  Copy,
-  Check,
   FileText,
-  Lock,
   Ban,
   ShieldAlert,
+  Cable,
+  Settings,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -37,17 +32,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 }) => {
   const {
     user,
-    accessToken,
     lastRefreshTime,
     refreshCount,
-    logout,
-    performRefreshToken,
   } = useAuth();
 
-  const { addToast } = useToast();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
-  const [copiedToken, setCopiedToken] = useState<boolean>(false);
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
 
   useEffect(() => {
@@ -65,62 +54,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     });
   };
 
-  const handleCopyToken = (text: string) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopiedToken(true);
-    addToast({
-      type: 'info',
-      title: 'Token JWT Copiado!',
-      description: 'Access Token copiado para a área de transferência.',
-      duration: 3000,
-    });
-    setTimeout(() => setCopiedToken(false), 2500);
-  };
-
-  const handleManualRefresh = async () => {
-    setIsManualRefreshing(true);
-    try {
-      const success = await performRefreshToken();
-      if (success) {
-        addToast({
-          type: 'success',
-          title: 'Token Renovado com Sucesso!',
-          description: 'Um novo par de Access Token foi gerado e validado no servidor.',
-        });
-      } else {
-        addToast({
-          type: 'error',
-          title: 'Falha na renovação',
-          description: 'Não foi possível renovar a sessão. Verifique suas credenciais.',
-        });
-      }
-    } catch (err: any) {
-      addToast({
-        type: 'error',
-        title: 'Erro ao renovar token',
-        description: err?.message || 'Ocorreu um erro ao comunicar com o serviço de autenticação.',
-      });
-    } finally {
-      setIsManualRefreshing(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    addToast({
-      type: 'info',
-      title: 'Sessão finalizada',
-      description: 'Você saiu da sua conta com segurança.',
-    });
-  };
-
   return (
     <div className="dashboard-container animate-fade-in">
-      {/* 1. SE ABA: TEMPLATES / SHOWCASE */}
       {activeTab === 'templates' && <TemplateShowcaseView />}
 
-      {/* 2. SE ABA: VISÃO GERAL (OVERVIEW) */}
       {activeTab === 'overview' && (
         <>
           <div className="dashboard-header">
@@ -130,27 +67,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Bem-vindo(a), <strong>{user?.name || user?.username}</strong>. Acompanhe a saúde da sua conta e credenciais ativas.
               </p>
             </div>
-
-            <div className="dashboard-top-actions">
-              <button
-                className="btn btn-outline btn-pill"
-                onClick={() => setIsChangePasswordOpen(true)}
-              >
-                <Key size={16} />
-                <span>Alterar Senha</span>
-              </button>
-              
-              <button
-                className="btn btn-danger btn-pill"
-                onClick={handleLogout}
-              >
-                <LogOut size={16} />
-                <span>Sair</span>
-              </button>
-            </div>
           </div>
 
-          {/* KPI Cards de Resumo */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
             <div className="dash-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
@@ -160,9 +78,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#00b090', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <CheckCircle size={22} />
                 <span>Protegida</span>
-              </div>
-              <div style={{ fontSize: '0.82rem', color: '#5f6368', marginTop: '0.35rem' }}>
-                Tenant: <span className="text-mono" style={{ fontWeight: 600, color: '#1d2129' }}>{user?.tenantId?.substring(0, 8)}...</span>
               </div>
             </div>
 
@@ -193,7 +108,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
 
-          {/* Tabela de Dispositivos Conectados */}
           <div style={{ marginBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1d2129' }}>Dispositivos & Sessões Conectadas</h2>
@@ -208,7 +122,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </>
       )}
 
-      {/* 3. SE ABA: DISPOSITIVOS & SESSÕES (SESSIONS) */}
       {activeTab === 'sessions' && (
         <>
           <div className="dashboard-header">
@@ -223,7 +136,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </>
       )}
 
-      {/* 3b. SE ABA: DISPOSITIVOS BLOQUEADOS (BLACKLIST DO USUÁRIO) */}
       {activeTab === 'blacklist' && (
         <>
           <div className="dashboard-header">
@@ -248,7 +160,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </>
       )}
 
-      {/* 3c. SE ABA: BLACKLIST DO TENANT (ADMIN + MANAGER) */}
       {activeTab === 'admin-blacklist' && canManageTenantBlacklist && (
         <>
           <div className="dashboard-header">
@@ -266,7 +177,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </>
       )}
 
-      {/* 4. SE ABA: SEGURANÇA & TOKENS (SECURITY) */}
       {activeTab === 'security' && (
         <>
           <div className="dashboard-header">
@@ -276,10 +186,43 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Monitore o mecanismo proativo de rotação de tokens JWT e gerencie sua senha de acesso.
               </p>
             </div>
+          </div>
+          <SecurityCredentialsView />
+        </>
+      )}
 
+      {activeTab === 'settings' && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <Settings size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Configuração
+              </h1>
+              <p className="dashboard-subtitle">
+                Monitore o mecanismo proativo de rotação de tokens JWT e as credenciais da sessão.
+              </p>
+            </div>
+          </div>
+          <SecurityCredentialsView />
+        </>
+      )}
+
+      {activeTab === 'account' && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <User size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Conta
+              </h1>
+              <p className="dashboard-subtitle">
+                Dados da sua conta e opções de segurança de acesso.
+              </p>
+            </div>
             <div className="dashboard-top-actions">
               <button
-                className="btn btn-primary btn-pill"
+                className="btn btn-outline btn-pill"
                 onClick={() => setIsChangePasswordOpen(true)}
               >
                 <Key size={16} />
@@ -289,66 +232,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
 
           <div className="dashboard-grid">
-            {/* Card de Sessão e Auto-Refresh */}
-            <div className="dash-card">
-              <div className="dash-card-header">
-                <div className="dash-card-icon"><Activity size={18} /></div>
-                <h3>Sessão Ativa & Auto-Refresh Proativo</h3>
-              </div>
-              <div className="dash-card-body">
-                <div className="refresh-status-box">
-                  <div className="refresh-status-icon">
-                    <CheckCircle size={22} className="text-success" />
-                  </div>
-                  <div>
-                    <strong>Monitor de Atividade Ativo</strong>
-                    <p>Enquanto você interage com a plataforma, o token é renovado automaticamente a cada 45 segundos no BFF-Auth.</p>
-                  </div>
-                </div>
-
-                <div className="info-row">
-                  <span className="info-label"><Clock size={14} /> Último Refresh</span>
-                  <span className="info-value">
-                    {formatRefreshTime(lastRefreshTime)}
-                  </span>
-                </div>
-
-                <div className="info-row">
-                  <span className="info-label"><Layers size={14} /> Total de Renovações</span>
-                  <span className="info-value"><strong>{refreshCount}</strong> ciclos</span>
-                </div>
-
-                <div style={{ marginTop: '1.25rem' }}>
-                  <button
-                    id="btn-force-refresh"
-                    className="btn btn-secondary btn-block"
-                    onClick={handleManualRefresh}
-                    disabled={isManualRefreshing}
-                  >
-                    <RefreshCw size={16} className={isManualRefreshing ? 'spin' : ''} />
-                    {isManualRefreshing ? 'Renovando Token...' : 'Forçar Renovação (POST /auth/refresh)'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Card de Identidade & Tenant */}
             <div className="dash-card">
               <div className="dash-card-header">
                 <div className="dash-card-icon"><User size={18} /></div>
-                <h3>Identidade & Permissões</h3>
+                <h3>Dados da conta</h3>
               </div>
               <div className="dash-card-body">
                 <div className="info-row">
-                  <span className="info-label">Nome de Usuário</span>
-                  <span className="info-value">{user?.username}</span>
+                  <span className="info-label">Nome Completo</span>
+                  <span className="info-value">{user?.name || user?.username}</span>
                 </div>
                 <div className="info-row">
                   <span className="info-label">E-mail</span>
                   <span className="info-value">{user?.email}</span>
                 </div>
                 <div className="info-row">
-                  <span className="info-label">Aplicação (Tenant)</span>
+                  <span className="info-label">Código Único (UUID)</span>
+                  <span className="info-value text-mono text-muted">{user?.codeUser || '—'}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Tenant ID</span>
                   <span className="info-value text-mono text-muted">{user?.tenantId}</span>
                 </div>
                 <div className="info-row">
@@ -362,44 +265,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Token Único em Memória */}
-          <div className="dash-card full-width" style={{ marginTop: '1.5rem' }}>
-            <div className="dash-card-header">
-              <div className="dash-card-icon"><Fingerprint size={18} /></div>
-              <div>
-                <h3 style={{ margin: 0 }}>Token de Autenticação JWT Ativo (Bearer Token)</h3>
-                <span style={{ fontSize: '0.8rem', color: '#5f6368' }}>
-                  Utilizado para autorização segura e rotação contínua de sessão no BFF-Auth
-                </span>
-              </div>
-            </div>
-            <div className="dash-card-body">
-              <div className="token-display-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Lock size={14} className="text-primary" />
-                    <span className="form-label" style={{ fontSize: '0.85rem' }}>JSON Web Token (Assinado via RS256)</span>
-                  </div>
-                  <button
-                    className="link-btn bold"
-                    onClick={() => handleCopyToken(accessToken || '')}
-                    disabled={!accessToken}
-                  >
-                    {copiedToken ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-                    <span>{copiedToken ? 'Copiado!' : 'Copiar Token'}</span>
-                  </button>
-                </div>
-                <div className="token-code-box">
-                  <code>{accessToken || 'Nenhum token ativo'}</code>
-                </div>
-              </div>
-            </div>
-          </div>
         </>
       )}
 
-      {/* 5. SE ABA: IDENTIDADE & LGPD (IDENTITY) */}
+      {activeTab === 'connections' && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <Cable size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Conexões
+              </h1>
+              <p className="dashboard-subtitle">
+                Status das aplicações usadas pelo painel.
+              </p>
+            </div>
+          </div>
+          <ConnectionsView />
+        </>
+      )}
+
       {activeTab === 'identity' && (
         <>
           <div className="dashboard-header">
@@ -467,7 +352,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </>
       )}
 
-      {/* Modal de Alteração de Senha */}
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}

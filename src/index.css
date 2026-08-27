@@ -268,6 +268,81 @@ body {
   cursor: pointer;
 }
 
+.header-user-menu {
+  position: relative;
+}
+
+.header-user-avatar-btn {
+  border: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.header-user-avatar-btn:hover,
+.header-user-avatar-btn:focus-visible {
+  outline: 2px solid var(--primary-border);
+  outline-offset: 2px;
+}
+
+.user-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 228px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 0.4rem;
+  z-index: 80;
+}
+
+.user-menu-header {
+  padding: 0.5rem 0.75rem 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+  background: var(--bg-hover);
+}
+
+.user-menu-item-danger {
+  color: var(--danger);
+}
+
+.user-menu-item-danger:hover,
+.user-menu-item-danger:focus-visible {
+  background: var(--danger-light);
+}
+
+.user-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.3rem 0.45rem;
+}
+
 @media (max-width: 640px) {
   .hide-on-mobile {
     display: none !important;
@@ -826,6 +901,11 @@ body {
   cursor: pointer;
 }
 
+.switch-wrapper-disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
 .switch-input {
   position: absolute;
   opacity: 0;
@@ -864,13 +944,30 @@ body {
   transform: translateX(20px);
 }
 
+.switch-input:disabled + .switch-slider {
+  opacity: 1;
+}
+
 /* Action Buttons inside Table */
 .table-actions-group {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(118px, auto) minmax(168px, auto) 32px;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  justify-content: end;
   gap: 0.5rem;
+}
+
+.table-actions-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-card-actions.table-actions-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr 32px;
+    width: 100%;
+  }
 }
 
 .btn-table-outline {
@@ -925,6 +1022,52 @@ body {
 
 @media (max-width: 860px) {
   .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.connections-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.connections-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+.connections-app-description {
+  font-size: 0.88rem;
+  color: var(--text-body);
+  margin-bottom: 1rem;
+}
+
+.connections-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+}
+
+.connections-status-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.status-text-healthy {
+  color: var(--success);
+}
+
+.status-text-unhealthy {
+  color: var(--danger);
+}
+
+.status-text-checking {
+  color: var(--warning);
+}
+
+@media (max-width: 860px) {
+  .connections-grid {
     grid-template-columns: 1fr;
   }
 }
