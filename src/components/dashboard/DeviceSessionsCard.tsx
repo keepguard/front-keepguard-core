@@ -9,6 +9,7 @@ import {
   Calendar,
   LogOut,
   RefreshCw,
+  Ban,
 } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +23,7 @@ export const DeviceSessionsCard: React.FC = () => {
   const [sessions, setSessions] = useState<DeviceSession[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [blockingId, setBlockingId] = useState<string | null>(null);
   const [isRevokingAll, setIsRevokingAll] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [autoRenewMap, setAutoRenewMap] = useState<Record<string, boolean>>({});
@@ -106,6 +108,40 @@ export const DeviceSessionsCard: React.FC = () => {
       ...prev,
       [deviceId]: !prev[deviceId],
     }));
+  };
+
+  const handleBlockAndRevoke = async (session: DeviceSession) => {
+    if (!accessToken || session.isCurrent) return;
+    const confirmed = window.confirm(
+      `Encerrar e bloquear “${session.deviceName || session.deviceId}”? Este aparelho não poderá entrar de novo na sua conta.`
+    );
+    if (!confirmed) return;
+
+    setBlockingId(session.deviceId);
+    try {
+      await authService.addMyDeviceToBlacklist(
+        {
+          deviceId: session.deviceId,
+          deviceName: session.deviceName,
+          reason: 'Bloqueado pelo titular da conta',
+        },
+        accessToken
+      );
+      addToast({
+        type: 'success',
+        title: 'Dispositivo bloqueado',
+        description: 'A sessão foi encerrada e o aparelho não poderá fazer login novamente.',
+      });
+      setSessions((prev) => prev.filter((s) => s.deviceId !== session.deviceId));
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Falha ao bloquear',
+        description: err?.message || 'Não foi possível adicionar o dispositivo à blacklist.',
+      });
+    } finally {
+      setBlockingId(null);
+    }
   };
 
   const handleRevokeSession = async (deviceId: string) => {
@@ -294,15 +330,26 @@ export const DeviceSessionsCard: React.FC = () => {
                       <button
                         className="btn-table-outline"
                         onClick={() => handleRevokeSession(session.deviceId)}
-                        disabled={revokingId === session.deviceId || session.isCurrent}
+                        disabled={revokingId === session.deviceId || blockingId === session.deviceId || session.isCurrent}
                       >
                         {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
                       </button>
+                      {!session.isCurrent && (
+                        <button
+                          className="btn-table-outline"
+                          title="Encerrar sessão e impedir novos logins neste aparelho"
+                          onClick={() => handleBlockAndRevoke(session)}
+                          disabled={blockingId === session.deviceId || revokingId === session.deviceId}
+                        >
+                          <Ban size={14} />
+                          {blockingId === session.deviceId ? 'Bloqueando...' : 'Encerrar e bloquear'}
+                        </button>
+                      )}
                       <button
                         className="btn-table-icon"
                         title="Desconectar dispositivo"
                         onClick={() => handleRevokeSession(session.deviceId)}
-                        disabled={session.isCurrent}
+                        disabled={session.isCurrent || blockingId === session.deviceId}
                       >
                         <Trash2 size={15} />
                       </button>
@@ -368,10 +415,20 @@ export const DeviceSessionsCard: React.FC = () => {
                   className="btn-table-outline"
                   style={{ flex: 1 }}
                   onClick={() => handleRevokeSession(session.deviceId)}
-                  disabled={revokingId === session.deviceId || session.isCurrent}
+                  disabled={revokingId === session.deviceId || blockingId === session.deviceId || session.isCurrent}
                 >
                   {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
                 </button>
+                {!session.isCurrent && (
+                  <button
+                    className="btn-table-outline"
+                    style={{ flex: 1 }}
+                    onClick={() => handleBlockAndRevoke(session)}
+                    disabled={blockingId === session.deviceId || revokingId === session.deviceId}
+                  >
+                    {blockingId === session.deviceId ? 'Bloqueando...' : 'Encerrar e bloquear'}
+                  </button>
+                )}
               </div>
             </div>
           ))

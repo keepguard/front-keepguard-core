@@ -5,8 +5,12 @@ import {
   Smartphone,
   UserCheck,
   Sparkles,
+  Ban,
+  ShieldAlert,
   X,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { hasAdminOrManagerRole } from '../../utils/roles';
 
 interface SidebarProps {
   activeTab?: string;
@@ -21,6 +25,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile = false,
   onCloseMobile,
 }) => {
+  const { user } = useAuth();
+  const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
+
   const handleItemClick = (tabKey: string) => {
     if (onSelectTab) {
       onSelectTab(tabKey);
@@ -71,6 +78,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
+            className={`sidebar-nav-item ${activeTab === 'blacklist' ? 'active' : ''}`}
+            onClick={() => handleItemClick('blacklist')}
+          >
+            <Ban size={18} className="sidebar-icon" />
+            <span>Dispositivos bloqueados</span>
+          </button>
+
+          <button
             className={`sidebar-nav-item ${activeTab === 'security' ? 'active' : ''}`}
             onClick={() => handleItemClick('security')}
           >
@@ -86,6 +101,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Identidade & LGPD</span>
           </button>
         </div>
+
+        {canManageTenantBlacklist && (
+          <div className="sidebar-section">
+            <span className="sidebar-heading">Administração</span>
+            <button
+              className={`sidebar-nav-item ${activeTab === 'admin-blacklist' ? 'active' : ''}`}
+              onClick={() => handleItemClick('admin-blacklist')}
+            >
+              <ShieldAlert size={18} className="sidebar-icon" />
+              <span>Blacklist do tenant</span>
+            </button>
+          </div>
+        )}
 
         {/* Templates e Design System Preservados */}
         <div className="sidebar-section" style={{ marginTop: 'auto' }}>

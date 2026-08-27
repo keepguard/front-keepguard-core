@@ -23,10 +23,39 @@ const USER_STORAGE_KEY = 'keepguard_user';
 const LAST_REFRESH_STORAGE_KEY = 'keepguard_last_refresh_time';
 const REFRESH_COUNT_STORAGE_KEY = 'keepguard_refresh_count';
 
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+function rolesFromJwt(token?: string | null): string[] {
+  if (!token) return [];
+  const claims = parseJwt(token);
+  const roles = claims?.roles;
+  return Array.isArray(roles) ? roles.filter((r: unknown) => typeof r === 'string') : [];
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem(USER_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : null;
+    const parsed = saved ? JSON.parse(saved) : null;
+    const jwtRoles = rolesFromJwt(localStorage.getItem(TOKEN_STORAGE_KEY));
+    if (parsed && jwtRoles.length > 0) {
+      return { ...parsed, roles: jwtRoles };
+    }
+    return parsed;
   });
   const [accessToken, setAccessToken] = useState<string | null>(() => {
     return localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -66,34 +95,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const parseJwt = (token: string) => {
-    try {
-      const base64Url = token.split('.')[1];
-      if (!base64Url) return null;
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      return JSON.parse(jsonPayload);
-    } catch {
-      return null;
-    }
-  };
-
   const login = useCallback((data: AuthLoginResponse, username: string) => {
     const token = data.accessToken || data.token || '';
     const rToken = data.refreshToken || token;
     const claims = parseJwt(token);
+    const jwtRoles = rolesFromJwt(token);
 
     const userData: User = {
       codeUser: data.codeUser || claims?.sub || '',
       username: data.username || username,
       name: data.name || claims?.name || username,
       email: data.email || (username.includes('@') ? username : `${username}@keepguard.local`),
-      roles: data.roles || claims?.roles || ['USER'],
+      roles: (data.roles && data.roles.length > 0) ? data.roles : (jwtRoles.length > 0 ? jwtRoles : ['USER']),
       tenantId: data.tenantId || claims?.tenant_id || 'f7fc7350-b9fc-4e54-9c58-ac9385b23ae3',
     };
 

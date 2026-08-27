@@ -62,6 +62,56 @@ export interface DeviceSession {
   createdAt: string;
 }
 
+export interface DeviceBlacklistEntry {
+  id?: string;
+  tenantId?: string;
+  codeUser?: string;
+  deviceId: string;
+  deviceName?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  reason?: string;
+  blockedBy?: string;
+  blockedAt?: string;
+  expiresAt?: string;
+}
+
+export interface AddDeviceBlacklistRequest {
+  deviceId: string;
+  deviceName?: string;
+  reason?: string;
+}
+
+export interface AdminAddDeviceBlacklistRequest {
+  userId: string;
+  deviceId: string;
+  deviceName?: string;
+  reason?: string;
+  expiresAt?: string;
+}
+
+export interface AdminBlacklistSearchParams {
+  userId?: string;
+  deviceId?: string;
+  deviceName?: string;
+  ipAddress?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  size?: number;
+  sort?: string;
+}
+
+export interface PaginatedDeviceBlacklist {
+  content: DeviceBlacklistEntry[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface RefreshTokenRequest {
   token: string;
 }

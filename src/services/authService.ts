@@ -7,6 +7,11 @@ import type {
   ForgotPasswordRequest,
   ResetPasswordRequest,
   HealthResponse,
+  DeviceBlacklistEntry,
+  AddDeviceBlacklistRequest,
+  AdminAddDeviceBlacklistRequest,
+  AdminBlacklistSearchParams,
+  PaginatedDeviceBlacklist,
 } from '../types/auth';
 import { BFF_AUTH_URL, customFetch } from './api';
 
@@ -96,5 +101,88 @@ export const authService = {
     return customFetch<void>(`${BFF_AUTH_URL}/api/v1/users/me/sessions`, {
       method: 'DELETE',
     }, token);
+  },
+
+  async listMyDeviceBlacklist(token: string): Promise<DeviceBlacklistEntry[]> {
+    const data = await customFetch<DeviceBlacklistEntry[] | { content?: DeviceBlacklistEntry[] }>(
+      `${BFF_AUTH_URL}/api/v1/users/me/devices/blacklist`,
+      { method: 'GET' },
+      token
+    );
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return data?.content || [];
+  },
+
+  async addMyDeviceToBlacklist(payload: AddDeviceBlacklistRequest, token: string): Promise<void> {
+    return customFetch<void>(`${BFF_AUTH_URL}/api/v1/users/me/devices/blacklist`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, token);
+  },
+
+  async removeMyDeviceFromBlacklist(deviceId: string, token: string): Promise<void> {
+    return customFetch<void>(
+      `${BFF_AUTH_URL}/api/v1/users/me/devices/blacklist/${encodeURIComponent(deviceId)}`,
+      { method: 'DELETE' },
+      token
+    );
+  },
+
+  async searchAdminDeviceBlacklist(
+    params: AdminBlacklistSearchParams,
+    token: string
+  ): Promise<PaginatedDeviceBlacklist> {
+    const query = new URLSearchParams();
+    if (params.userId) query.set('userId', params.userId);
+    if (params.deviceId) query.set('deviceId', params.deviceId);
+    if (params.deviceName) query.set('deviceName', params.deviceName);
+    if (params.ipAddress) query.set('ipAddress', params.ipAddress);
+    if (params.startDate) query.set('startDate', params.startDate);
+    if (params.endDate) query.set('endDate', params.endDate);
+    query.set('page', String(params.page ?? 0));
+    query.set('size', String(params.size ?? 20));
+    query.set('sort', params.sort || 'blockedAt,desc');
+
+    const data = await customFetch<any>(
+      `${BFF_AUTH_URL}/api/v1/admin/devices/blacklist?${query.toString()}`,
+      { method: 'GET' },
+      token
+    );
+
+    const content: DeviceBlacklistEntry[] = Array.isArray(data)
+      ? data
+      : (data?.content || []);
+    const page = data?.number ?? data?.page ?? params.page ?? 0;
+    const size = data?.size ?? params.size ?? 20;
+    const totalElements = data?.totalElements ?? content.length;
+    const totalPages = data?.totalPages ?? 1;
+
+    return {
+      content,
+      page,
+      size,
+      totalElements,
+      totalPages,
+      first: data?.first ?? page <= 0,
+      last: data?.last ?? page >= totalPages - 1,
+    };
+  },
+
+  async adminAddDeviceToBlacklist(payload: AdminAddDeviceBlacklistRequest, token: string): Promise<void> {
+    return customFetch<void>(`${BFF_AUTH_URL}/api/v1/admin/devices/blacklist`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, token);
+  },
+
+  async adminRemoveDeviceFromBlacklist(deviceId: string, userId: string, token: string): Promise<void> {
+    const query = new URLSearchParams({ userId });
+    return customFetch<void>(
+      `${BFF_AUTH_URL}/api/v1/admin/devices/blacklist/${encodeURIComponent(deviceId)}?${query.toString()}`,
+      { method: 'DELETE' },
+      token
+    );
   },
 };

@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ChangePasswordModal } from '../components/auth/ChangePasswordModal';
 import { DeviceSessionsCard } from '../components/dashboard/DeviceSessionsCard';
+import { MyDeviceBlacklistCard } from '../components/dashboard/MyDeviceBlacklistCard';
+import { AdminDeviceBlacklistCard } from '../components/dashboard/AdminDeviceBlacklistCard';
 import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
+import { hasAdminOrManagerRole } from '../utils/roles';
 import {
   User,
   LogOut,
@@ -19,6 +22,8 @@ import {
   Check,
   FileText,
   Lock,
+  Ban,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -43,6 +48,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
+  const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
+
+  useEffect(() => {
+    if (activeTab === 'admin-blacklist' && !canManageTenantBlacklist && onNavigateTab) {
+      onNavigateTab('blacklist');
+    }
+  }, [activeTab, canManageTenantBlacklist, onNavigateTab]);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -203,11 +215,54 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="dashboard-title-group">
               <h1 className="dashboard-title">Dispositivos & Sessões Ativas</h1>
               <p className="dashboard-subtitle">
-                Monitore todos os navegadores e smartphones conectados à sua conta KeepGuard.
+                Monitore os aparelhos conectados. Em sessões que não são a atual, use Encerrar e bloquear para impedir novos logins.
               </p>
             </div>
           </div>
           <DeviceSessionsCard />
+        </>
+      )}
+
+      {/* 3b. SE ABA: DISPOSITIVOS BLOQUEADOS (BLACKLIST DO USUÁRIO) */}
+      {activeTab === 'blacklist' && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <Ban size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Dispositivos bloqueados
+              </h1>
+              <p className="dashboard-subtitle">
+                Aparelhos que você bloqueou não entram mais na sua conta. Para bloquear um novo, use Encerrar e bloquear nas sessões ativas.
+              </p>
+            </div>
+            {onNavigateTab && (
+              <div className="dashboard-top-actions">
+                <button className="btn btn-outline btn-pill" onClick={() => onNavigateTab('sessions')}>
+                  Ir para sessões
+                </button>
+              </div>
+            )}
+          </div>
+          <MyDeviceBlacklistCard />
+        </>
+      )}
+
+      {/* 3c. SE ABA: BLACKLIST DO TENANT (ADMIN + MANAGER) */}
+      {activeTab === 'admin-blacklist' && canManageTenantBlacklist && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <ShieldAlert size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Blacklist do tenant
+              </h1>
+              <p className="dashboard-subtitle">
+                Visível para ADMIN e MANAGER. Bloqueie ou libere aparelhos de qualquer usuário deste tenant.
+              </p>
+            </div>
+          </div>
+          <AdminDeviceBlacklistCard />
         </>
       )}
 
