@@ -22,3 +22,38 @@ export interface ConsentDocument {
   createdAt: string;
   publishedAt?: string;
 }
+
+export interface TermsManifestDocument {
+  id: string;
+  type: ConsentType;
+  category: 'ESSENTIAL' | 'FUNCTIONAL' | 'ANALYTICS' | 'MARKETING';
+  title: string;
+  version: number;
+  mandatory: boolean;
+  contentHash: string;
+  url: string;
+}
+
+export interface TermsManifest {
+  tenantId?: string;
+  version: string;
+  publishedAt: string;
+  effectiveAt: string;
+  gracePeriodDays: number;
+  documents: TermsManifestDocument[];
+}
+
+export interface ConsentItemRequest {
+  documentId: string;
+  version: number;
+  accepted: boolean;
+  contentHash: string;
+}
+
+export interface UserConsentBatchRequest {
+  userId: string;
+  email: string;
+  acceptedAt: string;
+  geolocation?: string;
+  consents: ConsentItemRequest[];
+}
