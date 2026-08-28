@@ -8,6 +8,11 @@ export type PublicClientNetwork = {
 };
 
 let inFlight: Promise<PublicClientNetwork | null> | null = null;
+const listeners = new Set<(network: PublicClientNetwork | null) => void>();
+
+function notifyListeners(network: PublicClientNetwork | null) {
+  listeners.forEach((listener) => listener(network));
+}
 
 function isPublicIp(ip: string): boolean {
   const value = ip.trim();
@@ -180,8 +185,31 @@ async function lookupPublicNetwork(): Promise<PublicClientNetwork | null> {
   return { ip, location };
 }
 
+export function peekPublicClientNetwork(): PublicClientNetwork | null {
+  return readCache();
+}
+
 export function prefetchPublicClientIp(): void {
   void getPublicClientNetwork();
+}
+
+export function subscribePublicClientNetwork(
+  listener: (network: PublicClientNetwork | null) => void
+): () => void {
+  listeners.add(listener);
+  const cached = readCache();
+  if (cached) {
+    queueMicrotask(() => {
+      if (listeners.has(listener)) {
+        listener(cached);
+      }
+    });
+  } else {
+    void getPublicClientNetwork();
+  }
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export async function getPublicClientIp(): Promise<string | null> {
@@ -201,6 +229,7 @@ export async function getPublicClientNetwork(): Promise<PublicClientNetwork | nu
     if (network) {
       writeCache(network);
     }
+    notifyListeners(network);
     return network;
   }).finally(() => {
     inFlight = null;

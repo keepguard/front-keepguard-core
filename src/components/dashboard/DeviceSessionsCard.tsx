@@ -15,10 +15,47 @@ import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getDeviceInfo } from '../../utils/deviceUtils';
+import { peekPublicClientNetwork, subscribePublicClientNetwork } from '../../utils/publicIp';
 import type { DeviceSession } from '../../types/auth';
 
-const sessionSubtitle = (session: DeviceSession) =>
-  [session.ipAddress, session.location].filter((value) => value && String(value).trim()).join(' • ');
+const UNKNOWN_LOCATIONS = new Set([
+  'localização desconhecida',
+  'rede interna',
+  'conectado agora',
+]);
+
+const PLACEHOLDER_IPS = new Set([
+  'sessão ativa (local)',
+]);
+
+function hasUsableIp(ip?: string | null) {
+  const value = (ip || '').trim();
+  return value.length > 0 && !PLACEHOLDER_IPS.has(value.toLowerCase());
+}
+
+function hasUsableLocation(location?: string | null) {
+  const value = (location || '').trim();
+  return value.length > 0 && !UNKNOWN_LOCATIONS.has(value.toLowerCase());
+}
+
+function sessionSubtitleText(session: DeviceSession) {
+  return [session.ipAddress, session.location].filter((value) => value && String(value).trim()).join(' • ');
+}
+
+const SessionNetworkLine: React.FC<{ session: DeviceSession; showLoading: boolean }> = ({
+  session,
+  showLoading,
+}) => {
+  if (showLoading) {
+    return (
+      <span className="session-network-loading">
+        <span className="spinner-mini" aria-hidden="true" />
+        <span>Detectando localização...</span>
+      </span>
+    );
+  }
+  return <>{sessionSubtitleText(session)}</>;
+};
 
 export const DeviceSessionsCard: React.FC = () => {
   const { accessToken } = useAuth();
@@ -29,6 +66,9 @@ export const DeviceSessionsCard: React.FC = () => {
   const [blockingId, setBlockingId] = useState<string | null>(null);
   const [isRevokingAll, setIsRevokingAll] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [geoPending, setGeoPending] = useState(() => !peekPublicClientNetwork());
+  const [resolvingAfterGeo, setResolvingAfterGeo] = useState(false);
+  const loadGeneration = React.useRef(0);
 
   const loadSessions = async (showLoadingSpinner = true) => {
     const currentToken = accessToken || localStorage.getItem('keepguard_access_token');
@@ -36,8 +76,12 @@ export const DeviceSessionsCard: React.FC = () => {
     if (showLoadingSpinner) {
       setLoading(true);
     }
+    const generation = ++loadGeneration.current;
     try {
       const data = await authService.listUserSessions(currentToken);
+      if (generation !== loadGeneration.current) {
+        return;
+      }
       let sessionList = data || [];
 
       // Fallback inteligente: se o backend retornar lista vazia, exibe o dispositivo atual
@@ -61,6 +105,9 @@ export const DeviceSessionsCard: React.FC = () => {
 
       setSessions(sessionList);
     } catch (err: any) {
+      if (generation !== loadGeneration.current) {
+        return;
+      }
       console.error('Erro ao carregar sessões:', err);
       // Se for 401 ou token revogado, não exibe fallback local (deixa o deslogamento ocorrer)
       if (err?.status === 401 || err?.data?.error === 'TOKEN_REVOKED') {
@@ -96,7 +143,31 @@ export const DeviceSessionsCard: React.FC = () => {
   };
 
   useEffect(() => {
-    loadSessions(true);
+    let cancelled = false;
+    const hadCache = !!peekPublicClientNetwork();
+    setGeoPending(!hadCache);
+    void loadSessions(true);
+
+    const unsubscribe = subscribePublicClientNetwork(() => {
+      if (cancelled) {
+        return;
+      }
+      setGeoPending(false);
+      if (hadCache) {
+        return;
+      }
+      setResolvingAfterGeo(true);
+      void loadSessions(false).finally(() => {
+        if (!cancelled) {
+          setResolvingAfterGeo(false);
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   const handleBlockAndRevoke = async (session: DeviceSession) => {
@@ -249,6 +320,11 @@ export const DeviceSessionsCard: React.FC = () => {
     );
   };
 
+  const shouldShowNetworkLoading = (session: DeviceSession) => {
+    const missingNetwork = !hasUsableIp(session.ipAddress) || !hasUsableLocation(session.location);
+    return missingNetwork && (geoPending || resolvingAfterGeo);
+  };
+
   return (
     <div>
       {/* Toolbar no estilo Hostinger hPanel com Ação Global Real */}
@@ -330,7 +406,7 @@ export const DeviceSessionsCard: React.FC = () => {
                       <span>{session.deviceName || 'Dispositivo Conectado'}</span>
                     </div>
                     <div className="table-cell-muted" style={{ marginLeft: '1.6rem' }}>
-                      {sessionSubtitle(session)}
+                      <SessionNetworkLine session={session} showLoading={shouldShowNetworkLoading(session)} />
                     </div>
                   </td>
                   <td>
@@ -390,7 +466,7 @@ export const DeviceSessionsCard: React.FC = () => {
               </div>
 
               <div className="mobile-card-subinfo">
-                <span>{sessionSubtitle(session)}</span>
+                <SessionNetworkLine session={session} showLoading={shouldShowNetworkLoading(session)} />
               </div>
 
               <div className="mobile-card-meta">

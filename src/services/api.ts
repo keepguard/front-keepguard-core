@@ -1,5 +1,5 @@
 import { getDeviceInfo } from '../utils/deviceUtils';
-import { getPublicClientNetwork } from '../utils/publicIp';
+import { peekPublicClientNetwork, prefetchPublicClientIp } from '../utils/publicIp';
 
 // Determina automaticamente a URL do BFF com base no host atual
 const isProductionDomain = typeof window !== 'undefined' && 
@@ -37,8 +37,9 @@ export async function customFetch<T>(
 ): Promise<T> {
   const correlationId = generateUUID();
   const deviceInfo = getDeviceInfo();
-  const publicNetwork = await getPublicClientNetwork();
-  
+  prefetchPublicClientIp();
+  const publicNetwork = peekPublicClientNetwork();
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

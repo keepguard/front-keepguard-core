@@ -1922,6 +1922,24 @@ textarea.form-input {
   animation: spin 0.8s linear infinite;
 }
 
+.spinner-mini {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--primary-border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  animation: spin 0.7s linear infinite;
+}
+
+.session-network-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: inherit;
+}
+
 .btn-spinner-content {
   display: flex;
   align-items: center;
