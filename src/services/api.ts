@@ -45,7 +45,6 @@ export async function customFetch<T>(
     'Accept': 'application/json',
     'X-Tenant-Id': DEFAULT_TENANT_ID,
     'X-Client-Id': DEFAULT_CLIENT_ID,
-    'X-Client-ID': DEFAULT_CLIENT_ID,
     'X-Correlation-ID': correlationId,
     'X-Device-Id': deviceInfo.deviceId,
     'X-Device-Name': deviceInfo.deviceName,
@@ -79,8 +78,11 @@ export async function customFetch<T>(
   }
 
   if (!response.ok) {
-    // Se for 401 (Não autorizado / Token Revogado / Sessão encerrada), limpa a sessão local e avisa a aplicação
-    if (response.status === 401 || data?.error === 'TOKEN_REVOKED') {
+    const requestPath = url.split('?')[0];
+    const isMeProfile = requestPath.endsWith('/api/v1/users/me');
+    // GET /users/me não encerra a sessão: falha de perfil (ex.: 401 do ms-user)
+    // não é o mesmo que token revogado em /auth ou /sessions.
+    if (!isMeProfile && (response.status === 401 || data?.error === 'TOKEN_REVOKED')) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('keepguard_access_token');
         localStorage.removeItem('keepguard_refresh_token');
