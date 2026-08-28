@@ -7,6 +7,7 @@ import {
   Sparkles,
   Ban,
   ShieldAlert,
+  Cable,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -102,9 +103,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {canManageTenantBlacklist && (
-          <div className="sidebar-section">
-            <span className="sidebar-heading">Administração</span>
+        <div className="sidebar-section">
+          <span className="sidebar-heading">Administração</span>
+          {canManageTenantBlacklist && (
             <button
               className={`sidebar-nav-item ${activeTab === 'admin-blacklist' ? 'active' : ''}`}
               onClick={() => handleItemClick('admin-blacklist')}
@@ -112,8 +113,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <ShieldAlert size={18} className="sidebar-icon" />
               <span>Blacklist do tenant</span>
             </button>
-          </div>
-        )}
+          )}
+          <button
+            className={`sidebar-nav-item ${activeTab === 'connections' ? 'active' : ''}`}
+            onClick={() => handleItemClick('connections')}
+          >
+            <Cable size={18} className="sidebar-icon" />
+            <span>Conexões</span>
+          </button>
+        </div>
 
         {/* Templates e Design System Preservados */}
         <div className="sidebar-section" style={{ marginTop: 'auto' }}>

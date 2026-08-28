@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User as UserIcon, Settings, UserCircle, Cable, LogOut } from 'lucide-react';
+import { User as UserIcon, Settings, UserCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface UserMenuProps {
@@ -88,15 +88,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onNavigateTab, onLogout }) =
           >
             <UserCircle size={16} />
             <span>Conta</span>
-          </button>
-          <button
-            type="button"
-            className="user-menu-item"
-            role="menuitem"
-            onClick={() => handleNavigate('connections')}
-          >
-            <Cable size={16} />
-            <span>Conexões</span>
           </button>
           <div className="user-menu-divider" />
           <button
