@@ -239,7 +239,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Conexões
               </h1>
               <p className="dashboard-subtitle">
-                Status das aplicações usadas pelo painel.
+                Status das aplicações, workers e infraestrutura com health HTTP.
               </p>
             </div>
           </div>
