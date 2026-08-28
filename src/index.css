@@ -2157,6 +2157,8 @@ textarea.form-input {
 
 .account-danger-row .btn {
   flex-shrink: 0;
+  min-width: 8rem;
+  justify-content: center;
 }
 
 .account-empty {
