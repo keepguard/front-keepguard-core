@@ -209,6 +209,43 @@ export const DeviceSessionsCard: React.FC = () => {
     );
   });
 
+  const renderSessionActions = (session: DeviceSession, extraClassName = '') => {
+    const busy = revokingId === session.deviceId || blockingId === session.deviceId;
+    const groupClassName = ['table-actions-group', extraClassName].filter(Boolean).join(' ');
+
+    if (session.isCurrent) {
+      return (
+        <div className={groupClassName}>
+          <span className="btn-table-icon table-actions-placeholder" aria-hidden="true" />
+          <span className="btn-table-icon table-actions-placeholder" aria-hidden="true" />
+        </div>
+      );
+    }
+
+    return (
+      <div className={groupClassName}>
+        <button
+          className="btn-table-icon"
+          title="Encerrar sessão e impedir novos logins neste aparelho"
+          aria-label="Encerrar e bloquear"
+          onClick={() => handleBlockAndRevoke(session)}
+          disabled={busy}
+        >
+          <Ban size={15} />
+        </button>
+        <button
+          className="btn-table-icon"
+          title="Desconectar dispositivo"
+          aria-label="Desconectar dispositivo"
+          onClick={() => handleRevokeSession(session.deviceId)}
+          disabled={busy}
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div>
       {/* Toolbar no estilo Hostinger hPanel com Ação Global Real */}
@@ -315,43 +352,7 @@ export const DeviceSessionsCard: React.FC = () => {
                     </label>
                   </td>
                   <td>
-                    <div className="table-actions-group">
-                      <button
-                        className="btn-table-outline"
-                        onClick={() => handleRevokeSession(session.deviceId)}
-                        disabled={revokingId === session.deviceId || blockingId === session.deviceId || session.isCurrent}
-                      >
-                        {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
-                      </button>
-                      {session.isCurrent ? (
-                        <span className="btn-table-outline table-actions-placeholder" aria-hidden="true">
-                          <Ban size={14} />
-                          Encerrar e bloquear
-                        </span>
-                      ) : (
-                        <button
-                          className="btn-table-outline"
-                          title="Encerrar sessão e impedir novos logins neste aparelho"
-                          onClick={() => handleBlockAndRevoke(session)}
-                          disabled={blockingId === session.deviceId || revokingId === session.deviceId}
-                        >
-                          <Ban size={14} />
-                          {blockingId === session.deviceId ? 'Bloqueando...' : 'Encerrar e bloquear'}
-                        </button>
-                      )}
-                      {session.isCurrent ? (
-                        <span className="btn-table-icon table-actions-placeholder" aria-hidden="true" />
-                      ) : (
-                        <button
-                          className="btn-table-icon"
-                          title="Desconectar dispositivo"
-                          onClick={() => handleRevokeSession(session.deviceId)}
-                          disabled={blockingId === session.deviceId}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
+                    {renderSessionActions(session)}
                   </td>
                 </tr>
               ))
@@ -411,40 +412,7 @@ export const DeviceSessionsCard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mobile-card-actions table-actions-group">
-                <button
-                  className="btn-table-outline"
-                  onClick={() => handleRevokeSession(session.deviceId)}
-                  disabled={revokingId === session.deviceId || blockingId === session.deviceId || session.isCurrent}
-                >
-                  {session.isCurrent ? 'Sessão Ativa' : 'Desconectar'}
-                </button>
-                {session.isCurrent ? (
-                  <span className="btn-table-outline table-actions-placeholder" aria-hidden="true">
-                    Encerrar e bloquear
-                  </span>
-                ) : (
-                  <button
-                    className="btn-table-outline"
-                    onClick={() => handleBlockAndRevoke(session)}
-                    disabled={blockingId === session.deviceId || revokingId === session.deviceId}
-                  >
-                    {blockingId === session.deviceId ? 'Bloqueando...' : 'Encerrar e bloquear'}
-                  </button>
-                )}
-                {session.isCurrent ? (
-                  <span className="btn-table-icon table-actions-placeholder" aria-hidden="true" />
-                ) : (
-                  <button
-                    className="btn-table-icon"
-                    title="Desconectar dispositivo"
-                    onClick={() => handleRevokeSession(session.deviceId)}
-                    disabled={blockingId === session.deviceId}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                )}
-              </div>
+              {renderSessionActions(session, 'mobile-card-actions')}
             </div>
           ))
         )}

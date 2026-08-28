@@ -132,7 +132,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="dashboard-title-group">
               <h1 className="dashboard-title">Dispositivos & Sessões Ativas</h1>
               <p className="dashboard-subtitle">
-                Monitore os aparelhos conectados. Em sessões que não são a atual, use Encerrar e bloquear para impedir novos logins.
+                Monitore os aparelhos conectados. Em sessões que não são a atual, use o ícone de bloqueio para impedir novos logins.
               </p>
             </div>
           </div>
@@ -149,7 +149,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Dispositivos bloqueados
               </h1>
               <p className="dashboard-subtitle">
-                Aparelhos que você bloqueou não entram mais na sua conta. Para bloquear um novo, use Encerrar e bloquear nas sessões ativas.
+                Aparelhos que você bloqueou não entram mais na sua conta. Para bloquear um novo, use o ícone de bloqueio nas sessões ativas.
               </p>
             </div>
             {onNavigateTab && (

@@ -951,7 +951,7 @@ body {
 /* Action Buttons inside Table */
 .table-actions-group {
   display: grid;
-  grid-template-columns: minmax(118px, auto) minmax(168px, auto) 32px;
+  grid-template-columns: 32px 32px;
   align-items: center;
   justify-content: end;
   gap: 0.5rem;
@@ -965,8 +965,9 @@ body {
 @media (max-width: 768px) {
   .mobile-card-actions.table-actions-group {
     display: grid;
-    grid-template-columns: 1fr 1fr 32px;
-    width: 100%;
+    grid-template-columns: 32px 32px;
+    width: auto;
+    margin-left: auto;
   }
 }
 
@@ -998,12 +999,22 @@ body {
   border-radius: 8px;
   border: 1px solid var(--border);
   background: #ffffff;
-  color: var(--text-muted);
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: var(--transition-smooth);
+}
+
+.btn-table-icon:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.btn-table-icon:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .id-compact {
