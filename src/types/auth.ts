@@ -148,6 +148,27 @@ export interface HealthResponse {
   [key: string]: unknown;
 }
 
+export interface MePersonProfile {
+  fullName?: string;
+}
+
+export interface MeProfile {
+  email: string;
+  phoneE164?: string;
+  preferredLocale?: string;
+  timezone?: string;
+  avatarUrl?: string;
+  displayHandle?: string;
+  type?: string;
+  status?: string;
+  createdAt?: string;
+  personProfile?: MePersonProfile;
+}
+
+export interface AccountLifecycleRequest {
+  reason: string;
+}
+
 export interface ApiErrorResponse {
   error?: string;
   message?: string;

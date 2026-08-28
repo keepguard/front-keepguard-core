@@ -8,6 +8,7 @@ import { SecurityCredentialsView } from '../components/dashboard/SecurityCredent
 import { ConnectionsView } from '../components/dashboard/ConnectionsView';
 import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
 import { hasAdminOrManagerRole } from '../utils/roles';
+import { AccountView } from '../components/dashboard/AccountView';
 import {
   User,
   CheckCircle,
@@ -231,40 +232,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
 
-          <div className="dashboard-grid">
-            <div className="dash-card">
-              <div className="dash-card-header">
-                <div className="dash-card-icon"><User size={18} /></div>
-                <h3>Dados da conta</h3>
-              </div>
-              <div className="dash-card-body">
-                <div className="info-row">
-                  <span className="info-label">Nome Completo</span>
-                  <span className="info-value">{user?.name || user?.username}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">E-mail</span>
-                  <span className="info-value">{user?.email}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Código Único (UUID)</span>
-                  <span className="info-value text-mono text-muted">{user?.codeUser || '—'}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Tenant ID</span>
-                  <span className="info-value text-mono text-muted">{user?.tenantId}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Perfis de Acesso (Roles)</span>
-                  <div className="roles-list">
-                    {user?.roles?.map((r, i) => (
-                      <span key={i} className="badge-role">{r}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AccountView />
         </>
       )}
 

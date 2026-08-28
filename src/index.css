@@ -1371,6 +1371,11 @@ body {
   cursor: not-allowed;
 }
 
+textarea.form-input {
+  min-height: 96px;
+  resize: vertical;
+}
+
 .input-action-btn {
   position: absolute;
   right: 0.85rem;
@@ -1933,6 +1938,55 @@ body {
 
 .text-mono {
   font-family: 'JetBrains Mono', monospace;
+}
+
+.account-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.account-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.account-avatar-fallback {
+  background: #2a9d8f;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-display-name {
+  display: block;
+  font-size: 1.15rem;
+  color: #1d2129;
+}
+
+.account-danger-zone {
+  border: 1px solid var(--danger-border);
+  background: var(--danger-light);
+}
+
+.account-danger-copy {
+  color: var(--text-sub);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.account-danger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .mt-4 { margin-top: 1rem; }

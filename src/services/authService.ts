@@ -12,6 +12,8 @@ import type {
   AdminAddDeviceBlacklistRequest,
   AdminBlacklistSearchParams,
   PaginatedDeviceBlacklist,
+  MeProfile,
+  AccountLifecycleRequest,
 } from '../types/auth';
 import { BFF_AUTH_URL, BFF_CORE_URL, customFetch } from './api';
 
@@ -190,5 +192,25 @@ export const authService = {
       { method: 'DELETE' },
       token
     );
+  },
+
+  async getMe(token: string): Promise<MeProfile> {
+    return customFetch<MeProfile>(`${BFF_CORE_URL}/api/v1/users/me`, {
+      method: 'GET',
+    }, token);
+  },
+
+  async blockMe(payload: AccountLifecycleRequest, token: string): Promise<void> {
+    return customFetch<void>(`${BFF_AUTH_URL}/api/v1/users/me/block`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, token);
+  },
+
+  async deleteMe(payload: AccountLifecycleRequest, token: string): Promise<void> {
+    return customFetch<void>(`${BFF_AUTH_URL}/api/v1/users/me`, {
+      method: 'DELETE',
+      body: JSON.stringify(payload),
+    }, token);
   },
 };
