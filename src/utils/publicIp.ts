@@ -1,8 +1,13 @@
-const CACHE_KEY = 'keepguard_public_ip';
+const CACHE_KEY = 'keepguard_public_net_v1';
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const LOOKUP_TIMEOUT_MS = 2500;
 
-let inFlight: Promise<string | null> | null = null;
+export type PublicClientNetwork = {
+  ip: string;
+  location: string | null;
+};
+
+let inFlight: Promise<PublicClientNetwork | null> | null = null;
 
 function isPublicIp(ip: string): boolean {
   const value = ip.trim();
@@ -33,7 +38,7 @@ function isPublicIp(ip: string): boolean {
   return true;
 }
 
-function readCache(): string | null {
+function readCache(): PublicClientNetwork | null {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -42,28 +47,34 @@ function readCache(): string | null {
     if (!raw) {
       return null;
     }
-    const parsed = JSON.parse(raw) as { ip?: string; at?: number };
+    const parsed = JSON.parse(raw) as { ip?: string; location?: string | null; at?: number };
     if (!parsed.ip || !parsed.at || Date.now() - parsed.at > CACHE_TTL_MS) {
       return null;
     }
-    return isPublicIp(parsed.ip) ? parsed.ip : null;
+    if (!isPublicIp(parsed.ip)) {
+      return null;
+    }
+    return {
+      ip: parsed.ip,
+      location: typeof parsed.location === 'string' && parsed.location.trim() ? parsed.location.trim() : null,
+    };
   } catch {
     return null;
   }
 }
 
-function writeCache(ip: string) {
+function writeCache(network: PublicClientNetwork) {
   if (typeof window === 'undefined') {
     return;
   }
   try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ip, at: Date.now() }));
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...network, at: Date.now() }));
   } catch {
     // ignore quota / private mode
   }
 }
 
-async function fetchJsonIp(url: string, ipField: 'ip' | 'query' = 'ip'): Promise<string | null> {
+async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
   try {
@@ -72,16 +83,58 @@ async function fetchJsonIp(url: string, ipField: 'ip' | 'query' = 'ip'): Promise
       return null;
     }
     const data = await response.json();
-    const ip = typeof data?.[ipField] === 'string' ? data[ipField] : null;
-    if (data?.success === false) {
+    if (data && typeof data === 'object' && data.success === false) {
       return null;
     }
-    return ip && isPublicIp(ip) ? ip : null;
+    return data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
   } catch {
     return null;
   } finally {
     window.clearTimeout(timer);
   }
+}
+
+async function fetchJsonIp(url: string, ipField: 'ip' | 'query' = 'ip'): Promise<string | null> {
+  const data = await fetchJson(url);
+  const ip = typeof data?.[ipField] === 'string' ? data[ipField] : null;
+  return ip && isPublicIp(ip) ? ip : null;
+}
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function localizeCountry(country: string, countryCode: string): string {
+  if (countryCode.toUpperCase() === 'BR' || country.toLowerCase() === 'brazil' || country.toLowerCase() === 'brasil') {
+    return 'Brasil';
+  }
+  return country;
+}
+
+export function formatPublicLocation(
+  city?: string,
+  region?: string,
+  country?: string,
+  countryCode?: string
+): string | null {
+  const localizedCountry = localizeCountry(text(country), text(countryCode));
+  const parts: string[] = [];
+  const cityName = text(city);
+  const regionName = text(region);
+  if (cityName) {
+    parts.push(cityName);
+  }
+  if (regionName && regionName.toLowerCase() !== cityName.toLowerCase()) {
+    parts.push(regionName);
+  }
+  if (
+    localizedCountry
+    && localizedCountry.toLowerCase() !== cityName.toLowerCase()
+    && localizedCountry.toLowerCase() !== regionName.toLowerCase()
+  ) {
+    parts.push(localizedCountry);
+  }
+  return parts.length > 0 ? parts.join(', ') : null;
 }
 
 async function lookupPublicIp(): Promise<string | null> {
@@ -98,11 +151,45 @@ async function lookupPublicIp(): Promise<string | null> {
   return ipv4 || fallback;
 }
 
+async function lookupLocation(ip: string): Promise<string | null> {
+  const geojs = await fetchJson(`https://get.geojs.io/v1/ip/geo/${encodeURIComponent(ip)}.json`);
+  const fromGeojs = formatPublicLocation(
+    text(geojs?.city),
+    text(geojs?.region),
+    text(geojs?.country),
+    text(geojs?.country_code)
+  );
+  if (fromGeojs) {
+    return fromGeojs;
+  }
+  const ipwho = await fetchJson(`https://ipwho.is/${encodeURIComponent(ip)}?fields=success,city,region,country,country_code`);
+  return formatPublicLocation(
+    text(ipwho?.city),
+    text(ipwho?.region),
+    text(ipwho?.country),
+    text(ipwho?.country_code)
+  );
+}
+
+async function lookupPublicNetwork(): Promise<PublicClientNetwork | null> {
+  const ip = await lookupPublicIp();
+  if (!ip) {
+    return null;
+  }
+  const location = await lookupLocation(ip);
+  return { ip, location };
+}
+
 export function prefetchPublicClientIp(): void {
-  void getPublicClientIp();
+  void getPublicClientNetwork();
 }
 
 export async function getPublicClientIp(): Promise<string | null> {
+  const network = await getPublicClientNetwork();
+  return network?.ip ?? null;
+}
+
+export async function getPublicClientNetwork(): Promise<PublicClientNetwork | null> {
   const cached = readCache();
   if (cached) {
     return cached;
@@ -110,11 +197,11 @@ export async function getPublicClientIp(): Promise<string | null> {
   if (inFlight) {
     return inFlight;
   }
-  inFlight = lookupPublicIp().then((ip) => {
-    if (ip) {
-      writeCache(ip);
+  inFlight = lookupPublicNetwork().then((network) => {
+    if (network) {
+      writeCache(network);
     }
-    return ip;
+    return network;
   }).finally(() => {
     inFlight = null;
   });
