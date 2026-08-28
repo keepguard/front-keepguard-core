@@ -17,6 +17,9 @@ import { useToast } from '../../context/ToastContext';
 import { getDeviceInfo } from '../../utils/deviceUtils';
 import type { DeviceSession } from '../../types/auth';
 
+const sessionSubtitle = (session: DeviceSession) =>
+  [session.ipAddress, session.location].filter((value) => value && String(value).trim()).join(' • ');
+
 export const DeviceSessionsCard: React.FC = () => {
   const { accessToken } = useAuth();
   const { addToast } = useToast();
@@ -327,7 +330,7 @@ export const DeviceSessionsCard: React.FC = () => {
                       <span>{session.deviceName || 'Dispositivo Conectado'}</span>
                     </div>
                     <div className="table-cell-muted" style={{ marginLeft: '1.6rem' }}>
-                      {session.ipAddress} • {session.location || 'Localidade protegida'}
+                      {sessionSubtitle(session)}
                     </div>
                   </td>
                   <td>
@@ -387,7 +390,7 @@ export const DeviceSessionsCard: React.FC = () => {
               </div>
 
               <div className="mobile-card-subinfo">
-                <span>{session.ipAddress} • {session.location || 'Localidade protegida'}</span>
+                <span>{sessionSubtitle(session)}</span>
               </div>
 
               <div className="mobile-card-meta">
