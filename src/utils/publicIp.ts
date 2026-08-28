@@ -85,11 +85,17 @@ async function fetchJsonIp(url: string, ipField: 'ip' | 'query' = 'ip'): Promise
 }
 
 async function lookupPublicIp(): Promise<string | null> {
-  const fromIpWho = await fetchJsonIp('https://ipwho.is/?fields=success,ip');
-  if (fromIpWho) {
-    return fromIpWho;
+  const [ipv4, fallback] = await Promise.all([
+    fetchJsonIp('https://api4.ipify.org?format=json'),
+    fetchJsonIp('https://ipwho.is/?fields=success,ip'),
+  ]);
+  if (ipv4 && !ipv4.includes(':')) {
+    return ipv4;
   }
-  return fetchJsonIp('https://api.ipify.org?format=json', 'ip');
+  if (fallback && !fallback.includes(':')) {
+    return fallback;
+  }
+  return ipv4 || fallback;
 }
 
 export function prefetchPublicClientIp(): void {
