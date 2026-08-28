@@ -6,7 +6,10 @@ export function hasAdminRole(roles?: string[] | null): boolean {
   if (!roles || roles.length === 0) {
     return false;
   }
-  return roles.some((role) => normalizeRole(role) === 'ADMIN');
+  return roles.some((role) => {
+    const n = normalizeRole(role);
+    return n === 'ADMIN' || n === 'SYSTEM';
+  });
 }
 
 export function hasAdminOrManagerRole(roles?: string[] | null): boolean {

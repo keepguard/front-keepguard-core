@@ -1,110 +1,127 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Search, Activity } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import {
   CONNECTION_GROUP_LABELS,
-  CONNECTION_TARGETS,
+  isConnectionGroup,
   type ConnectionGroup,
-  type ConnectionTarget,
 } from '../../data/connectionsCatalog';
-import { probeConnection, type ProbeResult, type ProbeStatus } from '../../services/connectionsHealth';
+import {
+  getConnectionsHealth,
+  type ConnectionServiceStatus,
+  type ConnectionsHealthSnapshot,
+} from '../../services/connectionsHealth';
 
 type StatusFilter = 'all' | 'healthy' | 'unhealthy';
 type GroupFilter = 'all' | ConnectionGroup;
 
-type RowState = ProbeResult & { status: ProbeStatus };
-
-const statusLabel = (status: ProbeStatus) => {
+const statusLabel = (status: ConnectionServiceStatus['status'] | 'checking') => {
   if (status === 'healthy') return 'Online';
   if (status === 'unhealthy') return 'Offline';
   return 'Verificando';
 };
 
-function formatLatency(ms?: number, status?: ProbeStatus): string {
-  if (status === 'checking' || ms === undefined) return '—';
+function formatLatency(ms?: number, checking?: boolean): string {
+  if (checking || ms === undefined) return '—';
   if (ms < 1) return '<1 ms';
   return `${ms} ms`;
 }
 
-function formatCheckedAt(ts?: number): string {
-  if (!ts) return '—';
-  return new Date(ts).toLocaleTimeString('pt-BR', {
+function formatClock(iso?: string): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   });
 }
 
-function emptyRow(): RowState {
-  return { status: 'checking', latencyMs: 0, checkedAt: 0 };
+function remainingFromExpiresAt(expiresAt?: string): number {
+  if (!expiresAt) return 0;
+  const expires = new Date(expiresAt).getTime();
+  if (Number.isNaN(expires)) return 0;
+  return Math.max(0, Math.ceil((expires - Date.now()) / 1000));
 }
 
 export const ConnectionsView: React.FC = () => {
-  const [rows, setRows] = useState<Record<string, RowState>>(() =>
-    Object.fromEntries(CONNECTION_TARGETS.map((target) => [target.id, emptyRow()]))
-  );
+  const { accessToken } = useAuth();
+  const [snapshot, setSnapshot] = useState<ConnectionsHealthSnapshot | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
-  const [checkingId, setCheckingId] = useState<string | null>(null);
 
-  const checkTarget = useCallback(async (target: ConnectionTarget) => {
-    setCheckingId(target.id);
-    setRows((prev) => ({
-      ...prev,
-      [target.id]: { ...(prev[target.id] || emptyRow()), status: 'checking' },
-    }));
-    const result = await probeConnection(target);
-    setRows((prev) => ({ ...prev, [target.id]: result }));
-    setCheckingId((current) => (current === target.id ? null : current));
-  }, []);
-
-  const checkAll = useCallback(async () => {
-    setCheckingId('all');
-    setRows((prev) =>
-      Object.fromEntries(CONNECTION_TARGETS.map((target) => [
-        target.id,
-        { ...(prev[target.id] || emptyRow()), status: 'checking' as const },
-      ]))
-    );
-    const results = await Promise.all(
-      CONNECTION_TARGETS.map(async (target) => [target.id, await probeConnection(target)] as const)
-    );
-    setRows(Object.fromEntries(results));
-    setCheckingId(null);
-  }, []);
+  const load = useCallback(async () => {
+    if (!accessToken) {
+      setError('Sessão expirada. Entre novamente.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getConnectionsHealth(accessToken);
+      setSnapshot(data);
+      setRemainingSeconds(data.ttlSeconds);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 403) {
+        setError('Acesso restrito a administradores.');
+      } else if (status === 429) {
+        setError('Muitas consultas. Aguarde um momento para verificar de novo.');
+      } else {
+        setError((err as Error).message || 'Não foi possível carregar as conexões.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken]);
 
   useEffect(() => {
-    void checkAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void load();
+  }, [load]);
 
-  const counts = useMemo(() => {
-    const values = CONNECTION_TARGETS.map((target) => rows[target.id]?.status || 'checking');
-    return {
-      total: values.length,
-      healthy: values.filter((status) => status === 'healthy').length,
-      unhealthy: values.filter((status) => status === 'unhealthy').length,
-      checking: values.filter((status) => status === 'checking').length,
-    };
-  }, [rows]);
+  useEffect(() => {
+    if (!snapshot?.expiresAt) return;
+    const tick = () => setRemainingSeconds(remainingFromExpiresAt(snapshot.expiresAt));
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [snapshot?.expiresAt, snapshot?.checkedAt]);
+
+  const services = snapshot?.services || [];
+
+  const counts = useMemo(() => ({
+    total: services.length,
+    healthy: services.filter((item) => item.status === 'healthy').length,
+    unhealthy: services.filter((item) => item.status === 'unhealthy').length,
+  }), [services]);
 
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return CONNECTION_TARGETS.filter((target) => {
-      const state = rows[target.id];
-      if (groupFilter !== 'all' && target.group !== groupFilter) return false;
-      if (statusFilter !== 'all' && state?.status !== statusFilter) return false;
+    return services.filter((item) => {
+      const group = isConnectionGroup(item.group) ? item.group : 'infra';
+      if (groupFilter !== 'all' && group !== groupFilter) return false;
+      if (statusFilter !== 'all' && item.status !== statusFilter) return false;
       if (!term) return true;
       return (
-        target.name.toLowerCase().includes(term) ||
-        target.description.toLowerCase().includes(term) ||
-        target.endpoint.toLowerCase().includes(term) ||
-        CONNECTION_GROUP_LABELS[target.group].toLowerCase().includes(term)
+        item.name.toLowerCase().includes(term) ||
+        item.description.toLowerCase().includes(term) ||
+        item.endpoint.toLowerCase().includes(term) ||
+        CONNECTION_GROUP_LABELS[group].toLowerCase().includes(term)
       );
     });
-  }, [groupFilter, rows, searchTerm, statusFilter]);
+  }, [groupFilter, searchTerm, services, statusFilter]);
 
-  const isRefreshingAll = checkingId === 'all';
+  const freshnessLabel = snapshot
+    ? snapshot.cached
+      ? `Atualizado às ${formatClock(snapshot.checkedAt)} · próxima coleta em ${remainingSeconds}s`
+      : `Coletado agora às ${formatClock(snapshot.checkedAt)} · válido por ${remainingSeconds}s`
+    : null;
 
   return (
     <div className="connections-page">
@@ -131,10 +148,15 @@ export const ConnectionsView: React.FC = () => {
         >
           {counts.unhealthy} offline
         </button>
-        {counts.checking > 0 && (
-          <span className="connections-summary-chip is-wait">{counts.checking} verificando</span>
+        {loading && (
+          <span className="connections-summary-chip is-wait">Verificando</span>
         )}
       </div>
+
+      {freshnessLabel && (
+        <p className="connections-freshness">{freshnessLabel}</p>
+      )}
+      {error && <p className="connections-error">{error}</p>}
 
       <div className="table-toolbar connections-toolbar">
         <div className="connections-toolbar-filters">
@@ -163,11 +185,11 @@ export const ConnectionsView: React.FC = () => {
         <button
           type="button"
           className="btn btn-secondary btn-pill"
-          onClick={() => void checkAll()}
-          disabled={isRefreshingAll}
+          onClick={() => void load()}
+          disabled={loading}
         >
-          <RefreshCw size={15} className={isRefreshingAll ? 'spin' : ''} />
-          Verificar todas
+          <RefreshCw size={15} className={loading ? 'spin' : ''} />
+          Atualizar
         </button>
       </div>
 
@@ -181,50 +203,37 @@ export const ConnectionsView: React.FC = () => {
               <th>Status</th>
               <th>Latência</th>
               <th>Verificado</th>
-              <th style={{ textAlign: 'right' }}>Ação</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="connections-empty">
-                  Nenhum serviço corresponde ao filtro.
+                <td colSpan={6} className="connections-empty">
+                  {loading ? 'Carregando serviços...' : 'Nenhum serviço corresponde ao filtro.'}
                 </td>
               </tr>
-            ) : filtered.map((target) => {
-              const state = rows[target.id] || emptyRow();
-              const busy = state.status === 'checking';
+            ) : filtered.map((item) => {
+              const group = isConnectionGroup(item.group) ? item.group : 'infra';
               return (
-                <tr key={target.id}>
+                <tr key={item.id}>
                   <td>
-                    <div className="table-cell-title">{target.name}</div>
-                    <div className="table-cell-muted">{target.description}</div>
+                    <div className="table-cell-title">{item.name}</div>
+                    <div className="table-cell-muted">{item.description}</div>
                   </td>
                   <td>
-                    <span className="connections-type-chip">{CONNECTION_GROUP_LABELS[target.group]}</span>
+                    <span className="connections-type-chip">{CONNECTION_GROUP_LABELS[group]}</span>
                   </td>
                   <td>
-                    <code className="connections-endpoint">{target.endpoint}</code>
+                    <code className="connections-endpoint">{item.endpoint}</code>
                   </td>
                   <td>
-                    <span className={`connections-status-pill is-${state.status}`}>
+                    <span className={`connections-status-pill is-${item.status}`}>
                       <span className="connections-status-dot" />
-                      {statusLabel(state.status)}
+                      {statusLabel(item.status)}
                     </span>
                   </td>
-                  <td className="connections-latency">{formatLatency(state.latencyMs, state.status)}</td>
-                  <td className="table-cell-muted">{formatCheckedAt(state.checkedAt)}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="btn-table-icon"
-                      onClick={() => void checkTarget(target)}
-                      disabled={busy}
-                      title={`Verificar ${target.name}`}
-                    >
-                      <RefreshCw size={15} className={busy ? 'spin' : ''} />
-                    </button>
-                  </td>
+                  <td className="connections-latency">{formatLatency(item.latencyMs, loading)}</td>
+                  <td className="table-cell-muted">{formatClock(snapshot?.checkedAt)}</td>
                 </tr>
               );
             })}
@@ -234,41 +243,37 @@ export const ConnectionsView: React.FC = () => {
 
       <div className="connections-mobile-list">
         {filtered.length === 0 ? (
-          <p className="connections-empty">Nenhum serviço corresponde ao filtro.</p>
-        ) : filtered.map((target) => {
-          const state = rows[target.id] || emptyRow();
-          const busy = state.status === 'checking';
+          <p className="connections-empty">
+            {loading ? 'Carregando serviços...' : 'Nenhum serviço corresponde ao filtro.'}
+          </p>
+        ) : filtered.map((item) => {
+          const group = isConnectionGroup(item.group) ? item.group : 'infra';
           return (
-            <article key={target.id} className="connections-mobile-card">
+            <article key={item.id} className="connections-mobile-card">
               <header>
                 <div>
-                  <strong>{target.name}</strong>
-                  <p>{target.description}</p>
+                  <strong>{item.name}</strong>
+                  <p>{item.description}</p>
                 </div>
-                <span className={`connections-status-pill is-${state.status}`}>
+                <span className={`connections-status-pill is-${item.status}`}>
                   <span className="connections-status-dot" />
-                  {statusLabel(state.status)}
+                  {statusLabel(item.status)}
                 </span>
               </header>
               <dl>
                 <div>
                   <dt>Tipo</dt>
-                  <dd>{CONNECTION_GROUP_LABELS[target.group]}</dd>
+                  <dd>{CONNECTION_GROUP_LABELS[group]}</dd>
                 </div>
                 <div>
                   <dt>Latência</dt>
-                  <dd>{formatLatency(state.latencyMs, state.status)}</dd>
+                  <dd>{formatLatency(item.latencyMs, loading)}</dd>
+                </div>
+                <div>
+                  <dt>Verificado</dt>
+                  <dd>{formatClock(snapshot?.checkedAt)}</dd>
                 </div>
               </dl>
-              <button
-                type="button"
-                className="btn btn-secondary btn-block"
-                onClick={() => void checkTarget(target)}
-                disabled={busy}
-              >
-                <RefreshCw size={15} className={busy ? 'spin' : ''} />
-                Verificar
-              </button>
             </article>
           );
         })}

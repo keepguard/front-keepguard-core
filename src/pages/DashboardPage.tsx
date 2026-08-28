@@ -239,7 +239,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Conexões
               </h1>
               <p className="dashboard-subtitle">
-                Status das aplicações, workers e infraestrutura com health HTTP.
+                Status das aplicações, workers e infraestrutura. A coleta é autenticada e o intervalo vem do servidor.
               </p>
             </div>
           </div>
