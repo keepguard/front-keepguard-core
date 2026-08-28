@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Ban, Plus, RefreshCw, Search, ShieldAlert } from 'lucide-react';
+import { Ban, LockOpen, Plus, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
@@ -19,6 +19,13 @@ function formatDate(isoDate?: string) {
   } catch {
     return isoDate;
   }
+}
+
+function compactId(value?: string): string {
+  if (!value) return '—';
+  const trimmed = value.trim();
+  if (trimmed.length <= 14) return trimmed;
+  return `${trimmed.slice(0, 8)}…${trimmed.slice(-4)}`;
 }
 
 function toApiDate(localValue: string): string | undefined {
@@ -267,20 +274,29 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
                 return (
                   <tr key={key}>
                     <td>
-                      <span className="text-mono" style={{ fontSize: '0.82rem' }}>
-                        {entry.codeUser || '—'}
+                      <span className="id-compact" title={entry.codeUser || undefined}>
+                        {compactId(entry.codeUser)}
                       </span>
                     </td>
                     <td>
-                      <div className="table-cell-title">
+                      <div className="table-cell-title" title={entry.deviceId}>
                         <Ban size={14} />
                         <span>{entry.deviceName || 'Dispositivo'}</span>
                       </div>
-                      <div className="table-cell-muted">{entry.deviceId}</div>
                     </td>
-                    <td>{entry.ipAddress || '—'}</td>
-                    <td>{entry.reason || '—'}</td>
-                    <td>{entry.blockedBy || '—'}</td>
+                    <td>
+                      <span className="id-compact">{entry.ipAddress || '—'}</span>
+                    </td>
+                    <td>
+                      <span className="table-reason" title={entry.reason || undefined}>
+                        {entry.reason || '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="id-compact" title={entry.blockedBy || undefined}>
+                        {compactId(entry.blockedBy)}
+                      </span>
+                    </td>
                     <td>
                       {formatDate(entry.blockedAt)}
                       {entry.expiresAt ? (
@@ -290,11 +306,14 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
                     <td>
                       <div className="table-actions-group" style={{ justifyContent: 'flex-end' }}>
                         <button
-                          className="btn-table-outline"
+                          type="button"
+                          className="btn-table-icon"
+                          title="Desbloquear dispositivo"
+                          aria-label="Desbloquear dispositivo"
                           onClick={() => handleUnblock(entry)}
                           disabled={removingKey === key}
                         >
-                          {removingKey === key ? 'Removendo...' : 'Desbloquear'}
+                          <LockOpen size={15} />
                         </button>
                       </div>
                     </td>
@@ -314,9 +333,15 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
             </div>
             <div className="mobile-card-subinfo">{entry.codeUser}</div>
             <div className="mobile-card-meta">{entry.reason || 'Sem motivo informado'}</div>
-            <div className="mobile-card-actions">
-              <button className="btn-table-outline" style={{ flex: 1 }} onClick={() => handleUnblock(entry)}>
-                Desbloquear
+            <div className="mobile-card-actions table-actions-group">
+              <button
+                type="button"
+                className="btn-table-icon"
+                title="Desbloquear dispositivo"
+                aria-label="Desbloquear dispositivo"
+                onClick={() => handleUnblock(entry)}
+              >
+                <LockOpen size={15} />
               </button>
             </div>
           </div>

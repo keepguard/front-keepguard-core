@@ -136,28 +136,30 @@ export const ConnectionsView: React.FC = () => {
         )}
       </div>
 
-      <div className="table-toolbar">
-        <div className="search-input-wrapper">
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Filtrar por serviço, tipo ou endpoint..."
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
+      <div className="table-toolbar connections-toolbar">
+        <div className="connections-toolbar-filters">
+          <div className="search-input-wrapper">
+            <Search size={16} className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Filtrar por serviço, tipo ou endpoint..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </div>
+          <select
+            className="filter-select"
+            value={groupFilter}
+            onChange={(event) => setGroupFilter(event.target.value as GroupFilter)}
+            aria-label="Filtrar por tipo"
+          >
+            <option value="all">Todos os tipos</option>
+            {(Object.keys(CONNECTION_GROUP_LABELS) as ConnectionGroup[]).map((group) => (
+              <option key={group} value={group}>{CONNECTION_GROUP_LABELS[group]}</option>
+            ))}
+          </select>
         </div>
-        <select
-          className="filter-select"
-          value={groupFilter}
-          onChange={(event) => setGroupFilter(event.target.value as GroupFilter)}
-          aria-label="Filtrar por tipo"
-        >
-          <option value="all">Todos os tipos</option>
-          {(Object.keys(CONNECTION_GROUP_LABELS) as ConnectionGroup[]).map((group) => (
-            <option key={group} value={group}>{CONNECTION_GROUP_LABELS[group]}</option>
-          ))}
-        </select>
         <button
           type="button"
           className="btn btn-secondary btn-pill"

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Ban, RefreshCw, Search, ShieldOff, Smartphone } from 'lucide-react';
+import { Ban, LockOpen, RefreshCw, Search, ShieldOff, Smartphone } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -141,12 +141,9 @@ export const MyDeviceBlacklistCard: React.FC = () => {
               filtered.map((entry) => (
                 <tr key={entry.deviceId}>
                   <td>
-                    <div className="table-cell-title">
+                    <div className="table-cell-title" title={entry.deviceId}>
                       <Smartphone size={16} className="text-muted" />
                       <span>{entry.deviceName || 'Dispositivo bloqueado'}</span>
-                    </div>
-                    <div className="table-cell-muted" style={{ marginLeft: '1.6rem' }}>
-                      {entry.deviceId}
                     </div>
                   </td>
                   <td>{entry.reason || 'Bloqueado pelo usuário'}</td>
@@ -154,11 +151,14 @@ export const MyDeviceBlacklistCard: React.FC = () => {
                   <td>
                     <div className="table-actions-group" style={{ justifyContent: 'flex-end' }}>
                       <button
-                        className="btn-table-outline"
+                        type="button"
+                        className="btn-table-icon"
+                        title="Desbloquear dispositivo"
+                        aria-label="Desbloquear dispositivo"
                         onClick={() => handleUnblock(entry)}
                         disabled={removingId === entry.deviceId}
                       >
-                        {removingId === entry.deviceId ? 'Desbloqueando...' : 'Desbloquear'}
+                        <LockOpen size={15} />
                       </button>
                     </div>
                   </td>
@@ -187,14 +187,16 @@ export const MyDeviceBlacklistCard: React.FC = () => {
               <div className="mobile-card-meta">
                 <span>Em {formatDate(entry.blockedAt)}</span>
               </div>
-              <div className="mobile-card-actions">
+              <div className="mobile-card-actions table-actions-group">
                 <button
-                  className="btn-table-outline"
-                  style={{ flex: 1 }}
+                  type="button"
+                  className="btn-table-icon"
+                  title="Desbloquear dispositivo"
+                  aria-label="Desbloquear dispositivo"
                   onClick={() => handleUnblock(entry)}
                   disabled={removingId === entry.deviceId}
                 >
-                  Desbloquear
+                  <LockOpen size={15} />
                 </button>
               </div>
             </div>
