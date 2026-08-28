@@ -54,7 +54,7 @@ export default defineConfig({
       '/connections-health/ms-user': healthProxy('http://localhost:8085', '/actuator/health'),
       '/connections-health/ms-user-consents': healthProxy('http://localhost:8086', '/actuator/health'),
       '/connections-health/srv-email-sender': healthProxy('http://localhost:8601', '/health'),
-      '/connections-health/srv-token-manager': healthProxy('http://localhost:8700', '/health'),
+      '/connections-health/srv-token-manager': healthProxy('http://localhost:8700', '/health/'),
       '/connections-health/srv-sms-sender': healthProxy('http://localhost:8610', '/health'),
       '/connections-health/mock-sms-gateway': healthProxy('http://localhost:8089', '/health'),
       '/connections-health/minio': healthProxy('http://localhost:9000', '/minio/health/live'),
