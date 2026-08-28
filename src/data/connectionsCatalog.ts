@@ -51,7 +51,7 @@ export const CONNECTION_TARGETS: ConnectionTarget[] = [
     description: 'Identidade, roles e ciclo de vida da conta.',
     group: 'microservice',
     path: '/connections-health/ms-auth',
-    endpoint: 'GET /actuator/health',
+    endpoint: 'GET /actuator/health/liveness',
   },
   {
     id: 'ms-communication',
@@ -59,7 +59,7 @@ export const CONNECTION_TARGETS: ConnectionTarget[] = [
     description: 'Notificações e canais de comunicação.',
     group: 'microservice',
     path: '/connections-health/ms-communication',
-    endpoint: 'GET /actuator/health',
+    endpoint: 'GET /actuator/health/liveness',
   },
   {
     id: 'ms-company',
@@ -67,7 +67,7 @@ export const CONNECTION_TARGETS: ConnectionTarget[] = [
     description: 'Tenants, empresas e provisionamento.',
     group: 'microservice',
     path: '/connections-health/ms-company',
-    endpoint: 'GET /actuator/health',
+    endpoint: 'GET /actuator/health/liveness',
   },
   {
     id: 'ms-user',
@@ -75,7 +75,7 @@ export const CONNECTION_TARGETS: ConnectionTarget[] = [
     description: 'Perfil e cadastro de usuários.',
     group: 'microservice',
     path: '/connections-health/ms-user',
-    endpoint: 'GET /actuator/health',
+    endpoint: 'GET /actuator/health/liveness',
   },
   {
     id: 'ms-user-consents',
@@ -83,7 +83,7 @@ export const CONNECTION_TARGETS: ConnectionTarget[] = [
     description: 'Consentimentos e documentos LGPD.',
     group: 'microservice',
     path: '/connections-health/ms-user-consents',
-    endpoint: 'GET /actuator/health',
+    endpoint: 'GET /actuator/health/liveness',
   },
   {
     id: 'srv-email-sender',

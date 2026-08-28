@@ -25,6 +25,8 @@ RUN rm -rf /etc/nginx/conf.d/default.conf
 
 # Copia configuração customizada do Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.d/40-k8s-upstreams.sh /docker-entrypoint.d/40-k8s-upstreams.sh
+RUN chmod +x /docker-entrypoint.d/40-k8s-upstreams.sh
 
 # Copia os arquivos estáticos gerados no build
 COPY --from=builder /app/dist /usr/share/nginx/html

@@ -97,6 +97,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [profileMissing, setProfileMissing] = useState(false);
   const [dangerAction, setDangerAction] = useState<DangerAction | null>(null);
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,6 +118,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
       }
       setIsLoading(true);
       setLoadError(null);
+      setProfileMissing(false);
       try {
         const me = await authService.getMe(token);
         if (!cancelled) {
@@ -124,7 +126,16 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
         }
       } catch (err: any) {
         if (!cancelled) {
-          setLoadError(err?.message || 'Não foi possível carregar os dados da conta.');
+          const status = err?.status as number | undefined;
+          const raw = String(err?.message || '').trim();
+          const isNotFound = status === 404 || raw.toLowerCase() === 'not found';
+          if (isNotFound) {
+            setProfile(null);
+            setProfileMissing(true);
+            setLoadError(null);
+          } else {
+            setLoadError('Não foi possível carregar os dados da conta. Tente novamente em instantes.');
+          }
         }
       } finally {
         if (!cancelled) {
@@ -226,6 +237,11 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
   return (
     <>
       <div className="account-page">
+        {profileMissing && (
+          <p className="account-profile-note" role="status">
+            Cadastro detalhado ainda não encontrado. Exibindo os dados da sessão atual.
+          </p>
+        )}
         <section className="account-card account-identity" aria-labelledby="account-identity-title">
           {profile?.avatarUrl ? (
             <img className="account-avatar" src={profile.avatarUrl} alt="" />
