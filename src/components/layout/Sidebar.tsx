@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { hasAdminOrManagerRole } from '../../utils/roles';
+import { hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
 
 interface SidebarProps {
   activeTab?: string;
@@ -28,6 +28,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { user } = useAuth();
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
+  const canSeeConnections = hasAdminRole(user?.roles);
+  const showAdminSection = canManageTenantBlacklist || canSeeConnections;
 
   const handleItemClick = (tabKey: string) => {
     if (onSelectTab) {
@@ -103,25 +105,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        <div className="sidebar-section">
-          <span className="sidebar-heading">Administração</span>
-          {canManageTenantBlacklist && (
-            <button
-              className={`sidebar-nav-item ${activeTab === 'admin-blacklist' ? 'active' : ''}`}
-              onClick={() => handleItemClick('admin-blacklist')}
-            >
-              <ShieldAlert size={18} className="sidebar-icon" />
-              <span>Blacklist do tenant</span>
-            </button>
-          )}
-          <button
-            className={`sidebar-nav-item ${activeTab === 'connections' ? 'active' : ''}`}
-            onClick={() => handleItemClick('connections')}
-          >
-            <Cable size={18} className="sidebar-icon" />
-            <span>Conexões</span>
-          </button>
-        </div>
+        {showAdminSection && (
+          <div className="sidebar-section">
+            <span className="sidebar-heading">Administração</span>
+            {canManageTenantBlacklist && (
+              <button
+                className={`sidebar-nav-item ${activeTab === 'admin-blacklist' ? 'active' : ''}`}
+                onClick={() => handleItemClick('admin-blacklist')}
+              >
+                <ShieldAlert size={18} className="sidebar-icon" />
+                <span>Blacklist do tenant</span>
+              </button>
+            )}
+            {canSeeConnections && (
+              <button
+                className={`sidebar-nav-item ${activeTab === 'connections' ? 'active' : ''}`}
+                onClick={() => handleItemClick('connections')}
+              >
+                <Cable size={18} className="sidebar-icon" />
+                <span>Conexões</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Templates e Design System Preservados */}
         <div className="sidebar-section" style={{ marginTop: 'auto' }}>

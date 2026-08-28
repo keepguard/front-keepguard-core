@@ -7,7 +7,7 @@ import { AdminDeviceBlacklistCard } from '../components/dashboard/AdminDeviceBla
 import { SecurityCredentialsView } from '../components/dashboard/SecurityCredentialsView';
 import { ConnectionsView } from '../components/dashboard/ConnectionsView';
 import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
-import { hasAdminOrManagerRole } from '../utils/roles';
+import { hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
 import { AccountView } from '../components/dashboard/AccountView';
 import {
   User,
@@ -38,12 +38,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
+  const canSeeConnections = hasAdminRole(user?.roles);
 
   useEffect(() => {
     if (activeTab === 'admin-blacklist' && !canManageTenantBlacklist && onNavigateTab) {
       onNavigateTab('blacklist');
     }
-  }, [activeTab, canManageTenantBlacklist, onNavigateTab]);
+    if (activeTab === 'connections' && !canSeeConnections && onNavigateTab) {
+      onNavigateTab('overview');
+    }
+  }, [activeTab, canManageTenantBlacklist, canSeeConnections, onNavigateTab]);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -226,7 +230,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </>
       )}
 
-      {activeTab === 'connections' && (
+      {activeTab === 'connections' && canSeeConnections && (
         <>
           <div className="dashboard-header">
             <div className="dashboard-title-group">

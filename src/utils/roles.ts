@@ -2,6 +2,13 @@ export function normalizeRole(role: string): string {
   return (role || '').trim().toUpperCase().replace(/^ROLE_/, '');
 }
 
+export function hasAdminRole(roles?: string[] | null): boolean {
+  if (!roles || roles.length === 0) {
+    return false;
+  }
+  return roles.some((role) => normalizeRole(role) === 'ADMIN');
+}
+
 export function hasAdminOrManagerRole(roles?: string[] | null): boolean {
   if (!roles || roles.length === 0) {
     return false;
