@@ -1940,53 +1940,276 @@ textarea.form-input {
   font-family: 'JetBrains Mono', monospace;
 }
 
-.account-profile-head {
+.account-page {
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 2.5rem;
+}
+
+.account-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.35rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.account-identity {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  gap: 1.1rem;
+  padding: 1.5rem;
 }
 
 .account-avatar {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
 }
 
 .account-avatar-fallback {
-  background: #2a9d8f;
+  background: linear-gradient(160deg, #00b090 0%, #0b8f7c 100%);
   color: #ffffff;
   font-weight: 700;
-  font-size: 1.4rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.account-identity-copy {
+  min-width: 0;
+}
+
 .account-display-name {
-  display: block;
-  font-size: 1.15rem;
-  color: #1d2129;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  line-height: 1.3;
 }
 
-.account-danger-zone {
-  border: 1px solid var(--danger-border);
-  background: var(--danger-light);
-}
-
-.account-danger-copy {
-  color: var(--text-sub);
+.account-handle {
+  color: var(--text-muted);
   font-size: 0.9rem;
-  margin-bottom: 1rem;
-  line-height: 1.5;
+  margin-top: 0.15rem;
 }
 
-.account-danger-actions {
+.account-identity-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.account-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.account-status-ok {
+  background: var(--success-light);
+  color: var(--success-hover);
+  border-color: var(--success-border);
+}
+
+.account-status-warn {
+  background: var(--danger-light);
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+.account-status-muted {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.account-meta-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-light);
+}
+
+.account-meta-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.account-section-head {
+  margin-bottom: 1rem;
+}
+
+.account-section-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.account-section-head p {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-sub);
+  line-height: 1.45;
+}
+
+.account-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.15rem 1.5rem;
+}
+
+.account-field dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-sub);
+  margin-bottom: 0.28rem;
+}
+
+.account-field dd {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.account-field dd.is-muted {
+  color: var(--text-light);
+  font-weight: 400;
+}
+
+.account-roles {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.5rem;
+}
+
+.account-role-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-body);
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+}
+
+.account-setting-row,
+.account-danger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.account-setting-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.account-setting-hint {
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+  color: var(--text-sub);
+  line-height: 1.45;
+  max-width: 34rem;
+}
+
+.account-danger {
+  border-color: #f3c4cb;
+}
+
+.account-danger .account-section-head h3 {
+  color: var(--danger);
+}
+
+.account-danger-row {
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid #f6e4e7;
+}
+
+.account-danger-row + .account-danger-row {
+  margin-top: 1rem;
+}
+
+.account-danger-row .btn {
+  flex-shrink: 0;
+}
+
+.account-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.account-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-skel {
+  background: linear-gradient(90deg, #f1f3f5 0%, #e9ecef 50%, #f1f3f5 100%);
+  background-size: 200% 100%;
+  animation: accountShimmer 1.2s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+.account-skel-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.account-skel-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.account-skel-lg { height: 16px; width: 48%; }
+.account-skel-md { height: 12px; width: 72%; }
+.account-skel-sm { height: 12px; width: 28%; }
+
+@keyframes accountShimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@media (max-width: 640px) {
+  .account-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .account-setting-row,
+  .account-danger-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .mt-4 { margin-top: 1rem; }

@@ -14,7 +14,6 @@ import {
   CheckCircle,
   Activity,
   Shield,
-  Key,
   FileText,
   Ban,
   ShieldAlert,
@@ -218,21 +217,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Conta
               </h1>
               <p className="dashboard-subtitle">
-                Dados da sua conta e opções de segurança de acesso.
+                Identidade, preferências e segurança do seu acesso.
               </p>
-            </div>
-            <div className="dashboard-top-actions">
-              <button
-                className="btn btn-outline btn-pill"
-                onClick={() => setIsChangePasswordOpen(true)}
-              >
-                <Key size={16} />
-                <span>Alterar Senha</span>
-              </button>
             </div>
           </div>
 
-          <AccountView />
+          <AccountView onChangePassword={() => setIsChangePasswordOpen(true)} />
         </>
       )}
 

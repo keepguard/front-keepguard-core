@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Ban, Trash2 } from 'lucide-react';
+import { AlertTriangle, Ban, KeyRound, Trash2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -14,20 +14,84 @@ if (selfServiceVisibilityFailures.length > 0) {
 
 type DangerAction = 'block' | 'delete';
 
+const ROLE_LABELS: Record<string, string> = {
+  ROLE_USER: 'Usuário',
+  ROLE_USER_SELF_SERVICE: 'Autoatendimento',
+  ROLE_ADMIN: 'Administrador',
+  ROLE_MANAGER: 'Gestor',
+  ROLE_SYSTEM: 'Sistema',
+};
+
+interface AccountViewProps {
+  onChangePassword: () => void;
+}
+
 function formatDate(value?: string): string {
-  if (!value) return '—';
+  if (!value) return 'Não informado';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('pt-BR');
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function initialsFrom(name?: string, email?: string): string {
-  if (name) return name.charAt(0).toUpperCase();
-  if (email) return email.charAt(0).toUpperCase();
+  if (name) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+  if (email) return email.slice(0, 2).toUpperCase();
   return 'U';
 }
 
-export const AccountView: React.FC = () => {
+function formatAccountType(type?: string): string {
+  if (type === 'PERSON') return 'Pessoa física';
+  if (type === 'COMPANY') return 'Pessoa jurídica';
+  return type || 'Não informado';
+}
+
+function formatStatus(status?: string): { label: string; tone: 'ok' | 'warn' | 'muted' } {
+  if (status === 'ACTIVE') return { label: 'Ativa', tone: 'ok' };
+  if (status === 'BLOCKED') return { label: 'Bloqueada', tone: 'warn' };
+  if (!status) return { label: 'Não informado', tone: 'muted' };
+  return { label: status, tone: 'muted' };
+}
+
+function formatLocale(locale?: string): string {
+  if (locale === 'pt-BR') return 'Português (Brasil)';
+  if (locale === 'en-US') return 'English (United States)';
+  if (locale === 'es-ES') return 'Español';
+  return locale || 'Não informado';
+}
+
+function formatRole(role: string): string {
+  if (ROLE_LABELS[role]) return ROLE_LABELS[role];
+  return role.replace(/^ROLE_/, '').replace(/_/g, ' ').toLowerCase();
+}
+
+function FieldRow({
+  label,
+  value,
+  muted,
+}: {
+  label: string;
+  value: React.ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div className="account-field">
+      <dt>{label}</dt>
+      <dd className={muted ? 'is-muted' : undefined}>{value}</dd>
+    </div>
+  );
+}
+
+export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) => {
   const { user, accessToken, logout } = useAuth();
   const { addToast } = useToast();
   const [profile, setProfile] = useState<MeProfile | null>(null);
@@ -75,8 +139,10 @@ export const AccountView: React.FC = () => {
     };
   }, [token]);
 
-  const displayName = profile?.personProfile?.fullName || profile?.displayHandle || user?.name || user?.username || '—';
+  const displayName = profile?.personProfile?.fullName || profile?.displayHandle || user?.name || user?.username || 'Conta';
   const jwtRoles = useMemo(() => user?.roles || [], [user?.roles]);
+  const status = formatStatus(profile?.status);
+  const phone = profile?.phoneE164;
 
   const closeModal = () => {
     if (isSubmitting) return;
@@ -128,131 +194,172 @@ export const AccountView: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="account-page" aria-busy="true">
+        <div className="account-card account-skeleton">
+          <div className="account-skel account-skel-avatar" />
+          <div className="account-skel-lines">
+            <div className="account-skel account-skel-lg" />
+            <div className="account-skel account-skel-sm" />
+          </div>
+        </div>
+        <div className="account-card account-skeleton">
+          <div className="account-skel account-skel-lg" />
+          <div className="account-skel account-skel-md" />
+          <div className="account-skel account-skel-md" />
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="account-page">
+        <div className="account-card">
+          <p className="account-empty">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {isLoading && (
-        <div className="dash-card">
-          <p className="text-muted">Carregando dados da conta...</p>
-        </div>
-      )}
-
-      {!isLoading && loadError && (
-        <div className="dash-card">
-          <p className="text-muted">{loadError}</p>
-        </div>
-      )}
-
-      {!isLoading && !loadError && (
-        <div className="dashboard-grid">
-          <div className="dash-card">
-            <div className="dash-card-header">
-              <h3>Perfil</h3>
-            </div>
-            <div className="dash-card-body">
-              <div className="account-profile-head">
-                {profile?.avatarUrl ? (
-                  <img className="account-avatar" src={profile.avatarUrl} alt="" />
-                ) : (
-                  <div className="account-avatar account-avatar-fallback" aria-hidden="true">
-                    {initialsFrom(displayName, profile?.email || user?.email)}
-                  </div>
-                )}
-                <div>
-                  <strong className="account-display-name">{displayName}</strong>
-                  {profile?.displayHandle && (
-                    <p className="text-muted">@{profile.displayHandle}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="info-row">
-                <span className="info-label">Nome completo</span>
-                <span className="info-value">{profile?.personProfile?.fullName || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">E-mail</span>
-                <span className="info-value">{profile?.email || user?.email || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Telefone</span>
-                <span className="info-value">{profile?.phoneE164 || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Tipo</span>
-                <span className="info-value">{profile?.type || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Status</span>
-                <span className="info-value">{profile?.status || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Idioma</span>
-                <span className="info-value">{profile?.preferredLocale || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Fuso horário</span>
-                <span className="info-value">{profile?.timezone || '—'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Criado em</span>
-                <span className="info-value">{formatDate(profile?.createdAt)}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Perfis de acesso</span>
-                <div className="roles-list">
-                  {jwtRoles.length > 0 ? jwtRoles.map((role) => (
-                    <span key={role} className="badge-role">{role}</span>
-                  )) : (
-                    <span className="info-value">—</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {showDangerZone && (
-            <div className="dash-card account-danger-zone">
-              <div className="dash-card-header">
-                <div className="dash-card-icon"><AlertTriangle size={18} /></div>
-                <h3>Zona de risco</h3>
-              </div>
-              <div className="dash-card-body">
-                <p className="account-danger-copy">
-                  Essas ações afetam apenas a sua conta e não podem ser desfeitas pelo painel.
-                </p>
-                <div className="account-danger-actions">
-                  {canBlock && (
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-pill"
-                      onClick={() => setDangerAction('block')}
-                    >
-                      <Ban size={16} />
-                      Bloquear minha conta
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-pill"
-                      onClick={() => setDangerAction('delete')}
-                    >
-                      <Trash2 size={16} />
-                      Excluir minha conta
-                    </button>
-                  )}
-                </div>
-              </div>
+      <div className="account-page">
+        <section className="account-card account-identity" aria-labelledby="account-identity-title">
+          {profile?.avatarUrl ? (
+            <img className="account-avatar" src={profile.avatarUrl} alt="" />
+          ) : (
+            <div className="account-avatar account-avatar-fallback" aria-hidden="true">
+              {initialsFrom(displayName, profile?.email || user?.email)}
             </div>
           )}
-        </div>
-      )}
+          <div className="account-identity-copy">
+            <h2 id="account-identity-title" className="account-display-name">{displayName}</h2>
+            {profile?.displayHandle && (
+              <p className="account-handle">@{profile.displayHandle}</p>
+            )}
+            <div className="account-identity-meta">
+              <span className={`account-status account-status-${status.tone}`}>{status.label}</span>
+              <span className="account-meta-dot" aria-hidden="true" />
+              <span className="account-meta-text">{formatAccountType(profile?.type)}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="account-card" aria-labelledby="account-info-title">
+          <header className="account-section-head">
+            <h3 id="account-info-title">Informações pessoais</h3>
+            <p>Dados usados para identificar você neste tenant.</p>
+          </header>
+          <dl className="account-fields">
+            <FieldRow label="Nome completo" value={profile?.personProfile?.fullName || 'Não informado'} muted={!profile?.personProfile?.fullName} />
+            <FieldRow label="E-mail" value={profile?.email || user?.email || 'Não informado'} />
+            <FieldRow label="Telefone" value={phone || 'Não informado'} muted={!phone} />
+            <FieldRow label="Conta criada em" value={formatDate(profile?.createdAt)} />
+          </dl>
+        </section>
+
+        <section className="account-card" aria-labelledby="account-prefs-title">
+          <header className="account-section-head">
+            <h3 id="account-prefs-title">Preferências</h3>
+            <p>Idioma e fuso usados na exibição de datas e comunicações.</p>
+          </header>
+          <dl className="account-fields">
+            <FieldRow label="Idioma" value={formatLocale(profile?.preferredLocale)} />
+            <FieldRow label="Fuso horário" value={profile?.timezone || 'Não informado'} muted={!profile?.timezone} />
+          </dl>
+        </section>
+
+        <section className="account-card" aria-labelledby="account-access-title">
+          <header className="account-section-head">
+            <h3 id="account-access-title">Acesso</h3>
+            <p>Perfis associados à sua sessão atual.</p>
+          </header>
+          <div className="account-roles">
+            {jwtRoles.length > 0 ? jwtRoles.map((role) => (
+              <span key={role} className="account-role-chip" title={role}>
+                {formatRole(role)}
+              </span>
+            )) : (
+              <span className="account-empty">Nenhum perfil nesta sessão.</span>
+            )}
+          </div>
+        </section>
+
+        <section className="account-card" aria-labelledby="account-security-title">
+          <header className="account-section-head">
+            <h3 id="account-security-title">Segurança</h3>
+            <p>Credenciais de acesso à plataforma.</p>
+          </header>
+          <div className="account-setting-row">
+            <div>
+              <p className="account-setting-title">Senha</p>
+              <p className="account-setting-hint">Altere a senha desta conta. Você continuará autenticado nesta sessão.</p>
+            </div>
+            <button type="button" className="btn btn-outline btn-pill" onClick={onChangePassword}>
+              <KeyRound size={16} />
+              Alterar senha
+            </button>
+          </div>
+        </section>
+
+        {showDangerZone && (
+          <section className="account-card account-danger" aria-labelledby="account-danger-title">
+            <header className="account-section-head">
+              <h3 id="account-danger-title">
+                <AlertTriangle size={16} />
+                Zona de risco
+              </h3>
+              <p>Ações irreversíveis pelo painel. Afetam somente a sua conta.</p>
+            </header>
+
+            {canBlock && (
+              <div className="account-danger-row">
+                <div>
+                  <p className="account-setting-title">Bloquear conta</p>
+                  <p className="account-setting-hint">
+                    Encerra o acesso imediatamente. Um administrador precisa desbloquear depois.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-pill"
+                  onClick={() => setDangerAction('block')}
+                >
+                  <Ban size={16} />
+                  Bloquear
+                </button>
+              </div>
+            )}
+
+            {canDelete && (
+              <div className="account-danger-row">
+                <div>
+                  <p className="account-setting-title">Excluir conta</p>
+                  <p className="account-setting-hint">
+                    Remove a conta de forma permanente. Esta ação não pode ser desfeita aqui.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-pill"
+                  onClick={() => setDangerAction('delete')}
+                >
+                  <Trash2 size={16} />
+                  Excluir
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
 
       <Modal
         isOpen={dangerAction !== null}
         onClose={closeModal}
         title={dangerAction === 'delete' ? 'Excluir minha conta' : 'Bloquear minha conta'}
-        subtitle="Esta ação é permanente para esta sessão. Informe o motivo para confirmar."
+        subtitle="Esta ação encerra a sessão atual. Informe o motivo para confirmar."
       >
         <form onSubmit={handleConfirmDanger}>
           <div className="form-group">
