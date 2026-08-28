@@ -1,10 +1,17 @@
 import { defineConfig, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const stripWwwAuthenticate = (proxy: { on: (event: string, listener: (...args: any[]) => void) => void }) => {
+  proxy.on('proxyRes', (proxyRes: { headers: Record<string, unknown> }) => {
+    delete proxyRes.headers['www-authenticate']
+  })
+}
+
 const healthProxy = (target: string, rewriteTo: string): ProxyOptions => ({
   target,
   changeOrigin: true,
   rewrite: () => rewriteTo,
+  configure: stripWwwAuthenticate,
 })
 
 export default defineConfig({
