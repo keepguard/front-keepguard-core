@@ -14,3 +14,21 @@ spec:
     name: http
   selector:
     app: front-keepguard-core
+---
+# Alias Docker Compose (hostname front-keepguard-core) para o probe da tela Conexões.
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-keepguard-core
+  namespace: keepguard
+  labels:
+    app: front-keepguard-core
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: front-keepguard-core

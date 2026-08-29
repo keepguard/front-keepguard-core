@@ -93,10 +93,17 @@ export async function customFetch<T>(
       }
     }
 
+    const correlationId =
+      response.headers.get('X-Correlation-ID') ||
+      data?.correlationId ||
+      data?.traceId ||
+      headers['X-Correlation-ID'];
+
     const errorMessage = data?.message || data?.detail || data?.error || `Erro HTTP ${response.status}`;
     const errorObj = new Error(errorMessage) as any;
     errorObj.status = response.status;
     errorObj.data = data;
+    errorObj.correlationId = correlationId;
     throw errorObj;
   }
 

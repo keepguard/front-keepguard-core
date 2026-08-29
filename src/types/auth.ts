@@ -175,5 +175,6 @@ export interface ApiErrorResponse {
   title?: string;
   detail?: string;
   errorCode?: string;
+  correlationId?: string;
   traceId?: string;
 }
