@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   Cable,
   ScrollText,
+  Bot,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -30,8 +31,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, accessToken } = useAuth();
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
   const canSeeConnections = hasAdminRole(user?.roles);
+  const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canManageTenantBlacklist || canSeeConnections || canSeeAudits;
+  const showAdminSection = canManageTenantBlacklist || canSeeConnections || canSeeAudits || canSeeGuardian;
 
   const handleItemClick = (tabKey: string) => {
     if (onSelectTab) {
@@ -126,6 +128,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Cable size={18} className="sidebar-icon" />
                 <span>Conexões</span>
+              </button>
+            )}
+            {canSeeGuardian && (
+              <button
+                className={`sidebar-nav-item ${activeTab === 'guardian' ? 'active' : ''}`}
+                onClick={() => handleItemClick('guardian')}
+              >
+                <Bot size={18} className="sidebar-icon" />
+                <span>Guardian</span>
               </button>
             )}
             {canSeeAudits && (

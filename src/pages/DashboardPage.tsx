@@ -10,6 +10,7 @@ import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseVi
 import { canReadAudits, hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
 import { AccountView } from '../components/dashboard/AccountView';
 import { AuditsView } from '../components/dashboard/AuditsView';
+import { GuardianView } from '../components/dashboard/GuardianView';
 import {
   User,
   CheckCircle,
@@ -21,6 +22,7 @@ import {
   Cable,
   ScrollText,
   Settings,
+  Bot,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -42,6 +44,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
   const canSeeConnections = hasAdminRole(user?.roles);
+  const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
 
   useEffect(() => {
@@ -51,10 +54,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'connections' && !canSeeConnections && onNavigateTab) {
       onNavigateTab('overview');
     }
+    if (activeTab === 'guardian' && !canSeeGuardian && onNavigateTab) {
+      onNavigateTab('overview');
+    }
     if (activeTab === 'audits' && !canSeeAudits && onNavigateTab) {
       onNavigateTab('overview');
     }
-  }, [activeTab, canManageTenantBlacklist, canSeeConnections, canSeeAudits, onNavigateTab]);
+  }, [activeTab, canManageTenantBlacklist, canSeeConnections, canSeeGuardian, canSeeAudits, onNavigateTab]);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -251,6 +257,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
           <ConnectionsView />
+        </>
+      )}
+
+      {activeTab === 'guardian' && canSeeGuardian && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <Bot size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Guardian
+              </h1>
+              <p className="dashboard-subtitle">
+                Incidentes investigados por IA. Ações no cluster só após confirmação de ADMIN ou SYSTEM.
+              </p>
+            </div>
+          </div>
+          <GuardianView />
         </>
       )}
 

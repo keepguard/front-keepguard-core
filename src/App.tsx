@@ -12,7 +12,13 @@ import { DEFAULT_TENANT_ID } from './services/api';
 const MainContent: React.FC = () => {
   const { isAuthenticated, user, accessToken, logout } = useAuth();
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 'overview';
+    }
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    return tab && tab.length > 0 ? tab : 'overview';
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [termsState, setTermsState] = useState<CheckTermsResult>({
