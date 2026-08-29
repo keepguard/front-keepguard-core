@@ -19,9 +19,77 @@ import {
 function formatDate(isoDate?: string) {
   if (!isoDate) return '—';
   try {
-    return new Date(isoDate).toLocaleString('pt-BR');
+    return new Date(isoDate).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   } catch {
     return isoDate;
+  }
+}
+
+function whenOf(item: GuardianIncidentListItem) {
+  return item.lastSeenAt || item.createdAt;
+}
+
+function statusLabel(status?: string) {
+  switch ((status || '').toUpperCase()) {
+    case 'AWAITING_HUMAN':
+      return 'Aguardando humano';
+    case 'ACTION_RUNNING':
+      return 'Ação em andamento';
+    case 'NOTIFIED':
+      return 'Notificado';
+    case 'DETECTED':
+      return 'Detectado';
+    case 'DIAGNOSING':
+      return 'Diagnosticando';
+    case 'DIAGNOSED':
+      return 'Diagnosticado';
+    case 'NORMALIZED':
+      return 'Normalizado';
+    case 'DISMISSED':
+      return 'Dispensado';
+    default:
+      return status || '—';
+  }
+}
+
+function statusStyle(status?: string): React.CSSProperties {
+  switch ((status || '').toUpperCase()) {
+    case 'NOTIFIED':
+    case 'AWAITING_HUMAN':
+      return { background: '#fff4e5', color: '#b36b00', borderColor: '#ffe0b2' };
+    case 'ACTION_RUNNING':
+    case 'DIAGNOSING':
+      return { background: '#eef3ff', color: '#2b4cdb', borderColor: '#c9d4ff' };
+    case 'NORMALIZED':
+    case 'DISMISSED':
+      return { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' };
+    case 'DETECTED':
+      return { background: '#fdecea', color: '#c0392b', borderColor: '#f5c6cb' };
+    default:
+      return {};
+  }
+}
+
+function severityStyle(severity?: string): React.CSSProperties {
+  switch ((severity || '').toUpperCase()) {
+    case 'CRITICAL':
+      return { background: '#fdecea', color: '#c0392b', borderColor: '#f5c6cb' };
+    case 'HIGH':
+      return { background: '#fff4e5', color: '#b36b00', borderColor: '#ffe0b2' };
+    case 'MEDIUM':
+      return { background: '#eef3ff', color: '#2b4cdb', borderColor: '#c9d4ff' };
+    case 'LOW':
+    case 'INFO':
+      return { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' };
+    default:
+      return {};
   }
 }
 
@@ -35,7 +103,7 @@ export const GuardianView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState('createdAt');
+  const [sort, setSort] = useState('lastSeenAt');
   const [dir, setDir] = useState('desc');
   const [detail, setDetail] = useState<IncidentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -154,6 +222,34 @@ export const GuardianView: React.FC = () => {
     }
   };
 
+  const pager = (
+    <div className="audits-pager">
+      <span className="audits-pager-meta">
+        {totalElements} incidente{totalElements === 1 ? '' : 's'} · página {page + 1} de {Math.max(totalPages, 1)}
+      </span>
+      <div className="audits-pager-actions">
+        <button
+          type="button"
+          className="btn btn-outline btn-pill btn-icon-pager"
+          disabled={loading || page <= 0}
+          onClick={() => void load(page - 1)}
+          aria-label="Página anterior"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline btn-pill btn-icon-pager"
+          disabled={loading || page + 1 >= totalPages}
+          onClick={() => void load(page + 1)}
+          aria-label="Próxima página"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <form
@@ -163,7 +259,7 @@ export const GuardianView: React.FC = () => {
           void load(0);
         }}
       >
-        <div className="audits-filter-row">
+        <div className="audits-filter-row guardian-filter-row">
           <select className="form-input" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
             <option value="">Todos os status</option>
             <option value="AWAITING_HUMAN">Aguardando humano</option>
@@ -183,8 +279,8 @@ export const GuardianView: React.FC = () => {
             />
           </div>
           <select className="form-input" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Ordenar">
-            <option value="createdAt">Criado em</option>
             <option value="lastSeenAt">Última ocorrência</option>
+            <option value="createdAt">Criado em</option>
             <option value="severity">Severidade</option>
             <option value="status">Status</option>
             <option value="serviceName">Serviço</option>
@@ -193,40 +289,64 @@ export const GuardianView: React.FC = () => {
             <option value="desc">Mais recentes</option>
             <option value="asc">Mais antigos</option>
           </select>
-          <button type="submit" className="btn btn-secondary btn-pill" disabled={loading}>
+          <button type="submit" className="btn btn-secondary btn-pill guardian-filter-submit" disabled={loading}>
             Filtrar
           </button>
         </div>
       </form>
 
-      <div className="table-responsive">
-        <table className="data-table">
+      {pager}
+
+      <div className="hpanel-table-card desktop-table-view">
+        <table className="hpanel-table guardian-table">
+          <colgroup>
+            <col className="col-service" />
+            <col className="col-status" />
+            <col className="col-severity" />
+            <col className="col-k8s" />
+            <col className="col-when" />
+          </colgroup>
           <thead>
             <tr>
               <th>Serviço</th>
               <th>Status</th>
               <th>Severidade</th>
-              <th>Conclusão K8s</th>
+              <th title="Conclusão Kubernetes">K8s</th>
               <th>Quando</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={5}>Carregando incidentes...</td>
+                <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                  Carregando incidentes...
+                </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5}>Nenhum incidente para os filtros atuais.</td>
+                <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                  Nenhum incidente para os filtros atuais.
+                </td>
               </tr>
             ) : (
               items.map((item) => (
                 <tr key={item.id} onClick={() => void openDetail(item)} style={{ cursor: 'pointer' }}>
-                  <td>{item.serviceName}</td>
-                  <td>{item.status}</td>
-                  <td>{item.severity}</td>
-                  <td>{item.k8sConclusion || '—'}</td>
-                  <td>{formatDate(item.createdAt)}</td>
+                  <td className="cell-service">
+                    <span className="table-cell-title">{item.serviceName}</span>
+                    {item.podName ? <div className="table-cell-muted">{item.podName}</div> : null}
+                  </td>
+                  <td>
+                    <span className="badge-role" style={statusStyle(item.status)}>
+                      {statusLabel(item.status)}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="badge-role" style={severityStyle(item.severity)}>
+                      {item.severity || '—'}
+                    </span>
+                  </td>
+                  <td className="cell-k8s" title={item.k8sConclusion || ''}>{item.k8sConclusion || '—'}</td>
+                  <td className="cell-when">{formatDate(whenOf(item))}</td>
                 </tr>
               ))
             )}
@@ -234,28 +354,36 @@ export const GuardianView: React.FC = () => {
         </table>
       </div>
 
-      <div className="audits-pager">
-        <span className="audits-pager-meta">
-          {totalElements} incidente(s) · página {page + 1} de {Math.max(totalPages, 1)}
-        </span>
-        <div className="audits-pager-actions">
-          <button type="button" className="btn btn-secondary" disabled={page <= 0} onClick={() => void load(page - 1)}>
-            <ChevronLeft size={16} />
-          </button>
+      <div className="mobile-cards-container">
+        {items.map((item) => (
           <button
             type="button"
-            className="btn btn-secondary"
-            disabled={page + 1 >= totalPages}
-            onClick={() => void load(page + 1)}
+            key={item.id}
+            className="mobile-domain-card"
+            onClick={() => void openDetail(item)}
+            style={{ textAlign: 'left', width: '100%', border: 'none', background: 'inherit' }}
           >
-            <ChevronRight size={16} />
+            <div className="mobile-card-top">
+              <span className="mobile-domain-name">{item.serviceName}</span>
+              <span className="badge-role" style={severityStyle(item.severity)}>
+                {item.severity}
+              </span>
+            </div>
+            <div className="mobile-card-subinfo">{formatDate(whenOf(item))}</div>
+            <div className="mobile-card-meta">
+              {statusLabel(item.status)} · {item.k8sConclusion || 'sem conclusão K8s'}
+            </div>
           </button>
-        </div>
+        ))}
       </div>
 
-      <div style={{ marginTop: '1.5rem' }}>
-        <h3 style={{ fontSize: '1rem' }}>Destinatários de alerta</h3>
-        <form onSubmit={addRecipient} className="audits-filter-row" style={{ marginTop: '0.75rem' }}>
+      {pager}
+
+      <div className="hpanel-table-card guardian-recipients-card">
+        <div className="guardian-recipients-head">
+          <h3>Destinatários de alerta</h3>
+        </div>
+        <form onSubmit={addRecipient} className="guardian-recipients-form">
           <input
             className="form-input"
             placeholder="email@empresa.com"
@@ -266,20 +394,28 @@ export const GuardianView: React.FC = () => {
             Adicionar
           </button>
         </form>
-        <ul style={{ marginTop: '0.75rem', paddingLeft: '1.1rem' }}>
-          {recipients.map((recipient) => (
-            <li key={recipient.id} style={{ marginBottom: '0.35rem' }}>
-              {recipient.email} {recipient.enabled ? '' : '(inativo)'}
-              <button
-                type="button"
-                className="btn btn-secondary btn-pill"
-                style={{ marginLeft: '0.5rem' }}
-                onClick={() => accessToken && void patchAlertRecipient(recipient.id, !recipient.enabled, accessToken).then(loadRecipients)}
-              >
-                {recipient.enabled ? 'Desativar' : 'Ativar'}
-              </button>
+        <ul className="guardian-recipient-list">
+          {recipients.length === 0 ? (
+            <li className="guardian-recipient-row">
+              <span className="table-cell-muted">Nenhum destinatário cadastrado.</span>
             </li>
-          ))}
+          ) : (
+            recipients.map((recipient) => (
+              <li key={recipient.id} className="guardian-recipient-row">
+                <div>
+                  <div className="guardian-recipient-email">{recipient.email}</div>
+                  <div className="guardian-recipient-meta">{recipient.enabled ? 'Ativo' : 'Inativo'}</div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-pill"
+                  onClick={() => accessToken && void patchAlertRecipient(recipient.id, !recipient.enabled, accessToken).then(loadRecipients)}
+                >
+                  {recipient.enabled ? 'Desativar' : 'Ativar'}
+                </button>
+              </li>
+            ))
+          )}
         </ul>
       </div>
 
@@ -290,7 +426,7 @@ export const GuardianView: React.FC = () => {
           setPickerOpen(false);
         }}
         title={detail?.incident.serviceName || 'Incidente'}
-        subtitle={detail ? formatDate(detail.incident.createdAt) : 'Carregando...'}
+        subtitle={detail ? formatDate(whenOf(detail.incident)) : 'Carregando...'}
         maxWidth="720px"
       >
         {detailLoading && !detail ? (

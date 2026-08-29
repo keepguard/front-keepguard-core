@@ -894,6 +894,124 @@ body {
   }
 }
 
+.audits-toolbar .guardian-filter-row {
+  grid-template-columns: minmax(150px, 0.85fr) minmax(240px, 1.8fr) minmax(150px, 0.85fr) minmax(140px, 0.7fr) auto;
+}
+
+.guardian-table {
+  table-layout: fixed;
+}
+
+.guardian-table th {
+  white-space: nowrap;
+}
+
+.guardian-table td.cell-k8s {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guardian-table col.col-service { width: 26%; }
+.guardian-table col.col-status { width: 18%; }
+.guardian-table col.col-severity { width: 14%; }
+.guardian-table col.col-k8s { width: 22%; }
+.guardian-table col.col-when { width: 20%; }
+
+.guardian-table td.cell-service {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.guardian-table td.cell-when {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.guardian-recipients-card {
+  margin-top: 0.25rem;
+}
+
+.guardian-recipients-head {
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.guardian-recipients-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.guardian-recipients-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.guardian-recipients-form .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.guardian-recipient-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.guardian-recipient-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.guardian-recipient-row:last-child {
+  border-bottom: none;
+}
+
+.guardian-recipient-email {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.guardian-recipient-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 1100px) {
+  .audits-toolbar .guardian-filter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audits-toolbar .guardian-filter-row .guardian-filter-submit {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .audits-toolbar .guardian-filter-row {
+    grid-template-columns: 1fr;
+  }
+
+  .guardian-recipients-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 .refresh-combo {
   position: relative;
   flex: 0 0 auto;
