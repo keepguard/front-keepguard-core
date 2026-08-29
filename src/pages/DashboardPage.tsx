@@ -7,8 +7,9 @@ import { AdminDeviceBlacklistCard } from '../components/dashboard/AdminDeviceBla
 import { SecurityCredentialsView } from '../components/dashboard/SecurityCredentialsView';
 import { ConnectionsView } from '../components/dashboard/ConnectionsView';
 import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
-import { hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
+import { canReadAudits, hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
 import { AccountView } from '../components/dashboard/AccountView';
+import { AuditsView } from '../components/dashboard/AuditsView';
 import {
   User,
   CheckCircle,
@@ -18,6 +19,7 @@ import {
   Ban,
   ShieldAlert,
   Cable,
+  ScrollText,
   Settings,
 } from 'lucide-react';
 
@@ -32,6 +34,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 }) => {
   const {
     user,
+    accessToken,
     lastRefreshTime,
     refreshCount,
   } = useAuth();
@@ -39,6 +42,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
   const canSeeConnections = hasAdminRole(user?.roles);
+  const canSeeAudits = canReadAudits(accessToken, user?.roles);
 
   useEffect(() => {
     if (activeTab === 'admin-blacklist' && !canManageTenantBlacklist && onNavigateTab) {
@@ -47,7 +51,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'connections' && !canSeeConnections && onNavigateTab) {
       onNavigateTab('overview');
     }
-  }, [activeTab, canManageTenantBlacklist, canSeeConnections, onNavigateTab]);
+    if (activeTab === 'audits' && !canSeeAudits && onNavigateTab) {
+      onNavigateTab('overview');
+    }
+  }, [activeTab, canManageTenantBlacklist, canSeeConnections, canSeeAudits, onNavigateTab]);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -244,6 +251,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
           <ConnectionsView />
+        </>
+      )}
+
+      {activeTab === 'audits' && canSeeAudits && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <ScrollText size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Auditoria
+              </h1>
+              <p className="dashboard-subtitle">
+                Trilha imutável de eventos de segurança deste tenant. Visível para ADMIN, SYSTEM ou quem tiver audit:read.
+              </p>
+            </div>
+          </div>
+          <AuditsView />
         </>
       )}
 

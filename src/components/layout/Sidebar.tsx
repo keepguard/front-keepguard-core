@@ -8,10 +8,11 @@ import {
   Ban,
   ShieldAlert,
   Cable,
+  ScrollText,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
+import { canReadAudits, hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
 
 interface SidebarProps {
   activeTab?: string;
@@ -26,10 +27,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile = false,
   onCloseMobile,
 }) => {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
   const canSeeConnections = hasAdminRole(user?.roles);
-  const showAdminSection = canManageTenantBlacklist || canSeeConnections;
+  const canSeeAudits = canReadAudits(accessToken, user?.roles);
+  const showAdminSection = canManageTenantBlacklist || canSeeConnections || canSeeAudits;
 
   const handleItemClick = (tabKey: string) => {
     if (onSelectTab) {
@@ -124,6 +126,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Cable size={18} className="sidebar-icon" />
                 <span>Conexões</span>
+              </button>
+            )}
+            {canSeeAudits && (
+              <button
+                className={`sidebar-nav-item ${activeTab === 'audits' ? 'active' : ''}`}
+                onClick={() => handleItemClick('audits')}
+              >
+                <ScrollText size={18} className="sidebar-icon" />
+                <span>Auditoria</span>
               </button>
             )}
           </div>

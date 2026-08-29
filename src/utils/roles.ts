@@ -58,6 +58,18 @@ export function isRegularUserRank(roles?: string[] | null): boolean {
   return roles.some((role) => normalizeRole(role) === 'USER');
 }
 
+export const AUDIT_READ_AUTHORITY = 'audit:read';
+
+export function canReadAudits(
+  token: string | null | undefined,
+  roles?: string[] | null
+): boolean {
+  if (hasAdminRole(roles)) {
+    return true;
+  }
+  return authoritiesFromJwt(token).includes(AUDIT_READ_AUTHORITY);
+}
+
 export type AccountSelfServiceAction = 'block' | 'delete';
 
 export function canSelfServiceAccount(
@@ -139,6 +151,31 @@ export function assertAccountSelfServiceVisibility(): string[] {
     }
     if (canDelete !== testCase.canDelete) {
       failures.push(`${testCase.name}: delete esperado ${testCase.canDelete}, obtido ${canDelete}`);
+    }
+  }
+  return failures;
+}
+
+export const AUDIT_READ_VISIBILITY_CASES: Array<{
+  name: string;
+  tokenPayload: Record<string, unknown>;
+  roles: string[];
+  canRead: boolean;
+}> = [
+  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true },
+  { name: 'SYSTEM sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_SYSTEM'], canRead: true },
+  { name: 'USER com audit:read', tokenPayload: { authorities: ['audit:read'] }, roles: ['ROLE_USER'], canRead: true },
+  { name: 'USER sem audit:read', tokenPayload: { authorities: [] }, roles: ['ROLE_USER'], canRead: false },
+  { name: 'MANAGER sem audit:read', tokenPayload: { authorities: ['user:block'] }, roles: ['ROLE_MANAGER'], canRead: false },
+];
+
+export function assertAuditReadVisibility(): string[] {
+  const failures: string[] = [];
+  for (const testCase of AUDIT_READ_VISIBILITY_CASES) {
+    const token = encodeTestJwt(testCase.tokenPayload);
+    const canRead = canReadAudits(token, testCase.roles);
+    if (canRead !== testCase.canRead) {
+      failures.push(`${testCase.name}: esperado ${testCase.canRead}, obtido ${canRead}`);
     }
   }
   return failures;
