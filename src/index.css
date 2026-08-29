@@ -937,7 +937,7 @@ body {
 
 .guardian-pre {
   margin: 0.4rem 0 0;
-  max-height: 220px;
+  max-height: 140px;
   overflow: auto;
   padding: 0.75rem 0.85rem;
   background: #fafbfc;
@@ -953,6 +953,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.guardian-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-bottom: 0.25rem;
 }
 
 .guardian-recipients-card summary.guardian-recipients-head {
@@ -1989,16 +1996,21 @@ textarea.form-input {
 .modal-card {
   width: 100%;
   max-width: 520px;
+  max-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 2rem;
+  padding: 1.5rem 1.75rem;
   box-shadow: var(--shadow-xl);
+  overflow: hidden;
 }
 
 @media (max-width: 640px) {
   .modal-card {
-    padding: 1.5rem;
+    padding: 1.25rem 1.15rem;
+    max-height: min(92vh, 720px);
   }
 }
 
@@ -2006,7 +2018,10 @@ textarea.form-input {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-title {
@@ -2019,6 +2034,18 @@ textarea.form-input {
   font-size: 0.85rem;
   color: var(--text-muted);
   margin-top: 0.25rem;
+}
+
+.modal-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.35rem;
+}
+
+.modal-body .info-row {
+  padding: 0.5rem 0;
 }
 
 .modal-close-btn {

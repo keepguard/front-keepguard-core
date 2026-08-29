@@ -785,7 +785,7 @@ export const GuardianView: React.FC = () => {
         {detailLoading && !detail ? (
           <p style={{ color: '#5f6368' }}>Carregando detalhe...</p>
         ) : detail ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="guardian-detail">
             <div className="info-row">
               <span className="info-label">Status</span>
               <span className="badge-role" style={statusStyle(detail.incident.status)}>
