@@ -79,7 +79,7 @@ export function searchAudits(params: SearchAuditsParams, token: string): Promise
     }
   });
   return customFetch<PaginatedAudits>(
-    `${BFF_CORE_URL}/api/v1/audits?${query.toString()}`,
+    `${BFF_CORE_URL}/api/v1/core/audits?${query.toString()}`,
     { method: 'GET' },
     token
   );
@@ -87,7 +87,7 @@ export function searchAudits(params: SearchAuditsParams, token: string): Promise
 
 export function getAudit(eventId: string, token: string): Promise<AuditDetail> {
   return customFetch<AuditDetail>(
-    `${BFF_CORE_URL}/api/v1/audits/${encodeURIComponent(eventId)}`,
+    `${BFF_CORE_URL}/api/v1/core/audits/${encodeURIComponent(eventId)}`,
     { method: 'GET' },
     token
   );

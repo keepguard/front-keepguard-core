@@ -49,7 +49,7 @@ function toIso(localValue: string): string | undefined {
   if (!localValue) return undefined;
   const d = new Date(localValue);
   if (Number.isNaN(d.getTime())) return undefined;
-  return d.toISOString();
+  return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 function outcomeLabel(outcome?: string): string {
