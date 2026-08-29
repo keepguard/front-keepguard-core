@@ -69,6 +69,8 @@ export interface SearchAuditsParams {
   resourceId?: string;
   correlationId?: string;
   sourceService?: string;
+  sort?: string;
+  dir?: string;
 }
 
 export function searchAudits(params: SearchAuditsParams, token: string): Promise<PaginatedAudits> {

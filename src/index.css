@@ -760,6 +760,253 @@ body {
   letter-spacing: 0.2px;
 }
 
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.th-sort:hover,
+.th-sort:focus-visible {
+  color: var(--text-main);
+}
+
+.audits-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.audits-filter-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.audits-toolbar .form-input,
+.audits-toolbar .search-input-wrapper,
+.audits-search-field {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  flex: none;
+}
+
+.audits-toolbar .form-input {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.audits-toolbar .form-input.audits-dir-select {
+  width: 94px;
+  max-width: 94px;
+  padding: 0.4rem 0.35rem;
+  font-size: 0.75rem;
+  justify-self: stretch;
+}
+
+.audits-filter-row-tools {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 94px auto;
+}
+
+.audits-filter-spacer {
+  display: block;
+}
+
+.audits-filter-submit,
+.audits-toolbar .refresh-combo {
+  width: 100%;
+  justify-self: stretch;
+}
+
+.audits-filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 0;
+  justify-self: end;
+}
+
+.audits-filter-actions .audits-filter-submit {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.audits-filter-actions .refresh-combo,
+.audits-toolbar .audits-filter-actions .refresh-combo {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.audits-filter-submit {
+  justify-content: center;
+}
+
+.audits-toolbar .refresh-combo-split {
+  width: 100%;
+}
+
+.audits-toolbar .audits-filter-actions .refresh-combo-split {
+  width: auto;
+}
+
+.audits-toolbar .refresh-combo-main {
+  flex: 1;
+}
+
+.audits-toolbar .audits-filter-actions .refresh-combo-main {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1100px) {
+  .audits-filter-row,
+  .audits-filter-row-tools {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .audits-toolbar .form-input.audits-dir-select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .audits-filter-actions {
+    justify-self: stretch;
+  }
+
+  .audits-filter-spacer {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .audits-filter-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.refresh-combo {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.refresh-combo-split {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.refresh-combo-split .btn {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.refresh-combo-main {
+  padding: 0.5rem 0.75rem;
+}
+
+.refresh-combo-caret {
+  padding: 0.5rem 0.45rem;
+  border-left: 1px solid var(--border) !important;
+}
+
+.refresh-combo-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 196px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 0.5rem;
+  z-index: 80;
+}
+
+.refresh-combo-auto {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.4rem;
+}
+
+.refresh-combo-hint {
+  margin: 0.35rem 0.4rem 0.2rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.refresh-combo-option {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.refresh-combo-option:hover,
+.refresh-combo-option.is-active {
+  background: var(--bg-hover);
+}
+
+.refresh-combo-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.35rem 0.4rem 0.15rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.refresh-combo-custom .form-input {
+  padding: 0.4rem 0.55rem;
+  font-size: 0.85rem;
+}
+
+.audits-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.audits-pager-meta {
+  font-size: 0.85rem;
+  color: #5f6368;
+}
+
+.audits-pager-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.btn-icon-pager {
+  padding: 0.4rem;
+  min-width: 38px;
+}
+
 .hpanel-table td {
   padding: 1.1rem 1.25rem;
   border-bottom: 1px solid var(--border-subtle);
