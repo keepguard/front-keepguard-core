@@ -34,6 +34,7 @@ export interface SearchIncidentsParams {
   serviceName?: string;
   namespace?: string;
   k8sConclusion?: string;
+  correlationId?: string;
   q?: string;
   sort?: string;
   dir?: string;
