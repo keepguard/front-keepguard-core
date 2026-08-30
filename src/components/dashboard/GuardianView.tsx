@@ -442,6 +442,22 @@ export const GuardianView: React.FC = () => {
     <div>
       <form className="audits-toolbar" onSubmit={handleSearch}>
         <div className="audits-filter-row guardian-filter-row">
+          <input
+            className="form-input"
+            type="datetime-local"
+            value={filters.from}
+            onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+            aria-label="De (opcional)"
+            title="De (opcional)"
+          />
+          <input
+            className="form-input"
+            type="datetime-local"
+            value={filters.to}
+            onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+            aria-label="Até (opcional)"
+            title="Até (opcional)"
+          />
           <select
             className="form-input"
             value={filters.status}
@@ -478,22 +494,6 @@ export const GuardianView: React.FC = () => {
               onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
             />
           </div>
-          <input
-            className="form-input"
-            type="datetime-local"
-            value={filters.from}
-            onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
-            aria-label="De (opcional)"
-            title="De (opcional)"
-          />
-          <input
-            className="form-input"
-            type="datetime-local"
-            value={filters.to}
-            onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
-            aria-label="Até (opcional)"
-            title="Até (opcional)"
-          />
         </div>
         <div className="audits-filter-row audits-filter-row-tools guardian-filter-row-tools">
           <input
