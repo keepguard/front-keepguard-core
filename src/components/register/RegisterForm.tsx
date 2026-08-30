@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Lock, Building, ArrowRight, CheckSquare, Square, LogIn, ExternalLink } from 'lucide-react';
+import { User, Mail, Phone, Lock, Building, ArrowRight, CheckSquare, Square, LogIn, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { registerService } from '../../services/registerService';
 import { consentService } from '../../services/consentService';
@@ -22,10 +22,30 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [type, setType] = useState<UserType>('PERSON');
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(true);
   const [acceptedMarketing, setAcceptedMarketing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Formatação automática do telefone padrão BR
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    const digits = rawValue.replace(/\D/g, '');
+
+    if (digits.length <= 11) {
+      if (digits.length <= 2) {
+        setPhone(digits.length > 0 ? `(${digits}` : '');
+      } else if (digits.length <= 7) {
+        setPhone(`(${digits.slice(0, 2)}) ${digits.slice(2)}`);
+      } else if (digits.length <= 10) {
+        setPhone(`(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`);
+      } else {
+        setPhone(`(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`);
+      }
+    }
+  };
 
   // Links dinâmicos dos documentos legais publicados
   const [termsUrl, setTermsUrl] = useState<string>('#');
@@ -188,7 +208,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               className="form-input with-icon"
               placeholder="(11) 99999-9999"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={handlePhoneChange}
               disabled={isLoading}
               required
             />
@@ -205,14 +225,23 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <Lock className="input-icon" size={18} />
             <input
               id="reg-pwd"
-              type="password"
-              className="form-input with-icon"
+              type={showPassword ? 'text' : 'password'}
+              className="form-input with-icon with-action"
               placeholder="Min. 8 caracteres"
               value={password}
               onChange={e => setPassword(e.target.value)}
               disabled={isLoading}
               required
             />
+            <button
+              type="button"
+              className="input-action-btn"
+              onClick={() => setShowPassword(!showPassword)}
+              tabIndex={-1}
+              aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
         </div>
 
@@ -224,14 +253,23 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <Lock className="input-icon" size={18} />
             <input
               id="reg-confirm-pwd"
-              type="password"
-              className="form-input with-icon"
+              type={showConfirmPassword ? 'text' : 'password'}
+              className="form-input with-icon with-action"
               placeholder="Repita a senha"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               disabled={isLoading}
               required
             />
+            <button
+              type="button"
+              className="input-action-btn"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              tabIndex={-1}
+              aria-label={showConfirmPassword ? 'Ocultar senha' : 'Exibir senha'}
+            >
+              {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
         </div>
       </div>

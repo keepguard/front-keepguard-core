@@ -11,7 +11,7 @@ Aplicação frontend SPA construída com **React 19**, **TypeScript** e **Vite**
 
 Para instalar as dependências do projeto:
 ```bash
-cd frontend
+cd frontend/backoffice
 npm install
 ```
 

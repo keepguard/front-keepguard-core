@@ -14,7 +14,7 @@ set -e
 
 SERVICE_NAME="front-keepguard-core"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PACKAGE_JSON="${SCRIPT_DIR}/package.json"
 DOCKER_COMPOSE_FILE="${PROJECT_ROOT}/docker/docker-compose.yml"
 
