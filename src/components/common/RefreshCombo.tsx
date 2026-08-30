@@ -42,6 +42,7 @@ export const RefreshCombo: React.FC<RefreshComboProps> = ({
   const [intervalPreset, setIntervalPreset] = useState<IntervalPreset>('30s');
   const [customSeconds, setCustomSeconds] = useState(10);
   const [remaining, setRemaining] = useState(0);
+  const [turnNonce, setTurnNonce] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
@@ -70,6 +71,14 @@ export const RefreshCombo: React.FC<RefreshComboProps> = ({
   }, [menuOpen]);
 
   const busy = disabled || refreshing;
+  const wasBusy = useRef(false);
+
+  useEffect(() => {
+    if (busy && !wasBusy.current) {
+      setTurnNonce((n) => n + 1);
+    }
+    wasBusy.current = busy;
+  }, [busy]);
 
   useEffect(() => {
     if (!autoRefresh) {
@@ -100,7 +109,6 @@ export const RefreshCombo: React.FC<RefreshComboProps> = ({
   }, [autoRefresh, busy, intervalSeconds]);
 
   const autoActive = autoRefresh;
-  const fetching = autoActive && busy;
   const title = autoActive
     ? refreshing
       ? 'Atualizando automaticamente…'
@@ -110,13 +118,7 @@ export const RefreshCombo: React.FC<RefreshComboProps> = ({
   return (
     <div className="refresh-combo" ref={menuRef}>
       <div
-        className={[
-          'refresh-combo-split',
-          autoActive ? 'is-auto' : '',
-          fetching ? 'is-fetching' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        className={['refresh-combo-split', autoActive ? 'is-auto' : ''].filter(Boolean).join(' ')}
       >
         <button
           type="button"
@@ -126,12 +128,14 @@ export const RefreshCombo: React.FC<RefreshComboProps> = ({
           aria-label={title}
           title={title}
         >
-          <RefreshCw size={15} className={busy ? 'spin' : ''} />
-          {autoActive && !busy && remaining > 0 && (
-            <span className="refresh-combo-countdown" aria-hidden="true">
-              {formatCountdown(remaining)}
-            </span>
-          )}
+          <RefreshCw
+            key={turnNonce}
+            size={15}
+            className={busy ? 'refresh-combo-icon is-turning' : 'refresh-combo-icon'}
+          />
+          <span className="refresh-combo-countdown" aria-hidden="true">
+            {autoActive && !busy && remaining > 0 ? formatCountdown(remaining) : '\u00a0'}
+          </span>
         </button>
         <button
           type="button"

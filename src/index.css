@@ -844,8 +844,8 @@ body {
 
 .audits-filter-actions .refresh-combo,
 .audits-toolbar .audits-filter-actions .refresh-combo {
-  flex: 0 0 auto;
-  width: auto;
+  flex: 0 0 8.25rem;
+  width: 8.25rem;
 }
 
 .audits-filter-submit {
@@ -857,15 +857,12 @@ body {
 }
 
 .audits-toolbar .audits-filter-actions .refresh-combo-split {
-  width: auto;
+  width: 8.25rem;
 }
 
-.audits-toolbar .refresh-combo-main {
-  flex: 1;
-}
-
+.audits-toolbar .refresh-combo-main,
 .audits-toolbar .audits-filter-actions .refresh-combo-main {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
 }
 
 @media (max-width: 1100px) {
@@ -1074,11 +1071,14 @@ body {
 
 .refresh-combo {
   position: relative;
-  flex: 0 0 auto;
+  flex: 0 0 8.25rem;
+  width: 8.25rem;
 }
 
 .refresh-combo-split {
   display: inline-flex;
+  width: 8.25rem;
+  height: 38px;
   border: 1px solid var(--border);
   border-radius: 9999px;
   overflow: hidden;
@@ -1105,35 +1105,47 @@ body {
   border-left-color: var(--primary-border) !important;
 }
 
-.refresh-combo-split.is-fetching {
-  border-color: var(--primary);
-  background: var(--primary);
-  animation: refresh-combo-pulse 0.35s ease;
-}
-
-.refresh-combo-split.is-fetching .refresh-combo-main,
-.refresh-combo-split.is-fetching .refresh-combo-caret {
-  color: #ffffff;
-}
-
-.refresh-combo-main {
+.refresh-combo-split .refresh-combo-main {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.5rem 0.75rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 0.7rem;
+  justify-content: flex-start;
+}
+
+.refresh-combo-icon {
+  flex: 0 0 15px;
+  display: block;
+}
+
+.refresh-combo-icon.is-turning {
+  animation: refresh-icon-once 0.55s ease-in-out;
 }
 
 .refresh-combo-countdown {
-  min-width: 2.6em;
+  width: 2.4em;
+  min-width: 2.4em;
+  flex: 0 0 2.4em;
   font-size: 0.72rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
   line-height: 1;
+  text-align: left;
 }
 
-.refresh-combo-caret {
-  padding: 0.5rem 0.45rem;
+.refresh-combo-split .refresh-combo-caret {
+  flex: 0 0 2.75rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 100%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-left: 1px solid var(--border) !important;
 }
 
@@ -2433,10 +2445,9 @@ textarea.form-input {
   to { transform: rotate(360deg); }
 }
 
-@keyframes refresh-combo-pulse {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.04); }
-  100% { transform: scale(1); }
+@keyframes refresh-icon-once {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes slideUp {
