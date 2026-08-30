@@ -1091,8 +1091,45 @@ body {
   box-shadow: none;
 }
 
+.refresh-combo-split.is-auto {
+  border-color: var(--primary-border);
+  background: var(--primary-light);
+}
+
+.refresh-combo-split.is-auto .refresh-combo-main,
+.refresh-combo-split.is-auto .refresh-combo-caret {
+  color: var(--primary);
+}
+
+.refresh-combo-split.is-auto .refresh-combo-caret {
+  border-left-color: var(--primary-border) !important;
+}
+
+.refresh-combo-split.is-fetching {
+  border-color: var(--primary);
+  background: var(--primary);
+  animation: refresh-combo-pulse 0.35s ease;
+}
+
+.refresh-combo-split.is-fetching .refresh-combo-main,
+.refresh-combo-split.is-fetching .refresh-combo-caret {
+  color: #ffffff;
+}
+
 .refresh-combo-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.5rem 0.75rem;
+}
+
+.refresh-combo-countdown {
+  min-width: 2.6em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1;
 }
 
 .refresh-combo-caret {
@@ -2394,6 +2431,12 @@ textarea.form-input {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes refresh-combo-pulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.04); }
+  100% { transform: scale(1); }
 }
 
 @keyframes slideUp {

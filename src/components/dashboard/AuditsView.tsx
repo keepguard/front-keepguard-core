@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, RefreshCw, ScrollText, Search } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, ScrollText, Search } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { RefreshCombo } from '../common/RefreshCombo';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getAudit, searchAudits, type AuditDetail, type AuditEvent } from '../../services/auditService';
@@ -13,13 +14,6 @@ if (visibilityFailures.length > 0 && import.meta.env.DEV) {
 
 type SortKey = 'occurredAt' | 'actor' | 'action' | 'resource' | 'outcome' | 'sourceService';
 type SortDir = 'asc' | 'desc';
-type IntervalPreset = '5s' | '30s' | '1m' | 'custom';
-
-const INTERVAL_MS: Record<Exclude<IntervalPreset, 'custom'>, number> = {
-  '5s': 5_000,
-  '30s': 30_000,
-  '1m': 60_000,
-};
 
 function formatDate(isoDate?: string) {
   if (!isoDate) return '—';
@@ -188,13 +182,7 @@ export const AuditsView: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [refreshMenuOpen, setRefreshMenuOpen] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [intervalPreset, setIntervalPreset] = useState<IntervalPreset>('30s');
-  const [customSeconds, setCustomSeconds] = useState(10);
-
   const token = accessToken || localStorage.getItem('keepguard_access_token') || '';
-  const refreshMenuRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef(page);
   const appliedRef = useRef(applied);
   const itemsRef = useRef(items);
@@ -258,42 +246,6 @@ export const AuditsView: React.FC = () => {
   useEffect(() => {
     loadPage(0, applied);
   }, [accessToken]);
-
-  useEffect(() => {
-    if (!refreshMenuOpen) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (refreshMenuRef.current && !refreshMenuRef.current.contains(event.target as Node)) {
-        setRefreshMenuOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setRefreshMenuOpen(false);
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [refreshMenuOpen]);
-
-  const refreshIntervalMs = useMemo(() => {
-    if (intervalPreset === 'custom') {
-      const seconds = Number(customSeconds);
-      return Number.isFinite(seconds) && seconds >= 3 ? seconds * 1000 : 10_000;
-    }
-    return INTERVAL_MS[intervalPreset];
-  }, [customSeconds, intervalPreset]);
-
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const timer = window.setInterval(() => {
-      void loadPage(pageRef.current, appliedRef.current);
-    }, refreshIntervalMs);
-    return () => window.clearInterval(timer);
-  }, [autoRefresh, loadPage, refreshIntervalMs]);
 
   const displayedItems = useMemo(() => {
     if (!sortKey) return items;
@@ -473,77 +425,11 @@ export const AuditsView: React.FC = () => {
             <Search size={15} />
             <span>Filtrar</span>
           </button>
-          <div className="refresh-combo" ref={refreshMenuRef}>
-          <div className="refresh-combo-split">
-            <button
-              type="button"
-              className="btn btn-secondary refresh-combo-main"
-              onClick={() => loadPage(page, applied)}
-              disabled={loading || refreshing}
-              aria-label="Atualizar agora"
-              title="Atualizar agora"
-            >
-              <RefreshCw size={15} className={loading || refreshing ? 'spin' : ''} />
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary refresh-combo-caret"
-              onClick={() => setRefreshMenuOpen((open) => !open)}
-              aria-haspopup="menu"
-              aria-expanded={refreshMenuOpen}
-              aria-label="Opções de atualização"
-              title="Opções de atualização"
-            >
-              <ChevronDown size={14} />
-            </button>
-          </div>
-          {refreshMenuOpen && (
-            <div className="refresh-combo-menu" role="menu">
-              <label className="refresh-combo-auto">
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                />
-                Automático
-              </label>
-              <p className="refresh-combo-hint">Intervalo (só vale com automático ligado)</p>
-              {(['5s', '30s', '1m'] as const).map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  className={`refresh-combo-option${intervalPreset === preset ? ' is-active' : ''}`}
-                  role="menuitem"
-                  onClick={() => setIntervalPreset(preset)}
-                >
-                  {preset}
-                </button>
-              ))}
-              <button
-                type="button"
-                className={`refresh-combo-option${intervalPreset === 'custom' ? ' is-active' : ''}`}
-                role="menuitem"
-                onClick={() => setIntervalPreset('custom')}
-              >
-                Customizado
-              </button>
-              {intervalPreset === 'custom' && (
-                <label className="refresh-combo-custom">
-                  Segundos
-                  <input
-                    className="form-input"
-                    type="number"
-                    min={3}
-                    step={1}
-                    value={customSeconds}
-                    onChange={(e) => setCustomSeconds(Number(e.target.value))}
-                    aria-label="Intervalo personalizado em segundos"
-                  />
-                </label>
-              )}
-            </div>
-          )}
-        </div>
+          <RefreshCombo
+            onRefresh={() => void loadPage(pageRef.current, appliedRef.current)}
+            disabled={loading || refreshing}
+            refreshing={refreshing}
+          />
           </div>
         </div>
       </form>

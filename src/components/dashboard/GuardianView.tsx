@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bot,
   ChevronDown,
@@ -7,10 +7,10 @@ import {
   ChevronsUpDown,
   ChevronUp,
   Mail,
-  RefreshCw,
   Search,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { RefreshCombo } from '../common/RefreshCombo';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -28,13 +28,6 @@ import {
 
 type SortKey = 'lastSeenAt' | 'createdAt' | 'severity' | 'status' | 'serviceName';
 type SortDir = 'asc' | 'desc';
-type IntervalPreset = '5s' | '30s' | '1m' | 'custom';
-
-const INTERVAL_MS: Record<Exclude<IntervalPreset, 'custom'>, number> = {
-  '5s': 5_000,
-  '30s': 30_000,
-  '1m': 60_000,
-};
 
 type Filters = {
   from: string;
@@ -224,13 +217,7 @@ export const GuardianView: React.FC = () => {
   const [pendingSuggestion, setPendingSuggestion] = useState<SuggestionDTO | null>(null);
   const [recipients, setRecipients] = useState<AlertRecipient[]>([]);
   const [newEmail, setNewEmail] = useState('');
-  const [refreshMenuOpen, setRefreshMenuOpen] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [intervalPreset, setIntervalPreset] = useState<IntervalPreset>('30s');
-  const [customSeconds, setCustomSeconds] = useState(10);
-
   const token = accessToken || '';
-  const refreshMenuRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef(page);
   const appliedRef = useRef(applied);
   const itemsRef = useRef(items);
@@ -293,40 +280,6 @@ export const GuardianView: React.FC = () => {
     void loadPage(0, applied);
     void loadRecipients();
   }, [accessToken]);
-
-  useEffect(() => {
-    if (!refreshMenuOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (refreshMenuRef.current && !refreshMenuRef.current.contains(event.target as Node)) {
-        setRefreshMenuOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setRefreshMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [refreshMenuOpen]);
-
-  const refreshIntervalMs = useMemo(() => {
-    if (intervalPreset === 'custom') {
-      const seconds = Number(customSeconds);
-      return Number.isFinite(seconds) && seconds >= 3 ? seconds * 1000 : 10_000;
-    }
-    return INTERVAL_MS[intervalPreset];
-  }, [customSeconds, intervalPreset]);
-
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const timer = window.setInterval(() => {
-      void loadPage(pageRef.current, appliedRef.current);
-    }, refreshIntervalMs);
-    return () => window.clearInterval(timer);
-  }, [autoRefresh, loadPage, refreshIntervalMs]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -543,77 +496,11 @@ export const GuardianView: React.FC = () => {
               <Search size={15} />
               <span>Filtrar</span>
             </button>
-            <div className="refresh-combo" ref={refreshMenuRef}>
-              <div className="refresh-combo-split">
-                <button
-                  type="button"
-                  className="btn btn-secondary refresh-combo-main"
-                  onClick={() => void loadPage(page, applied)}
-                  disabled={loading || refreshing}
-                  aria-label="Atualizar agora"
-                  title="Atualizar agora"
-                >
-                  <RefreshCw size={15} className={loading || refreshing ? 'spin' : ''} />
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary refresh-combo-caret"
-                  onClick={() => setRefreshMenuOpen((open) => !open)}
-                  aria-haspopup="menu"
-                  aria-expanded={refreshMenuOpen}
-                  aria-label="Opções de atualização"
-                  title="Opções de atualização"
-                >
-                  <ChevronDown size={14} />
-                </button>
-              </div>
-              {refreshMenuOpen && (
-                <div className="refresh-combo-menu" role="menu">
-                  <label className="refresh-combo-auto">
-                    <input
-                      type="checkbox"
-                      checked={autoRefresh}
-                      onChange={(e) => setAutoRefresh(e.target.checked)}
-                    />
-                    Automático
-                  </label>
-                  <p className="refresh-combo-hint">Intervalo (só vale com automático ligado)</p>
-                  {(['5s', '30s', '1m'] as const).map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      className={`refresh-combo-option${intervalPreset === preset ? ' is-active' : ''}`}
-                      role="menuitem"
-                      onClick={() => setIntervalPreset(preset)}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className={`refresh-combo-option${intervalPreset === 'custom' ? ' is-active' : ''}`}
-                    role="menuitem"
-                    onClick={() => setIntervalPreset('custom')}
-                  >
-                    Customizado
-                  </button>
-                  {intervalPreset === 'custom' && (
-                    <label className="refresh-combo-custom">
-                      Segundos
-                      <input
-                        className="form-input"
-                        type="number"
-                        min={3}
-                        step={1}
-                        value={customSeconds}
-                        onChange={(e) => setCustomSeconds(Number(e.target.value))}
-                        aria-label="Intervalo personalizado em segundos"
-                      />
-                    </label>
-                  )}
-                </div>
-              )}
-            </div>
+            <RefreshCombo
+              onRefresh={() => void loadPage(pageRef.current, appliedRef.current)}
+              disabled={loading || refreshing}
+              refreshing={refreshing}
+            />
           </div>
         </div>
       </form>
