@@ -17,42 +17,73 @@ export const OtpInput: React.FC<OtpInputProps> = ({
 
   const digits = value.padEnd(length, '').split('').slice(0, length);
 
+  const applyDigits = (newDigits: string[], focusIdx?: number) => {
+    const combined = newDigits.join('').slice(0, length);
+    onChange(combined);
+    if (focusIdx !== undefined && focusIdx >= 0 && focusIdx < length) {
+      inputsRef.current[focusIdx]?.focus();
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const val = e.target.value.replace(/\D/g, ''); // apenas dígitos numéricos
-    if (!val) {
+    const rawVal = e.target.value.replace(/\D/g, ''); // apenas dígitos numéricos
+    if (!rawVal) {
       // Limpar dígito atual
       const newDigits = [...digits];
       newDigits[index] = '';
-      onChange(newDigits.join('').trim());
+      applyDigits(newDigits);
       return;
     }
 
-    const lastChar = val[val.length - 1];
-    const newDigits = [...digits];
-    newDigits[index] = lastChar;
-    const combined = newDigits.join('');
-    onChange(combined);
+    // Se mais de 1 caractere foi inserido (ex: Autofill do iOS/Android ou colagem via teclado)
+    if (rawVal.length > 1) {
+      const incoming = rawVal.slice(0, length);
+      const newDigits = [...digits];
+      const startIdx = incoming.length >= length ? 0 : index;
+      for (let i = 0; i < incoming.length && startIdx + i < length; i++) {
+        newDigits[startIdx + i] = incoming[i];
+      }
+      const nextFocus = Math.min(startIdx + incoming.length, length - 1);
+      applyDigits(newDigits, nextFocus);
+      return;
+    }
 
-    // Focar no próximo input se existir
-    if (index < length - 1 && lastChar) {
+    // Apenas 1 dígito digitado
+    const newDigits = [...digits];
+    newDigits[index] = rawVal;
+    const nextFocus = index < length - 1 ? index + 1 : index;
+    applyDigits(newDigits, nextFocus);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === 'Backspace') {
+      if (!digits[index] && index > 0) {
+        inputsRef.current[index - 1]?.focus();
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      inputsRef.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < length - 1) {
       inputsRef.current[index + 1]?.focus();
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
-      inputsRef.current[index - 1]?.focus();
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>, index: number) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '');
+    if (pasteData) {
+      const incoming = pasteData.slice(0, length);
+      const newDigits = [...digits];
+      const startIdx = incoming.length >= length ? 0 : index;
+      for (let i = 0; i < incoming.length && startIdx + i < length; i++) {
+        newDigits[startIdx + i] = incoming[i];
+      }
+      const nextFocus = Math.min(startIdx + incoming.length, length - 1);
+      applyDigits(newDigits, nextFocus);
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, length);
-    if (pasteData) {
-      onChange(pasteData);
-      const nextFocus = Math.min(pasteData.length, length - 1);
-      inputsRef.current[nextFocus]?.focus();
-    }
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
   };
 
   return (
@@ -65,14 +96,18 @@ export const OtpInput: React.FC<OtpInputProps> = ({
           }}
           type="text"
           inputMode="numeric"
-          maxLength={1}
+          pattern="[0-9]*"
+          autoComplete={index === 0 ? 'one-time-code' : 'off'}
+          maxLength={length}
           value={digits[index] || ''}
           onChange={e => handleChange(e, index)}
           onKeyDown={e => handleKeyDown(e, index)}
-          onPaste={handlePaste}
+          onPaste={e => handlePaste(e, index)}
+          onFocus={handleFocus}
           disabled={disabled}
           className="otp-digit"
           autoFocus={index === 0}
+          aria-label={`Dígito ${index + 1} do código de verificação`}
         />
       ))}
     </div>

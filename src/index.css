@@ -1984,26 +1984,65 @@ textarea.form-input {
 .otp-container {
   display: flex;
   justify-content: center;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .otp-digit {
-  width: 48px;
-  height: 54px;
+  width: 44px;
+  height: 50px;
+  flex: 0 1 44px;
+  max-width: 44px;
+  min-width: 0;
   background: #ffffff;
   border: 1.5px solid var(--border);
   border-radius: 8px;
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 700;
   text-align: center;
   color: var(--primary);
   transition: var(--transition-smooth);
+  box-sizing: border-box;
+  padding: 0;
 }
 
 .otp-digit:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+@media (max-width: 480px) {
+  .otp-container {
+    gap: 0.35rem;
+  }
+
+  .otp-digit {
+    width: 38px;
+    height: 44px;
+    flex: 0 1 38px;
+    max-width: 38px;
+    font-size: 1.1rem;
+    border-radius: 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .otp-container {
+    gap: 0.25rem;
+  }
+
+  .otp-digit {
+    width: 32px;
+    height: 38px;
+    flex: 0 1 32px;
+    max-width: 32px;
+    font-size: 1rem;
+    border-radius: 6px;
+  }
 }
 
 /* Alerts */
