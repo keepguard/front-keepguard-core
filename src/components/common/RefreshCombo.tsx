@@ -9,20 +9,22 @@ const INTERVAL_MS: Record<Exclude<IntervalPreset, 'custom'>, number> = {
   '1m': 60_000,
 };
 
+const CUSTOM_MIN_SECONDS = 3;
+const CUSTOM_MAX_SECONDS = 3600;
+
+function clampCustomSeconds(value: number): number {
+  if (!Number.isFinite(value)) return 10;
+  return Math.min(CUSTOM_MAX_SECONDS, Math.max(CUSTOM_MIN_SECONDS, Math.round(value)));
+}
+
 function intervalSecondsFrom(preset: IntervalPreset, customSeconds: number): number {
   if (preset === 'custom') {
-    const seconds = Number(customSeconds);
-    return Number.isFinite(seconds) && seconds >= 3 ? Math.round(seconds) : 10;
+    return clampCustomSeconds(customSeconds);
   }
   return Math.round(INTERVAL_MS[preset] / 1000);
 }
 
 function formatCountdown(seconds: number): string {
-  if (seconds >= 60) {
-    const minutes = Math.floor(seconds / 60);
-    const rest = seconds % 60;
-    return `${minutes}:${String(rest).padStart(2, '0')}`;
-  }
   return `${seconds}s`;
 }
 
@@ -181,15 +183,16 @@ export const RefreshCombo: React.FC<RefreshComboProps> = ({
           </button>
           {intervalPreset === 'custom' && (
             <label className="refresh-combo-custom">
-              Segundos
+              Segundos (máx. 3600)
               <input
                 className="form-input"
                 type="number"
-                min={3}
+                min={CUSTOM_MIN_SECONDS}
+                max={CUSTOM_MAX_SECONDS}
                 step={1}
                 value={customSeconds}
-                onChange={(e) => setCustomSeconds(Number(e.target.value))}
-                aria-label="Intervalo personalizado em segundos"
+                onChange={(e) => setCustomSeconds(clampCustomSeconds(Number(e.target.value)))}
+                aria-label="Intervalo personalizado em segundos (máximo 3600)"
               />
             </label>
           )}
