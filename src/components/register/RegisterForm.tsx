@@ -71,6 +71,26 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     loadConsents();
   }, []);
 
+  // Converte número de telefone informado para formato internacional E.164
+  const normalizePhoneToE164 = (rawPhone: string): string => {
+    const trimmed = rawPhone.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('+')) {
+      return `+${trimmed.slice(1).replace(/\D/g, '')}`;
+    }
+    const digits = trimmed.replace(/\D/g, '');
+    if (digits.length === 10 || digits.length === 11) {
+      return `+55${digits}`;
+    }
+    if (digits.length > 11 && !digits.startsWith('55')) {
+      return `+${digits}`;
+    }
+    if (digits.length >= 12 && digits.startsWith('55')) {
+      return `+${digits}`;
+    }
+    return `+55${digits}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -101,12 +121,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       return;
     }
 
+    const phoneE164 = normalizePhoneToE164(phone);
+
     setIsLoading(true);
     try {
       const response = await registerService.init({
         nameFull: nameFull.trim(),
         email: email.trim(),
-        phone: phone.trim(),
+        phone: phoneE164,
         password,
         confirmPassword,
         type,
@@ -122,7 +144,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
       onSuccess({
         email: email.trim(),
-        phone: phone.trim(),
+        phone: phoneE164,
         sessionId: response.registrationSessionId,
         requiredChannels: response.requiredChannels || ['EMAIL'],
       });
