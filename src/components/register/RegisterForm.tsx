@@ -146,7 +146,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         email: email.trim(),
         phone: phoneE164,
         sessionId: response.registrationSessionId,
-        requiredChannels: response.requiredChannels || ['EMAIL'],
+        requiredChannels: response.requiredChannels && response.requiredChannels.length > 0 ? response.requiredChannels : ['EMAIL'],
       });
     } catch (err: any) {
       console.error('Erro na inicialização de cadastro:', err);
