@@ -659,17 +659,33 @@ export const ClientSystemView: React.FC = () => {
         onClose={() => !submitting && setCreateOpen(false)}
         title="Criar OAuth client"
         subtitle="O secret é exibido apenas uma vez após a criação."
+        maxWidth="560px"
       >
-        <form onSubmit={handleCreate}>
-          <div className="form-group">
-            <label htmlFor="oauth-client-id">Client ID</label>
-            <input
-              id="oauth-client-id"
-              className="form-input"
-              value={createForm.clientId}
-              onChange={(e) => setCreateForm((f) => ({ ...f, clientId: e.target.value }))}
-              required
-            />
+        <form className="oauth-create-form" onSubmit={handleCreate}>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="oauth-client-id">Client ID</label>
+              <input
+                id="oauth-client-id"
+                className="form-input"
+                value={createForm.clientId}
+                onChange={(e) => setCreateForm((f) => ({ ...f, clientId: e.target.value }))}
+                placeholder="srv-data-collector"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="oauth-client-ttl">TTL (segundos)</label>
+              <input
+                id="oauth-client-ttl"
+                className="form-input"
+                type="number"
+                min={900}
+                max={86400}
+                value={createForm.tokenTtlSeconds}
+                onChange={(e) => setCreateForm((f) => ({ ...f, tokenTtlSeconds: e.target.value }))}
+              />
+            </div>
           </div>
           <div className="form-group">
             <label htmlFor="oauth-client-desc">Descrição</label>
@@ -678,6 +694,7 @@ export const ClientSystemView: React.FC = () => {
               className="form-input"
               value={createForm.description}
               onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Opcional"
             />
           </div>
           <div className="form-group">
@@ -697,31 +714,37 @@ export const ClientSystemView: React.FC = () => {
                 </option>
               ))}
             </select>
+            {selectedServiceRole?.description ? (
+              <p className="oauth-role-hint">{selectedServiceRole.description}</p>
+            ) : null}
           </div>
-          {selectedServiceRole ? (
-            <div className="form-group">
+          <div className="form-group oauth-authorities-group">
+            <div className="form-label-row">
               <label>Authorities associadas</label>
-              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#5f6368' }}>
-                {(selectedServiceRole.authorities || []).map((authority) => (
-                  <li key={authority.name}>
-                    <strong>{authority.name}</strong>
-                    {authority.description ? ` — ${authority.description}` : ''}
-                  </li>
-                ))}
-              </ul>
+              <span className="oauth-authorities-count">
+                {selectedServiceRole
+                  ? `${(selectedServiceRole.authorities || []).length} ${(selectedServiceRole.authorities || []).length === 1 ? 'permissão' : 'permissões'}`
+                  : '—'}
+              </span>
             </div>
-          ) : null}
-          <div className="form-group">
-            <label htmlFor="oauth-client-ttl">TTL (segundos)</label>
-            <input
-              id="oauth-client-ttl"
-              className="form-input"
-              type="number"
-              min={900}
-              max={86400}
-              value={createForm.tokenTtlSeconds}
-              onChange={(e) => setCreateForm((f) => ({ ...f, tokenTtlSeconds: e.target.value }))}
-            />
+            <div className="oauth-authorities-list" role="list">
+              {selectedServiceRole && (selectedServiceRole.authorities || []).length > 0 ? (
+                (selectedServiceRole.authorities || []).map((authority) => (
+                  <div key={authority.name} className="oauth-authority-item" role="listitem">
+                    <span className="oauth-authority-name">{authority.name}</span>
+                    {authority.description ? (
+                      <span className="oauth-authority-desc">{authority.description}</span>
+                    ) : null}
+                  </div>
+                ))
+              ) : (
+                <p className="oauth-authorities-empty">
+                  {serviceRolesLoading
+                    ? 'Carregando permissões...'
+                    : 'Selecione um perfil para ver as permissões associadas.'}
+                </p>
+              )}
+            </div>
           </div>
           <div className="modal-actions">
             <button type="button" className="btn btn-outline" onClick={() => setCreateOpen(false)} disabled={submitting}>

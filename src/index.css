@@ -905,6 +905,80 @@ body {
   margin-bottom: 1rem;
 }
 
+.oauth-create-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.oauth-create-form .form-row {
+  margin-bottom: 1rem;
+}
+
+.oauth-create-form .form-row .form-group {
+  margin-bottom: 0;
+}
+
+.oauth-create-form .modal-actions {
+  margin-top: 0.5rem;
+}
+
+.oauth-role-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.oauth-authorities-group {
+  margin-bottom: 0.5rem;
+}
+
+.oauth-authorities-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.oauth-authorities-list {
+  max-height: 168px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+}
+
+.oauth-authority-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.oauth-authority-item:last-child {
+  border-bottom: none;
+}
+
+.oauth-authority-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.oauth-authority-desc {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.oauth-authorities-empty {
+  margin: 0;
+  padding: 1rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
 .audits-toolbar .client-system-filter-row {
   grid-template-columns: minmax(180px, 1.2fr) minmax(150px, 0.8fr);
 }
