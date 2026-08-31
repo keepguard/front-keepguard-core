@@ -8,6 +8,7 @@ import {
   Cable,
   ScrollText,
   Bot,
+  KeyRound,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -30,8 +31,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
   const canSeeConnections = hasAdminRole(user?.roles);
   const canSeeGuardian = hasAdminRole(user?.roles);
+  const canSeeClientSystem = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canManageTenantBlacklist || canSeeConnections || canSeeAudits || canSeeGuardian;
+  const showAdminSection = canManageTenantBlacklist || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem;
 
   const handleItemClick = (tabKey: string) => {
     if (onSelectTab) {
@@ -119,6 +121,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Bot size={18} className="sidebar-icon" />
                 <span>Guardian</span>
+              </button>
+            )}
+            {canSeeClientSystem && (
+              <button
+                className={`sidebar-nav-item ${activeTab === 'client-system' ? 'active' : ''}`}
+                onClick={() => handleItemClick('client-system')}
+              >
+                <KeyRound size={18} className="sidebar-icon" />
+                <span>Client system</span>
               </button>
             )}
             {canSeeAudits && (

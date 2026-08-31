@@ -11,6 +11,7 @@ import { canReadAudits, hasAdminOrManagerRole, hasAdminRole } from '../utils/rol
 import { AccountView } from '../components/dashboard/AccountView';
 import { AuditsView } from '../components/dashboard/AuditsView';
 import { GuardianView } from '../components/dashboard/GuardianView';
+import { ClientSystemView } from '../components/dashboard/ClientSystemView';
 import {
   User,
   CheckCircle,
@@ -22,6 +23,7 @@ import {
   ScrollText,
   Settings,
   Bot,
+  KeyRound,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -44,6 +46,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
   const canSeeConnections = hasAdminRole(user?.roles);
   const canSeeGuardian = hasAdminRole(user?.roles);
+  const canSeeClientSystem = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
 
   useEffect(() => {
@@ -56,6 +59,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'guardian' && !canSeeGuardian && onNavigateTab) {
       onNavigateTab('overview');
     }
+    if (activeTab === 'client-system' && !canSeeClientSystem && onNavigateTab) {
+      onNavigateTab('overview');
+    }
     if (activeTab === 'audits' && !canSeeAudits && onNavigateTab) {
       onNavigateTab('overview');
     }
@@ -65,7 +71,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'security' && onNavigateTab) {
       onNavigateTab('overview');
     }
-  }, [activeTab, canManageTenantBlacklist, canSeeConnections, canSeeGuardian, canSeeAudits, onNavigateTab]);
+  }, [activeTab, canManageTenantBlacklist, canSeeConnections, canSeeGuardian, canSeeClientSystem, canSeeAudits, onNavigateTab]);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -265,6 +271,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
           <GuardianView />
+        </>
+      )}
+
+      {activeTab === 'client-system' && canSeeClientSystem && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <KeyRound size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Client system
+              </h1>
+              <p className="dashboard-subtitle">
+                OAuth clients de sistema por tenant. Visível para ADMIN e SYSTEM.
+              </p>
+            </div>
+          </div>
+          <ClientSystemView />
         </>
       )}
 
