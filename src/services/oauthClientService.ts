@@ -27,6 +27,7 @@ export interface CollectorAgent {
 
 export interface OAuthClientDetail extends OAuthClient {
   agents: CollectorAgent[];
+  agentsLoadError?: string;
 }
 
 export interface PaginatedOAuthClients {

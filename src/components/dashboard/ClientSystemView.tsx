@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Ban,
   ChevronLeft,
@@ -6,7 +6,6 @@ import {
   KeyRound,
   LockOpen,
   Plus,
-  RefreshCw,
   Search,
   Trash2,
 } from 'lucide-react';
@@ -66,14 +65,26 @@ function statusStyle(status?: string): React.CSSProperties {
 function AgentImpactList({
   agents,
   loading,
+  agentsLoadError,
   impact = false,
 }: {
   agents: CollectorAgent[];
   loading: boolean;
+  agentsLoadError?: string;
   impact?: boolean;
 }) {
   if (loading) {
     return <p style={{ color: '#5f6368', margin: '0 0 1rem' }}>Buscando agents no collector...</p>;
+  }
+  if (agentsLoadError) {
+    return (
+      <p style={{ color: '#b45309', margin: '0 0 1rem' }}>
+        Não foi possível consultar os agents no collector ({agentsLoadError}).
+        {impact
+          ? ' Verifique se o srv-data-collector está em execução antes de confirmar.'
+          : ''}
+      </p>
+    );
   }
   if (agents.length === 0) {
     return (
@@ -104,23 +115,21 @@ function AgentImpactList({
 
 const ClientPager: React.FC<{
   loading: boolean;
-  refreshing: boolean;
   page: number;
   totalPages: number;
   totalElements: number;
   onPrev: () => void;
   onNext: () => void;
-}> = ({ loading, refreshing, page, totalPages, totalElements, onPrev, onNext }) => (
+}> = ({ loading, page, totalPages, totalElements, onPrev, onNext }) => (
   <div className="audits-pager">
     <span className="audits-pager-meta">
       {totalElements} client{totalElements === 1 ? '' : 's'} · página {page + 1} de {totalPages}
-      {refreshing ? ' · atualizando…' : ''}
     </span>
     <div className="audits-pager-actions">
       <button
         type="button"
         className="btn btn-outline btn-pill btn-icon-pager"
-        disabled={loading || refreshing || page <= 0}
+        disabled={loading || page <= 0}
         onClick={onPrev}
         aria-label="Página anterior"
         title="Página anterior"
@@ -130,7 +139,7 @@ const ClientPager: React.FC<{
       <button
         type="button"
         className="btn btn-outline btn-pill btn-icon-pager"
-        disabled={loading || refreshing || page >= totalPages - 1}
+        disabled={loading || page >= totalPages - 1}
         onClick={onNext}
         aria-label="Próxima página"
         title="Próxima página"
@@ -158,13 +167,13 @@ export const ClientSystemView: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [detail, setDetail] = useState<OAuthClientDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createdSecret, setCreatedSecret] = useState<OAuthClient | null>(null);
   const [confirm, setConfirm] = useState<{ kind: ConfirmKind; client: OAuthClient } | null>(null);
   const [impactAgents, setImpactAgents] = useState<CollectorAgent[]>([]);
+  const [impactAgentsLoadError, setImpactAgentsLoadError] = useState<string | undefined>();
   const [impactLoading, setImpactLoading] = useState(false);
   const [createForm, setCreateForm] = useState({
     clientId: '',
@@ -174,15 +183,9 @@ export const ClientSystemView: React.FC = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const pageRef = useRef(0);
-  const appliedRef = useRef(applied);
-  pageRef.current = page;
-  appliedRef.current = applied;
-
-  const loadPage = useCallback(async (nextPage: number, nextFilters: Filters, silent = false) => {
+  const loadPage = useCallback(async (nextPage: number, nextFilters: Filters) => {
     if (!token) return;
-    if (silent) setRefreshing(true);
-    else setLoading(true);
+    setLoading(true);
     try {
       const result = await searchOAuthClients(
         {
@@ -215,7 +218,6 @@ export const ClientSystemView: React.FC = () => {
       });
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [addToast, token]);
 
@@ -228,22 +230,22 @@ export const ClientSystemView: React.FC = () => {
   useEffect(() => {
     if (!confirm || !token) {
       setImpactAgents([]);
+      setImpactAgentsLoadError(undefined);
       return;
     }
     let cancelled = false;
     setImpactLoading(true);
     getOAuthClient(confirm.client.id, token)
       .then((full) => {
-        if (!cancelled) setImpactAgents(full.agents || []);
+        if (!cancelled) {
+          setImpactAgents(full.agents || []);
+          setImpactAgentsLoadError(full.agentsLoadError);
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setImpactAgents([]);
-          addToast({
-            type: 'warning',
-            title: 'Collector indisponível',
-            description: 'Não foi possível listar os agents. A confirmação ainda desabilita os que existirem no servidor.',
-          });
+          setImpactAgentsLoadError('falha ao carregar detalhe do client');
         }
       })
       .finally(() => {
@@ -382,7 +384,6 @@ export const ClientSystemView: React.FC = () => {
   const pager = (
     <ClientPager
       loading={loading}
-      refreshing={refreshing}
       page={page}
       totalPages={totalPages}
       totalElements={totalElements}
@@ -484,19 +485,9 @@ export const ClientSystemView: React.FC = () => {
             <option value="asc">Crescente</option>
           </select>
           <div className="audits-filter-actions">
-            <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading || refreshing}>
+            <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
               <Search size={15} />
               <span>Filtrar</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-pill"
-              onClick={() => void loadPage(pageRef.current, appliedRef.current, true)}
-              disabled={loading || refreshing}
-              title="Recarregar lista de clients"
-            >
-              <RefreshCw size={15} className={refreshing ? 'spin' : ''} />
-              <span>Atualizar</span>
             </button>
           </div>
         </div>
@@ -614,7 +605,11 @@ export const ClientSystemView: React.FC = () => {
               <span className="info-label">Descrição</span>
               <span className="info-value">{detail.description || '—'}</span>
             </div>
-            <AgentImpactList agents={detail.agents || []} loading={false} />
+            <AgentImpactList
+              agents={detail.agents || []}
+              loading={false}
+              agentsLoadError={detail.agentsLoadError}
+            />
           </div>
         ) : null}
       </Modal>
@@ -718,7 +713,12 @@ export const ClientSystemView: React.FC = () => {
             ? 'O client deixa de emitir tokens. Agents ativos do company serão desabilitados.'
             : 'Esta ação remove o client de forma permanente. Agents ativos do company serão desabilitados.'}
         </p>
-        <AgentImpactList agents={impactAgents} loading={impactLoading} impact />
+        <AgentImpactList
+          agents={impactAgents}
+          loading={impactLoading}
+          agentsLoadError={impactAgentsLoadError}
+          impact
+        />
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={closeConfirm} disabled={submitting}>
             Cancelar
