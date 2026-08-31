@@ -5,12 +5,26 @@ export interface OAuthClient {
   companyId: string;
   clientId: string;
   clientSecret?: string;
+  serviceRoleId?: string;
+  serviceRoleName?: string;
   authorities: string[];
   status: 'ACTIVE' | 'BLOCKED' | string;
   tokenTtlSeconds: number;
   description?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface OAuthServiceRoleAuthority {
+  name: string;
+  description?: string;
+}
+
+export interface OAuthServiceRole {
+  id: string;
+  name: string;
+  description?: string;
+  authorities: OAuthServiceRoleAuthority[];
 }
 
 export interface CollectorAgent {
@@ -50,7 +64,7 @@ export interface SearchOAuthClientsParams {
 export interface CreateOAuthClientBody {
   clientId: string;
   description?: string;
-  authorities?: string[];
+  roleId: string;
   tokenTtlSeconds?: number;
 }
 
@@ -75,6 +89,10 @@ export function searchOAuthClients(params: SearchOAuthClientsParams, token: stri
 
 export function getOAuthClient(id: string, token: string): Promise<OAuthClientDetail> {
   return customFetch<OAuthClientDetail>(`${base}/${id}`, { method: 'GET' }, token);
+}
+
+export function listOAuthServiceRoles(token: string): Promise<OAuthServiceRole[]> {
+  return customFetch<OAuthServiceRole[]>(`${base}/service-roles`, { method: 'GET' }, token);
 }
 
 export function createOAuthClient(body: CreateOAuthClientBody, token: string): Promise<OAuthClient> {

@@ -17,11 +17,13 @@ import {
   createOAuthClient,
   deleteOAuthClient,
   getOAuthClient,
+  listOAuthServiceRoles,
   searchOAuthClients,
   unblockOAuthClient,
   type CollectorAgent,
   type OAuthClient,
   type OAuthClientDetail,
+  type OAuthServiceRole,
 } from '../../services/oauthClientService';
 
 type Filters = {
@@ -178,10 +180,13 @@ export const ClientSystemView: React.FC = () => {
   const [createForm, setCreateForm] = useState({
     clientId: '',
     description: '',
-    authorities: 'knowledge:write',
+    roleId: '',
     tokenTtlSeconds: '28800',
   });
+  const [serviceRoles, setServiceRoles] = useState<OAuthServiceRole[]>([]);
+  const [serviceRolesLoading, setServiceRolesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const selectedServiceRole = serviceRoles.find((role) => role.id === createForm.roleId);
 
   const loadPage = useCallback(async (nextPage: number, nextFilters: Filters) => {
     if (!token) return;
@@ -344,24 +349,24 @@ export const ClientSystemView: React.FC = () => {
       addToast({ type: 'warning', title: 'clientId obrigatório', description: 'Informe o identificador do client.' });
       return;
     }
-    const authorities = createForm.authorities
-      .split(/[,\n]/)
-      .map((item) => item.trim())
-      .filter(Boolean);
     const ttl = Number(createForm.tokenTtlSeconds);
+    if (!createForm.roleId) {
+      addToast({ type: 'warning', title: 'Perfil obrigatório', description: 'Selecione um perfil de serviço.' });
+      return;
+    }
     setSubmitting(true);
     try {
       const created = await createOAuthClient(
         {
           clientId,
           description: createForm.description.trim() || undefined,
-          authorities,
+          roleId: createForm.roleId,
           tokenTtlSeconds: Number.isFinite(ttl) ? ttl : undefined,
         },
         token
       );
       setCreateOpen(false);
-      setCreateForm({ clientId: '', description: '', authorities: 'knowledge:write', tokenTtlSeconds: '28800' });
+      setCreateForm({ clientId: '', description: '', roleId: '', tokenTtlSeconds: '28800' });
       setCreatedSecret(created);
       await loadPage(0, filters);
     } catch (err: any) {
@@ -433,10 +438,33 @@ export const ClientSystemView: React.FC = () => {
     </div>
   );
 
+  const openCreate = async () => {
+    if (!token) return;
+    setCreateOpen(true);
+    setServiceRolesLoading(true);
+    try {
+      const roles = await listOAuthServiceRoles(token);
+      setServiceRoles(roles || []);
+      setCreateForm((current) => ({
+        ...current,
+        roleId: current.roleId || roles?.[0]?.id || '',
+      }));
+    } catch (err: any) {
+      setServiceRoles([]);
+      addToast({
+        type: 'error',
+        title: 'Não foi possível carregar os perfis',
+        description: err?.message || 'Tente novamente em instantes.',
+      });
+    } finally {
+      setServiceRolesLoading(false);
+    }
+  };
+
   return (
     <div>
       <div className="client-system-create-row">
-        <button type="button" className="btn btn-primary btn-pill" onClick={() => setCreateOpen(true)}>
+        <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
           <Plus size={15} />
           <span>Criar</span>
         </button>
@@ -501,7 +529,7 @@ export const ClientSystemView: React.FC = () => {
             <tr>
               <th>Client ID</th>
               <th>Status</th>
-              <th>Authorities</th>
+              <th>Perfil / Authorities</th>
               <th>TTL</th>
               <th>Criado</th>
               <th style={{ textAlign: 'right' }}>Ações</th>
@@ -537,7 +565,11 @@ export const ClientSystemView: React.FC = () => {
                   </td>
                   <td>
                     <span className="id-compact" title={(item.authorities || []).join(', ')}>
-                      {(item.authorities || []).length > 0 ? item.authorities.join(', ') : '—'}
+                      {item.serviceRoleName
+                        ? `${item.serviceRoleName}${(item.authorities || []).length ? ` · ${item.authorities.join(', ')}` : ''}`
+                        : (item.authorities || []).length > 0
+                          ? item.authorities.join(', ')
+                          : '—'}
                     </span>
                   </td>
                   <td>{item.tokenTtlSeconds ? `${Math.round(item.tokenTtlSeconds / 3600)}h` : '—'}</td>
@@ -565,7 +597,11 @@ export const ClientSystemView: React.FC = () => {
                 </span>
               </div>
               <div className="mobile-card-subinfo">{formatDate(item.createdAt)}</div>
-              <div className="mobile-card-meta">{(item.authorities || []).join(', ') || 'Sem authorities'}</div>
+              <div className="mobile-card-meta">
+                {item.serviceRoleName
+                  ? `${item.serviceRoleName}${(item.authorities || []).length ? ` · ${item.authorities.join(', ')}` : ''}`
+                  : (item.authorities || []).join(', ') || 'Sem authorities'}
+              </div>
             </button>
             <div className="mobile-card-actions table-actions-group">{renderActions(item)}</div>
           </div>
@@ -596,6 +632,10 @@ export const ClientSystemView: React.FC = () => {
             <div className="info-row">
               <span className="info-label">TTL</span>
               <span className="info-value">{detail.tokenTtlSeconds}s</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Perfil de serviço</span>
+              <span className="info-value">{detail.serviceRoleName || '—'}</span>
             </div>
             <div className="info-row">
               <span className="info-label">Authorities</span>
@@ -641,15 +681,36 @@ export const ClientSystemView: React.FC = () => {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="oauth-client-auth">Authorities</label>
-            <input
-              id="oauth-client-auth"
+            <label htmlFor="oauth-client-role">Perfil de serviço</label>
+            <select
+              id="oauth-client-role"
               className="form-input"
-              value={createForm.authorities}
-              onChange={(e) => setCreateForm((f) => ({ ...f, authorities: e.target.value }))}
-              placeholder="knowledge:write, audit:read"
-            />
+              value={createForm.roleId}
+              onChange={(e) => setCreateForm((f) => ({ ...f, roleId: e.target.value }))}
+              disabled={serviceRolesLoading || serviceRoles.length === 0}
+              required
+            >
+              <option value="">{serviceRolesLoading ? 'Carregando perfis...' : 'Selecione um perfil'}</option>
+              {serviceRoles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
           </div>
+          {selectedServiceRole ? (
+            <div className="form-group">
+              <label>Authorities associadas</label>
+              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#5f6368' }}>
+                {(selectedServiceRole.authorities || []).map((authority) => (
+                  <li key={authority.name}>
+                    <strong>{authority.name}</strong>
+                    {authority.description ? ` — ${authority.description}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className="form-group">
             <label htmlFor="oauth-client-ttl">TTL (segundos)</label>
             <input
@@ -666,7 +727,7 @@ export const ClientSystemView: React.FC = () => {
             <button type="button" className="btn btn-outline" onClick={() => setCreateOpen(false)} disabled={submitting}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button type="submit" className="btn btn-primary" disabled={submitting || serviceRolesLoading || !createForm.roleId}>
               {submitting ? 'Criando...' : 'Criar'}
             </button>
           </div>
