@@ -403,7 +403,7 @@ export const GuardianView: React.FC = () => {
   return (
     <div>
       <form className="audits-toolbar" onSubmit={handleSearch}>
-        <div className="audits-filter-row guardian-filter-row">
+        <div className="audits-filter-row guardian-filter-row-primary">
           <input
             className="form-input"
             type="datetime-local"
@@ -434,6 +434,23 @@ export const GuardianView: React.FC = () => {
             <option value="NORMALIZED">Normalizado</option>
             <option value="DISMISSED">Dispensado</option>
           </select>
+        </div>
+        <div className="audits-filter-row guardian-filter-row-secondary">
+          <div className="search-input-wrapper audits-search-field">
+            <Search size={16} className="search-icon" />
+            <input
+              className="search-input"
+              placeholder="Serviço, pod ou resumo"
+              value={filters.q}
+              onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+            />
+          </div>
+          <input
+            className="form-input"
+            placeholder="Conclusão K8s"
+            value={filters.k8sConclusion}
+            onChange={(e) => setFilters((f) => ({ ...f, k8sConclusion: e.target.value }))}
+          />
           <select
             className="form-input"
             value={filters.severity}
@@ -447,59 +464,46 @@ export const GuardianView: React.FC = () => {
             <option value="LOW">LOW</option>
             <option value="INFO">INFO</option>
           </select>
-          <div className="search-input-wrapper audits-search-field">
-            <Search size={16} className="search-icon" />
-            <input
-              className="search-input"
-              placeholder="Serviço, pod ou resumo"
-              value={filters.q}
-              onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
-            />
-          </div>
         </div>
-        <div className="audits-filter-row audits-filter-row-tools guardian-filter-row-tools">
-          <input
-            className="form-input"
-            placeholder="Conclusão K8s"
-            value={filters.k8sConclusion}
-            onChange={(e) => setFilters((f) => ({ ...f, k8sConclusion: e.target.value }))}
-          />
+        <div className="audits-filter-row guardian-filter-row-tertiary">
           <input
             className="form-input"
             placeholder="Correlation ID"
             value={filters.correlationId}
             onChange={(e) => setFilters((f) => ({ ...f, correlationId: e.target.value }))}
           />
-          <select
-            className="form-input"
-            value={filters.sort}
-            onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as SortKey }))}
-            aria-label="Ordenar por"
-          >
-            <option value="lastSeenAt">Última ocorrência</option>
-            <option value="createdAt">Criado em</option>
-            <option value="severity">Severidade</option>
-            <option value="status">Status</option>
-            <option value="serviceName">Serviço</option>
-          </select>
-          <select
-            className="form-input audits-dir-select"
-            value={filters.dir}
-            onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as SortDir }))}
-            aria-label="Direção"
-          >
-            {isAlphaSort(filters.sort) ? (
-              <>
-                <option value="asc">A–Z / crescente</option>
-                <option value="desc">Z–A / decrescente</option>
-              </>
-            ) : (
-              <>
-                <option value="desc">Mais recentes</option>
-                <option value="asc">Mais antigos</option>
-              </>
-            )}
-          </select>
+          <div className="audits-sort-group">
+            <select
+              className="form-input audits-sort-select"
+              value={filters.sort}
+              onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as SortKey }))}
+              aria-label="Ordenar por"
+            >
+              <option value="lastSeenAt">Última ocorrência</option>
+              <option value="createdAt">Criado em</option>
+              <option value="severity">Severidade</option>
+              <option value="status">Status</option>
+              <option value="serviceName">Serviço</option>
+            </select>
+            <select
+              className="form-input audits-dir-select"
+              value={filters.dir}
+              onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as SortDir }))}
+              aria-label="Direção"
+            >
+              {isAlphaSort(filters.sort) ? (
+                <>
+                  <option value="asc">A–Z</option>
+                  <option value="desc">Z–A</option>
+                </>
+              ) : (
+                <>
+                  <option value="desc">Mais recentes</option>
+                  <option value="asc">Mais antigos</option>
+                </>
+              )}
+            </select>
+          </div>
         </div>
         {pager(true)}
       </form>
