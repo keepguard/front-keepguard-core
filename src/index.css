@@ -899,8 +899,14 @@ body {
   grid-template-columns: minmax(140px, 1fr) minmax(160px, 1fr) minmax(140px, 0.85fr) 94px auto;
 }
 
+.client-system-create-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 1rem;
+}
+
 .audits-toolbar .client-system-filter-row {
-  grid-template-columns: minmax(220px, 1.3fr) minmax(180px, 1.1fr) minmax(150px, 0.85fr);
+  grid-template-columns: minmax(180px, 1.2fr) minmax(150px, 0.8fr);
 }
 
 .audits-toolbar .client-system-filter-row-tools {

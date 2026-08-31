@@ -6,11 +6,11 @@ import {
   KeyRound,
   LockOpen,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
-import { RefreshCombo } from '../common/RefreshCombo';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -20,17 +20,19 @@ import {
   getOAuthClient,
   searchOAuthClients,
   unblockOAuthClient,
+  type CollectorAgent,
   type OAuthClient,
   type OAuthClientDetail,
 } from '../../services/oauthClientService';
 
 type Filters = {
-  tenantId: string;
   clientId: string;
   status: '' | 'ACTIVE' | 'BLOCKED';
   sort: 'createdAt' | 'clientId' | 'status' | '';
   dir: 'asc' | 'desc' | '';
 };
+
+type ConfirmKind = 'block' | 'delete';
 
 function formatDate(isoDate?: string) {
   if (!isoDate) return '—';
@@ -59,6 +61,45 @@ function statusStyle(status?: string): React.CSSProperties {
     return { background: '#fdecea', color: '#c0392b', borderColor: '#f5c6cb' };
   }
   return { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' };
+}
+
+function AgentImpactList({
+  agents,
+  loading,
+  impact = false,
+}: {
+  agents: CollectorAgent[];
+  loading: boolean;
+  impact?: boolean;
+}) {
+  if (loading) {
+    return <p style={{ color: '#5f6368', margin: '0 0 1rem' }}>Buscando agents no collector...</p>;
+  }
+  if (agents.length === 0) {
+    return (
+      <p style={{ color: '#5f6368', margin: '0 0 1rem' }}>
+        Nenhum agent encontrado em srv_data_collector.agents para este company.
+      </p>
+    );
+  }
+  const enabledCount = agents.filter((agent) => agent.enabled).length;
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      <strong style={{ fontSize: '0.85rem' }}>
+        {impact
+          ? `Agents vinculados (${enabledCount} ativo${enabledCount === 1 ? '' : 's'} serão desabilitados)`
+          : 'Agents (collector)'}
+      </strong>
+      <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>
+        {agents.map((agent) => (
+          <li key={agent.id} style={{ fontSize: '0.85rem', color: '#5f6368' }}>
+            {agent.name} · {agent.collectorType} · {agent.enabled ? 'ativo' : 'inativo'}
+            <div className="text-mono" style={{ fontSize: '0.75rem' }}>{agent.code}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 const ClientPager: React.FC<{
@@ -101,12 +142,11 @@ const ClientPager: React.FC<{
 );
 
 export const ClientSystemView: React.FC = () => {
-  const { accessToken, user } = useAuth();
+  const { accessToken } = useAuth();
   const { addToast } = useToast();
   const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('keepguard_access_token') : null);
 
   const [filters, setFilters] = useState<Filters>({
-    tenantId: user?.tenantId || '',
     clientId: '',
     status: '',
     sort: 'createdAt',
@@ -123,7 +163,9 @@ export const ClientSystemView: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createdSecret, setCreatedSecret] = useState<OAuthClient | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<OAuthClient | null>(null);
+  const [confirm, setConfirm] = useState<{ kind: ConfirmKind; client: OAuthClient } | null>(null);
+  const [impactAgents, setImpactAgents] = useState<CollectorAgent[]>([]);
+  const [impactLoading, setImpactLoading] = useState(false);
   const [createForm, setCreateForm] = useState({
     clientId: '',
     description: '',
@@ -139,20 +181,11 @@ export const ClientSystemView: React.FC = () => {
 
   const loadPage = useCallback(async (nextPage: number, nextFilters: Filters, silent = false) => {
     if (!token) return;
-    if (!nextFilters.tenantId.trim()) {
-      addToast({
-        type: 'warning',
-        title: 'Tenant ID obrigatório',
-        description: 'Informe o tenant para buscar os OAuth clients.',
-      });
-      return;
-    }
     if (silent) setRefreshing(true);
     else setLoading(true);
     try {
       const result = await searchOAuthClients(
         {
-          tenantId: nextFilters.tenantId.trim(),
           clientId: nextFilters.clientId.trim() || undefined,
           status: nextFilters.status || undefined,
           page: nextPage,
@@ -187,17 +220,39 @@ export const ClientSystemView: React.FC = () => {
   }, [addToast, token]);
 
   useEffect(() => {
-    if (user?.tenantId && !applied.tenantId) {
-      const next = { ...filters, tenantId: user.tenantId };
-      setFilters(next);
-      setApplied(next);
-      loadPage(0, next);
-      return;
-    }
-    if (applied.tenantId) {
+    if (token) {
       loadPage(0, applied);
     }
   }, [accessToken]);
+
+  useEffect(() => {
+    if (!confirm || !token) {
+      setImpactAgents([]);
+      return;
+    }
+    let cancelled = false;
+    setImpactLoading(true);
+    getOAuthClient(confirm.client.id, token)
+      .then((full) => {
+        if (!cancelled) setImpactAgents(full.agents || []);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setImpactAgents([]);
+          addToast({
+            type: 'warning',
+            title: 'Collector indisponível',
+            description: 'Não foi possível listar os agents. A confirmação ainda desabilita os que existirem no servidor.',
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setImpactLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [addToast, confirm, token]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,7 +264,7 @@ export const ClientSystemView: React.FC = () => {
     if (!token) return;
     setDetailLoading(true);
     try {
-      const full = await getOAuthClient(item.id, applied.tenantId.trim(), token);
+      const full = await getOAuthClient(item.id, token);
       setDetail(full);
     } catch (err: any) {
       addToast({
@@ -222,41 +277,56 @@ export const ClientSystemView: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = async (item: OAuthClient, event: React.MouseEvent) => {
+  const handleUnblock = async (item: OAuthClient, event: React.MouseEvent) => {
     event.stopPropagation();
     if (!token) return;
     try {
-      const next = item.status === 'BLOCKED'
-        ? await unblockOAuthClient(item.id, applied.tenantId.trim(), token)
-        : await blockOAuthClient(item.id, applied.tenantId.trim(), token);
+      const next = await unblockOAuthClient(item.id, token);
       setItems((current) => current.map((row) => (row.id === next.id ? next : row)));
-      addToast({
-        type: 'success',
-        title: next.status === 'BLOCKED' ? 'Client bloqueado' : 'Client desbloqueado',
-        description: next.clientId,
-      });
+      addToast({ type: 'success', title: 'Client desbloqueado', description: next.clientId });
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Não foi possível alterar o status',
+        title: 'Não foi possível desbloquear',
         description: err?.message || 'Tente novamente.',
       });
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!token || !deleteTarget) return;
+  const closeConfirm = () => {
+    if (submitting) return;
+    setConfirm(null);
+    setImpactAgents([]);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!token || !confirm) return;
     setSubmitting(true);
     try {
-      await deleteOAuthClient(deleteTarget.id, applied.tenantId.trim(), token);
-      addToast({ type: 'success', title: 'Client excluído', description: deleteTarget.clientId });
-      setDeleteTarget(null);
-      setDetail(null);
-      await loadPage(page, applied);
+      if (confirm.kind === 'block') {
+        const next = await blockOAuthClient(confirm.client.id, token);
+        setItems((current) => current.map((row) => (row.id === next.id ? next : row)));
+        addToast({
+          type: 'success',
+          title: 'Client bloqueado',
+          description: 'Agents ativos do company foram desabilitados.',
+        });
+      } else {
+        await deleteOAuthClient(confirm.client.id, token);
+        addToast({
+          type: 'success',
+          title: 'Client excluído',
+          description: 'Agents ativos do company foram desabilitados.',
+        });
+        setDetail(null);
+        await loadPage(page, applied);
+      }
+      setConfirm(null);
+      setImpactAgents([]);
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Não foi possível excluir',
+        title: confirm.kind === 'block' ? 'Não foi possível bloquear' : 'Não foi possível excluir',
         description: err?.message || 'Tente novamente.',
       });
     } finally {
@@ -267,11 +337,6 @@ export const ClientSystemView: React.FC = () => {
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!token) return;
-    const tenantId = filters.tenantId.trim();
-    if (!tenantId) {
-      addToast({ type: 'warning', title: 'Tenant ID obrigatório', description: 'Informe o tenant antes de criar.' });
-      return;
-    }
     const clientId = createForm.clientId.trim();
     if (!clientId) {
       addToast({ type: 'warning', title: 'clientId obrigatório', description: 'Informe o identificador do client.' });
@@ -286,7 +351,6 @@ export const ClientSystemView: React.FC = () => {
     try {
       const created = await createOAuthClient(
         {
-          tenantId,
           clientId,
           description: createForm.description.trim() || undefined,
           authorities,
@@ -297,7 +361,7 @@ export const ClientSystemView: React.FC = () => {
       setCreateOpen(false);
       setCreateForm({ clientId: '', description: '', authorities: 'knowledge:write', tokenTtlSeconds: '28800' });
       setCreatedSecret(created);
-      await loadPage(0, { ...filters, tenantId });
+      await loadPage(0, filters);
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -335,7 +399,7 @@ export const ClientSystemView: React.FC = () => {
           className="btn-table-icon"
           title="Desbloquear"
           aria-label="Desbloquear client"
-          onClick={(e) => handleToggleStatus(item, e)}
+          onClick={(e) => handleUnblock(item, e)}
         >
           <LockOpen size={15} />
         </button>
@@ -345,7 +409,10 @@ export const ClientSystemView: React.FC = () => {
           className="btn-table-icon"
           title="Bloquear"
           aria-label="Bloquear client"
-          onClick={(e) => handleToggleStatus(item, e)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setConfirm({ kind: 'block', client: item });
+          }}
         >
           <Ban size={15} />
         </button>
@@ -357,7 +424,7 @@ export const ClientSystemView: React.FC = () => {
         aria-label="Excluir client"
         onClick={(e) => {
           e.stopPropagation();
-          setDeleteTarget(item);
+          setConfirm({ kind: 'delete', client: item });
         }}
       >
         <Trash2 size={15} />
@@ -367,16 +434,15 @@ export const ClientSystemView: React.FC = () => {
 
   return (
     <div>
+      <div className="client-system-create-row">
+        <button type="button" className="btn btn-primary btn-pill" onClick={() => setCreateOpen(true)}>
+          <Plus size={15} />
+          <span>Criar</span>
+        </button>
+      </div>
+
       <form className="audits-toolbar" onSubmit={handleSearch}>
         <div className="audits-filter-row client-system-filter-row">
-          <input
-            className="form-input"
-            placeholder="Tenant ID"
-            value={filters.tenantId}
-            onChange={(e) => setFilters((f) => ({ ...f, tenantId: e.target.value }))}
-            required
-            aria-label="Tenant ID"
-          />
           <div className="search-input-wrapper audits-search-field">
             <Search size={16} className="search-icon" />
             <input
@@ -422,14 +488,15 @@ export const ClientSystemView: React.FC = () => {
               <Search size={15} />
               <span>Filtrar</span>
             </button>
-            <RefreshCombo
-              onRefresh={() => void loadPage(pageRef.current, appliedRef.current, true)}
+            <button
+              type="button"
+              className="btn btn-secondary btn-pill"
+              onClick={() => void loadPage(pageRef.current, appliedRef.current, true)}
               disabled={loading || refreshing}
-              refreshing={refreshing}
-            />
-            <button type="button" className="btn btn-primary btn-pill" onClick={() => setCreateOpen(true)}>
-              <Plus size={15} />
-              <span>Criar</span>
+              title="Recarregar lista de clients"
+            >
+              <RefreshCw size={15} className={refreshing ? 'spin' : ''} />
+              <span>Atualizar</span>
             </button>
           </div>
         </div>
@@ -547,23 +614,7 @@ export const ClientSystemView: React.FC = () => {
               <span className="info-label">Descrição</span>
               <span className="info-value">{detail.description || '—'}</span>
             </div>
-            <div>
-              <strong style={{ fontSize: '0.85rem' }}>Agents (collector)</strong>
-              {detail.agents && detail.agents.length > 0 ? (
-                <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>
-                  {detail.agents.map((agent) => (
-                    <li key={agent.id} style={{ fontSize: '0.85rem', color: '#5f6368' }}>
-                      {agent.name} · {agent.collectorType} · {agent.enabled ? 'ativo' : 'inativo'}
-                      <div className="text-mono" style={{ fontSize: '0.75rem' }}>{agent.code}</div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#5f6368' }}>
-                  Nenhum agent neste company (ou collector indisponível).
-                </p>
-              )}
-            </div>
+            <AgentImpactList agents={detail.agents || []} loading={false} />
           </div>
         ) : null}
       </Modal>
@@ -656,20 +707,31 @@ export const ClientSystemView: React.FC = () => {
       </Modal>
 
       <Modal
-        isOpen={!!deleteTarget}
-        onClose={() => !submitting && setDeleteTarget(null)}
-        title="Excluir OAuth client"
-        subtitle={deleteTarget?.clientId}
+        isOpen={!!confirm}
+        onClose={closeConfirm}
+        title={confirm?.kind === 'block' ? 'Bloquear OAuth client' : 'Excluir OAuth client'}
+        subtitle={confirm?.client.clientId}
+        maxWidth="560px"
       >
-        <p style={{ color: '#5f6368', marginBottom: '1rem' }}>
-          Esta ação remove o client de forma permanente. Tokens emitidos deixam de ser válidos após a exclusão.
+        <p style={{ color: '#5f6368', marginBottom: '0.75rem' }}>
+          {confirm?.kind === 'block'
+            ? 'O client deixa de emitir tokens. Agents ativos do company serão desabilitados.'
+            : 'Esta ação remove o client de forma permanente. Agents ativos do company serão desabilitados.'}
         </p>
+        <AgentImpactList agents={impactAgents} loading={impactLoading} impact />
         <div className="modal-actions">
-          <button type="button" className="btn btn-outline" onClick={() => setDeleteTarget(null)} disabled={submitting}>
+          <button type="button" className="btn btn-outline" onClick={closeConfirm} disabled={submitting}>
             Cancelar
           </button>
-          <button type="button" className="btn btn-danger" onClick={handleConfirmDelete} disabled={submitting}>
-            {submitting ? 'Excluindo...' : 'Excluir'}
+          <button
+            type="button"
+            className={confirm?.kind === 'block' ? 'btn btn-primary' : 'btn btn-danger'}
+            onClick={handleConfirmAction}
+            disabled={submitting || impactLoading}
+          >
+            {submitting
+              ? (confirm?.kind === 'block' ? 'Bloqueando...' : 'Excluindo...')
+              : (confirm?.kind === 'block' ? 'Confirmar bloqueio' : 'Confirmar exclusão')}
           </button>
         </div>
       </Modal>

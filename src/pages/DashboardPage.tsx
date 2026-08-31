@@ -283,7 +283,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Client system
               </h1>
               <p className="dashboard-subtitle">
-                OAuth clients de sistema por tenant. Visível para ADMIN e SYSTEM.
+                OAuth clients de sistema do tenant autenticado. Visível para ADMIN e SYSTEM.
               </p>
             </div>
           </div>
