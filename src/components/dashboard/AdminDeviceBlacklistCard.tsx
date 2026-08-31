@@ -37,7 +37,7 @@ function toApiDate(localValue: string): string | undefined {
 }
 
 export const AdminDeviceBlacklistCard: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [items, setItems] = useState<DeviceBlacklistEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,9 +57,8 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
     expiresAt: '',
   });
 
-  const token = accessToken || localStorage.getItem('keepguard_access_token') || '';
-
   const loadPage = async (nextPage = page, nextFilters = applied) => {
+    const token = getAccessToken();
     if (!token) return;
     setLoading(true);
     try {
@@ -98,8 +97,10 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     loadPage(0, applied);
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +134,8 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
     const key = `${userId}:${entry.deviceId}`;
     setRemovingKey(key);
     try {
+      const token = getAccessToken();
+      if (!token) return;
       await authService.adminRemoveDeviceFromBlacklist(entry.deviceId, userId, token);
       addToast({
         type: 'success',
@@ -168,6 +171,8 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
 
     setIsSaving(true);
     try {
+      const token = getAccessToken();
+      if (!token) return;
       await authService.adminAddDeviceToBlacklist(
         {
           userId: form.userId.trim(),

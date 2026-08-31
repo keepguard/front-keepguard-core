@@ -21,7 +21,7 @@ function formatDate(isoDate?: string) {
 }
 
 export const MyDeviceBlacklistCard: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [items, setItems] = useState<DeviceBlacklistEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +29,7 @@ export const MyDeviceBlacklistCard: React.FC = () => {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const loadList = async (showSpinner = true) => {
-    const token = accessToken || localStorage.getItem('keepguard_access_token');
+    const token = getAccessToken();
     if (!token) return;
     if (showSpinner) setLoading(true);
     try {
@@ -48,11 +48,13 @@ export const MyDeviceBlacklistCard: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     loadList(true);
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const handleUnblock = async (entry: DeviceBlacklistEntry) => {
-    const token = accessToken || localStorage.getItem('keepguard_access_token');
+    const token = getAccessToken();
     if (!token || !entry.deviceId) return;
     const confirmed = window.confirm(
       `Desbloquear “${entry.deviceName || entry.deviceId}”? Esse aparelho poderá entrar de novo na sua conta.`

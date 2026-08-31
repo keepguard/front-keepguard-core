@@ -10,7 +10,7 @@ import { TermsConsentModal } from './components/common/TermsConsentModal';
 import { DEFAULT_TENANT_ID } from './services/api';
 
 const MainContent: React.FC = () => {
-  const { isAuthenticated, user, accessToken, logout } = useAuth();
+  const { isAuthenticated, isInitializing, user, getAccessToken, logout } = useAuth();
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') {
@@ -29,7 +29,7 @@ const MainContent: React.FC = () => {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && !isInitializing && user) {
       const tenantId = user.tenantId || DEFAULT_TENANT_ID;
       const userId = user.id || user.codeUser;
 
@@ -49,7 +49,7 @@ const MainContent: React.FC = () => {
     } else {
       setIsTermsModalOpen(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, isInitializing, user]);
 
   const handleLogout = async () => {
     await logout();
@@ -60,6 +60,16 @@ const MainContent: React.FC = () => {
       description: 'Você saiu da sua conta com segurança.',
     });
   };
+
+  if (isInitializing) {
+    return (
+      <div className="app-layout">
+        <main className="app-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh' }}>
+          <p className="text-muted">Validando sessão…</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-layout">
@@ -95,7 +105,7 @@ const MainContent: React.FC = () => {
           tenantId={user.tenantId || DEFAULT_TENANT_ID}
           userId={user.id || user.codeUser}
           userEmail={user.email}
-          token={accessToken || undefined}
+          token={getAccessToken() || undefined}
           onSuccess={() => {
             setIsTermsModalOpen(false);
             addToast({

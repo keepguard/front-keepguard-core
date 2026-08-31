@@ -29,7 +29,7 @@ function compactId(value?: string): string {
 }
 
 export const TenantSessionsCard: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [items, setItems] = useState<DeviceSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,9 +40,8 @@ export const TenantSessionsCard: React.FC = () => {
   const [applied, setApplied] = useState(filters);
   const [revokingKey, setRevokingKey] = useState<string | null>(null);
 
-  const token = accessToken || localStorage.getItem('keepguard_access_token') || '';
-
   const loadPage = async (nextPage = page, nextFilters = applied) => {
+    const token = getAccessToken();
     if (!token) return;
     setLoading(true);
     try {
@@ -79,9 +78,10 @@ export const TenantSessionsCard: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     loadPage(0, applied);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [isAuthenticated]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +114,8 @@ export const TenantSessionsCard: React.FC = () => {
     const key = `${session.codeUser}:${session.deviceId}`;
     setRevokingKey(key);
     try {
+      const token = getAccessToken();
+      if (!token) return;
       await authService.revokeTenantUserSession(session.codeUser, session.deviceId, token);
       addToast({
         type: 'success',

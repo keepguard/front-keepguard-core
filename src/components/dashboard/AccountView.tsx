@@ -93,7 +93,7 @@ function FieldRow({
 }
 
 export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) => {
-  const { user, accessToken, logout } = useAuth();
+  const { user, isAuthenticated, getAccessToken, logout } = useAuth();
   const { addToast } = useToast();
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,7 +103,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('keepguard_access_token') : null);
+  const token = getAccessToken();
   const canBlock = canSelfServiceAccount(token, user?.roles, 'block');
   const canDelete = canSelfServiceAccount(token, user?.roles, 'delete');
   const showDangerZone = canBlock || canDelete;
@@ -112,7 +112,8 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
     let cancelled = false;
 
     const load = async () => {
-      if (!token) {
+      const currentToken = getAccessToken();
+      if (!currentToken) {
         setLoadError('Sessão inválida. Faça login novamente.');
         setIsLoading(false);
         return;
@@ -121,7 +122,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
       setLoadError(null);
       setProfileMissing(false);
       try {
-        const me = await authService.getMe(token);
+        const me = await authService.getMe(currentToken);
         if (!cancelled) {
           setProfile(me);
         }
@@ -149,7 +150,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [isAuthenticated, getAccessToken]);
 
   const displayName = profile?.personProfile?.fullName || profile?.displayHandle || user?.name || user?.username || 'Conta';
   const jwtRoles = useMemo(() => user?.roles || [], [user?.roles]);
@@ -173,7 +174,8 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
       });
       return;
     }
-    if (!token || !dangerAction) {
+    const currentToken = getAccessToken();
+    if (!currentToken || !dangerAction) {
       addToast({
         type: 'error',
         title: 'Sessão inválida',
@@ -185,9 +187,9 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
     setIsSubmitting(true);
     try {
       if (dangerAction === 'block') {
-        await authService.blockMe({ reason: trimmed }, token);
+        await authService.blockMe({ reason: trimmed }, currentToken);
       } else {
-        await authService.deleteMe({ reason: trimmed }, token);
+        await authService.deleteMe({ reason: trimmed }, currentToken);
       }
       addToast({
         type: 'success',

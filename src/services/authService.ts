@@ -43,6 +43,7 @@ export const authService = {
     return customFetch<RefreshTokenResponse>(`${BFF_AUTH_URL}/api/v1/auth/refresh`, {
       method: 'POST',
       body: JSON.stringify(payload),
+      skipAuthRefresh: true,
     });
   },
 
@@ -57,6 +58,7 @@ export const authService = {
     return customFetch<{ success: boolean; message: string }>(`${BFF_AUTH_URL}/api/v1/auth/logout`, {
       method: 'POST',
       body: JSON.stringify({ token: token || '' }),
+      skipAuthRefresh: true,
     }, token);
   },
 

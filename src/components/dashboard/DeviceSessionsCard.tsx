@@ -58,7 +58,7 @@ const SessionNetworkLine: React.FC<{ session: DeviceSession; showLoading: boolea
 };
 
 export const DeviceSessionsCard: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [sessions, setSessions] = useState<DeviceSession[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -71,7 +71,7 @@ export const DeviceSessionsCard: React.FC = () => {
   const loadGeneration = React.useRef(0);
 
   const loadSessions = async (showLoadingSpinner = true) => {
-    const currentToken = accessToken || localStorage.getItem('keepguard_access_token');
+    const currentToken = getAccessToken();
     if (!currentToken) return;
     if (showLoadingSpinner) {
       setLoading(true);
@@ -171,6 +171,7 @@ export const DeviceSessionsCard: React.FC = () => {
   }, []);
 
   const handleBlockAndRevoke = async (session: DeviceSession) => {
+    const accessToken = getAccessToken();
     if (!accessToken || session.isCurrent) return;
     const confirmed = window.confirm(
       `Encerrar e bloquear “${session.deviceName || session.deviceId}”? Este aparelho não poderá entrar de novo na sua conta.`
@@ -205,6 +206,7 @@ export const DeviceSessionsCard: React.FC = () => {
   };
 
   const handleRevokeSession = async (deviceId: string) => {
+    const accessToken = getAccessToken();
     if (!accessToken) return;
     setRevokingId(deviceId);
     try {
@@ -227,6 +229,7 @@ export const DeviceSessionsCard: React.FC = () => {
   };
 
   const handleRevokeAllOtherSessions = async () => {
+    const accessToken = getAccessToken();
     if (!accessToken) return;
     setIsRevokingAll(true);
     try {

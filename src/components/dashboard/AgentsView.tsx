@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Cpu,
   FlaskConical,
   History,
   KeyRound,
+  MoreVertical,
   Pencil,
   Plus,
   Power,
@@ -61,6 +63,7 @@ type AuthType = 'NONE' | 'STATIC_BEARER' | 'LOGIN_PASSWORD';
 type AgentForm = {
   name: string;
   description: string;
+  context: string;
   collectorType: CollectorType;
   prompt: string;
   enabled: boolean;
@@ -110,6 +113,7 @@ function emptyForm(): AgentForm {
   return {
     name: '',
     description: '',
+    context: 'geral',
     collectorType: 'API_REST',
     prompt: '',
     enabled: false,
@@ -338,6 +342,7 @@ function formFromAgent(agent: CollectorAgent): AgentForm {
     ...emptyForm(),
     name: agent.name || '',
     description: agent.description || '',
+    context: agent.context || 'geral',
     collectorType: (agent.collectorType as CollectorType) || 'API_REST',
     prompt: agent.prompt || '',
     enabled: agent.enabled,
@@ -514,69 +519,118 @@ function KeyValueEditor({
   );
 }
 
-function CredentialBanner({
+function credentialTone(state: CredentialState): 'ok' | 'blocked' | 'warn' | 'loading' {
+  if (state.kind === 'loading') return 'loading';
+  if (state.kind === 'error' || state.kind === 'missing') return 'warn';
+  return (state.client.status || '').toUpperCase() === 'ACTIVE' ? 'ok' : 'blocked';
+}
+
+function credentialPillLabel(state: CredentialState): string {
+  if (state.kind === 'loading') return 'Verificando…';
+  if (state.kind === 'missing') return 'Sem client';
+  if (state.kind === 'error') return 'Falha na credencial';
+  return (state.client.status || '').toUpperCase() === 'ACTIVE' ? 'Credencial OK' : 'Credencial bloqueada';
+}
+
+/** Pílula compacta no topo da lista; detalhes só no clique. */
+function CredentialStatusPill({
   state,
   onOpenClientSystem,
 }: {
   state: CredentialState;
   onOpenClientSystem?: () => void;
 }) {
-  const link = onOpenClientSystem ? (
-    <button type="button" className="collector-credential-link" onClick={onOpenClientSystem}>
-      Ver na Client system
-    </button>
-  ) : null;
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const tone = credentialTone(state);
+  const label = credentialPillLabel(state);
+  const canOpen = state.kind !== 'loading';
 
-  if (state.kind === 'loading') {
-    return (
-      <div className="collector-credential-banner is-loading">
-        <strong>Credencial de coleta</strong>
-        <p>Verificando o client `srv-data-collector` desta organização...</p>
-      </div>
-    );
-  }
-  if (state.kind === 'error') {
-    return (
-      <div className="collector-credential-banner is-warn">
-        <strong>Não foi possível verificar a credencial de coleta</strong>
-        <p>{state.message}</p>
-        {link}
-      </div>
-    );
-  }
-  if (state.kind === 'missing') {
-    return (
-      <div className="collector-credential-banner is-warn">
-        <strong>Não há client `srv-data-collector` nesta organização</strong>
-        <p>O agent pode ser salvo, mas a coleta não emite token até a credencial existir e estar ativa.</p>
-        {link}
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!open) return;
 
-  const active = (state.client.status || '').toUpperCase() === 'ACTIVE';
+    const handlePointerDown = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div className={`collector-credential-banner ${active ? 'is-ok' : 'is-blocked'}`}>
-      <div className="collector-credential-title-row">
-        <strong>{active ? 'Credencial de coleta ativa' : 'Credencial de coleta bloqueada'}</strong>
-        <span className="badge-role" style={active
-          ? { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' }
-          : { background: '#fdecea', color: '#c0392b', borderColor: '#f5c6cb' }}
-        >
-          {active ? 'Ativo' : 'Bloqueado'}
-        </span>
-      </div>
-      <p>
-        {active
-          ? 'Este agent usa a credencial de serviço da organização, não uma chave por agent.'
-          : 'A execução não autentica no knowledge até desbloquear em Client system.'}
-      </p>
-      <div className="collector-credential-meta">
-        <span className="text-mono">{state.client.clientId}</span>
-        <span>{state.client.serviceRoleName || '—'}</span>
-        <span>TTL {state.client.tokenTtlSeconds}s</span>
-      </div>
-      {link}
+    <div className="collector-credential-pill-wrap" ref={rootRef}>
+      <button
+        type="button"
+        className={`collector-credential-pill is-${tone}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={!canOpen}
+        title="Detalhes da credencial de coleta"
+        onClick={() => {
+          if (canOpen) setOpen((v) => !v);
+        }}
+      >
+        <KeyRound size={13} />
+        <span>{label}</span>
+        {canOpen ? <ChevronDown size={14} className={open ? 'is-open' : undefined} /> : null}
+      </button>
+
+      {open ? (
+        <div className="collector-credential-popover" role="dialog" aria-label="Detalhes da credencial">
+          {state.kind === 'error' ? (
+            <>
+              <strong>Não foi possível verificar</strong>
+              <p>{state.message}</p>
+            </>
+          ) : null}
+          {state.kind === 'missing' ? (
+            <>
+              <strong>Client ausente</strong>
+              <p>Não há `srv-data-collector` nesta organização. O agent pode ser salvo, mas a coleta não autentica até o client existir.</p>
+            </>
+          ) : null}
+          {state.kind === 'found' ? (
+            <>
+              <strong>
+                {(state.client.status || '').toUpperCase() === 'ACTIVE'
+                  ? 'Credencial de coleta ativa'
+                  : 'Credencial de coleta bloqueada'}
+              </strong>
+              <p>
+                {(state.client.status || '').toUpperCase() === 'ACTIVE'
+                  ? 'Usa a credencial de serviço da organização, não uma chave por agent.'
+                  : 'A execução não autentica no knowledge até desbloquear em Client system.'}
+              </p>
+              <div className="collector-credential-popover-meta">
+                <span className="text-mono">{state.client.clientId}</span>
+                <span>{state.client.serviceRoleName || '—'}</span>
+                <span>TTL {state.client.tokenTtlSeconds}s</span>
+              </div>
+            </>
+          ) : null}
+          {onOpenClientSystem ? (
+            <button
+              type="button"
+              className="collector-credential-popover-link"
+              onClick={() => {
+                setOpen(false);
+                onOpenClientSystem();
+              }}
+            >
+              Abrir Client system
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -709,9 +763,8 @@ const AgentPager: React.FC<{
 );
 
 export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = ({ onNavigateTab }) => {
-  const { accessToken } = useAuth();
+  const { getAccessToken } = useAuth();
   const { addToast } = useToast();
-  const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('keepguard_access_token') : null);
 
   const [filters, setFilters] = useState<Filters>({
     q: '',
@@ -740,8 +793,35 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   const [historyAgent, setHistoryAgent] = useState<CollectorAgent | null>(null);
   const [historyItems, setHistoryItems] = useState<CollectorExecution[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [actionsMenuId, setActionsMenuId] = useState<string | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!actionsMenuId) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+        setActionsMenuId(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActionsMenuId(null);
+      }
+    };
+
+    // click (não mousedown): evita fechar o menu antes do onClick dos itens
+    document.addEventListener('click', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [actionsMenuId]);
 
   const loadCredential = useCallback(async () => {
+    const token = getAccessToken();
     if (!token) {
       setCredential({ kind: 'error', message: 'Sessão inválida.' });
       return;
@@ -757,9 +837,10 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         message: error instanceof Error ? error.message : 'Falha ao consultar Client system.',
       });
     }
-  }, [token]);
+  }, [getAccessToken]);
 
   const loadPage = useCallback(async (nextPage: number, nextFilters: Filters) => {
+    const token = getAccessToken();
     if (!token) return;
     setLoading(true);
     try {
@@ -784,7 +865,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     } finally {
       setLoading(false);
     }
-  }, [addToast, token]);
+  }, [addToast, getAccessToken]);
 
   useEffect(() => {
     loadCredential();
@@ -806,8 +887,9 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     setFormOpen(true);
   };
 
-  const openEdit = async (item: CollectorAgent, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const openEdit = async (item: CollectorAgent, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    const token = getAccessToken();
     if (!token) return;
     try {
       const detail = await getCollectorAgent(item.id, token);
@@ -893,6 +975,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const token = getAccessToken();
     if (!token) return;
     if (!validateStep('identity') || !validateStep('collector') || !validateStep('schedule')) {
       if (!form.name.trim()) setFormStep('identity');
@@ -907,6 +990,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         await updateCollectorAgent(editing.id, {
           name: form.name.trim(),
           description: form.description.trim(),
+          context: form.context.trim() || 'geral',
           collectorConfig: buildCollectorConfig(form),
           prompt: form.prompt,
           schedule: buildSchedule(form),
@@ -916,6 +1000,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         await createCollectorAgent({
           name: form.name.trim(),
           description: form.description.trim() || undefined,
+          context: form.context.trim() || 'geral',
           collectorType: form.collectorType,
           collectorConfig: buildCollectorConfig(form),
           prompt: form.prompt || undefined,
@@ -939,8 +1024,9 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     }
   };
 
-  const handleToggle = async (item: CollectorAgent, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleToggle = async (item: CollectorAgent, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    const token = getAccessToken();
     if (!token) return;
     try {
       if (item.enabled) {
@@ -960,8 +1046,9 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     }
   };
 
-  const handleTest = async (item: CollectorAgent, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleTest = async (item: CollectorAgent, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    const token = getAccessToken();
     if (!token) return;
     setTestingId(item.id);
     setTestResult(null);
@@ -1007,6 +1094,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
   const openHistory = async (item: CollectorAgent, event?: React.MouseEvent) => {
     event?.stopPropagation();
+    const token = getAccessToken();
     if (!token) return;
     setHistoryAgent(item);
     setHistoryItems([]);
@@ -1027,6 +1115,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   };
 
   const handleDelete = async () => {
+    const token = getAccessToken();
     if (!token || !confirmDelete) return;
     try {
       await deleteCollectorAgent(confirmDelete.id, token);
@@ -1062,65 +1151,107 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     />
   );
 
-  const renderActions = (item: CollectorAgent) => (
-    <div className="table-actions-group" style={{ justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
-      <button
-        type="button"
-        className="btn-table-icon"
-        title="Histórico de coletas"
-        aria-label="Histórico de coletas do agent"
-        onClick={(e) => openHistory(item, e)}
+  const closeActionsMenu = () => setActionsMenuId(null);
+
+  const runMenuAction = (event: React.SyntheticEvent, action: () => void) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeActionsMenu();
+    action();
+  };
+
+  const renderActions = (item: CollectorAgent) => {
+    const isOpen = actionsMenuId === item.id;
+    return (
+      <div
+        className="table-actions-menu"
+        ref={isOpen ? actionsMenuRef : undefined}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
-        <History size={15} />
-      </button>
-      <button
-        type="button"
-        className="btn-table-icon"
-        title="Testar coleta"
-        aria-label="Testar coleta do agent"
-        disabled={testingId === item.id}
-        onClick={(e) => handleTest(item, e)}
-      >
-        <FlaskConical size={15} />
-      </button>
-      <button type="button" className="btn-table-icon" title="Editar" aria-label="Editar agent" onClick={(e) => openEdit(item, e)}>
-        <Pencil size={15} />
-      </button>
-      <button
-        type="button"
-        className="btn-table-icon"
-        title={item.enabled ? 'Desativar' : 'Ativar'}
-        aria-label={item.enabled ? 'Desativar agent' : 'Ativar agent'}
-        onClick={(e) => handleToggle(item, e)}
-      >
-        {item.enabled ? <PowerOff size={15} /> : <Power size={15} />}
-      </button>
-      <button
-        type="button"
-        className="btn-table-icon"
-        title="Excluir"
-        aria-label="Excluir agent"
-        onClick={(e) => {
-          e.stopPropagation();
-          setConfirmDelete(item);
-        }}
-      >
-        <Trash2 size={15} />
-      </button>
-    </div>
-  );
+        <button
+          type="button"
+          className="btn-table-icon"
+          title="Ações"
+          aria-label="Ações do agent"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setActionsMenuId((prev) => (prev === item.id ? null : item.id));
+          }}
+        >
+          <MoreVertical size={15} />
+        </button>
+        {isOpen ? (
+          <div className="table-actions-dropdown" role="menu">
+            <button
+              type="button"
+              className="table-actions-menu-item"
+              role="menuitem"
+              onClick={(e) => runMenuAction(e, () => { void openHistory(item); })}
+            >
+              <History size={15} />
+              <span>Histórico</span>
+            </button>
+            <button
+              type="button"
+              className="table-actions-menu-item"
+              role="menuitem"
+              disabled={testingId === item.id}
+              onClick={(e) => runMenuAction(e, () => { void handleTest(item); })}
+            >
+              <FlaskConical size={15} />
+              <span>{testingId === item.id ? 'Testando…' : 'Testar coleta'}</span>
+            </button>
+            <button
+              type="button"
+              className="table-actions-menu-item"
+              role="menuitem"
+              onClick={(e) => runMenuAction(e, () => { void openEdit(item); })}
+            >
+              <Pencil size={15} />
+              <span>Editar</span>
+            </button>
+            <button
+              type="button"
+              className="table-actions-menu-item"
+              role="menuitem"
+              onClick={(e) => runMenuAction(e, () => { void handleToggle(item); })}
+            >
+              {item.enabled ? <PowerOff size={15} /> : <Power size={15} />}
+              <span>{item.enabled ? 'Desativar' : 'Ativar'}</span>
+            </button>
+            <div className="table-actions-menu-divider" />
+            <button
+              type="button"
+              className="table-actions-menu-item is-danger"
+              role="menuitem"
+              onClick={(e) => runMenuAction(e, () => setConfirmDelete(item))}
+            >
+              <Trash2 size={15} />
+              <span>Excluir</span>
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   const goClientSystem = () => onNavigateTab?.('client-system');
 
   return (
     <div>
-      <CredentialBanner state={credential} onOpenClientSystem={onNavigateTab ? goClientSystem : undefined} />
-
       <div className="client-system-create-row">
         <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
           <Plus size={15} />
           <span>Criar</span>
         </button>
+        <CredentialStatusPill
+          state={credential}
+          onOpenClientSystem={onNavigateTab ? goClientSystem : undefined}
+        />
       </div>
 
       {testResult ? (
@@ -1220,7 +1351,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         {pager(true)}
       </form>
 
-      <div className="hpanel-table-card desktop-table-view">
+      <div className="hpanel-table-card desktop-table-view has-row-action-menus">
         <table className="hpanel-table">
           <thead>
             <tr>
@@ -1252,7 +1383,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
               items.map((item) => (
                 <tr
                   key={item.id}
-                  className="agent-row-clickable"
+                  className={`agent-row-clickable${actionsMenuId === item.id ? ' has-open-menu' : ''}`}
                   onClick={() => openHistory(item)}
                 >
                   <td>
@@ -1282,7 +1413,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         {items.map((item) => (
           <div
             key={item.id}
-            className="mobile-domain-card agent-row-clickable"
+            className={`mobile-domain-card agent-row-clickable${actionsMenuId === item.id ? ' has-open-menu' : ''}`}
             onClick={() => openHistory(item)}
           >
             <div className="mobile-card-top">
@@ -1298,7 +1429,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
             </div>
             <div className="mobile-card-subinfo">{typeLabel(item.collectorType)} · {formatDate(item.createdAt)}</div>
             <div className="mobile-card-meta">{scheduleSummary(item.schedule)}</div>
-            <div className="mobile-card-actions table-actions-group">{renderActions(item)}</div>
+            <div className="mobile-card-actions">{renderActions(item)}</div>
           </div>
         ))}
       </div>
@@ -1404,6 +1535,16 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Opcional"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="agent-context">Contexto</label>
+                <input
+                  id="agent-context"
+                  className="form-input"
+                  value={form.context}
+                  onChange={(e) => setForm((f) => ({ ...f, context: e.target.value.toLowerCase() }))}
+                  placeholder="ops, juridico"
                 />
               </div>
               <div className="form-group">

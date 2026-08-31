@@ -18,6 +18,7 @@ export interface CollectorAgent {
   companyId: string;
   name: string;
   description?: string;
+  context?: string;
   collectorType: CollectorType | string;
   collectorConfig: Record<string, unknown>;
   prompt?: string;
@@ -48,6 +49,7 @@ export interface SearchCollectorAgentsParams {
 export interface CreateCollectorAgentBody {
   name: string;
   description?: string;
+  context?: string;
   collectorType: string;
   collectorConfig: Record<string, unknown>;
   prompt?: string;
@@ -58,6 +60,7 @@ export interface CreateCollectorAgentBody {
 export interface UpdateCollectorAgentBody {
   name?: string;
   description?: string;
+  context?: string;
   collectorConfig?: Record<string, unknown>;
   prompt?: string;
   schedule?: CollectorSchedule;

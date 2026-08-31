@@ -11,17 +11,12 @@ import {
   Check,
   Lock,
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, useTokenMeta } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 export const SecurityCredentialsView: React.FC = () => {
-  const {
-    user,
-    accessToken,
-    lastRefreshTime,
-    refreshCount,
-    performRefreshToken,
-  } = useAuth();
+  const { user, performRefreshToken } = useAuth();
+  const { accessToken, lastRefreshTime, refreshCount } = useTokenMeta();
   const { addToast } = useToast();
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
@@ -91,7 +86,7 @@ export const SecurityCredentialsView: React.FC = () => {
               </div>
               <div>
                 <strong>Monitor de Atividade Ativo</strong>
-                <p>Enquanto você interage com a plataforma, o token é renovado automaticamente a cada 45 segundos no BFF-Auth.</p>
+                <p>Enquanto você interage com a plataforma, o access token é renovado silenciosamente cerca de 60s antes de expirar — sem recarregar a tela.</p>
               </div>
             </div>
 

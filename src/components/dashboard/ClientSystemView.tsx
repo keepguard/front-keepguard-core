@@ -180,9 +180,8 @@ const ClientPager: React.FC<{
 );
 
 export const ClientSystemView: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
-  const token = accessToken || (typeof window !== 'undefined' ? localStorage.getItem('keepguard_access_token') : null);
 
   const [filters, setFilters] = useState<Filters>({
     clientId: '',
@@ -222,6 +221,7 @@ export const ClientSystemView: React.FC = () => {
   const selectedEditRole = serviceRoles.find((role) => role.id === editForm.roleId);
 
   const loadPage = useCallback(async (nextPage: number, nextFilters: Filters) => {
+    const token = getAccessToken();
     if (!token) return;
     setLoading(true);
     try {
@@ -256,15 +256,16 @@ export const ClientSystemView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [addToast, token]);
+  }, [addToast, getAccessToken]);
 
   useEffect(() => {
-    if (token) {
-      loadPage(0, applied);
-    }
-  }, [accessToken]);
+    if (!isAuthenticated) return;
+    loadPage(0, applied);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- carrega só ao autenticar
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    const token = getAccessToken();
     if (!confirm || !token) {
       setImpactAgents([]);
       setImpactAgentsLoadError(undefined);
@@ -291,7 +292,7 @@ export const ClientSystemView: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [addToast, confirm, token]);
+  }, [addToast, confirm, getAccessToken]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -300,6 +301,7 @@ export const ClientSystemView: React.FC = () => {
   };
 
   const openDetail = async (item: OAuthClient) => {
+    const token = getAccessToken();
     if (!token) return;
     setDetailLoading(true);
     try {
@@ -318,6 +320,7 @@ export const ClientSystemView: React.FC = () => {
 
   const handleUnblock = async (item: OAuthClient, event: React.MouseEvent) => {
     event.stopPropagation();
+    const token = getAccessToken();
     if (!token) return;
     try {
       const next = await unblockOAuthClient(item.id, token);
@@ -339,6 +342,7 @@ export const ClientSystemView: React.FC = () => {
   };
 
   const handleConfirmAction = async () => {
+    const token = getAccessToken();
     if (!token || !confirm) return;
     setSubmitting(true);
     try {
@@ -375,6 +379,7 @@ export const ClientSystemView: React.FC = () => {
 
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
+    const token = getAccessToken();
     if (!token) return;
     const clientId = createForm.clientId.trim();
     if (!clientId) {
@@ -414,6 +419,7 @@ export const ClientSystemView: React.FC = () => {
 
   const handleUpdate = async (event: React.FormEvent) => {
     event.preventDefault();
+    const token = getAccessToken();
     if (!token || !editClient) return;
     if (!editForm.roleId) {
       addToast({ type: 'warning', title: 'Perfil obrigatório', description: 'Selecione um perfil de serviço.' });
@@ -453,6 +459,7 @@ export const ClientSystemView: React.FC = () => {
   };
 
   const loadServiceRoles = async (preferredRoleId?: string) => {
+    const token = getAccessToken();
     if (!token) return '';
     setServiceRolesLoading(true);
     try {

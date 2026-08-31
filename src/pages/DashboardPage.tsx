@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { ChangePasswordModal } from '../components/auth/ChangePasswordModal';
 import { DeviceSessionsCard } from '../components/dashboard/DeviceSessionsCard';
 import { MyDeviceBlacklistCard } from '../components/dashboard/MyDeviceBlacklistCard';
@@ -47,9 +47,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const {
     user,
     accessToken,
-    lastRefreshTime,
-    refreshCount,
   } = useAuth();
+  const { lastRefreshTime, refreshCount } = useTokenMeta();
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const canAccessTenantDevicesTab = canAccessTenantDevices(user?.roles);

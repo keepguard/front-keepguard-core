@@ -46,7 +46,7 @@ function remainingFromExpiresAt(expiresAt?: string): number {
 }
 
 export const ConnectionsView: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   const [snapshot, setSnapshot] = useState<ConnectionsHealthSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +56,8 @@ export const ConnectionsView: React.FC = () => {
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
 
   const load = useCallback(async () => {
-    if (!accessToken) {
+    const token = getAccessToken();
+    if (!token) {
       setError('Sessão expirada. Entre novamente.');
       setLoading(false);
       return;
@@ -64,7 +65,7 @@ export const ConnectionsView: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getConnectionsHealth(accessToken);
+      const data = await getConnectionsHealth(token);
       setSnapshot(data);
       setRemainingSeconds(data.ttlSeconds);
     } catch (err) {
@@ -79,11 +80,12 @@ export const ConnectionsView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [getAccessToken]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void load();
-  }, [load]);
+  }, [isAuthenticated, load]);
 
   useEffect(() => {
     if (!snapshot?.expiresAt) return;

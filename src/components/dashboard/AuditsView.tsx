@@ -153,7 +153,7 @@ const AuditPager: React.FC<{
 );
 
 export const AuditsView: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [filters, setFilters] = useState<Filters>({
     from: '',
@@ -178,7 +178,6 @@ export const AuditsView: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const token = accessToken || localStorage.getItem('keepguard_access_token') || '';
   const pageRef = useRef(page);
   const appliedRef = useRef(applied);
   const itemsRef = useRef(items);
@@ -187,6 +186,7 @@ export const AuditsView: React.FC = () => {
   itemsRef.current = items;
 
   const loadPage = useCallback(async (nextPage = pageRef.current, nextFilters = appliedRef.current) => {
+    const token = getAccessToken();
     if (!token) return;
     const hasRows = itemsRef.current.length > 0;
     if (hasRows) {
@@ -236,11 +236,13 @@ export const AuditsView: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [addToast, token]);
+  }, [addToast, getAccessToken]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     loadPage(0, applied);
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- carrega só ao autenticar
+  }, [isAuthenticated]);
 
   const displayedItems = useMemo(() => {
     if (!sortKey) return items;
@@ -269,6 +271,7 @@ export const AuditsView: React.FC = () => {
   };
 
   const openDetail = async (event: AuditEvent) => {
+    const token = getAccessToken();
     if (!token) return;
     setDetailLoading(true);
     try {

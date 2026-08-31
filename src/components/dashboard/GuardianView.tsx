@@ -198,7 +198,7 @@ const GuardianPager: React.FC<{
 );
 
 export const GuardianView: React.FC = () => {
-  const { accessToken } = useAuth();
+  const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS);
@@ -213,7 +213,6 @@ export const GuardianView: React.FC = () => {
   const [pendingSuggestion, setPendingSuggestion] = useState<SuggestionDTO | null>(null);
   const [recipients, setRecipients] = useState<AlertRecipient[]>([]);
   const [newEmail, setNewEmail] = useState('');
-  const token = accessToken || '';
   const pageRef = useRef(page);
   const appliedRef = useRef(applied);
   const itemsRef = useRef(items);
@@ -222,6 +221,7 @@ export const GuardianView: React.FC = () => {
   itemsRef.current = items;
 
   const loadPage = useCallback(async (nextPage = pageRef.current, nextFilters = appliedRef.current) => {
+    const token = getAccessToken();
     if (!token) return;
     const hasRows = itemsRef.current.length > 0;
     if (hasRows) {
@@ -260,21 +260,24 @@ export const GuardianView: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [addToast, token]);
+  }, [addToast, getAccessToken]);
 
   const loadRecipients = useCallback(async () => {
+    const token = getAccessToken();
     if (!token) return;
     try {
       setRecipients(await listAlertRecipients(token));
     } catch {
       setRecipients([]);
     }
-  }, [token]);
+  }, [getAccessToken]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void loadPage(0, applied);
     void loadRecipients();
-  }, [accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- carrega só ao autenticar; filtros via handleSearch
+  }, [isAuthenticated]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -297,6 +300,7 @@ export const GuardianView: React.FC = () => {
   };
 
   const openDetail = async (item: GuardianIncidentListItem) => {
+    const token = getAccessToken();
     if (!token) return;
     setDetailLoading(true);
     setPendingSuggestion(null);
@@ -315,6 +319,7 @@ export const GuardianView: React.FC = () => {
   };
 
   const refreshDetail = async (id: string) => {
+    const token = getAccessToken();
     if (!token) return;
     setDetail(await getIncident(id, token));
   };
@@ -328,6 +333,7 @@ export const GuardianView: React.FC = () => {
   };
 
   const runAction = async (suggestion: SuggestionDTO) => {
+    const token = getAccessToken();
     if (!token || !detail) return;
     if (suggestion.risk === 'DESTRUCTIVE' && confirmation !== detail.incident.serviceName) {
       addToast({
@@ -360,6 +366,7 @@ export const GuardianView: React.FC = () => {
 
   const addRecipient = async (event: React.FormEvent) => {
     event.preventDefault();
+    const token = getAccessToken();
     if (!token || !newEmail.trim()) return;
     try {
       await upsertAlertRecipient({ email: newEmail.trim(), enabled: true }, token);
@@ -650,7 +657,10 @@ export const GuardianView: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary btn-pill"
-                  onClick={() => token && void patchAlertRecipient(recipient.id, !recipient.enabled, token).then(loadRecipients)}
+                  onClick={() => {
+                    const token = getAccessToken();
+                    if (token) void patchAlertRecipient(recipient.id, !recipient.enabled, token).then(loadRecipients);
+                  }}
                 >
                   {recipient.enabled ? 'Desativar' : 'Ativar'}
                 </button>

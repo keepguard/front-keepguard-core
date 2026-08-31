@@ -1,8 +1,13 @@
 import { getDeviceInfo } from '../utils/deviceUtils';
 import { peekPublicClientNetwork, prefetchPublicClientIp } from '../utils/publicIp';
+import {
+  clearTokens,
+  ensureFreshToken,
+  getAccessToken,
+} from './tokenStore';
 
 // Determina automaticamente a URL do BFF com base no host atual
-const isProductionDomain = typeof window !== 'undefined' && 
+const isProductionDomain = typeof window !== 'undefined' &&
   (window.location.hostname.endsWith('keepguard.com.br') || window.location.hostname === '31.97.175.92');
 
 const defaultBffUrl = isProductionDomain ? 'https://api.keepguard.com.br' : 'http://localhost:8381';
@@ -30,11 +35,41 @@ export function generateUUID(): string {
   });
 }
 
+function isAuthBootstrapPath(url: string): boolean {
+  const path = url.split('?')[0];
+  return (
+    path.includes('/api/v1/auth/login')
+    || path.includes('/api/v1/auth/refresh')
+    || path.includes('/api/v1/auth/logout')
+    || path.includes('/api/v1/auth/change-password')
+    || path.includes('/api/v1/auth/forgot-password')
+    || path.includes('/api/v1/auth/reset-password')
+    || path.includes('/api/v1/auth/device/challenge/')
+    || path.includes('/api/v1/register/')
+  );
+}
+
+function isMeProfilePath(url: string): boolean {
+  return url.split('?')[0].endsWith('/api/v1/users/me');
+}
+
+type CustomFetchOptions = RequestInit & {
+  /** Evita loop: refresh/login e retry já feito */
+  skipAuthRefresh?: boolean;
+};
+
+/**
+ * Cliente HTTP central.
+ * - Lê o JWT atual do tokenStore (variável global) na hora da chamada.
+ * - Em 401: tenta refresh single-flight e repete a request uma vez.
+ * - Só encerra a sessão se o refresh falhar.
+ */
 export async function customFetch<T>(
   url: string,
-  options: RequestInit = {},
+  options: CustomFetchOptions = {},
   token?: string
 ): Promise<T> {
+  const { skipAuthRefresh, ...fetchOptions } = options;
   const correlationId = generateUUID();
   const deviceInfo = getDeviceInfo();
   prefetchPublicClientIp();
@@ -49,7 +84,7 @@ export async function customFetch<T>(
     'X-Device-Id': deviceInfo.deviceId,
     'X-Device-Name': deviceInfo.deviceName,
     'X-Device-Type': deviceInfo.deviceType,
-    ...(options.headers as Record<string, string>),
+    ...(fetchOptions.headers as Record<string, string>),
   };
 
   if (publicNetwork?.ip) {
@@ -59,12 +94,14 @@ export async function customFetch<T>(
     headers['X-Public-Location'] = encodeURIComponent(publicNetwork.location);
   }
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // Sempre preferir o token atual do store (não o snapshot preso no closure do componente)
+  const bearer = getAccessToken() ?? token;
+  if (bearer) {
+    headers['Authorization'] = `Bearer ${bearer}`;
   }
 
   const response = await fetch(url, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
 
@@ -78,22 +115,37 @@ export async function customFetch<T>(
   }
 
   if (!response.ok) {
-    const requestPath = url.split('?')[0];
-    const isMeProfile = requestPath.endsWith('/api/v1/users/me');
-    // GET /users/me não encerra a sessão: falha de perfil (ex.: 401 do ms-user)
-    // não é o mesmo que token revogado em /auth ou /sessions.
-    if (!isMeProfile && (response.status === 401 || data?.error === 'TOKEN_REVOKED')) {
+    const isMeProfile = isMeProfilePath(url);
+    const isBootstrap = isAuthBootstrapPath(url);
+    const shouldAttemptRefresh =
+      !skipAuthRefresh
+      && !isBootstrap
+      && !isMeProfile
+      && (response.status === 401 || data?.error === 'TOKEN_REVOKED');
+
+    if (shouldAttemptRefresh) {
+      const refreshed = await ensureFreshToken({ force: true });
+      if (refreshed) {
+        return customFetch<T>(url, { ...options, skipAuthRefresh: true }, getAccessToken() ?? undefined);
+      }
+      // ensureFreshToken já limpa tokens se o refresh foi rejeitado
+      if (!getAccessToken() && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('keepguard_auth_unauthorized', { detail: data }));
+      }
+    } else if (
+      !isMeProfile
+      && !isBootstrap
+      && (response.status === 401 || data?.error === 'TOKEN_REVOKED')
+      && skipAuthRefresh
+    ) {
+      // Retry já feito e ainda 401 → encerra sessão
+      clearTokens({ notifySessionEnded: true });
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('keepguard_access_token');
-        localStorage.removeItem('keepguard_refresh_token');
-        localStorage.removeItem('keepguard_user');
-        localStorage.removeItem('keepguard_last_refresh_time');
-        localStorage.removeItem('keepguard_refresh_count');
         window.dispatchEvent(new CustomEvent('keepguard_auth_unauthorized', { detail: data }));
       }
     }
 
-    const correlationId =
+    const responseCorrelationId =
       response.headers.get('X-Correlation-ID') ||
       data?.correlationId ||
       data?.traceId ||
@@ -103,7 +155,7 @@ export async function customFetch<T>(
     const errorObj = new Error(errorMessage) as any;
     errorObj.status = response.status;
     errorObj.data = data;
-    errorObj.correlationId = correlationId;
+    errorObj.correlationId = responseCorrelationId;
     throw errorObj;
   }
 

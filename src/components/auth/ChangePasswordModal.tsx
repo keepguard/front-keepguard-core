@@ -14,7 +14,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { accessToken } = useAuth();
+  const { getAccessToken } = useAuth();
   const { addToast } = useToast();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -45,6 +45,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       return;
     }
 
+    const accessToken = getAccessToken();
     if (!accessToken) {
       addToast({
         type: 'error',

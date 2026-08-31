@@ -1,15 +1,45 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useSyncExternalStore,
+} from 'react';
 import type { User, AuthLoginResponse } from '../types/auth';
 import { authService } from '../services/authService';
+import {
+  clearProactiveRefresh,
+  clearTokens,
+  ensureFreshToken,
+  getAccessToken,
+  getRefreshToken,
+  getTokenMetaSnapshot,
+  hydrateFromStorage,
+  markActivity,
+  onSessionEnded,
+  parseJwtPayload,
+  resetRefreshMeta,
+  scheduleProactiveRefresh,
+  setRefreshExecutor,
+  setTokens,
+  subscribe,
+  USER_STORAGE_KEY,
+} from '../services/tokenStore';
 
 interface AuthContextType {
   user: User | null;
+  /**
+   * Preferir getAccessToken() na hora da chamada HTTP.
+   * Este campo só muda em login/logout (não a cada refresh).
+   */
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  isInitializing: boolean;
   isLoading: boolean;
-  lastRefreshTime: Date | null;
-  refreshCount: number;
+  getAccessToken: () => string | null;
   login: (data: AuthLoginResponse, username: string) => void;
   logout: () => Promise<void>;
   performRefreshToken: () => Promise<boolean>;
@@ -17,76 +47,130 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_STORAGE_KEY = 'keepguard_access_token';
-const REFRESH_STORAGE_KEY = 'keepguard_refresh_token';
-const USER_STORAGE_KEY = 'keepguard_user';
-const LAST_REFRESH_STORAGE_KEY = 'keepguard_last_refresh_time';
-const REFRESH_COUNT_STORAGE_KEY = 'keepguard_refresh_count';
+function rolesFromJwt(token?: string | null): string[] {
+  if (!token) return [];
+  const claims = parseJwtPayload(token);
+  const roles = claims?.roles;
+  return Array.isArray(roles) ? roles.filter((r: unknown): r is string => typeof r === 'string') : [];
+}
 
-function parseJwt(token: string) {
+function readStoredUser(token: string | null): User | null {
+  if (typeof window === 'undefined') return null;
+  const saved = localStorage.getItem(USER_STORAGE_KEY);
+  if (!saved) return null;
   try {
-    const base64Url = token.split('.')[1];
-    if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
+    const parsed = JSON.parse(saved) as User;
+    const jwtRoles = rolesFromJwt(token);
+    if (parsed && jwtRoles.length > 0) {
+      return { ...parsed, roles: jwtRoles };
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
-function rolesFromJwt(token?: string | null): string[] {
-  if (!token) return [];
-  const claims = parseJwt(token);
-  const roles = claims?.roles;
-  return Array.isArray(roles) ? roles.filter((r: unknown) => typeof r === 'string') : [];
+setRefreshExecutor(async (token) => authService.refresh({ token }));
+
+/**
+ * Hook opcional: só telas que precisam mostrar o JWT / métricas de refresh
+ * (ex.: SecurityCredentialsView). Não usar no layout geral.
+ */
+export function useTokenMeta() {
+  return useSyncExternalStore(subscribe, getTokenMetaSnapshot, getTokenMetaSnapshot);
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem(USER_STORAGE_KEY);
-    const parsed = saved ? JSON.parse(saved) : null;
-    const jwtRoles = rolesFromJwt(localStorage.getItem(TOKEN_STORAGE_KEY));
-    if (parsed && jwtRoles.length > 0) {
-      return { ...parsed, roles: jwtRoles };
-    }
-    return parsed;
-  });
-  const [accessToken, setAccessToken] = useState<string | null>(() => {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
-  });
-  const [refreshToken, setRefreshToken] = useState<string | null>(() => {
-    return localStorage.getItem(REFRESH_STORAGE_KEY);
-  });
-  const [isLoading] = useState<boolean>(false);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(() => {
-    const saved = localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
-    return saved ? new Date(saved) : null;
-  });
-  const [refreshCount, setRefreshCount] = useState<number>(() => {
-    const saved = localStorage.getItem(REFRESH_COUNT_STORAGE_KEY);
-    return saved ? parseInt(saved, 10) || 0 : 0;
-  });
+  const hydrated = useMemo(() => hydrateFromStorage(), []);
+  const [user, setUser] = useState<User | null>(() => readStoredUser(hydrated.accessToken));
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!hydrated.accessToken);
+  const [isInitializing, setIsInitializing] = useState<boolean>(() => !!hydrated.accessToken);
+  // Epoch só muda em login/logout — mantém accessToken estável no Context entre refreshes
+  const [sessionEpoch, setSessionEpoch] = useState(0);
 
-  const lastActivityRef = useRef<number>(Date.now());
-  const isRefreshingRef = useRef<boolean>(false);
+  const login = useCallback((data: AuthLoginResponse, username: string) => {
+    const token = data.accessToken || data.token || '';
+    const rToken = data.refreshToken || token;
+    const claims = parseJwtPayload(token);
+    const jwtRoles = rolesFromJwt(token);
 
-  // Monitorar atividade do usuário (mouse, teclado, clique)
-  useEffect(() => {
-    const handleActivity = () => {
-      lastActivityRef.current = Date.now();
+    const userData: User = {
+      codeUser: data.codeUser || (typeof claims?.sub === 'string' ? claims.sub : '') || '',
+      username: data.username || username,
+      name: data.name || (typeof claims?.name === 'string' ? claims.name : username),
+      email: data.email || (username.includes('@') ? username : `${username}@keepguard.local`),
+      roles: (data.roles && data.roles.length > 0) ? data.roles : (jwtRoles.length > 0 ? jwtRoles : ['USER']),
+      tenantId: data.tenantId
+        || (typeof claims?.tenant_id === 'string' ? claims.tenant_id : undefined)
+        || 'f7fc7350-b9fc-4e54-9c58-ac9385b23ae3',
     };
 
+    setTokens(token, rToken);
+    resetRefreshMeta();
+    setUser(userData);
+    setIsAuthenticated(true);
+    setIsInitializing(false);
+    setSessionEpoch((n) => n + 1);
+
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+    markActivity();
+    scheduleProactiveRefresh();
+  }, []);
+
+  const endSessionLocally = useCallback(() => {
+    clearProactiveRefresh();
+    clearTokens({ notifySessionEnded: false });
+    setUser(null);
+    setIsAuthenticated(false);
+    setIsInitializing(false);
+    setSessionEpoch((n) => n + 1);
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      const token = getAccessToken();
+      if (token) {
+        await authService.logout(token);
+      }
+    } catch (e) {
+      console.warn('Erro ao efetuar logout no servidor:', e);
+    } finally {
+      endSessionLocally();
+    }
+  }, [endSessionLocally]);
+
+  const performRefreshToken = useCallback(async (): Promise<boolean> => {
+    markActivity();
+    return ensureFreshToken({ force: true });
+  }, []);
+
+  useEffect(() => {
+    onSessionEnded(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsInitializing(false);
+      setSessionEpoch((n) => n + 1);
+    });
+    return () => onSessionEnded(null);
+  }, []);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsInitializing(false);
+      setSessionEpoch((n) => n + 1);
+    };
+    window.addEventListener('keepguard_auth_unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('keepguard_auth_unauthorized', handleUnauthorized);
+  }, []);
+
+  useEffect(() => {
+    const handleActivity = () => markActivity();
     window.addEventListener('mousemove', handleActivity);
     window.addEventListener('keydown', handleActivity);
     window.addEventListener('click', handleActivity);
     window.addEventListener('scroll', handleActivity);
-
     return () => {
       window.removeEventListener('mousemove', handleActivity);
       window.removeEventListener('keydown', handleActivity);
@@ -95,165 +179,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = useCallback((data: AuthLoginResponse, username: string) => {
-    const token = data.accessToken || data.token || '';
-    const rToken = data.refreshToken || token;
-    const claims = parseJwt(token);
-    const jwtRoles = rolesFromJwt(token);
+  useEffect(() => {
+    let cancelled = false;
 
-    const userData: User = {
-      codeUser: data.codeUser || claims?.sub || '',
-      username: data.username || username,
-      name: data.name || claims?.name || username,
-      email: data.email || (username.includes('@') ? username : `${username}@keepguard.local`),
-      roles: (data.roles && data.roles.length > 0) ? data.roles : (jwtRoles.length > 0 ? jwtRoles : ['USER']),
-      tenantId: data.tenantId || claims?.tenant_id || 'f7fc7350-b9fc-4e54-9c58-ac9385b23ae3',
+    const bootstrap = async () => {
+      const token = getAccessToken();
+      if (!token) {
+        setIsInitializing(false);
+        return;
+      }
+
+      try {
+        await authService.validateToken(token);
+        if (cancelled) return;
+        scheduleProactiveRefresh();
+      } catch (err: unknown) {
+        const status = (err as { status?: number })?.status;
+        const errorCode = (err as { data?: { error?: string; errorCode?: string } })?.data?.errorCode
+          || (err as { data?: { error?: string } })?.data?.error;
+
+        if (status === 401 || errorCode === 'TOKEN_REVOKED' || errorCode === 'INVALID_TOKEN') {
+          const refreshed = await ensureFreshToken({ force: true });
+          if (cancelled) return;
+          if (!refreshed) {
+            endSessionLocally();
+          } else {
+            scheduleProactiveRefresh();
+          }
+        } else {
+          scheduleProactiveRefresh();
+        }
+      } finally {
+        if (!cancelled) {
+          setIsInitializing(false);
+        }
+      }
     };
 
-    setAccessToken(token);
-    setRefreshToken(rToken);
-    setUser(userData);
-    setLastRefreshTime(null);
-    setRefreshCount(0);
-
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    localStorage.setItem(REFRESH_STORAGE_KEY, rToken);
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-    localStorage.removeItem(LAST_REFRESH_STORAGE_KEY);
-    localStorage.setItem(REFRESH_COUNT_STORAGE_KEY, '0');
-    lastActivityRef.current = Date.now();
-  }, []);
-
-  const logout = useCallback(async () => {
-    try {
-      const token = accessToken || localStorage.getItem(TOKEN_STORAGE_KEY);
-      if (token) {
-        await authService.logout(token);
-      }
-    } catch (e) {
-      console.warn('Erro ao efetuar logout no servidor:', e);
-    } finally {
-      setAccessToken(null);
-      setRefreshToken(null);
-      setUser(null);
-      setLastRefreshTime(null);
-      setRefreshCount(0);
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      localStorage.removeItem(REFRESH_STORAGE_KEY);
-      localStorage.removeItem(USER_STORAGE_KEY);
-      localStorage.removeItem(LAST_REFRESH_STORAGE_KEY);
-      localStorage.removeItem(REFRESH_COUNT_STORAGE_KEY);
-    }
-  }, [accessToken]);
-
-  const performRefreshToken = useCallback(async (): Promise<boolean> => {
-    const tokenToUse = refreshToken || localStorage.getItem(REFRESH_STORAGE_KEY) || accessToken || localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (!tokenToUse || isRefreshingRef.current) {
-      return false;
-    }
-
-    try {
-      isRefreshingRef.current = true;
-      const res = await authService.refresh({ token: tokenToUse });
-      const newAccess = res.accessToken || res.token;
-      // No KeepGuard, a API retorna { token, expiresIn } que é o novo token JWT ativo
-      const newRefresh = res.refreshToken || res.token || res.accessToken || tokenToUse;
-
-      if (newAccess) {
-        setAccessToken(newAccess);
-        localStorage.setItem(TOKEN_STORAGE_KEY, newAccess);
-      }
-      if (newRefresh) {
-        setRefreshToken(newRefresh);
-        localStorage.setItem(REFRESH_STORAGE_KEY, newRefresh);
-      }
-
-      const now = new Date();
-      setLastRefreshTime(now);
-      localStorage.setItem(LAST_REFRESH_STORAGE_KEY, now.toISOString());
-
-      setRefreshCount(prev => {
-        const next = prev + 1;
-        localStorage.setItem(REFRESH_COUNT_STORAGE_KEY, next.toString());
-        return next;
-      });
-
-      lastActivityRef.current = Date.now();
-      return true;
-    } catch (err: any) {
-      console.error('Falha ao renovar token:', err);
-      // Se refresh token for rejeitado com 401 ou revogado, finaliza a sessão
-      if (err?.status === 401 || err?.data?.errorCode === 'TOKEN_REVOKED' || err?.data?.errorCode === 'INVALID_TOKEN') {
-        await logout();
-      }
-      return false;
-    } finally {
-      isRefreshingRef.current = false;
-    }
-  }, [refreshToken, accessToken, logout]);
-
-  // Validação ativa do token no backend/Redis ao inicializar a página (F5 / Mount)
-  useEffect(() => {
-    const initialToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (!initialToken) return;
-
-    authService.validateToken(initialToken).catch((err: any) => {
-      console.warn('Sessão inválida ou revogada no carregamento inicial:', err);
-      // Se a validação falhar com 401 ou token inválido, desloga imediatamente
-      if (err?.status === 401 || err?.data?.error === 'TOKEN_REVOKED') {
-        logout();
-      }
-    });
-  }, [logout]);
-
-  // Escuta evento global de não autorizado (401) disparado pelo api.ts
-  useEffect(() => {
-    const handleUnauthorized = () => {
-      setAccessToken(null);
-      setRefreshToken(null);
-      setUser(null);
-      setLastRefreshTime(null);
-      setRefreshCount(0);
+    void bootstrap();
+    return () => {
+      cancelled = true;
     };
+  }, [endSessionLocally]);
 
-    window.addEventListener('keepguard_auth_unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('keepguard_auth_unauthorized', handleUnauthorized);
-  }, []);
-
-  // Intervalo de auto-refresh se usuário esteve ativo nos últimos 5 minutos
-  useEffect(() => {
-    if (!accessToken && !localStorage.getItem(TOKEN_STORAGE_KEY)) return;
-
-    // Checa a cada 45 segundos se deve renovar
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const inactiveDuration = now - lastActivityRef.current;
-      const fiveMinutes = 5 * 60 * 1000;
-
-      // Se o usuário interagiu recentemente, renova proativamente
-      if (inactiveDuration < fiveMinutes) {
-        performRefreshToken();
-      }
-    }, 45 * 1000);
-
-    return () => clearInterval(interval);
-  }, [accessToken, performRefreshToken]);
+  const value = useMemo<AuthContextType>(() => ({
+    user,
+    accessToken: isAuthenticated ? getAccessToken() : null,
+    refreshToken: isAuthenticated ? getRefreshToken() : null,
+    isAuthenticated,
+    isInitializing,
+    isLoading: isInitializing,
+    getAccessToken,
+    login,
+    logout,
+    performRefreshToken,
+  }), [
+    user,
+    isAuthenticated,
+    isInitializing,
+    sessionEpoch,
+    login,
+    logout,
+    performRefreshToken,
+  ]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        accessToken,
-        refreshToken,
-        isAuthenticated: !!accessToken,
-        isLoading,
-        lastRefreshTime,
-        refreshCount,
-        login,
-        logout,
-        performRefreshToken,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
