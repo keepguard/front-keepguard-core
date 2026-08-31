@@ -121,15 +121,12 @@ const AuditPager: React.FC<{
   refreshing: boolean;
   page: number;
   totalPages: number;
-  totalElements: number;
   onPrev: () => void;
   onNext: () => void;
-}> = ({ loading, refreshing, page, totalPages, totalElements, onPrev, onNext }) => (
+  leading?: React.ReactNode;
+}> = ({ loading, refreshing, page, totalPages, onPrev, onNext, leading }) => (
   <div className="audits-pager">
-    <span className="audits-pager-meta">
-      {totalElements} evento{totalElements === 1 ? '' : 's'} · página {page + 1} de {totalPages}
-      {refreshing ? ' · atualizando…' : ''}
-    </span>
+    <div className="audits-pager-leading">{leading}</div>
     <div className="audits-pager-actions">
       <button
         type="button"
@@ -177,7 +174,6 @@ export const AuditsView: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalElements, setTotalElements] = useState(0);
   const [detail, setDetail] = useState<AuditDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -220,7 +216,6 @@ export const AuditsView: React.FC = () => {
       setItems(result.content || []);
       setPage(result.page ?? nextPage);
       setTotalPages(Math.max(result.totalPages || 1, 1));
-      setTotalElements(result.totalElements || 0);
       setSortKey(null);
       setSortDir('asc');
     } catch (err: any) {
@@ -298,15 +293,29 @@ export const AuditsView: React.FC = () => {
     loadPage(0, next);
   };
 
-  const pager = (
+  const filterActions = (
+    <div className="audits-filter-actions">
+      <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading || refreshing}>
+        <Search size={15} />
+        <span>Filtrar</span>
+      </button>
+      <RefreshCombo
+        onRefresh={() => void loadPage(pageRef.current, appliedRef.current)}
+        disabled={loading || refreshing}
+        refreshing={refreshing}
+      />
+    </div>
+  );
+
+  const pager = (includeFilter = false) => (
     <AuditPager
       loading={loading}
       refreshing={refreshing}
       page={page}
       totalPages={totalPages}
-      totalElements={totalElements}
       onPrev={() => loadPage(page - 1, applied)}
       onNext={() => loadPage(page + 1, applied)}
+      leading={includeFilter ? filterActions : undefined}
     />
   );
 
@@ -420,21 +429,9 @@ export const AuditsView: React.FC = () => {
               </>
             )}
           </select>
-          <div className="audits-filter-actions">
-          <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading || refreshing}>
-            <Search size={15} />
-            <span>Filtrar</span>
-          </button>
-          <RefreshCombo
-            onRefresh={() => void loadPage(pageRef.current, appliedRef.current)}
-            disabled={loading || refreshing}
-            refreshing={refreshing}
-          />
-          </div>
         </div>
+        {pager(true)}
       </form>
-
-      {pager}
 
       <div className="hpanel-table-card desktop-table-view">
         <table className="hpanel-table">
@@ -548,7 +545,7 @@ export const AuditsView: React.FC = () => {
         ))}
       </div>
 
-      {pager}
+      {pager(false)}
 
       <Modal
         isOpen={!!detail || detailLoading}

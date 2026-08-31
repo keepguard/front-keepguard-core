@@ -166,15 +166,12 @@ const GuardianPager: React.FC<{
   refreshing: boolean;
   page: number;
   totalPages: number;
-  totalElements: number;
   onPrev: () => void;
   onNext: () => void;
-}> = ({ loading, refreshing, page, totalPages, totalElements, onPrev, onNext }) => (
+  leading?: React.ReactNode;
+}> = ({ loading, refreshing, page, totalPages, onPrev, onNext, leading }) => (
   <div className="audits-pager">
-    <span className="audits-pager-meta">
-      {totalElements} incidente{totalElements === 1 ? '' : 's'} · página {page + 1} de {Math.max(totalPages, 1)}
-      {refreshing ? ' · atualizando…' : ''}
-    </span>
+    <div className="audits-pager-leading">{leading}</div>
     <div className="audits-pager-actions">
       <button
         type="button"
@@ -208,7 +205,6 @@ export const GuardianView: React.FC = () => {
   const [items, setItems] = useState<GuardianIncidentListItem[]>([]);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [detail, setDetail] = useState<IncidentDetail | null>(null);
@@ -254,7 +250,6 @@ export const GuardianView: React.FC = () => {
       setItems(result.content || []);
       setPage(result.page ?? nextPage);
       setTotalPages(Math.max(result.totalPages || 1, 1));
-      setTotalElements(result.totalElements || 0);
     } catch (error) {
       addToast({
         type: 'error',
@@ -379,15 +374,29 @@ export const GuardianView: React.FC = () => {
     }
   };
 
-  const pager = (
+  const filterActions = (
+    <div className="audits-filter-actions">
+      <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading || refreshing}>
+        <Search size={15} />
+        <span>Filtrar</span>
+      </button>
+      <RefreshCombo
+        onRefresh={() => void loadPage(pageRef.current, appliedRef.current)}
+        disabled={loading || refreshing}
+        refreshing={refreshing}
+      />
+    </div>
+  );
+
+  const pager = (includeFilter = false) => (
     <GuardianPager
       loading={loading}
       refreshing={refreshing}
       page={page}
       totalPages={totalPages}
-      totalElements={totalElements}
       onPrev={() => void loadPage(page - 1, applied)}
       onNext={() => void loadPage(page + 1, applied)}
+      leading={includeFilter ? filterActions : undefined}
     />
   );
 
@@ -491,21 +500,9 @@ export const GuardianView: React.FC = () => {
               </>
             )}
           </select>
-          <div className="audits-filter-actions">
-            <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading || refreshing}>
-              <Search size={15} />
-              <span>Filtrar</span>
-            </button>
-            <RefreshCombo
-              onRefresh={() => void loadPage(pageRef.current, appliedRef.current)}
-              disabled={loading || refreshing}
-              refreshing={refreshing}
-            />
-          </div>
         </div>
+        {pager(true)}
       </form>
-
-      {pager}
 
       <div className="hpanel-table-card desktop-table-view">
         <table className="hpanel-table guardian-table">
@@ -616,7 +613,7 @@ export const GuardianView: React.FC = () => {
         ))}
       </div>
 
-      {pager}
+      {pager(false)}
 
       <details className="hpanel-table-card guardian-recipients-card">
         <summary className="guardian-recipients-head">

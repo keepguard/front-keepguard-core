@@ -815,7 +815,7 @@ body {
 }
 
 .audits-filter-row-tools {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) 94px auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 94px;
 }
 
 .audits-filter-spacer {
@@ -896,7 +896,7 @@ body {
 }
 
 .audits-toolbar .guardian-filter-row-tools {
-  grid-template-columns: minmax(140px, 1fr) minmax(160px, 1fr) minmax(140px, 0.85fr) 94px auto;
+  grid-template-columns: minmax(140px, 1fr) minmax(160px, 1fr) minmax(140px, 0.85fr) 94px;
 }
 
 .client-system-create-row {
@@ -1035,7 +1035,7 @@ body {
 }
 
 .audits-toolbar .client-system-filter-row-tools {
-  grid-template-columns: minmax(150px, 0.9fr) minmax(130px, 0.55fr) auto;
+  grid-template-columns: minmax(150px, 0.9fr) minmax(130px, 0.55fr);
 }
 
 .audits-toolbar .client-system-filter-row-tools .form-input.audits-dir-select {
@@ -1195,12 +1195,6 @@ body {
   .audits-toolbar .client-system-filter-row,
   .audits-toolbar .client-system-filter-row-tools {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .audits-toolbar .guardian-filter-row-tools .audits-filter-actions,
-  .audits-toolbar .client-system-filter-row-tools .audits-filter-actions {
-    grid-column: 1 / -1;
-    justify-self: stretch;
   }
 }
 
@@ -1368,6 +1362,18 @@ body {
   margin: 0.75rem 0;
 }
 
+.audits-pager-leading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.audits-pager-leading .audits-filter-actions {
+  justify-self: start;
+  justify-content: flex-start;
+}
+
 .audits-pager-meta {
   font-size: 0.85rem;
   color: #5f6368;
@@ -1376,6 +1382,7 @@ body {
 .audits-pager-actions {
   display: flex;
   gap: 0.4rem;
+  margin-left: auto;
 }
 
 .btn-icon-pager {
@@ -1573,10 +1580,10 @@ body {
 
 /* Action Buttons inside Table */
 .table-actions-group {
-  display: grid;
-  grid-template-columns: 32px 32px;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: end;
+  justify-content: flex-end;
   gap: 0.5rem;
 }
 
@@ -1587,8 +1594,8 @@ body {
 
 @media (max-width: 768px) {
   .mobile-card-actions.table-actions-group {
-    display: grid;
-    grid-template-columns: 32px 32px;
+    display: flex;
+    flex-wrap: nowrap;
     width: auto;
     margin-left: auto;
   }

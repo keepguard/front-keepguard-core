@@ -148,14 +148,12 @@ const ClientPager: React.FC<{
   loading: boolean;
   page: number;
   totalPages: number;
-  totalElements: number;
   onPrev: () => void;
   onNext: () => void;
-}> = ({ loading, page, totalPages, totalElements, onPrev, onNext }) => (
+  leading?: React.ReactNode;
+}> = ({ loading, page, totalPages, onPrev, onNext, leading }) => (
   <div className="audits-pager">
-    <span className="audits-pager-meta">
-      {totalElements} client{totalElements === 1 ? '' : 's'} · página {page + 1} de {totalPages}
-    </span>
+    <div className="audits-pager-leading">{leading}</div>
     <div className="audits-pager-actions">
       <button
         type="button"
@@ -196,7 +194,6 @@ export const ClientSystemView: React.FC = () => {
   const [items, setItems] = useState<OAuthClient[]>([]);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<OAuthClientDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -242,7 +239,6 @@ export const ClientSystemView: React.FC = () => {
       setItems(result.content || []);
       setPage(result.page ?? nextPage);
       setTotalPages(Math.max(result.totalPages || 1, 1));
-      setTotalElements(result.totalElements || 0);
     } catch (err: any) {
       if (err?.status === 401 || err?.status === 403) {
         addToast({
@@ -500,14 +496,23 @@ export const ClientSystemView: React.FC = () => {
     }));
   };
 
-  const pager = (
+  const filterActions = (
+    <div className="audits-filter-actions">
+      <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
+        <Search size={15} />
+        <span>Filtrar</span>
+      </button>
+    </div>
+  );
+
+  const pager = (includeFilter = false) => (
     <ClientPager
       loading={loading}
       page={page}
       totalPages={totalPages}
-      totalElements={totalElements}
       onPrev={() => loadPage(page - 1, applied)}
       onNext={() => loadPage(page + 1, applied)}
+      leading={includeFilter ? filterActions : undefined}
     />
   );
 
@@ -612,16 +617,9 @@ export const ClientSystemView: React.FC = () => {
             <option value="desc">Decrescente</option>
             <option value="asc">Crescente</option>
           </select>
-          <div className="audits-filter-actions">
-            <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
-              <Search size={15} />
-              <span>Filtrar</span>
-            </button>
-          </div>
         </div>
+        {pager(true)}
       </form>
-
-      {pager}
 
       <div className="hpanel-table-card desktop-table-view">
         <table className="hpanel-table">
@@ -708,7 +706,7 @@ export const ClientSystemView: React.FC = () => {
         ))}
       </div>
 
-      {pager}
+      {pager(false)}
 
       <Modal
         isOpen={!!detail || detailLoading}
