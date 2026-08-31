@@ -322,7 +322,7 @@ export const AuditsView: React.FC = () => {
   return (
     <div>
       <form className="audits-toolbar" onSubmit={handleSearch}>
-        <div className="audits-filter-row">
+        <div className="audits-filter-row audits-filter-row-primary">
           <input
             className="form-input"
             type="datetime-local"
@@ -340,7 +340,7 @@ export const AuditsView: React.FC = () => {
             title="Até (opcional)"
           />
           <select
-            className="form-input"
+            className="form-input audits-compact-select"
             value={filters.outcome}
             onChange={(e) => setFilters((f) => ({ ...f, outcome: e.target.value }))}
             aria-label="Resultado"
@@ -359,6 +359,8 @@ export const AuditsView: React.FC = () => {
               onChange={(e) => setFilters((f) => ({ ...f, actorCodeUser: e.target.value }))}
             />
           </div>
+        </div>
+        <div className="audits-filter-row audits-filter-row-secondary">
           <input
             className="form-input"
             placeholder="Ação"
@@ -371,8 +373,6 @@ export const AuditsView: React.FC = () => {
             value={filters.resourceType}
             onChange={(e) => setFilters((f) => ({ ...f, resourceType: e.target.value }))}
           />
-        </div>
-        <div className="audits-filter-row audits-filter-row-tools">
           <input
             className="form-input"
             placeholder="ID do recurso"
@@ -391,44 +391,46 @@ export const AuditsView: React.FC = () => {
             value={filters.sourceService}
             onChange={(e) => setFilters((f) => ({ ...f, sourceService: e.target.value }))}
           />
-          <select
-            className="form-input"
-            value={filters.sort}
-            onChange={(e) => {
-              const sort = e.target.value as Filters['sort'];
-              setFilters((f) => ({ ...f, sort, dir: sort ? f.dir : '' }));
-            }}
-            aria-label="Ordenar por (opcional)"
-            title="Ordenar por (opcional)"
-          >
-            <option value="">Ordenar por</option>
-            <option value="occurredAt">Quando</option>
-            <option value="actor">Quem</option>
-            <option value="action">Ação</option>
-            <option value="resource">Recurso</option>
-            <option value="outcome">Resultado</option>
-            <option value="sourceService">Origem</option>
-          </select>
-          <select
-            className="form-input audits-dir-select"
-            value={filters.dir}
-            onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as Filters['dir'] }))}
-            aria-label="Direção da ordem (opcional)"
-            title="Direção da ordem (opcional)"
-          >
-            <option value="">Direção</option>
-            {isAlphaSort(filters.sort) ? (
-              <>
-                <option value="asc">A–Z / crescente</option>
-                <option value="desc">Z–A / decrescente</option>
-              </>
-            ) : (
-              <>
-                <option value="desc">Mais recentes</option>
-                <option value="asc">Mais antigos</option>
-              </>
-            )}
-          </select>
+          <div className="audits-sort-group">
+            <select
+              className="form-input audits-sort-select"
+              value={filters.sort}
+              onChange={(e) => {
+                const sort = e.target.value as Filters['sort'];
+                setFilters((f) => ({ ...f, sort, dir: sort ? f.dir : '' }));
+              }}
+              aria-label="Ordenar por (opcional)"
+              title="Ordenar por (opcional)"
+            >
+              <option value="">Ordenar por</option>
+              <option value="occurredAt">Quando</option>
+              <option value="actor">Quem</option>
+              <option value="action">Ação</option>
+              <option value="resource">Recurso</option>
+              <option value="outcome">Resultado</option>
+              <option value="sourceService">Origem</option>
+            </select>
+            <select
+              className="form-input audits-dir-select"
+              value={filters.dir}
+              onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as Filters['dir'] }))}
+              aria-label="Direção da ordem (opcional)"
+              title="Direção da ordem (opcional)"
+            >
+              <option value="">Direção</option>
+              {isAlphaSort(filters.sort) ? (
+                <>
+                  <option value="asc">A–Z</option>
+                  <option value="desc">Z–A</option>
+                </>
+              ) : (
+                <>
+                  <option value="desc">Mais recentes</option>
+                  <option value="asc">Mais antigos</option>
+                </>
+              )}
+            </select>
+          </div>
         </div>
         {pager(true)}
       </form>

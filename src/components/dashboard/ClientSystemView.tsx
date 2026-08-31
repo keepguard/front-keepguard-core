@@ -587,7 +587,7 @@ export const ClientSystemView: React.FC = () => {
             />
           </div>
           <select
-            className="form-input"
+            className="form-input audits-compact-select"
             value={filters.status}
             onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as Filters['status'] }))}
             aria-label="Status"
@@ -596,27 +596,27 @@ export const ClientSystemView: React.FC = () => {
             <option value="ACTIVE">Ativo</option>
             <option value="BLOCKED">Bloqueado</option>
           </select>
-        </div>
-        <div className="audits-filter-row audits-filter-row-tools client-system-filter-row-tools">
-          <select
-            className="form-input"
-            value={filters.sort}
-            onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as Filters['sort'] }))}
-            aria-label="Ordenar por"
-          >
-            <option value="createdAt">Criado em</option>
-            <option value="clientId">Client ID</option>
-            <option value="status">Status</option>
-          </select>
-          <select
-            className="form-input audits-dir-select"
-            value={filters.dir}
-            onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as Filters['dir'] }))}
-            aria-label="Direção"
-          >
-            <option value="desc">Decrescente</option>
-            <option value="asc">Crescente</option>
-          </select>
+          <div className="audits-sort-group">
+            <select
+              className="form-input audits-sort-select"
+              value={filters.sort}
+              onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as Filters['sort'] }))}
+              aria-label="Ordenar por"
+            >
+              <option value="createdAt">Criado em</option>
+              <option value="clientId">Client ID</option>
+              <option value="status">Status</option>
+            </select>
+            <select
+              className="form-input audits-dir-select"
+              value={filters.dir}
+              onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as Filters['dir'] }))}
+              aria-label="Direção"
+            >
+              <option value="desc">Decrescente</option>
+              <option value="asc">Crescente</option>
+            </select>
+          </div>
         </div>
         {pager(true)}
       </form>
