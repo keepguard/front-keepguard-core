@@ -47,6 +47,12 @@ type CredentialState =
   | { kind: 'missing' }
   | { kind: 'found'; client: OAuthClient };
 
+type KeyValueEntry = {
+  id: string;
+  key: string;
+  value: string;
+};
+
 type AgentForm = {
   name: string;
   description: string;
@@ -55,8 +61,8 @@ type AgentForm = {
   enabled: boolean;
   url: string;
   method: string;
-  headersText: string;
-  queryParamsText: string;
+  headers: KeyValueEntry[];
+  queryParams: KeyValueEntry[];
   bodyTemplate: string;
   outputFileName: string;
   cssSelectorsText: string;
@@ -91,8 +97,8 @@ function emptyForm(): AgentForm {
     enabled: false,
     url: '',
     method: 'GET',
-    headersText: '',
-    queryParamsText: '',
+    headers: [],
+    queryParams: [],
     bodyTemplate: '',
     outputFileName: '',
     cssSelectorsText: '',
@@ -142,26 +148,27 @@ function scheduleSummary(schedule?: CollectorSchedule): string {
   return [days || '—', window, interval].filter(Boolean).join(' · ');
 }
 
-function parseMapText(text: string): Record<string, string> {
+function newKeyValueId(): string {
+  return `kv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function pairsToMap(entries: KeyValueEntry[]): Record<string, string> {
   const out: Record<string, string> = {};
-  text.split('\n').forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    const sep = trimmed.includes('=') ? '=' : ':';
-    const index = trimmed.indexOf(sep);
-    if (index <= 0) return;
-    const key = trimmed.slice(0, index).trim();
-    const value = trimmed.slice(index + 1).trim();
-    if (key) out[key] = value;
+  entries.forEach((entry) => {
+    const key = entry.key.trim();
+    if (!key) return;
+    out[key] = entry.value;
   });
   return out;
 }
 
-function mapToText(value: unknown): string {
-  if (!value || typeof value !== 'object') return '';
-  return Object.entries(value as Record<string, string>)
-    .map(([key, item]) => `${key}: ${item}`)
-    .join('\n');
+function mapToPairs(value: unknown): KeyValueEntry[] {
+  if (!value || typeof value !== 'object') return [];
+  return Object.entries(value as Record<string, string>).map(([key, item]) => ({
+    id: newKeyValueId(),
+    key,
+    value: String(item ?? ''),
+  }));
 }
 
 function linesToList(text: string): string[] {
@@ -192,8 +199,8 @@ function buildCollectorConfig(form: AgentForm): Record<string, unknown> {
       max_file_size_bytes: Number.isFinite(maxSize) && maxSize > 0 ? maxSize : undefined,
     };
   }
-  const headers = parseMapText(form.headersText);
-  const queryParams = parseMapText(form.queryParamsText);
+  const headers = pairsToMap(form.headers);
+  const queryParams = pairsToMap(form.queryParams);
   return {
     url: form.url.trim(),
     method: form.method.trim() || 'GET',
@@ -225,8 +232,8 @@ function formFromAgent(agent: CollectorAgent): AgentForm {
     enabled: agent.enabled,
     url: String(cfg.url || ''),
     method: String(cfg.method || 'GET'),
-    headersText: mapToText(cfg.headers),
-    queryParamsText: mapToText(cfg.query_params),
+    headers: mapToPairs(cfg.headers),
+    queryParams: mapToPairs(cfg.query_params),
     bodyTemplate: String(cfg.body_template || ''),
     outputFileName: String(cfg.output_file_name || ''),
     cssSelectorsText: Array.isArray(cfg.css_selectors) ? (cfg.css_selectors as string[]).join('\n') : '',
@@ -256,6 +263,132 @@ const FORM_STEPS: Array<{
   { id: 'collector', label: 'Coleta', hint: 'Fonte e config' },
   { id: 'schedule', label: 'Agenda', hint: 'Quando roda' },
 ];
+
+function KeyValueEditor({
+  label,
+  entries,
+  onChange,
+  keyPlaceholder = 'Chave',
+  valuePlaceholder = 'Valor',
+}: {
+  label: string;
+  entries: KeyValueEntry[];
+  onChange: (next: KeyValueEntry[]) => void;
+  keyPlaceholder?: string;
+  valuePlaceholder?: string;
+}) {
+  const [draftKey, setDraftKey] = useState('');
+  const [draftValue, setDraftValue] = useState('');
+
+  const addEntry = () => {
+    const key = draftKey.trim();
+    if (!key) return;
+    onChange([...entries.filter((item) => item.key.trim().toLowerCase() !== key.toLowerCase()), {
+      id: newKeyValueId(),
+      key,
+      value: draftValue,
+    }]);
+    setDraftKey('');
+    setDraftValue('');
+  };
+
+  return (
+    <div className="form-group kv-editor">
+      <label>{label}</label>
+      <div className="kv-editor-add">
+        <input
+          className="form-input"
+          value={draftKey}
+          onChange={(e) => setDraftKey(e.target.value)}
+          placeholder={keyPlaceholder}
+          aria-label={`${label} chave`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addEntry();
+            }
+          }}
+        />
+        <input
+          className="form-input"
+          value={draftValue}
+          onChange={(e) => setDraftValue(e.target.value)}
+          placeholder={valuePlaceholder}
+          aria-label={`${label} valor`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addEntry();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="btn btn-outline btn-pill"
+          onClick={addEntry}
+          disabled={!draftKey.trim()}
+          title="Adicionar"
+          aria-label={`Adicionar ${label}`}
+        >
+          <Plus size={15} />
+          <span>Adicionar</span>
+        </button>
+      </div>
+      {entries.length > 0 ? (
+        <div className="kv-editor-table-wrap">
+          <table className="kv-editor-table">
+            <thead>
+              <tr>
+                <th>Chave</th>
+                <th>Valor</th>
+                <th aria-label="Ações" />
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry) => (
+                <tr key={entry.id}>
+                  <td>
+                    <input
+                      className="form-input"
+                      value={entry.key}
+                      onChange={(e) => onChange(entries.map((item) => (
+                        item.id === entry.id ? { ...item, key: e.target.value } : item
+                      )))}
+                      aria-label="Chave"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="form-input"
+                      value={entry.value}
+                      onChange={(e) => onChange(entries.map((item) => (
+                        item.id === entry.id ? { ...item, value: e.target.value } : item
+                      )))}
+                      aria-label="Valor"
+                    />
+                  </td>
+                  <td className="kv-editor-actions">
+                    <button
+                      type="button"
+                      className="btn-table-icon"
+                      title="Excluir"
+                      aria-label={`Excluir ${entry.key || 'item'}`}
+                      onClick={() => onChange(entries.filter((item) => item.id !== entry.id))}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="kv-editor-empty">Nenhum item adicionado.</p>
+      )}
+    </div>
+  );
+}
 
 function CredentialBanner({
   state,
@@ -1170,14 +1303,20 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                       />
                     </div>
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="agent-headers">Headers (chave: valor)</label>
-                    <textarea id="agent-headers" className="form-input" rows={2} value={form.headersText} onChange={(e) => setForm((f) => ({ ...f, headersText: e.target.value }))} />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="agent-query">Query params (chave: valor)</label>
-                    <textarea id="agent-query" className="form-input" rows={2} value={form.queryParamsText} onChange={(e) => setForm((f) => ({ ...f, queryParamsText: e.target.value }))} />
-                  </div>
+                  <KeyValueEditor
+                    label="Headers"
+                    entries={form.headers}
+                    onChange={(headers) => setForm((f) => ({ ...f, headers }))}
+                    keyPlaceholder="Authorization"
+                    valuePlaceholder="Bearer …"
+                  />
+                  <KeyValueEditor
+                    label="Query params"
+                    entries={form.queryParams}
+                    onChange={(queryParams) => setForm((f) => ({ ...f, queryParams }))}
+                    keyPlaceholder="page"
+                    valuePlaceholder="0"
+                  />
                   <div className="form-group">
                     <label htmlFor="agent-body">Body template</label>
                     <textarea id="agent-body" className="form-input" rows={2} value={form.bodyTemplate} onChange={(e) => setForm((f) => ({ ...f, bodyTemplate: e.target.value }))} />
