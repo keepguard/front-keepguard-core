@@ -7,7 +7,9 @@ interface ModalProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   maxWidth?: string;
+  maxHeight?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -16,7 +18,9 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   subtitle,
   children,
+  footer,
   maxWidth = '480px',
+  maxHeight,
 }) => {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -37,8 +41,8 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal-card animate-scale-in"
-        style={{ maxWidth }}
+        className={`modal-card animate-scale-in${footer ? ' has-footer' : ''}`}
+        style={{ maxWidth, ...(maxHeight ? { maxHeight } : {}) }}
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
@@ -51,6 +55,7 @@ export const Modal: React.FC<ModalProps> = ({
           </button>
         </div>
         <div className="modal-body">{children}</div>
+        {footer ? <div className="modal-footer">{footer}</div> : null}
       </div>
     </div>
   );

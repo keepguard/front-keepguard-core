@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  KeyRound,
   Pencil,
   Plus,
   Power,
@@ -240,6 +241,18 @@ function formFromAgent(agent: CollectorAgent): AgentForm {
   };
 }
 
+type FormStep = 'identity' | 'collector' | 'schedule';
+
+const FORM_STEPS: Array<{
+  id: FormStep;
+  label: string;
+  hint: string;
+}> = [
+  { id: 'identity', label: 'Identidade', hint: 'Nome e tipo' },
+  { id: 'collector', label: 'Coleta', hint: 'Fonte e config' },
+  { id: 'schedule', label: 'Agenda', hint: 'Quando roda' },
+];
+
 function CredentialBanner({
   state,
   onOpenClientSystem,
@@ -302,29 +315,99 @@ function CredentialBanner({
         <span>{state.client.serviceRoleName || '—'}</span>
         <span>TTL {state.client.tokenTtlSeconds}s</span>
       </div>
-      {state.client.description ? (
-        <p>{state.client.description}</p>
-      ) : null}
-      {(state.client.authorities || []).length > 0 ? (
-        <div className="form-group oauth-authorities-group" style={{ marginTop: '0.6rem', marginBottom: 0 }}>
-          <div className="form-label-row">
-            <label>Authorities</label>
-            <span className="oauth-authorities-count">
-              {state.client.authorities.length === 1
-                ? '1 permissão'
-                : `${state.client.authorities.length} permissões`}
-            </span>
-          </div>
-          <div className="oauth-authorities-list" role="list">
-            {state.client.authorities.map((authority) => (
-              <div key={authority} className="oauth-authority-item" role="listitem">
-                <span className="oauth-authority-name">{authority}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
       {link}
+    </div>
+  );
+}
+
+function CredentialChip({
+  state,
+  onOpenClientSystem,
+}: {
+  state: CredentialState;
+  onOpenClientSystem?: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (state.kind === 'loading') {
+    return (
+      <div className="collector-credential-chip">
+        <span className="collector-credential-chip-icon"><KeyRound size={14} /></span>
+        <div className="collector-credential-chip-body">
+          <div className="collector-credential-chip-title">Verificando credencial…</div>
+          <div className="collector-credential-chip-meta">Client compartilhado da organização</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.kind === 'error' || state.kind === 'missing') {
+    return (
+      <div className="collector-credential-chip is-warn">
+        <span className="collector-credential-chip-icon"><KeyRound size={14} /></span>
+        <div className="collector-credential-chip-body">
+          <div className="collector-credential-chip-title">
+            {state.kind === 'missing' ? 'Credencial ausente' : 'Credencial indisponível'}
+          </div>
+          <div className="collector-credential-chip-meta">
+            {state.kind === 'missing'
+              ? 'O agent pode ser salvo; a coleta só autentica quando o client existir.'
+              : state.message}
+          </div>
+          {onOpenClientSystem ? (
+            <div className="collector-credential-chip-actions">
+              <button type="button" onClick={onOpenClientSystem}>Abrir Client system</button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  const active = (state.client.status || '').toUpperCase() === 'ACTIVE';
+  const authorities = state.client.authorities || [];
+
+  return (
+    <div className={`collector-credential-chip ${active ? 'is-ok' : 'is-blocked'}`}>
+      <span className="collector-credential-chip-icon"><KeyRound size={14} /></span>
+      <div className="collector-credential-chip-body">
+        <div className="collector-credential-chip-title">
+          {active ? 'Usa credencial da organização' : 'Credencial bloqueada'}
+          <span className="badge-role" style={active
+            ? { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' }
+            : { background: '#fdecea', color: '#c0392b', borderColor: '#f5c6cb' }}
+          >
+            {active ? 'Ativo' : 'Bloqueado'}
+          </span>
+        </div>
+        <div className="collector-credential-chip-meta">
+          <span className="text-mono">{state.client.clientId}</span>
+          {' · '}
+          {state.client.serviceRoleName || 'sem role'}
+          {' · TTL '}
+          {state.client.tokenTtlSeconds}s
+        </div>
+        <div className="collector-credential-chip-actions">
+          <button type="button" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+          </button>
+          {onOpenClientSystem ? (
+            <button type="button" onClick={onOpenClientSystem}>Client system</button>
+          ) : null}
+        </div>
+        {expanded ? (
+          <div className="collector-credential-chip-details">
+            {state.client.description || 'Sem descrição.'}
+            {authorities.length > 0 ? (
+              <div className="collector-credential-chip-authorities">
+                {authorities.map((authority) => (
+                  <span key={authority}>{authority}</span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -383,6 +466,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   const [loading, setLoading] = useState(false);
   const [credential, setCredential] = useState<CredentialState>({ kind: 'loading' });
   const [formOpen, setFormOpen] = useState(false);
+  const [formStep, setFormStep] = useState<FormStep>('identity');
   const [editing, setEditing] = useState<CollectorAgent | null>(null);
   const [form, setForm] = useState<AgentForm>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
@@ -449,6 +533,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm());
+    setFormStep('identity');
     setFormOpen(true);
   };
 
@@ -459,6 +544,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
       const detail = await getCollectorAgent(item.id, token);
       setEditing(detail);
       setForm(formFromAgent(detail));
+      setFormStep('identity');
       setFormOpen(true);
     } catch (error) {
       addToast({
@@ -469,15 +555,61 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     }
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!token) return;
-    if (!form.name.trim()) {
-      addToast({ type: 'error', title: 'Nome é obrigatório' });
-      return;
+  const validateStep = (step: FormStep): boolean => {
+    if (step === 'identity') {
+      if (!form.name.trim()) {
+        addToast({ type: 'error', title: 'Nome é obrigatório' });
+        return false;
+      }
+      return true;
+    }
+    if (step === 'collector') {
+      if (form.collectorType === 'DOCUMENT_FETCHER') {
+        if (!form.urlsText.trim()) {
+          addToast({ type: 'error', title: 'Informe ao menos uma URL' });
+          return false;
+        }
+      } else if (!form.url.trim()) {
+        addToast({ type: 'error', title: 'URL é obrigatória' });
+        return false;
+      }
+      return true;
     }
     if (form.daysOfWeek.length === 0) {
       addToast({ type: 'error', title: 'Selecione ao menos um dia na agenda' });
+      return false;
+    }
+    return true;
+  };
+
+  const goToStep = (step: FormStep) => {
+    const order: FormStep[] = ['identity', 'collector', 'schedule'];
+    const currentIdx = order.indexOf(formStep);
+    const targetIdx = order.indexOf(step);
+    if (targetIdx <= currentIdx) {
+      setFormStep(step);
+      return;
+    }
+    for (let i = currentIdx; i < targetIdx; i += 1) {
+      if (!validateStep(order[i])) return;
+    }
+    setFormStep(step);
+  };
+
+  const handleNextStep = () => {
+    if (!validateStep(formStep)) return;
+    if (formStep === 'identity') setFormStep('collector');
+    else if (formStep === 'collector') setFormStep('schedule');
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token) return;
+    if (!validateStep('identity') || !validateStep('collector') || !validateStep('schedule')) {
+      if (!form.name.trim()) setFormStep('identity');
+      else if (form.collectorType === 'DOCUMENT_FETCHER' ? !form.urlsText.trim() : !form.url.trim()) {
+        setFormStep('collector');
+      } else setFormStep('schedule');
       return;
     }
     setSubmitting(true);
@@ -505,6 +637,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
       }
       setFormOpen(false);
       setEditing(null);
+      setFormStep('identity');
       await loadPage(page, applied);
     } catch (error) {
       addToast({
@@ -753,213 +886,311 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
       <Modal
         isOpen={formOpen}
-        onClose={() => !submitting && setFormOpen(false)}
+        onClose={() => {
+          if (submitting) return;
+          setFormOpen(false);
+          setFormStep('identity');
+        }}
         title={editing ? 'Editar agent' : 'Criar agent'}
         subtitle={editing ? editing.code : 'Job de coleta desta organização'}
-        maxWidth="640px"
-      >
-        <form className="oauth-create-form" onSubmit={handleSubmit}>
-          <CredentialBanner
-            state={credential}
-            onOpenClientSystem={onNavigateTab ? goClientSystem : undefined}
-          />
-          <div className="form-group">
-            <label htmlFor="agent-name">Nome</label>
-            <input
-              id="agent-name"
-              className="form-input"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="agent-desc">Descrição</label>
-            <input
-              id="agent-desc"
-              className="form-input"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Opcional"
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="agent-type">Tipo</label>
-            <select
-              id="agent-type"
-              className="form-input"
-              value={form.collectorType}
-              disabled={Boolean(editing)}
-              onChange={(e) => setForm((f) => ({ ...f, collectorType: e.target.value as CollectorType }))}
-            >
-              <option value="API_REST">API REST</option>
-              <option value="HTML_SCRAPER">HTML scraper</option>
-              <option value="DOCUMENT_FETCHER">Documentos</option>
-            </select>
-          </div>
-
-          {form.collectorType !== 'DOCUMENT_FETCHER' ? (
-            <div className="form-group">
-              <label htmlFor="agent-url">URL</label>
-              <input
-                id="agent-url"
-                className="form-input"
-                value={form.url}
-                onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
-                required
-              />
-            </div>
-          ) : (
-            <div className="form-group">
-              <label htmlFor="agent-urls">URLs (uma por linha)</label>
-              <textarea
-                id="agent-urls"
-                className="form-input"
-                rows={3}
-                value={form.urlsText}
-                onChange={(e) => setForm((f) => ({ ...f, urlsText: e.target.value }))}
-                required
-              />
-            </div>
-          )}
-
-          {form.collectorType === 'API_REST' ? (
-            <>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="agent-method">Método</label>
-                  <input
-                    id="agent-method"
-                    className="form-input"
-                    value={form.method}
-                    onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="agent-file">Arquivo de saída</label>
-                  <input
-                    id="agent-file"
-                    className="form-input"
-                    value={form.outputFileName}
-                    onChange={(e) => setForm((f) => ({ ...f, outputFileName: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="agent-headers">Headers (chave: valor)</label>
-                <textarea id="agent-headers" className="form-input" rows={2} value={form.headersText} onChange={(e) => setForm((f) => ({ ...f, headersText: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="agent-query">Query params (chave: valor)</label>
-                <textarea id="agent-query" className="form-input" rows={2} value={form.queryParamsText} onChange={(e) => setForm((f) => ({ ...f, queryParamsText: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="agent-body">Body template</label>
-                <textarea id="agent-body" className="form-input" rows={2} value={form.bodyTemplate} onChange={(e) => setForm((f) => ({ ...f, bodyTemplate: e.target.value }))} />
-              </div>
-            </>
-          ) : null}
-
-          {form.collectorType === 'HTML_SCRAPER' ? (
-            <>
-              <div className="form-group">
-                <label htmlFor="agent-css">CSS selectors (um por linha)</label>
-                <textarea id="agent-css" className="form-input" rows={2} value={form.cssSelectorsText} onChange={(e) => setForm((f) => ({ ...f, cssSelectorsText: e.target.value }))} />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="agent-format">Formato</label>
-                  <select id="agent-format" className="form-input" value={form.outputFormat} onChange={(e) => setForm((f) => ({ ...f, outputFormat: e.target.value }))}>
-                    <option value="html">html</option>
-                    <option value="text">text</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="agent-file-html">Arquivo de saída</label>
-                  <input id="agent-file-html" className="form-input" value={form.outputFileName} onChange={(e) => setForm((f) => ({ ...f, outputFileName: e.target.value }))} />
-                </div>
-              </div>
-              <label className="collector-check-row">
-                <input type="checkbox" checked={form.extractLinks} onChange={(e) => setForm((f) => ({ ...f, extractLinks: e.target.checked }))} style={{ accentColor: '#673de6' }} />
-                Extrair links
-              </label>
-            </>
-          ) : null}
-
-          {form.collectorType === 'DOCUMENT_FETCHER' ? (
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="agent-ext">Extensões aceitas</label>
-                <input id="agent-ext" className="form-input" placeholder=".pdf, .csv" value={form.acceptedExtensions} onChange={(e) => setForm((f) => ({ ...f, acceptedExtensions: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="agent-max">Tamanho máx. (bytes)</label>
-                <input id="agent-max" className="form-input" type="number" min={0} value={form.maxFileSizeBytes} onChange={(e) => setForm((f) => ({ ...f, maxFileSizeBytes: e.target.value }))} />
-              </div>
-            </div>
-          ) : null}
-
-          <div className="form-group">
-            <label htmlFor="agent-prompt">Prompt</label>
-            <textarea id="agent-prompt" className="form-input" rows={2} value={form.prompt} onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))} />
-          </div>
-
-          <div className="form-group">
-            <label>Agenda</label>
-            <div className="collector-days">
-              {WEEKDAYS.map((day) => (
-                <label key={day.value} className={`collector-day ${form.daysOfWeek.includes(day.value) ? 'is-on' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={form.daysOfWeek.includes(day.value)}
-                    onChange={(e) => setForm((f) => ({
-                      ...f,
-                      daysOfWeek: e.target.checked
-                        ? [...f.daysOfWeek, day.value]
-                        : f.daysOfWeek.filter((item) => item !== day.value),
-                    }))}
-                  />
-                  {day.label}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="agent-start">Início</label>
-              <input id="agent-start" className="form-input" type="time" value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))} required />
-            </div>
-            <div className="form-group">
-              <label htmlFor="agent-end">Fim</label>
-              <input id="agent-end" className="form-input" type="time" value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))} required />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="agent-interval">Intervalo (min)</label>
-              <input id="agent-interval" className="form-input" type="number" min={1} value={form.intervalMinutes} onChange={(e) => setForm((f) => ({ ...f, intervalMinutes: e.target.value }))} required />
-            </div>
-            <div className="form-group">
-              <label htmlFor="agent-tz">Timezone</label>
-              <input id="agent-tz" className="form-input" value={form.timezone} onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))} required />
-            </div>
-          </div>
-
-          {!editing ? (
-            <label className="collector-check-row">
-              <input type="checkbox" checked={form.enabled} onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))} style={{ accentColor: '#673de6' }} />
-              Ativar agora
-            </label>
-          ) : null}
-
+        maxWidth="720px"
+        maxHeight="min(90vh, 820px)"
+        footer={(
           <div className="modal-actions">
-            <button type="button" className="btn btn-outline" onClick={() => setFormOpen(false)} disabled={submitting}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                if (submitting) return;
+                setFormOpen(false);
+                setFormStep('identity');
+              }}
+              disabled={submitting}
+            >
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? 'Salvando...' : editing ? 'Salvar' : 'Criar'}
-            </button>
+            {formStep !== 'identity' ? (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setFormStep(formStep === 'schedule' ? 'collector' : 'identity')}
+                disabled={submitting}
+              >
+                Voltar
+              </button>
+            ) : null}
+            {formStep !== 'schedule' ? (
+              <button type="button" className="btn btn-primary" onClick={handleNextStep} disabled={submitting}>
+                Continuar
+              </button>
+            ) : (
+              <button type="submit" form="agent-form" className="btn btn-primary" disabled={submitting}>
+                {submitting ? 'Salvando...' : editing ? 'Salvar' : 'Criar'}
+              </button>
+            )}
           </div>
+        )}
+      >
+        <form id="agent-form" className="oauth-create-form agent-form" onSubmit={handleSubmit}>
+          <nav className="agent-form-steps" aria-label="Etapas do formulário">
+            {FORM_STEPS.map((step, index) => {
+              const order: FormStep[] = ['identity', 'collector', 'schedule'];
+              const isActive = formStep === step.id;
+              const isDone = order.indexOf(formStep) > index;
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  className={`agent-form-step${isActive ? ' is-active' : ''}${isDone ? ' is-done' : ''}`}
+                  onClick={() => goToStep(step.id)}
+                >
+                  <span className="agent-form-step-index">{index + 1}</span>
+                  <span className="agent-form-step-label">
+                    <strong>{step.label}</strong>
+                    <span>{step.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {formStep === 'identity' ? (
+            <div className="agent-form-panel">
+              <p className="agent-form-panel-intro">
+                Defina o job e confirme a credencial compartilhada da organização.
+              </p>
+              <CredentialChip
+                state={credential}
+                onOpenClientSystem={onNavigateTab ? goClientSystem : undefined}
+              />
+              <div className="form-group">
+                <label htmlFor="agent-name">Nome</label>
+                <input
+                  id="agent-name"
+                  className="form-input"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Ex.: scraper-noticias-diarias"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="agent-desc">Descrição</label>
+                <input
+                  id="agent-desc"
+                  className="form-input"
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="agent-type">Tipo de coleta</label>
+                <select
+                  id="agent-type"
+                  className="form-input"
+                  value={form.collectorType}
+                  disabled={Boolean(editing)}
+                  onChange={(e) => setForm((f) => ({ ...f, collectorType: e.target.value as CollectorType }))}
+                >
+                  <option value="API_REST">API REST</option>
+                  <option value="HTML_SCRAPER">HTML scraper</option>
+                  <option value="DOCUMENT_FETCHER">Documentos</option>
+                </select>
+              </div>
+              {!editing ? (
+                <label className="collector-check-row">
+                  <input
+                    type="checkbox"
+                    checked={form.enabled}
+                    onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
+                    style={{ accentColor: '#673de6' }}
+                  />
+                  Ativar agora após criar
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+
+          {formStep === 'collector' ? (
+            <div className="agent-form-panel">
+              <p className="agent-form-panel-intro">
+                Configure a fonte ({typeLabel(form.collectorType)}). Campos mudam conforme o tipo.
+              </p>
+
+              {form.collectorType !== 'DOCUMENT_FETCHER' ? (
+                <div className="form-group">
+                  <label htmlFor="agent-url">URL</label>
+                  <input
+                    id="agent-url"
+                    className="form-input"
+                    value={form.url}
+                    onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+                    placeholder="https://..."
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label htmlFor="agent-urls">URLs (uma por linha)</label>
+                  <textarea
+                    id="agent-urls"
+                    className="form-input"
+                    rows={3}
+                    value={form.urlsText}
+                    onChange={(e) => setForm((f) => ({ ...f, urlsText: e.target.value }))}
+                    required
+                  />
+                </div>
+              )}
+
+              {form.collectorType === 'API_REST' ? (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="agent-method">Método</label>
+                      <input
+                        id="agent-method"
+                        className="form-input"
+                        value={form.method}
+                        onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="agent-file">Arquivo de saída</label>
+                      <input
+                        id="agent-file"
+                        className="form-input"
+                        value={form.outputFileName}
+                        onChange={(e) => setForm((f) => ({ ...f, outputFileName: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="agent-headers">Headers (chave: valor)</label>
+                    <textarea id="agent-headers" className="form-input" rows={2} value={form.headersText} onChange={(e) => setForm((f) => ({ ...f, headersText: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="agent-query">Query params (chave: valor)</label>
+                    <textarea id="agent-query" className="form-input" rows={2} value={form.queryParamsText} onChange={(e) => setForm((f) => ({ ...f, queryParamsText: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="agent-body">Body template</label>
+                    <textarea id="agent-body" className="form-input" rows={2} value={form.bodyTemplate} onChange={(e) => setForm((f) => ({ ...f, bodyTemplate: e.target.value }))} />
+                  </div>
+                </>
+              ) : null}
+
+              {form.collectorType === 'HTML_SCRAPER' ? (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="agent-css">CSS selectors (um por linha)</label>
+                    <textarea id="agent-css" className="form-input" rows={2} value={form.cssSelectorsText} onChange={(e) => setForm((f) => ({ ...f, cssSelectorsText: e.target.value }))} />
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="agent-format">Formato</label>
+                      <select id="agent-format" className="form-input" value={form.outputFormat} onChange={(e) => setForm((f) => ({ ...f, outputFormat: e.target.value }))}>
+                        <option value="html">html</option>
+                        <option value="text">text</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="agent-file-html">Arquivo de saída</label>
+                      <input id="agent-file-html" className="form-input" value={form.outputFileName} onChange={(e) => setForm((f) => ({ ...f, outputFileName: e.target.value }))} />
+                    </div>
+                  </div>
+                  <label className="collector-check-row">
+                    <input type="checkbox" checked={form.extractLinks} onChange={(e) => setForm((f) => ({ ...f, extractLinks: e.target.checked }))} style={{ accentColor: '#673de6' }} />
+                    Extrair links
+                  </label>
+                </>
+              ) : null}
+
+              {form.collectorType === 'DOCUMENT_FETCHER' ? (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="agent-ext">Extensões aceitas</label>
+                    <input id="agent-ext" className="form-input" placeholder=".pdf, .csv" value={form.acceptedExtensions} onChange={(e) => setForm((f) => ({ ...f, acceptedExtensions: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="agent-max">Tamanho máx. (bytes)</label>
+                    <input id="agent-max" className="form-input" type="number" min={0} value={form.maxFileSizeBytes} onChange={(e) => setForm((f) => ({ ...f, maxFileSizeBytes: e.target.value }))} />
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="form-group">
+                <label htmlFor="agent-prompt">Prompt (opcional)</label>
+                <textarea
+                  id="agent-prompt"
+                  className="form-input"
+                  rows={3}
+                  value={form.prompt}
+                  onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
+                  placeholder="Instruções para o processamento do conteúdo coletado"
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {formStep === 'schedule' ? (
+            <div className="agent-form-panel">
+              <p className="agent-form-panel-intro">
+                Defina em quais dias e horários este agent deve executar.
+              </p>
+              <div className="agent-form-summary">
+                <strong>{form.name.trim() || 'Sem nome'}</strong>
+                {' · '}
+                {typeLabel(form.collectorType)}
+                {' · '}
+                {form.collectorType === 'DOCUMENT_FETCHER'
+                  ? `${form.urlsText.split('\n').filter(Boolean).length || 0} URL(s)`
+                  : (form.url || 'sem URL')}
+              </div>
+              <div className="form-group">
+                <label>Dias da semana</label>
+                <div className="collector-days">
+                  {WEEKDAYS.map((day) => (
+                    <label key={day.value} className={`collector-day ${form.daysOfWeek.includes(day.value) ? 'is-on' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={form.daysOfWeek.includes(day.value)}
+                        onChange={(e) => setForm((f) => ({
+                          ...f,
+                          daysOfWeek: e.target.checked
+                            ? [...f.daysOfWeek, day.value]
+                            : f.daysOfWeek.filter((item) => item !== day.value),
+                        }))}
+                      />
+                      {day.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="agent-start">Início</label>
+                  <input id="agent-start" className="form-input" type="time" value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="agent-end">Fim</label>
+                  <input id="agent-end" className="form-input" type="time" value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))} required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="agent-interval">Intervalo (min)</label>
+                  <input id="agent-interval" className="form-input" type="number" min={1} value={form.intervalMinutes} onChange={(e) => setForm((f) => ({ ...f, intervalMinutes: e.target.value }))} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="agent-tz">Timezone</label>
+                  <input id="agent-tz" className="form-input" value={form.timezone} onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))} required />
+                </div>
+              </div>
+            </div>
+          ) : null}
         </form>
       </Modal>
 
