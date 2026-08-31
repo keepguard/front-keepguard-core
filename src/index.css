@@ -793,24 +793,19 @@ body {
 }
 
 .audits-filter-row-primary {
-  grid-template-columns: minmax(150px, 1.1fr) minmax(150px, 1.1fr) auto minmax(180px, 1.35fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .audits-filter-row-secondary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  grid-template-columns: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.audits-filter-row-secondary > .form-input {
-  flex: 1 1 120px;
-  min-width: 110px;
+.audits-filter-row-tertiary {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
 }
 
-.audits-filter-row-secondary > .audits-sort-group {
-  margin-left: auto;
+.audits-filter-row-tertiary > .audits-sort-group {
+  justify-self: end;
 }
 
 .audits-toolbar .form-input,
@@ -839,10 +834,10 @@ body {
 }
 
 .audits-toolbar .form-input.audits-compact-select {
-  width: auto;
-  min-width: 10.5rem;
-  max-width: 12rem;
-  justify-self: start;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  justify-self: stretch;
 }
 
 .audits-toolbar .form-input.audits-sort-select {
@@ -919,19 +914,23 @@ body {
 
 @media (max-width: 1100px) {
   .audits-filter-row,
-  .audits-filter-row-primary {
+  .audits-filter-row-primary,
+  .audits-filter-row-secondary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .audits-filter-row-secondary > .form-input {
-    flex: 1 1 calc(50% - 0.5rem);
-    max-width: none;
+  .audits-filter-row-tertiary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .audits-toolbar .form-input.audits-compact-select,
+  .audits-filter-row-tertiary > .audits-sort-group {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
   .audits-toolbar .form-input.audits-sort-select,
   .audits-toolbar .form-input.audits-dir-select {
-    width: 100%;
+    width: auto;
     min-width: 0;
     max-width: none;
     flex: 1 1 auto;
@@ -939,11 +938,6 @@ body {
 
   .audits-sort-group {
     width: 100%;
-    margin-left: 0;
-  }
-
-  .audits-filter-row-secondary > .audits-sort-group {
-    margin-left: 0;
   }
 
   .audits-filter-actions {
@@ -957,12 +951,17 @@ body {
 
 @media (max-width: 640px) {
   .audits-filter-row,
-  .audits-filter-row-primary {
+  .audits-filter-row-primary,
+  .audits-filter-row-secondary,
+  .audits-filter-row-tertiary {
     grid-template-columns: 1fr;
   }
 
-  .audits-filter-row-secondary > .form-input {
-    flex: 1 1 100%;
+  .audits-toolbar .form-input.audits-sort-select,
+  .audits-toolbar .form-input.audits-dir-select {
+    width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
   }
 }
 

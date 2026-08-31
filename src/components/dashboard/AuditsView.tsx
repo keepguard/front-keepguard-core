@@ -350,6 +350,8 @@ export const AuditsView: React.FC = () => {
             <option value="FAILURE">Falha</option>
             <option value="DENIED">Negado</option>
           </select>
+        </div>
+        <div className="audits-filter-row audits-filter-row-secondary">
           <div className="search-input-wrapper audits-search-field">
             <Search size={16} className="search-icon" />
             <input
@@ -359,8 +361,6 @@ export const AuditsView: React.FC = () => {
               onChange={(e) => setFilters((f) => ({ ...f, actorCodeUser: e.target.value }))}
             />
           </div>
-        </div>
-        <div className="audits-filter-row audits-filter-row-secondary">
           <input
             className="form-input"
             placeholder="Ação"
@@ -373,6 +373,8 @@ export const AuditsView: React.FC = () => {
             value={filters.resourceType}
             onChange={(e) => setFilters((f) => ({ ...f, resourceType: e.target.value }))}
           />
+        </div>
+        <div className="audits-filter-row audits-filter-row-tertiary">
           <input
             className="form-input"
             placeholder="ID do recurso"
