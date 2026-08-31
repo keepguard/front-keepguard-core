@@ -30,6 +30,7 @@ import {
   Settings,
   Bot,
   KeyRound,
+  Users,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -147,10 +148,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
           <div style={{ marginBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1d2129' }}>Dispositivos & Sessões Conectadas</h2>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1d2129' }}>Minhas sessões</h2>
               {onNavigateTab && (
                 <button className="link-btn bold" onClick={() => onNavigateTab('sessions')}>
-                  Ver detalhes completos &rarr;
+                  Ver minhas sessões &rarr;
                 </button>
               )}
             </div>
@@ -163,9 +164,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         <>
           <div className="dashboard-header">
             <div className="dashboard-title-group">
-              <h1 className="dashboard-title">Dispositivos & Sessões Ativas</h1>
+              <h1 className="dashboard-title">Minhas sessões</h1>
               <p className="dashboard-subtitle">
-                Monitore os aparelhos conectados. Em sessões que não são a atual, use o ícone de bloqueio para impedir novos logins.
+                Aparelhos conectados à sua conta. Encerre sessões que não reconhece ou bloqueie dispositivos para impedir novos logins.
               </p>
             </div>
           </div>
@@ -179,16 +180,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="dashboard-title-group">
               <h1 className="dashboard-title">
                 <Ban size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Dispositivos bloqueados
+                Meus dispositivos bloqueados
               </h1>
               <p className="dashboard-subtitle">
-                Aparelhos que você bloqueou não entram mais na sua conta. Para bloquear um novo, use o ícone de bloqueio nas sessões ativas.
+                Dispositivos que você bloqueou na sua conta. Eles não poderão fazer login novamente. Para bloquear um novo, use o ícone de bloqueio em Minhas sessões.
               </p>
             </div>
             {onNavigateTab && (
               <div className="dashboard-top-actions">
                 <button className="btn btn-outline btn-pill" onClick={() => onNavigateTab('sessions')}>
-                  Ir para sessões
+                  Ir para minhas sessões
                 </button>
               </div>
             )}
@@ -203,10 +204,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="dashboard-title-group">
               <h1 className="dashboard-title">
                 <ShieldAlert size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Blacklist
+                Bloqueios da organização
               </h1>
               <p className="dashboard-subtitle">
-                Visível para ADMIN, SYSTEM e MANAGER. MANAGER só age em contas ROLE_USER.
+                Dispositivos bloqueados administrativamente nesta organização — diferente dos bloqueios feitos pelo próprio usuário em Meus bloqueios.
+                Visível para ADMIN, SYSTEM e MANAGER; MANAGER só age em contas ROLE_USER.
+                {onNavigateTab && (
+                  <>
+                    {' '}
+                    <button type="button" className="link-btn" onClick={() => onNavigateTab('blacklist')}>
+                      Ver meus bloqueios
+                    </button>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -219,11 +229,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="dashboard-header">
             <div className="dashboard-title-group">
               <h1 className="dashboard-title">
-                <Activity size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Sessões do tenant
+                <Users size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Sessões da organização
               </h1>
               <p className="dashboard-subtitle">
-                Visível para ADMIN, SYSTEM e MANAGER. MANAGER só encerra sessões de ROLE_USER.
+                Sessões de todos os usuários desta organização. ADMIN e SYSTEM veem todos; MANAGER só encerra sessões de ROLE_USER.
+                {onNavigateTab && (
+                  <>
+                    {' '}
+                    <button type="button" className="link-btn" onClick={() => onNavigateTab('sessions')}>
+                      Ver minhas sessões
+                    </button>
+                  </>
+                )}
               </p>
             </div>
           </div>

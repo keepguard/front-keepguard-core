@@ -9,6 +9,7 @@ import {
   ScrollText,
   Bot,
   KeyRound,
+  Users,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -66,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Menu Principal Funcional */}
         <div className="sidebar-section">
-          <span className="sidebar-heading">Navegação Principal</span>
+          <span className="sidebar-heading">Minha conta</span>
 
           <button
             className={`sidebar-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
@@ -81,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => handleItemClick('sessions')}
           >
             <Smartphone size={18} className="sidebar-icon" />
-            <span>Sessões Ativas</span>
+            <span>Minhas sessões</span>
           </button>
 
           <button
@@ -89,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => handleItemClick('blacklist')}
           >
             <Ban size={18} className="sidebar-icon" />
-            <span>Dispositivos bloqueados</span>
+            <span>Meus bloqueios</span>
           </button>
         </div>
 
@@ -101,8 +102,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`sidebar-nav-item ${activeTab === 'tenant-sessions' ? 'active' : ''}`}
                 onClick={() => handleItemClick('tenant-sessions')}
               >
-                <Smartphone size={18} className="sidebar-icon" />
-                <span>Sessões do tenant</span>
+                <Users size={18} className="sidebar-icon" />
+                <span>Sessões da organização</span>
               </button>
             )}
             {canAccessTenantDevicesTab && (
@@ -111,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleItemClick('admin-blacklist')}
               >
                 <ShieldAlert size={18} className="sidebar-icon" />
-                <span>Blacklist</span>
+                <span>Bloqueios da organização</span>
               </button>
             )}
             {canSeeConnections && (
