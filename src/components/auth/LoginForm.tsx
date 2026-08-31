@@ -102,6 +102,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               placeholder="seu.email@exemplo.com"
               value={username}
               onChange={e => setUsername(e.target.value)}
+              autoComplete="username"
               disabled={isLoading}
               required
             />
@@ -117,7 +118,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               type="button"
               className="link-btn"
               onClick={onForgotPasswordClick}
-              tabIndex={-1}
             >
               Esqueceu a senha?
             </button>
@@ -131,6 +131,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               placeholder="••••••••••••"
               value={password}
               onChange={e => setPassword(e.target.value)}
+              autoComplete="current-password"
               disabled={isLoading}
               required
             />
@@ -138,7 +139,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               type="button"
               className="input-action-btn"
               onClick={() => setShowPassword(!showPassword)}
-              tabIndex={-1}
+              aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
@@ -149,6 +150,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           type="submit"
           className="btn btn-primary btn-block btn-glow"
           disabled={isLoading}
+          aria-busy={isLoading}
         >
           {isLoading ? (
             <span className="btn-spinner-content">
@@ -156,7 +158,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </span>
           ) : (
             <>
-              <LogIn size={18} /> Entrar na Plataforma
+              <LogIn size={18} /> Entrar
             </>
           )}
         </button>

@@ -2680,6 +2680,12 @@ body {
   text-decoration: underline;
 }
 
+.link-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Forms & Inputs (Hostinger Style) */
 .form-group {
   display: flex;
@@ -2779,33 +2785,10 @@ textarea.form-input {
   color: var(--text-main);
 }
 
-.type-toggle-group {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin-bottom: 1.25rem;
-}
-
-.type-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.6rem;
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-body);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.type-toggle-btn.active {
-  background: var(--primary-light);
-  color: var(--primary);
-  border-color: var(--primary);
+.input-action-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .checkbox-group {
@@ -3103,11 +3086,11 @@ textarea.form-input {
   color: var(--text-muted);
 }
 
-/* Auth Page Layout (Hostinger Account Style) */
+/* Auth Page Layout */
 .auth-page-container {
   min-height: calc(100vh - 64px);
   display: flex;
-  align-items: center;
+  align-items: safe center;
   justify-content: center;
   padding: 2.5rem 1.5rem;
   background: var(--bg-page);
@@ -3120,10 +3103,10 @@ textarea.form-input {
 }
 
 .auth-card-wrapper {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  max-width: 1040px;
+  max-width: 460px;
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -3131,109 +3114,31 @@ textarea.form-input {
   box-shadow: var(--shadow-lg);
 }
 
-@media (max-width: 860px) {
-  .auth-card-wrapper {
-    grid-template-columns: 1fr;
-  }
-  .auth-hero-section {
-    padding: 2rem 1.5rem !important;
-  }
-  .auth-form-section {
-    padding: 2rem 1.5rem !important;
-  }
-}
-
-.auth-hero-section {
-  padding: 3.5rem;
-  background: #fafbfc;
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.8rem;
-  background: var(--primary-light);
-  border: 1px solid var(--primary-border);
-  border-radius: 9999px;
-  color: var(--primary);
-  font-size: 0.8rem;
-  font-weight: 700;
-  margin-bottom: 1.5rem;
-  width: fit-content;
-}
-
-.hero-heading {
-  font-size: 2.2rem;
-  font-weight: 800;
-  line-height: 1.2;
-  margin-bottom: 1rem;
-  color: var(--text-main);
-  letter-spacing: -0.5px;
-}
-
-@media (max-width: 640px) {
-  .hero-heading {
-    font-size: 1.6rem;
-  }
-}
-
-.text-gradient {
-  color: var(--primary);
-}
-
-.hero-subtext {
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  margin-bottom: 2.5rem;
-  line-height: 1.6;
-}
-
-.feature-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.feature-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.feature-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--primary-light);
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.feature-item strong {
-  font-size: 0.95rem;
-  color: var(--text-main);
-  display: block;
-}
-
-.feature-item p {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
 .auth-form-section {
-  padding: 3rem;
+  padding: 2.25rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
   background: #ffffff;
+}
+
+.auth-form-section .form-row {
+  grid-template-columns: 1fr;
+}
+
+.auth-heading {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.3px;
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .auth-form-section {
+    padding: 1.5rem;
+  }
 }
 
 .auth-tabs {
@@ -3262,6 +3167,11 @@ textarea.form-input {
   color: var(--primary);
   font-weight: 700;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.auth-tab-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Toast Container (Hostinger Clean Style) */

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Lock, Building, ArrowRight, CheckSquare, Square, LogIn, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Phone, Lock, ArrowRight, CheckSquare, Square, LogIn, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { registerService } from '../../services/registerService';
 import { consentService } from '../../services/consentService';
-import type { UserType } from '../../types/register';
 import type { ConsentDocument } from '../../types/consent';
 
 interface RegisterFormProps {
@@ -24,7 +23,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [type, setType] = useState<UserType>('PERSON');
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(true);
   const [acceptedMarketing, setAcceptedMarketing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -131,7 +129,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         phone: phoneE164,
         password,
         confirmPassword,
-        type,
+        type: 'PERSON',
         hasAcceptedTermsAndPrivacy: hasAcceptedTerms,
         acceptedMarketing,
       });
@@ -162,26 +160,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
-      <div className="type-toggle-group">
-        <button
-          type="button"
-          className={`type-toggle-btn ${type === 'PERSON' ? 'active' : ''}`}
-          onClick={() => setType('PERSON')}
-        >
-          <User size={16} /> Pessoa Física
-        </button>
-        <button
-          type="button"
-          className={`type-toggle-btn ${type === 'COMPANY' ? 'active' : ''}`}
-          onClick={() => setType('COMPANY')}
-        >
-          <Building size={16} /> Empresa (PJ)
-        </button>
-      </div>
-
       <div className="form-group">
         <label className="form-label" htmlFor="reg-name">
-          {type === 'PERSON' ? 'Nome Completo' : 'Razão Social'}
+          Nome Completo
         </label>
         <div className="input-icon-wrapper">
           <User className="input-icon" size={18} />
@@ -192,6 +173,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             placeholder="Ex: João da Silva"
             value={nameFull}
             onChange={e => setNameFull(e.target.value)}
+            autoComplete="name"
             disabled={isLoading}
             required
           />
@@ -212,6 +194,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               placeholder="seu.email@exemplo.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              autoComplete="email"
               disabled={isLoading}
               required
             />
@@ -226,11 +209,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <Phone className="input-icon" size={18} />
             <input
               id="reg-phone"
-              type="text"
+              type="tel"
               className="form-input with-icon"
               placeholder="(11) 99999-9999"
               value={phone}
               onChange={handlePhoneChange}
+              autoComplete="tel"
               disabled={isLoading}
               required
             />
@@ -252,6 +236,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               placeholder="Min. 8 caracteres"
               value={password}
               onChange={e => setPassword(e.target.value)}
+              autoComplete="new-password"
               disabled={isLoading}
               required
             />
@@ -259,7 +244,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               type="button"
               className="input-action-btn"
               onClick={() => setShowPassword(!showPassword)}
-              tabIndex={-1}
               aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -280,6 +264,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               placeholder="Repita a senha"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
               disabled={isLoading}
               required
             />
@@ -287,7 +272,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               type="button"
               className="input-action-btn"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              tabIndex={-1}
               aria-label={showConfirmPassword ? 'Ocultar senha' : 'Exibir senha'}
             >
               {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
