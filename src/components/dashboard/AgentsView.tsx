@@ -728,11 +728,22 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         </table>
       </div>
 
-      <div className="mobile-card-list">
+      <div className="mobile-cards-container">
         {items.map((item) => (
-          <div key={item.id} className="mobile-card">
-            <div className="mobile-card-title">{item.name}</div>
-            <div className="mobile-card-meta">{typeLabel(item.collectorType)} · {item.enabled ? 'ativo' : 'inativo'}</div>
+          <div key={item.id} className="mobile-domain-card">
+            <div className="mobile-card-top">
+              <span className="mobile-domain-name">{item.name}</span>
+              <span
+                className="badge-role"
+                style={item.enabled
+                  ? { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' }
+                  : { background: '#fdecea', color: '#c0392b', borderColor: '#f5c6cb' }}
+              >
+                {item.enabled ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+            <div className="mobile-card-subinfo">{typeLabel(item.collectorType)} · {formatDate(item.createdAt)}</div>
+            <div className="mobile-card-meta">{scheduleSummary(item.schedule)}</div>
             <div className="mobile-card-actions table-actions-group">{renderActions(item)}</div>
           </div>
         ))}
