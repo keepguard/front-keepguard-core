@@ -60,36 +60,7 @@ export const AuthPage: React.FC = () => {
             {activeTab === 'login' ? 'Acesse sua conta' : 'Crie sua conta'}
           </h1>
 
-          <div className="auth-tabs" role="tablist" aria-label="Autenticação">
-            <button
-              type="button"
-              role="tab"
-              id="auth-tab-login"
-              aria-selected={activeTab === 'login'}
-              aria-controls="auth-tabpanel"
-              className={`auth-tab-btn ${activeTab === 'login' ? 'active' : ''}`}
-              onClick={() => setActiveTab('login')}
-            >
-              Entrar
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id="auth-tab-register"
-              aria-selected={activeTab === 'register'}
-              aria-controls="auth-tabpanel"
-              className={`auth-tab-btn ${activeTab === 'register' ? 'active' : ''}`}
-              onClick={() => setActiveTab('register')}
-            >
-              Criar Conta
-            </button>
-          </div>
-
-          <div
-            id="auth-tabpanel"
-            role="tabpanel"
-            aria-labelledby={activeTab === 'login' ? 'auth-tab-login' : 'auth-tab-register'}
-          >
+          <div key={activeTab} className="auth-view animate-fade-in">
             {activeTab === 'login' ? (
               <LoginForm
                 onForgotPasswordClick={() => setIsForgotModalOpen(true)}

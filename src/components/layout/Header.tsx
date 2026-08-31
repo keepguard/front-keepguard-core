@@ -1,5 +1,5 @@
 import React from 'react';
-import { User as UserIcon, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { UserMenu } from './UserMenu';
 
@@ -16,13 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateTab,
   onLogout,
 }) => {
-  const { user, isAuthenticated } = useAuth();
-
-  const getInitials = (name?: string, email?: string) => {
-    if (name) return name.charAt(0).toUpperCase();
-    if (email) return email.charAt(0).toUpperCase();
-    return 'U';
-  };
+  const { isAuthenticated } = useAuth();
 
   return (
     <header className="app-header">
@@ -48,15 +42,11 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="header-actions">
-        {isAuthenticated ? (
+      {isAuthenticated && (
+        <div className="header-actions">
           <UserMenu onNavigateTab={onNavigateTab} onLogout={onLogout} />
-        ) : (
-          <div className="header-user-avatar" title={user?.email || 'Minha Conta'}>
-            {user ? getInitials(user.name, user.email) : <UserIcon size={16} />}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </header>
   );
 };
