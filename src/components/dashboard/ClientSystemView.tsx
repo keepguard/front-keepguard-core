@@ -5,6 +5,7 @@ import {
   ChevronRight,
   KeyRound,
   LockOpen,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -20,6 +21,7 @@ import {
   listOAuthServiceRoles,
   searchOAuthClients,
   unblockOAuthClient,
+  updateOAuthClient,
   type CollectorAgent,
   type OAuthClient,
   type OAuthClientDetail,
@@ -210,10 +212,17 @@ export const ClientSystemView: React.FC = () => {
     roleId: '',
     tokenTtlSeconds: '28800',
   });
+  const [editClient, setEditClient] = useState<OAuthClient | null>(null);
+  const [editForm, setEditForm] = useState({
+    description: '',
+    roleId: '',
+    tokenTtlSeconds: '28800',
+  });
   const [serviceRoles, setServiceRoles] = useState<OAuthServiceRole[]>([]);
   const [serviceRolesLoading, setServiceRolesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const selectedServiceRole = serviceRoles.find((role) => role.id === createForm.roleId);
+  const selectedCreateRole = serviceRoles.find((role) => role.id === createForm.roleId);
+  const selectedEditRole = serviceRoles.find((role) => role.id === editForm.roleId);
 
   const loadPage = useCallback(async (nextPage: number, nextFilters: Filters) => {
     if (!token) return;
@@ -407,10 +416,88 @@ export const ClientSystemView: React.FC = () => {
     }
   };
 
+  const handleUpdate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token || !editClient) return;
+    if (!editForm.roleId) {
+      addToast({ type: 'warning', title: 'Perfil obrigatório', description: 'Selecione um perfil de serviço.' });
+      return;
+    }
+    const ttl = Number(editForm.tokenTtlSeconds);
+    setSubmitting(true);
+    try {
+      const next = await updateOAuthClient(
+        editClient.id,
+        {
+          description: editForm.description.trim() || undefined,
+          roleId: editForm.roleId,
+          tokenTtlSeconds: Number.isFinite(ttl) ? ttl : undefined,
+        },
+        token
+      );
+      setItems((current) => current.map((row) => (row.id === next.id ? next : row)));
+      setDetail((current) => (current && current.id === next.id ? { ...current, ...next } : current));
+      setEditClient(null);
+      addToast({ type: 'success', title: 'Client atualizado', description: next.clientId });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Não foi possível salvar',
+        description: err?.message || 'Tente novamente.',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const copySecret = async () => {
     if (!createdSecret?.clientSecret) return;
     await navigator.clipboard.writeText(createdSecret.clientSecret);
     addToast({ type: 'info', title: 'Secret copiado', description: 'Guarde em local seguro. Ele não será exibido de novo.' });
+  };
+
+  const loadServiceRoles = async (preferredRoleId?: string) => {
+    if (!token) return '';
+    setServiceRolesLoading(true);
+    try {
+      const roles = await listOAuthServiceRoles(token);
+      setServiceRoles(roles || []);
+      return preferredRoleId || roles?.[0]?.id || '';
+    } catch (err: any) {
+      setServiceRoles([]);
+      addToast({
+        type: 'error',
+        title: 'Não foi possível carregar os perfis',
+        description: err?.message || 'Tente novamente em instantes.',
+      });
+      return preferredRoleId || '';
+    } finally {
+      setServiceRolesLoading(false);
+    }
+  };
+
+  const openCreate = async () => {
+    setCreateOpen(true);
+    const roleId = await loadServiceRoles(createForm.roleId);
+    setCreateForm((current) => ({
+      ...current,
+      roleId: current.roleId || roleId,
+    }));
+  };
+
+  const openEdit = async (item: OAuthClient, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setEditClient(item);
+    setEditForm({
+      description: item.description || '',
+      roleId: item.serviceRoleId || '',
+      tokenTtlSeconds: String(item.tokenTtlSeconds || 28800),
+    });
+    const roleId = await loadServiceRoles(item.serviceRoleId);
+    setEditForm((current) => ({
+      ...current,
+      roleId: current.roleId || roleId,
+    }));
   };
 
   const pager = (
@@ -426,6 +513,15 @@ export const ClientSystemView: React.FC = () => {
 
   const renderActions = (item: OAuthClient) => (
     <div className="table-actions-group" style={{ justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="btn-table-icon"
+        title="Editar"
+        aria-label="Editar client"
+        onClick={(e) => openEdit(item, e)}
+      >
+        <Pencil size={15} />
+      </button>
       {item.status === 'BLOCKED' ? (
         <button
           type="button"
@@ -464,29 +560,6 @@ export const ClientSystemView: React.FC = () => {
       </button>
     </div>
   );
-
-  const openCreate = async () => {
-    if (!token) return;
-    setCreateOpen(true);
-    setServiceRolesLoading(true);
-    try {
-      const roles = await listOAuthServiceRoles(token);
-      setServiceRoles(roles || []);
-      setCreateForm((current) => ({
-        ...current,
-        roleId: current.roleId || roles?.[0]?.id || '',
-      }));
-    } catch (err: any) {
-      setServiceRoles([]);
-      addToast({
-        type: 'error',
-        title: 'Não foi possível carregar os perfis',
-        description: err?.message || 'Tente novamente em instantes.',
-      });
-    } finally {
-      setServiceRolesLoading(false);
-    }
-  };
 
   return (
     <div>
@@ -762,22 +835,22 @@ export const ClientSystemView: React.FC = () => {
                 </option>
               ))}
             </select>
-            {selectedServiceRole?.description ? (
-              <p className="oauth-role-hint">{selectedServiceRole.description}</p>
+            {selectedCreateRole?.description ? (
+              <p className="oauth-role-hint">{selectedCreateRole.description}</p>
             ) : null}
           </div>
           <div className="form-group oauth-authorities-group">
             <div className="form-label-row">
               <label>Authorities associadas</label>
               <span className="oauth-authorities-count">
-                {selectedServiceRole
-                  ? `${(selectedServiceRole.authorities || []).length} ${(selectedServiceRole.authorities || []).length === 1 ? 'permissão' : 'permissões'}`
+                {selectedCreateRole
+                  ? `${(selectedCreateRole.authorities || []).length} ${(selectedCreateRole.authorities || []).length === 1 ? 'permissão' : 'permissões'}`
                   : '—'}
               </span>
             </div>
             <div className="oauth-authorities-list" role="list">
-              {selectedServiceRole && (selectedServiceRole.authorities || []).length > 0 ? (
-                (selectedServiceRole.authorities || []).map((authority) => (
+              {selectedCreateRole && (selectedCreateRole.authorities || []).length > 0 ? (
+                (selectedCreateRole.authorities || []).map((authority) => (
                   <div key={authority.name} className="oauth-authority-item" role="listitem">
                     <span className="oauth-authority-name">{authority.name}</span>
                     {authority.description ? (
@@ -800,6 +873,108 @@ export const ClientSystemView: React.FC = () => {
             </button>
             <button type="submit" className="btn btn-primary" disabled={submitting || serviceRolesLoading || !createForm.roleId}>
               {submitting ? 'Criando...' : 'Criar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={!!editClient}
+        onClose={() => !submitting && setEditClient(null)}
+        title="Editar OAuth client"
+        subtitle={editClient?.clientId}
+        maxWidth="560px"
+      >
+        <form className="oauth-create-form" onSubmit={handleUpdate}>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="oauth-edit-client-id">Client ID</label>
+              <input
+                id="oauth-edit-client-id"
+                className="form-input"
+                value={editClient?.clientId || ''}
+                disabled
+                readOnly
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="oauth-edit-ttl">TTL (segundos)</label>
+              <input
+                id="oauth-edit-ttl"
+                className="form-input"
+                type="number"
+                min={900}
+                max={86400}
+                value={editForm.tokenTtlSeconds}
+                onChange={(e) => setEditForm((f) => ({ ...f, tokenTtlSeconds: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label htmlFor="oauth-edit-desc">Descrição</label>
+            <input
+              id="oauth-edit-desc"
+              className="form-input"
+              value={editForm.description}
+              onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Opcional"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="oauth-edit-role">Perfil de serviço</label>
+            <select
+              id="oauth-edit-role"
+              className="form-input"
+              value={editForm.roleId}
+              onChange={(e) => setEditForm((f) => ({ ...f, roleId: e.target.value }))}
+              disabled={serviceRolesLoading || serviceRoles.length === 0}
+              required
+            >
+              <option value="">{serviceRolesLoading ? 'Carregando perfis...' : 'Selecione um perfil'}</option>
+              {serviceRoles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+            {selectedEditRole?.description ? (
+              <p className="oauth-role-hint">{selectedEditRole.description}</p>
+            ) : null}
+          </div>
+          <div className="form-group oauth-authorities-group">
+            <div className="form-label-row">
+              <label>Authorities associadas</label>
+              <span className="oauth-authorities-count">
+                {selectedEditRole
+                  ? `${(selectedEditRole.authorities || []).length} ${(selectedEditRole.authorities || []).length === 1 ? 'permissão' : 'permissões'}`
+                  : '—'}
+              </span>
+            </div>
+            <div className="oauth-authorities-list" role="list">
+              {selectedEditRole && (selectedEditRole.authorities || []).length > 0 ? (
+                (selectedEditRole.authorities || []).map((authority) => (
+                  <div key={authority.name} className="oauth-authority-item" role="listitem">
+                    <span className="oauth-authority-name">{authority.name}</span>
+                    {authority.description ? (
+                      <span className="oauth-authority-desc">{authority.description}</span>
+                    ) : null}
+                  </div>
+                ))
+              ) : (
+                <p className="oauth-authorities-empty">
+                  {serviceRolesLoading
+                    ? 'Carregando permissões...'
+                    : 'Selecione um perfil para ver as permissões associadas.'}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn btn-outline" onClick={() => setEditClient(null)} disabled={submitting}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={submitting || serviceRolesLoading || !editForm.roleId}>
+              {submitting ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
         </form>

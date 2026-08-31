@@ -68,6 +68,12 @@ export interface CreateOAuthClientBody {
   tokenTtlSeconds?: number;
 }
 
+export interface UpdateOAuthClientBody {
+  description?: string;
+  roleId: string;
+  tokenTtlSeconds?: number;
+}
+
 const base = `${BFF_CORE_URL}/api/v1/core/oauth/clients`;
 
 function toQuery(params?: Record<string, string | number | undefined>): string {
@@ -97,6 +103,10 @@ export function listOAuthServiceRoles(token: string): Promise<OAuthServiceRole[]
 
 export function createOAuthClient(body: CreateOAuthClientBody, token: string): Promise<OAuthClient> {
   return customFetch<OAuthClient>(base, { method: 'POST', body: JSON.stringify(body) }, token);
+}
+
+export function updateOAuthClient(id: string, body: UpdateOAuthClientBody, token: string): Promise<OAuthClient> {
+  return customFetch<OAuthClient>(`${base}/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token);
 }
 
 export function blockOAuthClient(id: string, token: string): Promise<OAuthClient> {
