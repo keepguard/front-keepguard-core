@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Ban, KeyRound, Trash2 } from 'lucide-react';
+import { LgpdDocumentsCard } from './LgpdDocumentsCard';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -369,6 +370,8 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
             )}
           </section>
         )}
+
+        <LgpdDocumentsCard />
       </div>
 
       <Modal

@@ -16,7 +16,6 @@ import {
   CheckCircle,
   Activity,
   Shield,
-  FileText,
   Ban,
   ShieldAlert,
   Cable,
@@ -58,6 +57,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       onNavigateTab('overview');
     }
     if (activeTab === 'audits' && !canSeeAudits && onNavigateTab) {
+      onNavigateTab('overview');
+    }
+    if (activeTab === 'identity' && onNavigateTab) {
+      onNavigateTab('account');
+    }
+    if (activeTab === 'security' && onNavigateTab) {
       onNavigateTab('overview');
     }
   }, [activeTab, canManageTenantBlacklist, canSeeConnections, canSeeGuardian, canSeeAudits, onNavigateTab]);
@@ -183,7 +188,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="dashboard-title-group">
               <h1 className="dashboard-title">
                 <ShieldAlert size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                Blacklist do tenant
+                Blacklist
               </h1>
               <p className="dashboard-subtitle">
                 Visível para ADMIN e MANAGER. Bloqueie ou libere aparelhos de qualquer usuário deste tenant.
@@ -191,20 +196,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
           <AdminDeviceBlacklistCard />
-        </>
-      )}
-
-      {activeTab === 'security' && (
-        <>
-          <div className="dashboard-header">
-            <div className="dashboard-title-group">
-              <h1 className="dashboard-title">Segurança & Credenciais JWT</h1>
-              <p className="dashboard-subtitle">
-                Monitore o mecanismo proativo de rotação de tokens JWT e gerencie sua senha de acesso.
-              </p>
-            </div>
-          </div>
-          <SecurityCredentialsView />
         </>
       )}
 
@@ -291,73 +282,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
           <AuditsView />
-        </>
-      )}
-
-      {activeTab === 'identity' && (
-        <>
-          <div className="dashboard-header">
-            <div className="dashboard-title-group">
-              <h1 className="dashboard-title">Identidade & Conformidade LGPD</h1>
-              <p className="dashboard-subtitle">
-                Dados cadastrais da conta e termos de consentimento legal registrados.
-              </p>
-            </div>
-          </div>
-
-          <div className="dashboard-grid">
-            <div className="dash-card">
-              <div className="dash-card-header">
-                <div className="dash-card-icon"><User size={18} /></div>
-                <h3>Dados do Titular da Conta</h3>
-              </div>
-              <div className="dash-card-body">
-                <div className="info-row">
-                  <span className="info-label">Nome Completo</span>
-                  <span className="info-value">{user?.name || user?.username}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">E-mail Cadastrado</span>
-                  <span className="info-value">{user?.email}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Código Único (UUID)</span>
-                  <span className="info-value text-mono text-muted">{user?.codeUser || '—'}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Tenant ID</span>
-                  <span className="info-value text-mono text-muted">{user?.tenantId}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="dash-card">
-              <div className="dash-card-header">
-                <div className="dash-card-icon"><FileText size={18} /></div>
-                <h3>Documentos & Consentimentos LGPD</h3>
-              </div>
-              <div className="dash-card-body">
-                <div className="refresh-status-box">
-                  <div className="refresh-status-icon">
-                    <CheckCircle size={22} className="text-success" />
-                  </div>
-                  <div>
-                    <strong>Consentimentos Válidos</strong>
-                    <p>Você concordou com os Termos de Uso e Política de Privacidade durante o cadastro.</p>
-                  </div>
-                </div>
-
-                <div className="info-row">
-                  <span className="info-label">Termos de Uso</span>
-                  <span className="badge-role" style={{ background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' }}>Aceito</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Política de Privacidade</span>
-                  <span className="badge-role" style={{ background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' }}>Aceito</span>
-                </div>
-              </div>
-            </div>
-          </div>
         </>
       )}
 

@@ -1,9 +1,7 @@
 import React from 'react';
 import {
   Home,
-  Shield,
   Smartphone,
-  UserCheck,
   Sparkles,
   Ban,
   ShieldAlert,
@@ -91,22 +89,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Ban size={18} className="sidebar-icon" />
             <span>Dispositivos bloqueados</span>
           </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'security' ? 'active' : ''}`}
-            onClick={() => handleItemClick('security')}
-          >
-            <Shield size={18} className="sidebar-icon" />
-            <span>Segurança & Tokens</span>
-          </button>
-
-          <button
-            className={`sidebar-nav-item ${activeTab === 'identity' ? 'active' : ''}`}
-            onClick={() => handleItemClick('identity')}
-          >
-            <UserCheck size={18} className="sidebar-icon" />
-            <span>Identidade & LGPD</span>
-          </button>
         </div>
 
         {showAdminSection && (
@@ -118,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleItemClick('admin-blacklist')}
               >
                 <ShieldAlert size={18} className="sidebar-icon" />
-                <span>Blacklist do tenant</span>
+                <span>Blacklist</span>
               </button>
             )}
             {canSeeConnections && (
