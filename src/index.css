@@ -1112,6 +1112,97 @@ body {
   word-break: break-all;
 }
 
+.collector-credential-banner {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-input);
+}
+
+.collector-credential-banner p {
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.collector-credential-banner.is-ok {
+  border-color: #b3ebd9;
+  background: #f3fbf8;
+}
+
+.collector-credential-banner.is-blocked,
+.collector-credential-banner.is-warn {
+  border-color: #f5c6cb;
+  background: #fdf6f5;
+}
+
+.collector-credential-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.collector-credential-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.collector-credential-link {
+  margin-top: 0.65rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.collector-check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.collector-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.collector-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.collector-day input {
+  margin: 0;
+}
+
+.collector-day.is-on {
+  border-color: #b3ebd9;
+  background: #e6f7f3;
+  color: #00b090;
+}
+
 .audits-toolbar .client-system-filter-row {
   display: flex;
   flex-wrap: wrap;

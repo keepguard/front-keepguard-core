@@ -90,7 +90,14 @@ function toQuery(params?: Record<string, string | number | undefined>): string {
 }
 
 export function searchOAuthClients(params: SearchOAuthClientsParams, token: string): Promise<PaginatedOAuthClients> {
-  return customFetch<PaginatedOAuthClients>(`${base}${toQuery(params)}`, { method: 'GET' }, token);
+  return customFetch<PaginatedOAuthClients>(`${base}${toQuery({
+    clientId: params.clientId,
+    status: params.status,
+    page: params.page,
+    size: params.size,
+    sort: params.sort,
+    dir: params.dir,
+  })}`, { method: 'GET' }, token);
 }
 
 export function getOAuthClient(id: string, token: string): Promise<OAuthClientDetail> {

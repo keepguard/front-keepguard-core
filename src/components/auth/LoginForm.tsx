@@ -18,8 +18,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const { login } = useAuth();
   const { addToast } = useToast();
 
-  const [username, setUsername] = useState('rafael.nogueira2009@gmail.com');
-  const [password, setPassword] = useState('Senha@111222');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 

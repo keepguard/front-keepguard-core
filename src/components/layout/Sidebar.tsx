@@ -9,6 +9,7 @@ import {
   ScrollText,
   Bot,
   KeyRound,
+  Cpu,
   Users,
   X,
 } from 'lucide-react';
@@ -33,8 +34,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeConnections = hasAdminRole(user?.roles);
   const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeClientSystem = hasAdminRole(user?.roles);
+  const canSeeAgents = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents;
 
   const handleItemClick = (tabKey: string) => {
     if (onSelectTab) {
@@ -140,6 +142,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <KeyRound size={18} className="sidebar-icon" />
                 <span>Client system</span>
+              </button>
+            )}
+            {canSeeAgents && (
+              <button
+                className={`sidebar-nav-item ${activeTab === 'agents' ? 'active' : ''}`}
+                onClick={() => handleItemClick('agents')}
+              >
+                <Cpu size={18} className="sidebar-icon" />
+                <span>Agents</span>
               </button>
             )}
             {canSeeAudits && (

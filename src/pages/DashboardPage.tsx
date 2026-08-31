@@ -18,6 +18,7 @@ import { AccountView } from '../components/dashboard/AccountView';
 import { AuditsView } from '../components/dashboard/AuditsView';
 import { GuardianView } from '../components/dashboard/GuardianView';
 import { ClientSystemView } from '../components/dashboard/ClientSystemView';
+import { AgentsView } from '../components/dashboard/AgentsView';
 import {
   User,
   CheckCircle,
@@ -30,6 +31,7 @@ import {
   Settings,
   Bot,
   KeyRound,
+  Cpu,
   Users,
 } from 'lucide-react';
 
@@ -54,6 +56,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const canSeeConnections = hasAdminRole(user?.roles);
   const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeClientSystem = hasAdminRole(user?.roles);
+  const canSeeAgents = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
 
   useEffect(() => {
@@ -72,6 +75,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'client-system' && !canSeeClientSystem && onNavigateTab) {
       onNavigateTab('overview');
     }
+    if (activeTab === 'agents' && !canSeeAgents && onNavigateTab) {
+      onNavigateTab('overview');
+    }
     if (activeTab === 'audits' && !canSeeAudits && onNavigateTab) {
       onNavigateTab('overview');
     }
@@ -81,7 +87,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'security' && onNavigateTab) {
       onNavigateTab('overview');
     }
-  }, [activeTab, canAccessTenantDevicesTab, canSeeConnections, canSeeGuardian, canSeeClientSystem, canSeeAudits, onNavigateTab]);
+  }, [activeTab, canAccessTenantDevicesTab, canSeeConnections, canSeeGuardian, canSeeClientSystem, canSeeAgents, canSeeAudits, onNavigateTab]);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -332,6 +338,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
           <ClientSystemView />
+        </>
+      )}
+
+      {activeTab === 'agents' && canSeeAgents && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <Cpu size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Agents
+              </h1>
+              <p className="dashboard-subtitle">
+                Jobs de coleta do srv-data-collector. Visível para ADMIN e SYSTEM.
+              </p>
+            </div>
+          </div>
+          <AgentsView onNavigateTab={onNavigateTab} />
         </>
       )}
 
