@@ -53,6 +53,8 @@ type KeyValueEntry = {
   value: string;
 };
 
+type AuthType = 'NONE' | 'STATIC_BEARER' | 'LOGIN_PASSWORD';
+
 type AgentForm = {
   name: string;
   description: string;
@@ -65,6 +67,19 @@ type AgentForm = {
   queryParams: KeyValueEntry[];
   bodyTemplate: string;
   outputFileName: string;
+  authType: AuthType;
+  authToken: string;
+  hasToken: boolean;
+  authUsername: string;
+  authPassword: string;
+  hasPassword: boolean;
+  loginUrl: string;
+  loginMethod: string;
+  loginHeaders: KeyValueEntry[];
+  loginBodyTemplate: string;
+  tokenPath: string;
+  authHeaderName: string;
+  authHeaderPrefix: string;
   cssSelectorsText: string;
   extractLinks: boolean;
   outputFormat: string;
@@ -101,6 +116,19 @@ function emptyForm(): AgentForm {
     queryParams: [],
     bodyTemplate: '',
     outputFileName: '',
+    authType: 'NONE',
+    authToken: '',
+    hasToken: false,
+    authUsername: '',
+    authPassword: '',
+    hasPassword: false,
+    loginUrl: '',
+    loginMethod: 'POST',
+    loginHeaders: [],
+    loginBodyTemplate: '{\n  "username": "{{username}}",\n  "password": "{{password}}"\n}',
+    tokenPath: 'token',
+    authHeaderName: 'Authorization',
+    authHeaderPrefix: 'Bearer ',
     cssSelectorsText: '',
     extractLinks: false,
     outputFormat: 'html',
@@ -201,7 +229,7 @@ function buildCollectorConfig(form: AgentForm): Record<string, unknown> {
   }
   const headers = pairsToMap(form.headers);
   const queryParams = pairsToMap(form.queryParams);
-  return {
+  const config: Record<string, unknown> = {
     url: form.url.trim(),
     method: form.method.trim() || 'GET',
     headers: Object.keys(headers).length ? headers : undefined,
@@ -209,6 +237,29 @@ function buildCollectorConfig(form: AgentForm): Record<string, unknown> {
     body_template: form.bodyTemplate.trim() || undefined,
     output_file_name: form.outputFileName.trim() || undefined,
   };
+  if (form.authType !== 'NONE') {
+    const loginHeaders = pairsToMap(form.loginHeaders);
+    const auth: Record<string, unknown> = {
+      type: form.authType,
+      header_name: form.authHeaderName.trim() || 'Authorization',
+      header_prefix: form.authHeaderPrefix,
+    };
+    if (form.authType === 'STATIC_BEARER' && form.authToken.trim()) {
+      auth.token = form.authToken.trim();
+    }
+    if (form.authType === 'LOGIN_PASSWORD') {
+      auth.username = form.authUsername.trim();
+      if (form.authPassword) auth.password = form.authPassword;
+      auth.login_url = form.loginUrl.trim();
+      auth.login_method = form.loginMethod.trim() || 'POST';
+      auth.login_headers = Object.keys(loginHeaders).length ? loginHeaders : undefined;
+      auth.login_body_template = form.loginBodyTemplate.trim() || undefined;
+      auth.token_path = form.tokenPath.trim() || 'token';
+      auth.renew_before_seconds = 300;
+    }
+    config.auth = auth;
+  }
+  return config;
 }
 
 function buildSchedule(form: AgentForm): CollectorSchedule {
@@ -223,6 +274,11 @@ function buildSchedule(form: AgentForm): CollectorSchedule {
 
 function formFromAgent(agent: CollectorAgent): AgentForm {
   const cfg = (agent.collectorConfig || {}) as Record<string, unknown>;
+  const auth = (cfg.auth && typeof cfg.auth === 'object' ? cfg.auth : {}) as Record<string, unknown>;
+  const authTypeRaw = String(auth.type || 'NONE').toUpperCase();
+  const authType: AuthType = authTypeRaw === 'STATIC_BEARER' || authTypeRaw === 'LOGIN_PASSWORD'
+    ? authTypeRaw
+    : 'NONE';
   return {
     ...emptyForm(),
     name: agent.name || '',
@@ -236,6 +292,19 @@ function formFromAgent(agent: CollectorAgent): AgentForm {
     queryParams: mapToPairs(cfg.query_params),
     bodyTemplate: String(cfg.body_template || ''),
     outputFileName: String(cfg.output_file_name || ''),
+    authType,
+    authToken: '',
+    hasToken: Boolean(auth.has_token),
+    authUsername: String(auth.username || ''),
+    authPassword: '',
+    hasPassword: Boolean(auth.has_password),
+    loginUrl: String(auth.login_url || ''),
+    loginMethod: String(auth.login_method || 'POST'),
+    loginHeaders: mapToPairs(auth.login_headers),
+    loginBodyTemplate: String(auth.login_body_template || emptyForm().loginBodyTemplate),
+    tokenPath: String(auth.token_path || 'token'),
+    authHeaderName: String(auth.header_name || 'Authorization'),
+    authHeaderPrefix: auth.header_prefix !== undefined ? String(auth.header_prefix) : 'Bearer ',
     cssSelectorsText: Array.isArray(cfg.css_selectors) ? (cfg.css_selectors as string[]).join('\n') : '',
     extractLinks: Boolean(cfg.extract_links),
     outputFormat: String(cfg.output_format || 'html'),
@@ -714,6 +783,26 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
       } else if (!form.url.trim()) {
         addToast({ type: 'error', title: 'URL é obrigatória' });
         return false;
+      }
+      if (form.collectorType === 'API_REST' && form.authType === 'STATIC_BEARER') {
+        if (!form.authToken.trim() && !form.hasToken) {
+          addToast({ type: 'error', title: 'Informe o token Bearer' });
+          return false;
+        }
+      }
+      if (form.collectorType === 'API_REST' && form.authType === 'LOGIN_PASSWORD') {
+        if (!form.loginUrl.trim()) {
+          addToast({ type: 'error', title: 'URL de login é obrigatória' });
+          return false;
+        }
+        if (!form.authUsername.trim()) {
+          addToast({ type: 'error', title: 'Usuário de login é obrigatório' });
+          return false;
+        }
+        if (!form.authPassword && !form.hasPassword) {
+          addToast({ type: 'error', title: 'Senha de login é obrigatória' });
+          return false;
+        }
       }
       return true;
     }
@@ -1283,6 +1372,119 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
               {form.collectorType === 'API_REST' ? (
                 <>
+                  <div className="form-group">
+                    <label htmlFor="agent-auth-type">Autenticação</label>
+                    <select
+                      id="agent-auth-type"
+                      className="form-input"
+                      value={form.authType}
+                      onChange={(e) => setForm((f) => ({ ...f, authType: e.target.value as AuthType }))}
+                    >
+                      <option value="NONE">Nenhuma (busca simples)</option>
+                      <option value="STATIC_BEARER">Token / Bearer</option>
+                      <option value="LOGIN_PASSWORD">Usuário e senha</option>
+                    </select>
+                  </div>
+
+                  {form.authType === 'STATIC_BEARER' ? (
+                    <div className="agent-auth-card">
+                      <p className="agent-form-panel-intro">O agent envia este token no header da coleta.</p>
+                      <div className="form-group">
+                        <label htmlFor="agent-auth-token">Token</label>
+                        <input
+                          id="agent-auth-token"
+                          className="form-input"
+                          type="password"
+                          autoComplete="off"
+                          value={form.authToken}
+                          onChange={(e) => setForm((f) => ({ ...f, authToken: e.target.value, hasToken: f.hasToken && !e.target.value ? f.hasToken : f.hasToken }))}
+                          placeholder={form.hasToken ? 'Deixe vazio para manter o token atual' : 'Cole o JWT ou API key'}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {form.authType === 'LOGIN_PASSWORD' ? (
+                    <div className="agent-auth-card">
+                      <p className="agent-form-panel-intro">
+                        Primeiro o agent faz login; depois chama a URL de coleta com o token extraído.
+                      </p>
+                      <div className="form-group">
+                        <label htmlFor="agent-login-url">URL de login</label>
+                        <input
+                          id="agent-login-url"
+                          className="form-input"
+                          value={form.loginUrl}
+                          onChange={(e) => setForm((f) => ({ ...f, loginUrl: e.target.value }))}
+                          placeholder="http://bff-auth:8381/api/v1/auth/login"
+                        />
+                      </div>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label htmlFor="agent-login-method">Método do login</label>
+                          <input
+                            id="agent-login-method"
+                            className="form-input"
+                            value={form.loginMethod}
+                            onChange={(e) => setForm((f) => ({ ...f, loginMethod: e.target.value }))}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="agent-token-path">Caminho do token</label>
+                          <input
+                            id="agent-token-path"
+                            className="form-input"
+                            value={form.tokenPath}
+                            onChange={(e) => setForm((f) => ({ ...f, tokenPath: e.target.value }))}
+                            placeholder="token"
+                          />
+                        </div>
+                      </div>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label htmlFor="agent-auth-user">Usuário</label>
+                          <input
+                            id="agent-auth-user"
+                            className="form-input"
+                            value={form.authUsername}
+                            onChange={(e) => setForm((f) => ({ ...f, authUsername: e.target.value }))}
+                            autoComplete="off"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="agent-auth-pass">Senha</label>
+                          <input
+                            id="agent-auth-pass"
+                            className="form-input"
+                            type="password"
+                            autoComplete="new-password"
+                            value={form.authPassword}
+                            onChange={(e) => setForm((f) => ({ ...f, authPassword: e.target.value }))}
+                            placeholder={form.hasPassword ? 'Vazio para manter a senha atual' : ''}
+                          />
+                        </div>
+                      </div>
+                      <KeyValueEditor
+                        label="Headers do login"
+                        entries={form.loginHeaders}
+                        onChange={(loginHeaders) => setForm((f) => ({ ...f, loginHeaders }))}
+                        keyPlaceholder="X-Tenant-Id"
+                        valuePlaceholder="uuid da organização"
+                      />
+                      <div className="form-group">
+                        <label htmlFor="agent-login-body">Body do login</label>
+                        <textarea
+                          id="agent-login-body"
+                          className="form-input"
+                          rows={4}
+                          value={form.loginBodyTemplate}
+                          onChange={(e) => setForm((f) => ({ ...f, loginBodyTemplate: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <p className="agent-form-panel-intro">Requisição de coleta (depois da autenticação, se houver).</p>
                   <div className="form-row">
                     <div className="form-group">
                       <label htmlFor="agent-method">Método</label>
@@ -1307,8 +1509,8 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                     label="Headers"
                     entries={form.headers}
                     onChange={(headers) => setForm((f) => ({ ...f, headers }))}
-                    keyPlaceholder="Authorization"
-                    valuePlaceholder="Bearer …"
+                    keyPlaceholder="Accept"
+                    valuePlaceholder="application/json"
                   />
                   <KeyValueEditor
                     label="Query params"
