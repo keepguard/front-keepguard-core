@@ -76,41 +76,68 @@ function AgentImpactList({
   impact?: boolean;
 }) {
   if (loading) {
-    return <p style={{ color: '#5f6368', margin: '0 0 1rem' }}>Buscando agents no collector...</p>;
+    return (
+      <div className="form-group oauth-authorities-group">
+        <div className="form-label-row">
+          <label>Agents (collector)</label>
+        </div>
+        <div className="oauth-authorities-list">
+          <p className="oauth-authorities-empty">Buscando agents no collector...</p>
+        </div>
+      </div>
+    );
   }
   if (agentsLoadError) {
     return (
-      <p style={{ color: '#b45309', margin: '0 0 1rem' }}>
-        Não foi possível consultar os agents no collector ({agentsLoadError}).
-        {impact
-          ? ' Verifique se o srv-data-collector está em execução antes de confirmar.'
-          : ''}
-      </p>
+      <div className="form-group oauth-authorities-group">
+        <div className="form-label-row">
+          <label>Agents (collector)</label>
+        </div>
+        <div className="oauth-authorities-list">
+          <p className="oauth-authorities-empty" style={{ color: '#b45309' }}>
+            Não foi possível consultar os agents no collector ({agentsLoadError}).
+            {impact
+              ? ' Verifique se o srv-data-collector está em execução antes de confirmar.'
+              : ''}
+          </p>
+        </div>
+      </div>
     );
   }
-  if (agents.length === 0) {
-    return (
-      <p style={{ color: '#5f6368', margin: '0 0 1rem' }}>
-        Nenhum agent encontrado em srv_data_collector.agents para este company.
-      </p>
-    );
-  }
+
   const enabledCount = agents.filter((agent) => agent.enabled).length;
+  const title = impact
+    ? `Agents vinculados`
+    : 'Agents (collector)';
+  const countLabel = impact
+    ? `${enabledCount} ativo${enabledCount === 1 ? '' : 's'} serão desabilitados`
+    : agents.length === 1
+      ? '1 agent'
+      : `${agents.length} agents`;
+
   return (
-    <div style={{ marginBottom: '1rem' }}>
-      <strong style={{ fontSize: '0.85rem' }}>
-        {impact
-          ? `Agents vinculados (${enabledCount} ativo${enabledCount === 1 ? '' : 's'} serão desabilitados)`
-          : 'Agents (collector)'}
-      </strong>
-      <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>
-        {agents.map((agent) => (
-          <li key={agent.id} style={{ fontSize: '0.85rem', color: '#5f6368' }}>
-            {agent.name} · {agent.collectorType} · {agent.enabled ? 'ativo' : 'inativo'}
-            <div className="text-mono" style={{ fontSize: '0.75rem' }}>{agent.code}</div>
-          </li>
-        ))}
-      </ul>
+    <div className="form-group oauth-authorities-group">
+      <div className="form-label-row">
+        <label>{title}</label>
+        <span className="oauth-authorities-count">{countLabel}</span>
+      </div>
+      <div className="oauth-authorities-list" role="list">
+        {agents.length > 0 ? (
+          agents.map((agent) => (
+            <div key={agent.id} className="oauth-authority-item" role="listitem">
+              <span className="oauth-authority-name">{agent.name}</span>
+              <span className="oauth-authority-desc">
+                {agent.collectorType} · {agent.enabled ? 'ativo' : 'inativo'}
+              </span>
+              <span className="oauth-agent-code text-mono">{agent.code}</span>
+            </div>
+          ))
+        ) : (
+          <p className="oauth-authorities-empty">
+            Nenhum agent encontrado em srv_data_collector.agents para este company.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

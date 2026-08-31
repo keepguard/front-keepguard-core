@@ -1024,16 +1024,10 @@ body {
   border-top: 1px solid var(--border-subtle);
 }
 
-.oauth-detail-agents ul {
-  max-height: 160px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  margin: 0.5rem 0 0;
-  padding: 0.35rem 0.75rem 0.35rem 1.1rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  list-style: disc;
+.oauth-agent-code {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  word-break: break-all;
 }
 
 .audits-toolbar .client-system-filter-row {
