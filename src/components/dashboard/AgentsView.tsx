@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  FlaskConical,
   KeyRound,
   Pencil,
   Plus,
@@ -10,6 +11,7 @@ import {
   PowerOff,
   Search,
   Trash2,
+  X,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
@@ -22,8 +24,10 @@ import {
   enableCollectorAgent,
   getCollectorAgent,
   searchCollectorAgents,
+  testCollectorAgent,
   updateCollectorAgent,
   type CollectorAgent,
+  type CollectorAgentTestResult,
   type CollectorSchedule,
   type CollectorType,
 } from '../../services/agentService';
@@ -471,6 +475,11 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   const [form, setForm] = useState<AgentForm>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<CollectorAgent | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{
+    agentName: string;
+    result: CollectorAgentTestResult;
+  } | null>(null);
 
   const loadCredential = useCallback(async () => {
     if (!token) {
@@ -671,6 +680,51 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     }
   };
 
+  const handleTest = async (item: CollectorAgent, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!token) return;
+    setTestingId(item.id);
+    setTestResult(null);
+    try {
+      const result = await testCollectorAgent(item.id, token);
+      setTestResult({ agentName: item.name, result });
+      if (result.success) {
+        addToast({
+          type: 'success',
+          title: 'Teste ok',
+          description: `${result.itemsCollected} item(ns) em ${result.durationMs}ms`,
+        });
+      } else {
+        addToast({
+          type: 'error',
+          title: 'Teste falhou',
+          description: result.error || 'A coleta retornou erro.',
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Tente novamente.';
+      setTestResult({
+        agentName: item.name,
+        result: {
+          success: false,
+          agentId: item.id,
+          collectorType: String(item.collectorType || ''),
+          itemsCollected: 0,
+          durationMs: 0,
+          error: message,
+          preview: [],
+        },
+      });
+      addToast({
+        type: 'error',
+        title: 'Falha ao testar agent',
+        description: message,
+      });
+    } finally {
+      setTestingId(null);
+    }
+  };
+
   const handleDelete = async () => {
     if (!token || !confirmDelete) return;
     try {
@@ -709,6 +763,16 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
   const renderActions = (item: CollectorAgent) => (
     <div className="table-actions-group" style={{ justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="btn-table-icon"
+        title="Testar coleta"
+        aria-label="Testar coleta do agent"
+        disabled={testingId === item.id}
+        onClick={(e) => handleTest(item, e)}
+      >
+        <FlaskConical size={15} />
+      </button>
       <button type="button" className="btn-table-icon" title="Editar" aria-label="Editar agent" onClick={(e) => openEdit(item, e)}>
         <Pencil size={15} />
       </button>
@@ -748,6 +812,45 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
           <span>Criar</span>
         </button>
       </div>
+
+      {testResult ? (
+        <div className={`agent-test-result ${testResult.result.success ? 'is-ok' : 'is-error'}`}>
+          <div className="agent-test-result-header">
+            <strong>
+              {testResult.result.success ? 'Teste ok' : 'Teste falhou'}
+              {' · '}
+              {testResult.agentName}
+            </strong>
+            <button
+              type="button"
+              className="agent-test-result-close"
+              aria-label="Fechar resultado do teste"
+              onClick={() => setTestResult(null)}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          {testResult.result.success ? (
+            <p>
+              {testResult.result.itemsCollected} item(ns) em {testResult.result.durationMs}ms.
+              Dry-run com a config do agent (headers/URL); sem upload no knowledge.
+            </p>
+          ) : (
+            <p className="agent-test-result-error">{testResult.result.error || 'Erro desconhecido na coleta.'}</p>
+          )}
+          {testResult.result.preview?.length ? (
+            <pre className="agent-test-result-preview">
+              {testResult.result.preview.map((item) => (
+                `${item.fileName} (${item.sizeBytes} bytes)\n${item.previewText || '(sem preview textual)'}\n`
+              )).join('\n---\n')}
+            </pre>
+          ) : null}
+        </div>
+      ) : null}
+
+      {testingId ? (
+        <p className="agent-test-running">Testando coleta…</p>
+      ) : null}
 
       <form className="audits-toolbar" onSubmit={handleSearch}>
         <div className="audits-filter-row client-system-filter-row">

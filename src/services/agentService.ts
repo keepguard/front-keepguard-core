@@ -117,3 +117,28 @@ export function disableCollectorAgent(id: string, token: string): Promise<Collec
 export function deleteCollectorAgent(id: string, token: string): Promise<void> {
   return customFetch<void>(`${base}/${id}`, { method: 'DELETE' }, token);
 }
+
+export interface CollectorAgentTestPreview {
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  previewTruncated: boolean;
+  previewText?: string;
+}
+
+export interface CollectorAgentTestResult {
+  success: boolean;
+  agentId: string;
+  collectorType: string;
+  itemsCollected: number;
+  durationMs: number;
+  error?: string | null;
+  preview: CollectorAgentTestPreview[];
+}
+
+export function testCollectorAgent(id: string, token: string): Promise<CollectorAgentTestResult> {
+  return customFetch<CollectorAgentTestResult>(`${base}/${id}/test`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  }, token);
+}
