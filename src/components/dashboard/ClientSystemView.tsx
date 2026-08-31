@@ -615,41 +615,62 @@ export const ClientSystemView: React.FC = () => {
         onClose={() => setDetail(null)}
         title={detail?.clientId || 'OAuth client'}
         subtitle={detail ? statusLabel(detail.status) : 'Carregando...'}
-        maxWidth="640px"
+        maxWidth="560px"
       >
         {detailLoading && !detail ? (
-          <p style={{ color: '#5f6368' }}>Carregando detalhe...</p>
+          <p className="oauth-detail-loading">Carregando detalhe...</p>
         ) : detail ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div className="info-row">
-              <span className="info-label">ID</span>
-              <span className="info-value text-mono">{detail.id}</span>
+          <div className="oauth-detail">
+            <div className="form-row oauth-detail-row">
+              <div className="oauth-detail-field">
+                <span className="oauth-detail-label">ID</span>
+                <span className="oauth-detail-value text-mono">{detail.id}</span>
+              </div>
+              <div className="oauth-detail-field">
+                <span className="oauth-detail-label">TTL</span>
+                <span className="oauth-detail-value">{detail.tokenTtlSeconds}s</span>
+              </div>
             </div>
-            <div className="info-row">
-              <span className="info-label">Company</span>
-              <span className="info-value text-mono">{detail.companyId}</span>
+            <div className="oauth-detail-field">
+              <span className="oauth-detail-label">Company</span>
+              <span className="oauth-detail-value text-mono">{detail.companyId}</span>
             </div>
-            <div className="info-row">
-              <span className="info-label">TTL</span>
-              <span className="info-value">{detail.tokenTtlSeconds}s</span>
+            <div className="oauth-detail-field">
+              <span className="oauth-detail-label">Perfil de serviço</span>
+              <span className="oauth-detail-value">{detail.serviceRoleName || '—'}</span>
             </div>
-            <div className="info-row">
-              <span className="info-label">Perfil de serviço</span>
-              <span className="info-value">{detail.serviceRoleName || '—'}</span>
+            <div className="form-group oauth-authorities-group">
+              <div className="form-label-row">
+                <label>Authorities associadas</label>
+                <span className="oauth-authorities-count">
+                  {(detail.authorities || []).length === 1
+                    ? '1 permissão'
+                    : `${(detail.authorities || []).length} permissões`}
+                </span>
+              </div>
+              <div className="oauth-authorities-list" role="list">
+                {(detail.authorities || []).length > 0 ? (
+                  (detail.authorities || []).map((authority) => (
+                    <div key={authority} className="oauth-authority-item" role="listitem">
+                      <span className="oauth-authority-name">{authority}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="oauth-authorities-empty">Nenhuma authority associada.</p>
+                )}
+              </div>
             </div>
-            <div className="info-row">
-              <span className="info-label">Authorities</span>
-              <span className="info-value">{(detail.authorities || []).join(', ') || '—'}</span>
+            <div className="oauth-detail-field">
+              <span className="oauth-detail-label">Descrição</span>
+              <span className="oauth-detail-value">{detail.description || '—'}</span>
             </div>
-            <div className="info-row">
-              <span className="info-label">Descrição</span>
-              <span className="info-value">{detail.description || '—'}</span>
+            <div className="oauth-detail-agents">
+              <AgentImpactList
+                agents={detail.agents || []}
+                loading={false}
+                agentsLoadError={detail.agentsLoadError}
+              />
             </div>
-            <AgentImpactList
-              agents={detail.agents || []}
-              loading={false}
-              agentsLoadError={detail.agentsLoadError}
-            />
           </div>
         ) : null}
       </Modal>
