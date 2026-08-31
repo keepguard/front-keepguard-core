@@ -1496,6 +1496,38 @@ body {
   word-break: break-word;
 }
 
+.agent-row-clickable {
+  cursor: pointer;
+}
+
+.agent-history-empty {
+  margin: 0;
+  padding: 1.25rem 0.25rem 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.agent-history-table-wrap {
+  margin-top: 0.25rem;
+}
+
+.agent-history-table th,
+.agent-history-table td {
+  font-size: 0.82rem;
+}
+
+.agent-history-error {
+  display: inline-block;
+  max-width: 220px;
+  color: #c0392b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
 .agent-test-running {
   margin: 0 0 0.85rem;
   font-size: 0.84rem;

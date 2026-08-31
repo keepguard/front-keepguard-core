@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Cpu,
   FlaskConical,
+  History,
   KeyRound,
   Pencil,
   Plus,
@@ -23,11 +24,13 @@ import {
   disableCollectorAgent,
   enableCollectorAgent,
   getCollectorAgent,
+  listCollectorAgentExecutions,
   searchCollectorAgents,
   testCollectorAgent,
   updateCollectorAgent,
   type CollectorAgent,
   type CollectorAgentTestResult,
+  type CollectorExecution,
   type CollectorSchedule,
   type CollectorType,
 } from '../../services/agentService';
@@ -156,6 +159,58 @@ function formatDate(isoDate?: string) {
   } catch {
     return isoDate;
   }
+}
+
+function executionStatusLabel(status?: string): string {
+  switch ((status || '').toUpperCase()) {
+    case 'SUCCESS':
+      return 'Sucesso';
+    case 'FAILED':
+      return 'Falha';
+    case 'PARTIAL':
+      return 'Parcial';
+    case 'RUNNING':
+      return 'Em andamento';
+    default:
+      return status || '—';
+  }
+}
+
+function executionStatusStyle(status?: string): React.CSSProperties {
+  switch ((status || '').toUpperCase()) {
+    case 'SUCCESS':
+      return { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' };
+    case 'FAILED':
+      return { background: '#fdecea', color: '#c0392b', borderColor: '#f5c6cb' };
+    case 'PARTIAL':
+      return { background: '#fff8e6', color: '#b7791f', borderColor: '#f3e0a8' };
+    case 'RUNNING':
+      return { background: '#eef0ff', color: '#673de6', borderColor: '#d5ccf8' };
+    default:
+      return {};
+  }
+}
+
+function executionDuration(item: CollectorExecution): string {
+  if ((item.status || '').toUpperCase() === 'RUNNING' || !item.finishedAt) {
+    return 'Em andamento';
+  }
+  const start = new Date(item.startedAt).getTime();
+  const end = new Date(item.finishedAt).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    return '—';
+  }
+  const ms = end - start;
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.round(ms / 60_000)} min`;
+}
+
+function truncateError(message?: string, max = 80): string {
+  const text = (message || '').trim();
+  if (!text) return '—';
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}…`;
 }
 
 function typeLabel(type?: string): string {
@@ -682,6 +737,9 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     agentName: string;
     result: CollectorAgentTestResult;
   } | null>(null);
+  const [historyAgent, setHistoryAgent] = useState<CollectorAgent | null>(null);
+  const [historyItems, setHistoryItems] = useState<CollectorExecution[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const loadCredential = useCallback(async () => {
     if (!token) {
@@ -947,6 +1005,27 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     }
   };
 
+  const openHistory = async (item: CollectorAgent, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    if (!token) return;
+    setHistoryAgent(item);
+    setHistoryItems([]);
+    setHistoryLoading(true);
+    try {
+      const executions = await listCollectorAgentExecutions(item.id, token);
+      setHistoryItems(Array.isArray(executions) ? executions : []);
+    } catch (error) {
+      setHistoryAgent(null);
+      addToast({
+        type: 'error',
+        title: 'Falha ao carregar histórico',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+      });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!token || !confirmDelete) return;
     try {
@@ -985,6 +1064,15 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
   const renderActions = (item: CollectorAgent) => (
     <div className="table-actions-group" style={{ justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="btn-table-icon"
+        title="Histórico de coletas"
+        aria-label="Histórico de coletas do agent"
+        onClick={(e) => openHistory(item, e)}
+      >
+        <History size={15} />
+      </button>
       <button
         type="button"
         className="btn-table-icon"
@@ -1162,7 +1250,11 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
               </tr>
             ) : (
               items.map((item) => (
-                <tr key={item.id}>
+                <tr
+                  key={item.id}
+                  className="agent-row-clickable"
+                  onClick={() => openHistory(item)}
+                >
                   <td>
                     <span className="table-cell-title" title={item.name}>{item.name}</span>
                     {item.description ? <div className="table-cell-muted">{item.description}</div> : null}
@@ -1188,7 +1280,11 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
       <div className="mobile-cards-container">
         {items.map((item) => (
-          <div key={item.id} className="mobile-domain-card">
+          <div
+            key={item.id}
+            className="mobile-domain-card agent-row-clickable"
+            onClick={() => openHistory(item)}
+          >
             <div className="mobile-card-top">
               <span className="mobile-domain-name">{item.name}</span>
               <span
@@ -1650,6 +1746,60 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
           <button type="button" className="btn btn-outline" onClick={() => setConfirmDelete(null)}>Cancelar</button>
           <button type="button" className="btn btn-primary" onClick={handleDelete}>Excluir</button>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!historyAgent}
+        onClose={() => {
+          if (historyLoading) return;
+          setHistoryAgent(null);
+          setHistoryItems([]);
+        }}
+        title="Histórico de coletas"
+        subtitle={historyAgent?.name}
+        maxWidth="860px"
+        maxHeight="min(90vh, 720px)"
+      >
+        {historyLoading ? (
+          <p className="agent-history-empty">Carregando execuções...</p>
+        ) : historyItems.length === 0 ? (
+          <p className="agent-history-empty">Nenhuma coleta agendada ainda. O botão Testar não grava histórico.</p>
+        ) : (
+          <div className="table-responsive agent-history-table-wrap">
+            <table className="data-table agent-history-table">
+              <thead>
+                <tr>
+                  <th>Quando</th>
+                  <th>Duração</th>
+                  <th>Status</th>
+                  <th>Coletados</th>
+                  <th>Enviados</th>
+                  <th>Erro</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyItems.map((execution) => (
+                  <tr key={execution.id}>
+                    <td>{formatDate(execution.startedAt)}</td>
+                    <td>{executionDuration(execution)}</td>
+                    <td>
+                      <span className="badge-role" style={executionStatusStyle(execution.status)}>
+                        {executionStatusLabel(execution.status)}
+                      </span>
+                    </td>
+                    <td>{execution.itemsCollected}</td>
+                    <td>{execution.itemsUploaded}</td>
+                    <td>
+                      <span className="agent-history-error" title={execution.errorMessage || undefined}>
+                        {truncateError(execution.errorMessage)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Modal>
     </div>
   );

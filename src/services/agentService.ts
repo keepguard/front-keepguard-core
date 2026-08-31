@@ -142,3 +142,18 @@ export function testCollectorAgent(id: string, token: string): Promise<Collector
     body: JSON.stringify({}),
   }, token);
 }
+
+export interface CollectorExecution {
+  id: string;
+  agentId: string;
+  startedAt: string;
+  finishedAt?: string | null;
+  status: string;
+  itemsCollected: number;
+  itemsUploaded: number;
+  errorMessage?: string;
+}
+
+export function listCollectorAgentExecutions(id: string, token: string): Promise<CollectorExecution[]> {
+  return customFetch<CollectorExecution[]>(`${base}/${id}/executions?limit=50`, { method: 'GET' }, token);
+}
