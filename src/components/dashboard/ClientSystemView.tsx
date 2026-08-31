@@ -368,7 +368,7 @@ export const ClientSystemView: React.FC = () => {
   return (
     <div>
       <form className="audits-toolbar" onSubmit={handleSearch}>
-        <div className="audits-filter-row">
+        <div className="audits-filter-row client-system-filter-row">
           <input
             className="form-input"
             placeholder="Tenant ID"
@@ -396,6 +396,8 @@ export const ClientSystemView: React.FC = () => {
             <option value="ACTIVE">Ativo</option>
             <option value="BLOCKED">Bloqueado</option>
           </select>
+        </div>
+        <div className="audits-filter-row audits-filter-row-tools client-system-filter-row-tools">
           <select
             className="form-input"
             value={filters.sort}

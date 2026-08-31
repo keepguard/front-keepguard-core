@@ -899,6 +899,19 @@ body {
   grid-template-columns: minmax(140px, 1fr) minmax(160px, 1fr) minmax(140px, 0.85fr) 94px auto;
 }
 
+.audits-toolbar .client-system-filter-row {
+  grid-template-columns: minmax(220px, 1.3fr) minmax(180px, 1.1fr) minmax(150px, 0.85fr);
+}
+
+.audits-toolbar .client-system-filter-row-tools {
+  grid-template-columns: minmax(150px, 0.9fr) minmax(130px, 0.55fr) auto;
+}
+
+.audits-toolbar .client-system-filter-row-tools .form-input.audits-dir-select {
+  width: 100%;
+  max-width: none;
+}
+
 .guardian-table {
   table-layout: fixed;
 }
@@ -1047,11 +1060,14 @@ body {
 
 @media (max-width: 1100px) {
   .audits-toolbar .guardian-filter-row,
-  .audits-toolbar .guardian-filter-row-tools {
+  .audits-toolbar .guardian-filter-row-tools,
+  .audits-toolbar .client-system-filter-row,
+  .audits-toolbar .client-system-filter-row-tools {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .audits-toolbar .guardian-filter-row-tools .audits-filter-actions {
+  .audits-toolbar .guardian-filter-row-tools .audits-filter-actions,
+  .audits-toolbar .client-system-filter-row-tools .audits-filter-actions {
     grid-column: 1 / -1;
     justify-self: stretch;
   }
@@ -1059,7 +1075,9 @@ body {
 
 @media (max-width: 640px) {
   .audits-toolbar .guardian-filter-row,
-  .audits-toolbar .guardian-filter-row-tools {
+  .audits-toolbar .guardian-filter-row-tools,
+  .audits-toolbar .client-system-filter-row,
+  .audits-toolbar .client-system-filter-row-tools {
     grid-template-columns: 1fr;
   }
 
@@ -1216,7 +1234,7 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin: 0.75rem 0;
 }
 
 .audits-pager-meta {
