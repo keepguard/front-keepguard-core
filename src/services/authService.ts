@@ -12,6 +12,8 @@ import type {
   AdminAddDeviceBlacklistRequest,
   AdminBlacklistSearchParams,
   PaginatedDeviceBlacklist,
+  TenantSessionSearchParams,
+  PaginatedDeviceSessions,
   MeProfile,
   AccountLifecycleRequest,
 } from '../types/auth';
@@ -138,7 +140,7 @@ export const authService = {
     );
   },
 
-  async searchAdminDeviceBlacklist(
+  async searchTenantDeviceBlacklist(
     params: AdminBlacklistSearchParams,
     token: string
   ): Promise<PaginatedDeviceBlacklist> {
@@ -154,7 +156,7 @@ export const authService = {
     query.set('sort', params.sort || 'blockedAt,desc');
 
     const data = await customFetch<any>(
-      `${BFF_AUTH_URL}/api/v1/admin/devices/blacklist?${query.toString()}`,
+      `${BFF_AUTH_URL}/api/v1/devices/blacklist?${query.toString()}`,
       { method: 'GET' },
       token
     );
@@ -178,17 +180,76 @@ export const authService = {
     };
   },
 
+  async searchAdminDeviceBlacklist(
+    params: AdminBlacklistSearchParams,
+    token: string
+  ): Promise<PaginatedDeviceBlacklist> {
+    return authService.searchTenantDeviceBlacklist(params, token);
+  },
+
   async adminAddDeviceToBlacklist(payload: AdminAddDeviceBlacklistRequest, token: string): Promise<void> {
-    return customFetch<void>(`${BFF_AUTH_URL}/api/v1/admin/devices/blacklist`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }, token);
+    return customFetch<void>(
+      `${BFF_AUTH_URL}/api/v1/users/${encodeURIComponent(payload.userId)}/devices/blacklist`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          deviceId: payload.deviceId,
+          deviceName: payload.deviceName,
+          reason: payload.reason,
+          expiresAt: payload.expiresAt,
+        }),
+      },
+      token
+    );
   },
 
   async adminRemoveDeviceFromBlacklist(deviceId: string, userId: string, token: string): Promise<void> {
-    const query = new URLSearchParams({ userId });
     return customFetch<void>(
-      `${BFF_AUTH_URL}/api/v1/admin/devices/blacklist/${encodeURIComponent(deviceId)}?${query.toString()}`,
+      `${BFF_AUTH_URL}/api/v1/users/${encodeURIComponent(userId)}/devices/blacklist/${encodeURIComponent(deviceId)}`,
+      { method: 'DELETE' },
+      token
+    );
+  },
+
+  async searchTenantSessions(
+    params: TenantSessionSearchParams,
+    token: string
+  ): Promise<PaginatedDeviceSessions> {
+    const query = new URLSearchParams();
+    if (params.userId) query.set('userId', params.userId);
+    if (params.deviceId) query.set('deviceId', params.deviceId);
+    query.set('page', String(params.page ?? 0));
+    query.set('size', String(params.size ?? 20));
+    query.set('sort', params.sort || 'lastActiveAt,desc');
+
+    const data = await customFetch<any>(
+      `${BFF_AUTH_URL}/api/v1/sessions?${query.toString()}`,
+      { method: 'GET' },
+      token
+    );
+
+    const content: import('../types/auth').DeviceSession[] = Array.isArray(data)
+      ? data
+      : (data?.content || []);
+    const page = data?.number ?? data?.page ?? params.page ?? 0;
+    const size = data?.size ?? params.size ?? 20;
+    const totalElements = data?.totalElements ?? content.length;
+    const totalPages = data?.totalPages ?? 1;
+
+    return {
+      content,
+      page,
+      size,
+      totalElements,
+      totalPages,
+      first: data?.first ?? page <= 0,
+      last: data?.last ?? page >= totalPages - 1,
+    };
+  },
+
+  async revokeTenantUserSession(userId: string, deviceId: string, token: string): Promise<void> {
+    return customFetch<void>(
+      `${BFF_AUTH_URL}/api/v1/users/${encodeURIComponent(userId)}/sessions/${encodeURIComponent(deviceId)}`,
       { method: 'DELETE' },
       token
     );

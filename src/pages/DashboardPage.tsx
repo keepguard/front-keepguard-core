@@ -4,10 +4,16 @@ import { ChangePasswordModal } from '../components/auth/ChangePasswordModal';
 import { DeviceSessionsCard } from '../components/dashboard/DeviceSessionsCard';
 import { MyDeviceBlacklistCard } from '../components/dashboard/MyDeviceBlacklistCard';
 import { AdminDeviceBlacklistCard } from '../components/dashboard/AdminDeviceBlacklistCard';
+import { TenantSessionsCard } from '../components/dashboard/TenantSessionsCard';
 import { SecurityCredentialsView } from '../components/dashboard/SecurityCredentialsView';
 import { ConnectionsView } from '../components/dashboard/ConnectionsView';
 import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
-import { canReadAudits, hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
+import { canReadAudits, canAccessTenantDevices, hasAdminRole, assertTenantDevicesVisibility } from '../utils/roles';
+
+const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
+if (tenantDevicesVisibilityFailures.length > 0 && import.meta.env.DEV) {
+  console.warn('canAccessTenantDevices:', tenantDevicesVisibilityFailures);
+}
 import { AccountView } from '../components/dashboard/AccountView';
 import { AuditsView } from '../components/dashboard/AuditsView';
 import { GuardianView } from '../components/dashboard/GuardianView';
@@ -43,15 +49,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   } = useAuth();
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
+  const canAccessTenantDevicesTab = canAccessTenantDevices(user?.roles);
   const canSeeConnections = hasAdminRole(user?.roles);
   const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeClientSystem = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
 
   useEffect(() => {
-    if (activeTab === 'admin-blacklist' && !canManageTenantBlacklist && onNavigateTab) {
+    if (activeTab === 'admin-blacklist' && !canAccessTenantDevicesTab && onNavigateTab) {
       onNavigateTab('blacklist');
+    }
+    if (activeTab === 'tenant-sessions' && !canAccessTenantDevicesTab && onNavigateTab) {
+      onNavigateTab('sessions');
     }
     if (activeTab === 'connections' && !canSeeConnections && onNavigateTab) {
       onNavigateTab('overview');
@@ -71,7 +80,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'security' && onNavigateTab) {
       onNavigateTab('overview');
     }
-  }, [activeTab, canManageTenantBlacklist, canSeeConnections, canSeeGuardian, canSeeClientSystem, canSeeAudits, onNavigateTab]);
+  }, [activeTab, canAccessTenantDevicesTab, canSeeConnections, canSeeGuardian, canSeeClientSystem, canSeeAudits, onNavigateTab]);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -188,7 +197,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </>
       )}
 
-      {activeTab === 'admin-blacklist' && canManageTenantBlacklist && (
+      {activeTab === 'admin-blacklist' && canAccessTenantDevicesTab && (
         <>
           <div className="dashboard-header">
             <div className="dashboard-title-group">
@@ -197,11 +206,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 Blacklist
               </h1>
               <p className="dashboard-subtitle">
-                Visível para ADMIN e MANAGER. Bloqueie ou libere aparelhos de qualquer usuário deste tenant.
+                Visível para ADMIN, SYSTEM e MANAGER. MANAGER só age em contas ROLE_USER.
               </p>
             </div>
           </div>
           <AdminDeviceBlacklistCard />
+        </>
+      )}
+
+      {activeTab === 'tenant-sessions' && canAccessTenantDevicesTab && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <Activity size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Sessões do tenant
+              </h1>
+              <p className="dashboard-subtitle">
+                Visível para ADMIN, SYSTEM e MANAGER. MANAGER só encerra sessões de ROLE_USER.
+              </p>
+            </div>
+          </div>
+          <TenantSessionsCard />
         </>
       )}
 

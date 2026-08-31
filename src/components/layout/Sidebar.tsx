@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { canReadAudits, hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
+import { canReadAudits, canAccessTenantDevices, hasAdminRole } from '../../utils/roles';
 
 interface SidebarProps {
   activeTab?: string;
@@ -28,12 +28,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const { user, accessToken } = useAuth();
-  const canManageTenantBlacklist = hasAdminOrManagerRole(user?.roles);
+  const canAccessTenantDevicesTab = canAccessTenantDevices(user?.roles);
   const canSeeConnections = hasAdminRole(user?.roles);
   const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeClientSystem = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canManageTenantBlacklist || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem;
 
   const handleItemClick = (tabKey: string) => {
     if (onSelectTab) {
@@ -96,7 +96,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {showAdminSection && (
           <div className="sidebar-section">
             <span className="sidebar-heading">Administração</span>
-            {canManageTenantBlacklist && (
+            {canAccessTenantDevicesTab && (
+              <button
+                className={`sidebar-nav-item ${activeTab === 'tenant-sessions' ? 'active' : ''}`}
+                onClick={() => handleItemClick('tenant-sessions')}
+              >
+                <Smartphone size={18} className="sidebar-icon" />
+                <span>Sessões do tenant</span>
+              </button>
+            )}
+            {canAccessTenantDevicesTab && (
               <button
                 className={`sidebar-nav-item ${activeTab === 'admin-blacklist' ? 'active' : ''}`}
                 onClick={() => handleItemClick('admin-blacklist')}

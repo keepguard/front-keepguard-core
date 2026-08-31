@@ -22,6 +22,20 @@ export function hasAdminOrManagerRole(roles?: string[] | null): boolean {
   });
 }
 
+export function canAccessTenantDevices(roles?: string[] | null): boolean {
+  if (!roles || roles.length === 0) {
+    return false;
+  }
+  return roles.some((role) => {
+    const n = normalizeRole(role);
+    return n === 'ADMIN' || n === 'SYSTEM' || n === 'MANAGER';
+  });
+}
+
+export function canWriteTenantDevice(writable?: boolean | null): boolean {
+  return writable === true;
+}
+
 export function parseJwtPayload(token?: string | null): Record<string, unknown> | null {
   if (!token) return null;
   try {
@@ -177,6 +191,37 @@ export function assertAuditReadVisibility(): string[] {
     if (canRead !== testCase.canRead) {
       failures.push(`${testCase.name}: esperado ${testCase.canRead}, obtido ${canRead}`);
     }
+  }
+  return failures;
+}
+
+export const TENANT_DEVICES_VISIBILITY_CASES: Array<{
+  name: string;
+  roles: string[];
+  canAccess: boolean;
+}> = [
+  { name: 'ADMIN acessa tenant', roles: ['ROLE_ADMIN'], canAccess: true },
+  { name: 'SYSTEM acessa tenant', roles: ['ROLE_SYSTEM'], canAccess: true },
+  { name: 'MANAGER acessa tenant', roles: ['ROLE_MANAGER'], canAccess: true },
+  { name: 'USER não acessa tenant', roles: ['ROLE_USER'], canAccess: false },
+];
+
+export function assertTenantDevicesVisibility(): string[] {
+  const failures: string[] = [];
+  for (const testCase of TENANT_DEVICES_VISIBILITY_CASES) {
+    const canAccess = canAccessTenantDevices(testCase.roles);
+    if (canAccess !== testCase.canAccess) {
+      failures.push(`${testCase.name}: esperado ${testCase.canAccess}, obtido ${canAccess}`);
+    }
+  }
+  if (canWriteTenantDevice(true) !== true) {
+    failures.push('writable true deve permitir ação');
+  }
+  if (canWriteTenantDevice(false) !== false) {
+    failures.push('writable false deve bloquear ação');
+  }
+  if (canWriteTenantDevice(undefined) !== false) {
+    failures.push('writable omitido deve bloquear ação');
   }
   return failures;
 }

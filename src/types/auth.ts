@@ -60,11 +60,14 @@ export interface DeviceSession {
   isTrusted: boolean;
   lastActiveAt: string;
   createdAt: string;
+  codeUser?: string;
+  writable?: boolean;
 }
 
 export interface DeviceBlacklistEntry {
   id?: string;
   tenantId?: string;
+  companyId?: string;
   codeUser?: string;
   deviceId: string;
   deviceName?: string;
@@ -74,6 +77,7 @@ export interface DeviceBlacklistEntry {
   blockedBy?: string;
   blockedAt?: string;
   expiresAt?: string;
+  writable?: boolean;
 }
 
 export interface AddDeviceBlacklistRequest {
@@ -104,6 +108,24 @@ export interface AdminBlacklistSearchParams {
 
 export interface PaginatedDeviceBlacklist {
   content: DeviceBlacklistEntry[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+export interface TenantSessionSearchParams {
+  userId?: string;
+  deviceId?: string;
+  page?: number;
+  size?: number;
+  sort?: string;
+}
+
+export interface PaginatedDeviceSessions {
+  content: DeviceSession[];
   page: number;
   size: number;
   totalElements: number;
