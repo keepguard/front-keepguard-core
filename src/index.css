@@ -3792,3 +3792,147 @@ textarea.form-input {
 
 .mt-4 { margin-top: 1rem; }
 .mt-6 { margin-top: 1.5rem; }
+
+.knowledge-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.knowledge-ask-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.knowledge-ask-row .form-group {
+  min-width: 180px;
+}
+
+.knowledge-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #5f6368;
+  padding: 1.25rem;
+  border: 1px dashed #d7dce3;
+  border-radius: 12px;
+  background: #fafbfc;
+}
+
+.knowledge-empty p {
+  margin: 0;
+}
+
+.knowledge-briefing {
+  padding: 1.25rem 1.4rem;
+}
+
+.knowledge-briefing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.knowledge-briefing-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1d2129;
+}
+
+.knowledge-observed {
+  font-size: 0.82rem;
+  color: #5f6368;
+}
+
+.knowledge-answer {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.knowledge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 1.1rem;
+}
+
+.knowledge-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.knowledge-chip.is-ok {
+  background: #e6f7f2;
+  color: #0f7a62;
+}
+
+.knowledge-chip.is-warn {
+  background: #fff4e5;
+  color: #a15c00;
+}
+
+.knowledge-chip.is-muted {
+  background: #eef1f4;
+  color: #5f6368;
+}
+
+.knowledge-chip.is-fail {
+  background: #fdecea;
+  color: #b42318;
+}
+
+.knowledge-freshness {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: #5f6368;
+}
+
+.knowledge-freshness.is-fail {
+  color: #b42318;
+  font-weight: 600;
+}
+
+.knowledge-sources h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.92rem;
+  color: #1d2129;
+}
+
+.knowledge-docid {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  background: #eef1f4;
+  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  color: #1d2129;
+  font-size: 0.75rem;
+}
+
+.knowledge-docid code {
+  font-size: 0.75rem;
+}
+
+.knowledge-disclaimer {
+  margin: 1rem 0 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e6e9ee;
+  font-size: 0.78rem;
+  color: #5f6368;
+  line-height: 1.4;
+}

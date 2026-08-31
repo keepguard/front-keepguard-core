@@ -19,6 +19,7 @@ import { AuditsView } from '../components/dashboard/AuditsView';
 import { GuardianView } from '../components/dashboard/GuardianView';
 import { ClientSystemView } from '../components/dashboard/ClientSystemView';
 import { AgentsView } from '../components/dashboard/AgentsView';
+import { KnowledgeView } from '../components/dashboard/KnowledgeView';
 import {
   User,
   CheckCircle,
@@ -33,6 +34,7 @@ import {
   KeyRound,
   Cpu,
   Users,
+  BookOpen,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -56,6 +58,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeClientSystem = hasAdminRole(user?.roles);
   const canSeeAgents = hasAdminRole(user?.roles);
+  const canSeeKnowledge = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
 
   useEffect(() => {
@@ -77,6 +80,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'agents' && !canSeeAgents && onNavigateTab) {
       onNavigateTab('overview');
     }
+    if (activeTab === 'knowledge' && !canSeeKnowledge && onNavigateTab) {
+      onNavigateTab('overview');
+    }
     if (activeTab === 'audits' && !canSeeAudits && onNavigateTab) {
       onNavigateTab('overview');
     }
@@ -86,7 +92,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (activeTab === 'security' && onNavigateTab) {
       onNavigateTab('overview');
     }
-  }, [activeTab, canAccessTenantDevicesTab, canSeeConnections, canSeeGuardian, canSeeClientSystem, canSeeAgents, canSeeAudits, onNavigateTab]);
+  }, [activeTab, canAccessTenantDevicesTab, canSeeConnections, canSeeGuardian, canSeeClientSystem, canSeeAgents, canSeeKnowledge, canSeeAudits, onNavigateTab]);
 
   const formatRefreshTime = (date: Date | null) => {
     if (!date) return 'Login inicial';
@@ -354,6 +360,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </div>
           </div>
           <AgentsView onNavigateTab={onNavigateTab} />
+        </>
+      )}
+
+      {activeTab === 'knowledge' && canSeeKnowledge && (
+        <>
+          <div className="dashboard-header">
+            <div className="dashboard-title-group">
+              <h1 className="dashboard-title">
+                <BookOpen size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                Conhecimento
+              </h1>
+              <p className="dashboard-subtitle">
+                Pergunta única com briefing fundamentado nos fatos e trechos da empresa. Visível para ADMIN e SYSTEM.
+              </p>
+            </div>
+          </div>
+          <KnowledgeView />
         </>
       )}
 

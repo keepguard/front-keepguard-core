@@ -1810,7 +1810,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                   rows={3}
                   value={form.prompt}
                   onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
-                  placeholder="Instruções para o processamento do conteúdo coletado"
+                  placeholder="Dica da fonte para o briefing (não substitui os fatos)"
                 />
               </div>
             </div>

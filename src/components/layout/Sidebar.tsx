@@ -12,6 +12,7 @@ import {
   Cpu,
   Users,
   X,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { canReadAudits, canAccessTenantDevices, hasAdminRole } from '../../utils/roles';
@@ -35,8 +36,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeClientSystem = hasAdminRole(user?.roles);
   const canSeeAgents = hasAdminRole(user?.roles);
+  const canSeeKnowledge = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeKnowledge;
 
   const handleItemClick = (tabKey: string) => {
     if (onSelectTab) {
@@ -151,6 +153,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Cpu size={18} className="sidebar-icon" />
                 <span>Agents</span>
+              </button>
+            )}
+            {canSeeKnowledge && (
+              <button
+                className={`sidebar-nav-item ${activeTab === 'knowledge' ? 'active' : ''}`}
+                onClick={() => handleItemClick('knowledge')}
+              >
+                <BookOpen size={18} className="sidebar-icon" />
+                <span>Conhecimento</span>
               </button>
             )}
             {canSeeAudits && (
