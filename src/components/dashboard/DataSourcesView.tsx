@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Database,
-  Eye,
   Pencil,
   Plus,
   Power,
   PowerOff,
+  RefreshCw,
   Search,
   Trash2,
 } from 'lucide-react';
@@ -27,9 +27,11 @@ import {
   type CollectorSchedule,
   type CollectorType,
   type CreateCollectorDataSourceBody,
+  type PropagateFieldGroup,
 } from '../../services/agentService';
+import { PropagateDataSourceModal } from './PropagateDataSourceModal';
+import { changedFieldGroups } from '../../utils/collectorTemplate';
 
-type OriginFilter = '' | 'keepguard' | 'company';
 type StatusFilter = '' | 'true' | 'false';
 type FormStep = 'identity' | 'collector' | 'defaults';
 type AuthType = 'NONE' | 'STATIC_BEARER' | 'LOGIN_PASSWORD';
@@ -154,14 +156,6 @@ function typeLabel(type?: string): string {
   if (type === 'HTML_SCRAPER') return 'HTML scraper';
   if (type === 'DOCUMENT_FETCHER') return 'Documentos';
   return type || '—';
-}
-
-function scopeLabel(source: CollectorDataSource): string {
-  return source.scope === 'company' || source.companyId ? 'Organização' : 'KeepGuard';
-}
-
-function isCompanySource(source: CollectorDataSource): boolean {
-  return source.scope === 'company' || Boolean(source.companyId);
 }
 
 function variablesLabel(source: CollectorDataSource): string {
@@ -443,7 +437,6 @@ export const DataSourcesView: React.FC = () => {
   const [loadError, setLoadError] = useState('');
   const [q, setQ] = useState('');
   const [collectorType, setCollectorType] = useState<'' | CollectorType>('');
-  const [origin, setOrigin] = useState<OriginFilter>('');
   const [enabled, setEnabled] = useState<StatusFilter>('');
 
   const [formOpen, setFormOpen] = useState(false);
@@ -451,10 +444,15 @@ export const DataSourcesView: React.FC = () => {
   const [form, setForm] = useState<SourceForm>(emptyForm);
   const [slugTouched, setSlugTouched] = useState(false);
   const [editing, setEditing] = useState<CollectorDataSource | null>(null);
-  const [readOnly, setReadOnly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirm, setConfirm] = useState<{ kind: ConfirmKind; source: CollectorDataSource } | null>(null);
   const [linkedAgents, setLinkedAgents] = useState(0);
+  const [agentCounts, setAgentCounts] = useState<Record<string, number>>({});
+  const [propagate, setPropagate] = useState<{
+    source: CollectorDataSource;
+    changedGroups?: PropagateFieldGroup[];
+    lockUnchanged: boolean;
+  } | null>(null);
 
   const load = useCallback(async () => {
     const token = getAccessToken();
@@ -463,12 +461,23 @@ export const DataSourcesView: React.FC = () => {
     setLoadError('');
     try {
       const sources = await listCollectorDataSources(token, { includeDisabled: true });
-      setItems((sources || []).map((source) => ({
+      const mapped = (sources || []).map((source) => ({
         ...source,
         variables: normalizeVariables(source.variables),
         enabled: source.enabled !== false,
-        scope: source.scope || (source.companyId ? 'company' : 'keepguard'),
-      })));
+        scope: source.scope || 'company',
+      }));
+      setItems(mapped);
+      const counts: Record<string, number> = {};
+      await Promise.all(mapped.map(async (source) => {
+        try {
+          const page = await searchCollectorAgents({ dataSourceId: source.id, size: 1 }, token);
+          counts[source.id] = page.totalElements || 0;
+        } catch {
+          counts[source.id] = 0;
+        }
+      }));
+      setAgentCounts(counts);
     } catch (err: any) {
       setItems([]);
       setLoadError(err?.message || 'Não foi possível carregar as fontes.');
@@ -491,28 +500,24 @@ export const DataSourcesView: React.FC = () => {
     return items.filter((item) => {
       if (needle && !`${item.name} ${item.slug}`.toLowerCase().includes(needle)) return false;
       if (collectorType && item.collectorType !== collectorType) return false;
-      if (origin === 'company' && !isCompanySource(item)) return false;
-      if (origin === 'keepguard' && isCompanySource(item)) return false;
       if (enabled === 'true' && item.enabled === false) return false;
       if (enabled === 'false' && item.enabled !== false) return false;
       return true;
     });
-  }, [collectorType, enabled, items, origin, q]);
+  }, [collectorType, enabled, items, q]);
 
   const sampleValue = form.variables[0]?.placeholder || 'PETR4';
 
   const openCreate = () => {
     setEditing(null);
-    setReadOnly(false);
     setSlugTouched(false);
     setForm(emptyForm());
     setFormStep('identity');
     setFormOpen(true);
   };
 
-  const openEdit = (source: CollectorDataSource, viewOnly: boolean) => {
+  const openEdit = (source: CollectorDataSource) => {
     setEditing(source);
-    setReadOnly(viewOnly);
     setSlugTouched(true);
     setForm(formFromSource(source));
     setFormStep('identity');
@@ -524,7 +529,6 @@ export const DataSourcesView: React.FC = () => {
     setFormOpen(false);
     setFormStep('identity');
     setEditing(null);
-    setReadOnly(false);
   };
 
   const validateStep = (step: FormStep): string | null => {
@@ -557,7 +561,7 @@ export const DataSourcesView: React.FC = () => {
     const order: FormStep[] = ['identity', 'collector', 'defaults'];
     const current = order.indexOf(formStep);
     const next = order.indexOf(step);
-    if (next <= current || readOnly) {
+    if (next <= current) {
       setFormStep(step);
       return;
     }
@@ -583,7 +587,6 @@ export const DataSourcesView: React.FC = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (readOnly) return;
     const error = validateStep('defaults') || validateStep('collector') || validateStep('identity');
     if (error) {
       addToast({ type: 'warning', title: 'Revise os campos', description: error });
@@ -595,9 +598,33 @@ export const DataSourcesView: React.FC = () => {
     try {
       const body = toCreateBody(form);
       if (editing) {
+        const previousTemplate = (editing.configTemplate || {}) as Record<string, unknown>;
         const next = await updateCollectorDataSource(editing.id, body, token);
         setItems((current) => current.map((item) => (item.id === next.id ? { ...item, ...next, variables: normalizeVariables(next.variables) } : item)));
-        addToast({ type: 'success', title: 'Fonte atualizada', description: next.name });
+        const groups = changedFieldGroups(previousTemplate, body.configTemplate);
+        setFormOpen(false);
+        if (groups.length > 0) {
+          let total = 0;
+          try {
+            const page = await searchCollectorAgents({ dataSourceId: next.id, size: 1 }, token);
+            total = page.totalElements || page.content?.length || 0;
+            setAgentCounts((current) => ({ ...current, [next.id]: total }));
+          } catch {
+            total = 0;
+          }
+          if (total > 0) {
+            addToast({ type: 'success', title: 'Fonte atualizada', description: next.name });
+            setPropagate({
+              source: { ...editing, ...next, variables: normalizeVariables(next.variables) },
+              changedGroups: groups,
+              lockUnchanged: true,
+            });
+          } else {
+            addToast({ type: 'success', title: 'Fonte atualizada', description: 'Nenhum agent vinculado.' });
+          }
+        } else {
+          addToast({ type: 'success', title: 'Fonte atualizada', description: next.name });
+        }
       } else {
         const created = await createCollectorDataSource(body, token);
         setItems((current) => [{ ...created, variables: normalizeVariables(created.variables), enabled: created.enabled !== false, scope: created.scope || 'company' }, ...current]);
@@ -617,7 +644,7 @@ export const DataSourcesView: React.FC = () => {
 
   const handleToggle = async (source: CollectorDataSource) => {
     const token = getAccessToken();
-    if (!token || !isCompanySource(source)) return;
+    if (!token) return;
     try {
       const next = source.enabled === false
         ? await enableCollectorDataSource(source.id, token)
@@ -671,7 +698,7 @@ export const DataSourcesView: React.FC = () => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const disabled = readOnly || submitting;
+  const disabled = submitting;
 
   return (
     <>
@@ -697,11 +724,6 @@ export const DataSourcesView: React.FC = () => {
             <option value="API_REST">API REST</option>
             <option value="HTML_SCRAPER">HTML scraper</option>
             <option value="DOCUMENT_FETCHER">Documentos</option>
-          </select>
-          <select className="form-input audits-compact-select" value={origin} onChange={(e) => setOrigin(e.target.value as OriginFilter)} aria-label="Origem">
-            <option value="">Todas as origens</option>
-            <option value="keepguard">KeepGuard</option>
-            <option value="company">Organização</option>
           </select>
           <select className="form-input audits-compact-select" value={enabled} onChange={(e) => setEnabled(e.target.value as StatusFilter)} aria-label="Status">
             <option value="">Todos os status</option>
@@ -731,8 +753,8 @@ export const DataSourcesView: React.FC = () => {
               <th>Nome</th>
               <th>Slug</th>
               <th>Tipo</th>
-              <th>Origem</th>
               <th>Variáveis</th>
+              <th>Agents</th>
               <th>Status</th>
               <th style={{ textAlign: 'right' }}>Ações</th>
             </tr>
@@ -764,15 +786,17 @@ export const DataSourcesView: React.FC = () => {
                   </td>
                   <td><span className="id-compact">{item.slug}</span></td>
                   <td>{typeLabel(item.collectorType)}</td>
-                  <td>
-                    <span className="badge-role" style={isCompanySource(item)
-                      ? { background: '#eef0ff', color: '#673de6', borderColor: '#d5ccf8' }
-                      : { background: '#f3f4f6', color: '#374151', borderColor: '#e5e7eb' }}
-                    >
-                      {scopeLabel(item)}
-                    </span>
-                  </td>
                   <td><span className="id-compact">{variablesLabel(item)}</span></td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => navigate(`${PATHS.agents}?dataSourceId=${encodeURIComponent(item.id)}`)}
+                      aria-label={`Ver agents de ${item.name}`}
+                    >
+                      {agentCounts[item.id] ?? '—'}
+                    </button>
+                  </td>
                   <td>
                     <span className="badge-role" style={item.enabled !== false
                       ? { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' }
@@ -783,40 +807,39 @@ export const DataSourcesView: React.FC = () => {
                   </td>
                   <td>
                     <div className="table-actions-group" style={{ justifyContent: 'flex-end' }}>
-                      {isCompanySource(item) ? (
-                        <>
-                          <button type="button" className="btn-table-icon" title="Editar" aria-label={`Editar ${item.name}`} onClick={() => openEdit(item, false)}>
-                            <Pencil size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-table-icon"
-                            title={item.enabled === false ? 'Ativar' : 'Desativar'}
-                            aria-label={item.enabled === false ? `Ativar ${item.name}` : `Desativar ${item.name}`}
-                            onClick={() => void handleToggle(item)}
-                          >
-                            {item.enabled === false ? <Power size={15} /> : <PowerOff size={15} />}
-                          </button>
-                          <button type="button" className="btn-table-icon" title="Excluir" aria-label={`Excluir ${item.name}`} onClick={() => void openDelete(item)}>
-                            <Trash2 size={15} />
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button type="button" className="btn-table-icon" title="Visualizar" aria-label={`Visualizar ${item.name}`} onClick={() => openEdit(item, true)}>
-                            <Eye size={15} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-table-icon"
-                            title="Usar em um agent"
-                            aria-label={`Usar ${item.name} em um agent`}
-                            onClick={() => navigate(`${PATHS.agents}?dataSourceId=${encodeURIComponent(item.id)}`)}
-                          >
-                            <Plus size={15} />
-                          </button>
-                        </>
-                      )}
+                      <button type="button" className="btn-table-icon" title="Editar" aria-label={`Editar ${item.name}`} onClick={() => openEdit(item)}>
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-table-icon"
+                        title="Propagar para agents"
+                        aria-label={`Propagar ${item.name} para agents vinculados`}
+                        onClick={() => setPropagate({ source: item, lockUnchanged: false })}
+                      >
+                        <RefreshCw size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-table-icon"
+                        title={item.enabled === false ? 'Ativar' : 'Desativar'}
+                        aria-label={item.enabled === false ? `Ativar ${item.name}` : `Desativar ${item.name}`}
+                        onClick={() => void handleToggle(item)}
+                      >
+                        {item.enabled === false ? <Power size={15} /> : <PowerOff size={15} />}
+                      </button>
+                      <button type="button" className="btn-table-icon" title="Excluir" aria-label={`Excluir ${item.name}`} onClick={() => void openDelete(item)}>
+                        <Trash2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-table-icon"
+                        title="Usar em um agent"
+                        aria-label={`Usar ${item.name} em um agent`}
+                        onClick={() => navigate(`${PATHS.agents}?dataSourceId=${encodeURIComponent(item.id)}`)}
+                      >
+                        <Plus size={15} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -829,7 +852,7 @@ export const DataSourcesView: React.FC = () => {
       <div className="mobile-cards-container">
         {filtered.map((item) => (
           <div key={item.id} className="mobile-domain-card">
-            <div className="mobile-card-subinfo">{scopeLabel(item)} · {item.slug}</div>
+            <div className="mobile-card-subinfo">{item.slug}</div>
             <div className="mobile-card-top">
               <span className="mobile-domain-name">{item.name}</span>
               <span className="badge-role" style={item.enabled !== false
@@ -839,18 +862,13 @@ export const DataSourcesView: React.FC = () => {
                 {item.enabled !== false ? 'Ativo' : 'Inativo'}
               </span>
             </div>
-            <div className="mobile-card-subinfo">{typeLabel(item.collectorType)} · {variablesLabel(item)}</div>
+            <div className="mobile-card-subinfo">{typeLabel(item.collectorType)} · {variablesLabel(item)} · {agentCounts[item.id] ?? 0} agents</div>
             <div className="mobile-card-actions">
-              {isCompanySource(item) ? (
-                <>
-                  <button type="button" className="btn btn-outline btn-pill" onClick={() => openEdit(item, false)}>Editar</button>
-                  <button type="button" className="btn btn-outline btn-pill" onClick={() => void handleToggle(item)}>
-                    {item.enabled === false ? 'Ativar' : 'Desativar'}
-                  </button>
-                </>
-              ) : (
-                <button type="button" className="btn btn-outline btn-pill" onClick={() => openEdit(item, true)}>Visualizar</button>
-              )}
+              <button type="button" className="btn btn-outline btn-pill" onClick={() => openEdit(item)}>Editar</button>
+              <button type="button" className="btn btn-outline btn-pill" onClick={() => setPropagate({ source: item, lockUnchanged: false })}>Propagar</button>
+              <button type="button" className="btn btn-outline btn-pill" onClick={() => void handleToggle(item)}>
+                {item.enabled === false ? 'Ativar' : 'Desativar'}
+              </button>
             </div>
           </div>
         ))}
@@ -859,14 +877,14 @@ export const DataSourcesView: React.FC = () => {
       <Modal
         isOpen={formOpen}
         onClose={closeForm}
-        title={readOnly ? 'Fonte KeepGuard' : editing ? 'Editar fonte' : 'Nova fonte de dados'}
+        title={editing ? 'Editar fonte' : 'Nova fonte de dados'}
         subtitle="Este template pré-preenche o agent; a coleta usa o snapshot, não esta tela."
         maxWidth="720px"
         maxHeight="min(90vh, 820px)"
         footer={(
           <div className="modal-actions">
             <button type="button" className="btn btn-outline" onClick={closeForm} disabled={submitting}>
-              {readOnly ? 'Fechar' : 'Cancelar'}
+              Cancelar
             </button>
             {formStep !== 'identity' ? (
               <button type="button" className="btn btn-outline" onClick={() => setFormStep(formStep === 'defaults' ? 'collector' : 'identity')} disabled={submitting}>
@@ -875,7 +893,7 @@ export const DataSourcesView: React.FC = () => {
             ) : null}
             {formStep !== 'defaults' ? (
               <button type="button" className="btn btn-primary" onClick={handleNext} disabled={submitting}>Continuar</button>
-            ) : readOnly ? null : (
+            ) : (
               <button
                 type="button"
                 className="btn btn-primary"
@@ -1214,6 +1232,19 @@ export const DataSourcesView: React.FC = () => {
           <button type="button" className="btn btn-primary" onClick={() => void handleConfirmDelete()} disabled={submitting}>Excluir</button>
         </div>
       </Modal>
+
+      <PropagateDataSourceModal
+        isOpen={Boolean(propagate)}
+        source={propagate?.source || null}
+        changedGroups={propagate?.changedGroups}
+        lockUnchanged={propagate?.lockUnchanged}
+        onClose={() => setPropagate(null)}
+        onDone={(result) => {
+          if (propagate?.source) {
+            setAgentCounts((current) => ({ ...current, [propagate.source.id]: result.totalLinked }));
+          }
+        }}
+      />
     </>
   );
 };

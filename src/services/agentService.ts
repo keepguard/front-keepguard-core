@@ -194,7 +194,7 @@ export interface CollectorDataSourceVariable {
   placeholder?: string;
 }
 
-export type DataSourceScope = 'keepguard' | 'company';
+export type DataSourceScope = 'company';
 
 export interface CollectorDataSource {
   id: string;
@@ -287,4 +287,44 @@ export function disableCollectorDataSource(id: string, token: string): Promise<C
 
 export function deleteCollectorDataSource(id: string, token: string): Promise<void> {
   return customFetch<void>(`${dataSourcesBase}/${id}`, { method: 'DELETE' }, token);
+}
+
+export type PropagateFieldGroup = 'url' | 'headers' | 'method_body' | 'type_config';
+
+export interface PropagateAgentPreview {
+  agentId: string;
+  agentName: string;
+  ticker: string;
+  beforeUrl: string;
+  afterUrl: string;
+  changed: boolean;
+  skipReason?: string;
+}
+
+export interface PropagateDataSourceResult {
+  totalLinked: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  dryRun: boolean;
+  previews: PropagateAgentPreview[];
+  errors?: string[];
+}
+
+export interface PropagateCollectorDataSourceBody {
+  fields: PropagateFieldGroup[];
+  dryRun?: boolean;
+  limit?: number;
+}
+
+export function propagateCollectorDataSource(
+  id: string,
+  body: PropagateCollectorDataSourceBody,
+  token: string,
+): Promise<PropagateDataSourceResult> {
+  return customFetch<PropagateDataSourceResult>(
+    `${dataSourcesBase}/${id}/propagate`,
+    { method: 'POST', body: JSON.stringify(body) },
+    token,
+  );
 }

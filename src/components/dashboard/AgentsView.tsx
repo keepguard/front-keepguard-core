@@ -34,6 +34,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 import { PATHS } from '../../navigation/routes';
+import { applyPlaceholders, applyPlaceholdersDeep, tickerFromConfig } from '../../utils/collectorTemplate';
 import {
   COLLECTOR_SERVICE_CLIENT_ID,
   createCollectorAgent,
@@ -605,42 +606,6 @@ function asConfigRecord(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
-}
-
-function applyPlaceholders(value: string, values: Record<string, string>): string {
-  let out = value;
-  const ticker = (values.ticker || '').trim().toUpperCase();
-  if (ticker) {
-    out = out
-      .replaceAll('{{ticker}}', ticker)
-      .replaceAll('{{ticker_lower}}', ticker.toLowerCase())
-      .replaceAll('{{symbol}}', `${ticker}.SA`);
-  }
-  Object.entries(values).forEach(([key, raw]) => {
-    if (!key || key === 'ticker') return;
-    const v = String(raw || '').trim();
-    if (!v) return;
-    out = out.replaceAll(`{{${key}}}`, v);
-    out = out.replaceAll(`{{${key}_lower}}`, v.toLowerCase());
-  });
-  return out;
-}
-
-function applyPlaceholdersDeep(value: unknown, values: Record<string, string>): unknown {
-  if (typeof value === 'string') return applyPlaceholders(value, values);
-  if (Array.isArray(value)) return value.map((item) => applyPlaceholdersDeep(item, values));
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
-      out[key] = applyPlaceholdersDeep(item, values);
-    });
-    return out;
-  }
-  return value;
-}
-
-function tickerFromConfig(cfg: Record<string, unknown>): string {
-  return String(cfg.entity_hint || '').trim().toUpperCase().replace(/\.SA$/i, '');
 }
 
 function dataSourceLabel(name?: string | null): string {
