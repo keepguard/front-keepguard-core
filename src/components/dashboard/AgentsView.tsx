@@ -1183,6 +1183,10 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (formStep !== 'schedule') {
+      handleNextStep();
+      return;
+    }
     const token = getAccessToken();
     if (!token) return;
     if (!validateStep('identity') || !validateStep('collector') || !validateStep('schedule')) {
@@ -1786,7 +1790,18 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
           </div>
         )}
       >
-        <form id="agent-form" className="oauth-create-form agent-form" onSubmit={handleSubmit}>
+        <form
+          id="agent-form"
+          className="oauth-create-form agent-form"
+          onSubmit={handleSubmit}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || formStep === 'schedule') return;
+            const tag = (event.target as HTMLElement).tagName;
+            if (tag === 'TEXTAREA' || tag === 'BUTTON') return;
+            event.preventDefault();
+            handleNextStep();
+          }}
+        >
           <nav className="agent-form-steps" aria-label="Etapas do formulário">
             {FORM_STEPS.map((step, index) => {
               const order: FormStep[] = ['identity', 'collector', 'schedule'];

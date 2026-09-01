@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -22,9 +22,13 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidth = '480px',
   maxHeight,
 }) => {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const backdropPointer = useRef(false);
+
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -34,16 +38,28 @@ export const Modal: React.FC<ModalProps> = ({
       document.body.style.overflow = 'unset';
       window.removeEventListener('keydown', handleEsc);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => {
+        backdropPointer.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        if (backdropPointer.current && e.target === e.currentTarget) {
+          onClose();
+        }
+        backdropPointer.current = false;
+      }}
+    >
       <div
         className={`modal-card animate-scale-in${footer ? ' has-footer' : ''}`}
         style={{ maxWidth, ...(maxHeight ? { maxHeight } : {}) }}
-        onClick={e => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           <div>
