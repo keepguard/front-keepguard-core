@@ -3411,6 +3411,22 @@ body {
   font-size: 0.78rem;
   color: var(--primary);
   word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.collector-curl-box {
+  max-height: min(42vh, 320px);
+}
+
+.collector-curl-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted, #5f6368);
+  margin: 0 0 0.75rem;
+  line-height: 1.45;
+}
+
+.collector-curl-modal .form-group {
+  margin-bottom: 0.75rem;
 }
 
 /* Hostinger Buttons */

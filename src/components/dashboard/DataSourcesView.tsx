@@ -8,6 +8,7 @@ import {
   PowerOff,
   Search,
   Share2,
+  Terminal,
   Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -36,7 +37,13 @@ import {
   type PropagateFieldGroup,
 } from '../../services/agentService';
 import { PropagateDataSourceModal } from './PropagateDataSourceModal';
+import { CollectorCurlModal } from './CollectorCurlModal';
 import { changedFieldGroups } from '../../utils/collectorTemplate';
+import {
+  buildCollectorOriginCurlBlocksResolved,
+  samplePlaceholderValues,
+  type CollectorCurlBlock,
+} from '../../utils/collectorCurl';
 
 type StatusFilter = '' | 'true' | 'false';
 type FormStep = 'identity' | 'collector' | 'defaults';
@@ -519,6 +526,11 @@ export const DataSourcesView: React.FC = () => {
     changedGroups?: PropagateFieldGroup[];
     lockUnchanged: boolean;
   } | null>(null);
+  const [curlModal, setCurlModal] = useState<{
+    title: string;
+    subtitle?: string;
+    blocks: CollectorCurlBlock[];
+  } | null>(null);
 
   const load = useCallback(async () => {
     const token = getAccessToken();
@@ -768,6 +780,52 @@ export const DataSourcesView: React.FC = () => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  const openSourceCurl = (
+    title: string,
+    collectorType: CollectorType | string,
+    config: Record<string, unknown>,
+    variables: CollectorDataSourceVariable[],
+    entityHint?: string,
+  ) => {
+    const values = samplePlaceholderValues(variables, entityHint || form.entityHint);
+    const blocks = buildCollectorOriginCurlBlocksResolved(collectorType, config, values);
+    if (!blocks.length) {
+      addToast({
+        type: 'error',
+        title: 'CURL indisponível',
+        description: 'Configure a URL (ou lista de URLs) antes de gerar o CURL.',
+      });
+      return;
+    }
+    setCurlModal({
+      title,
+      subtitle: `Placeholders resolvidos com ticker ${values.ticker}.`,
+      blocks,
+    });
+  };
+
+  const openSourceCurlFromItem = (source: CollectorDataSource) => {
+    const cfg = (source.configTemplate || {}) as Record<string, unknown>;
+    openSourceCurl(
+      `CURL — ${source.name}`,
+      source.collectorType,
+      cfg,
+      source.variables || [],
+      String(cfg.entity_hint || ''),
+    );
+  };
+
+  const openSourceCurlFromForm = () => {
+    const config = buildConfigTemplate(form);
+    openSourceCurl(
+      editing ? `CURL — ${form.name.trim() || editing.name}` : 'CURL da fonte (rascunho)',
+      form.collectorType,
+      config,
+      form.variables,
+      form.entityHint,
+    );
+  };
+
   const disabled = submitting;
   const draftRateLimit = buildRateLimit(form);
   const draftEffectiveRate = draftRateLimit ? effectiveRatePerMinute(draftRateLimit) : null;
@@ -777,6 +835,16 @@ export const DataSourcesView: React.FC = () => {
       <Tooltip label="Editar" description="Altera URL, variáveis, agenda e limite de requisições da fonte.">
         <button type="button" className="btn-table-icon" aria-label={`Editar ${item.name}`} onClick={() => openEdit(item)}>
           <Pencil size={15} />
+        </button>
+      </Tooltip>
+      <Tooltip label="Copiar CURL" description="Gera o comando para testar a origem (API/HTML/documento) no terminal.">
+        <button
+          type="button"
+          className="btn-table-icon"
+          aria-label={`Copiar CURL de ${item.name}`}
+          onClick={() => openSourceCurlFromItem(item)}
+        >
+          <Terminal size={15} />
         </button>
       </Tooltip>
       <Tooltip label="Propagar" description="Aplica alterações da fonte nos agents vinculados.">
@@ -1127,6 +1195,12 @@ export const DataSourcesView: React.FC = () => {
               <p className="agent-form-panel-intro">
                 Configure o template ({typeLabel(form.collectorType)}). Use placeholders nos campos. Segredos ficam no agent, não aqui.
               </p>
+              <div style={{ marginBottom: '0.75rem' }}>
+                <button type="button" className="btn btn-outline btn-pill" onClick={openSourceCurlFromForm} disabled={disabled}>
+                  <Terminal size={15} />
+                  <span>Ver CURL da origem</span>
+                </button>
+              </div>
               {form.collectorType !== 'DOCUMENT_FETCHER' ? (
                 <div className="form-group">
                   <label htmlFor="ds-url">URL</label>
@@ -1405,6 +1479,14 @@ export const DataSourcesView: React.FC = () => {
             setAgentCounts((current) => ({ ...current, [propagate.source.id]: result.totalLinked }));
           }
         }}
+      />
+
+      <CollectorCurlModal
+        isOpen={Boolean(curlModal)}
+        onClose={() => setCurlModal(null)}
+        title={curlModal?.title || 'CURL'}
+        subtitle={curlModal?.subtitle}
+        blocks={curlModal?.blocks || []}
       />
     </>
   );

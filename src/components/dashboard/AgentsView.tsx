@@ -24,6 +24,7 @@ import {
   Power,
   PowerOff,
   Search,
+  Terminal,
   Trash2,
   X,
 } from 'lucide-react';
@@ -35,6 +36,12 @@ import { useToast } from '../../context/ToastContext';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 import { PATHS } from '../../navigation/routes';
 import { applyPlaceholders, applyPlaceholdersDeep, tickerFromConfig } from '../../utils/collectorTemplate';
+import {
+  buildCollectorOriginCurlBlocksResolved,
+  buildKeepGuardTestCurl,
+  type CollectorCurlBlock,
+} from '../../utils/collectorCurl';
+import { CollectorCurlModal } from './CollectorCurlModal';
 import {
   COLLECTOR_SERVICE_CLIENT_ID,
   createCollectorAgent,
@@ -1120,6 +1127,11 @@ export const AgentsView: React.FC = () => {
   const [historyPayloadLoading, setHistoryPayloadLoading] = useState(false);
   const [historyPayloadError, setHistoryPayloadError] = useState<string | null>(null);
   const [actionsMenuId, setActionsMenuId] = useState<string | null>(null);
+  const [curlModal, setCurlModal] = useState<{
+    title: string;
+    subtitle?: string;
+    blocks: CollectorCurlBlock[];
+  } | null>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
   const historyItemsRef = useRef(historyItems);
   historyItemsRef.current = historyItems;
@@ -1664,6 +1676,62 @@ export const AgentsView: React.FC = () => {
     />
   );
 
+  const openAgentCurl = (
+    title: string,
+    agentId: string | undefined,
+    collectorType: CollectorType | string,
+    config: Record<string, unknown>,
+    ticker: string,
+    variableValues: Record<string, string>,
+  ) => {
+    const normalizedTicker = ticker.trim().toUpperCase() || tickerFromConfig(config) || 'PETR4';
+    const values = { ...variableValues, ticker: normalizedTicker };
+    const originBlocks = buildCollectorOriginCurlBlocksResolved(collectorType, config, values);
+    const blocks: CollectorCurlBlock[] = [...originBlocks];
+    if (agentId) {
+      blocks.push(buildKeepGuardTestCurl(agentId, getAccessToken()));
+    }
+    if (!blocks.length) {
+      addToast({
+        type: 'error',
+        title: 'CURL indisponível',
+        description: 'Configure a URL (ou salve o agent) antes de gerar o CURL.',
+      });
+      return;
+    }
+    setCurlModal({
+      title,
+      subtitle: agentId
+        ? `Origem (${normalizedTicker}) + dry-run KeepGuard sem gravar no Mongo.`
+        : `Origem (${normalizedTicker}). Salve o agent para incluir o CURL de teste KeepGuard.`,
+      blocks,
+    });
+  };
+
+  const openAgentCurlFromItem = (agent: CollectorAgent) => {
+    const cfg = asConfigRecord(agent.collectorConfig);
+    openAgentCurl(
+      `CURL — ${agent.name}`,
+      agent.id,
+      agent.collectorType,
+      cfg,
+      tickerFromConfig(cfg) || agent.name,
+      tickerFromConfig(cfg) ? { ticker: tickerFromConfig(cfg) } : {},
+    );
+  };
+
+  const openAgentCurlFromForm = () => {
+    const config = buildCollectorConfig(form);
+    openAgentCurl(
+      editing ? `CURL — ${form.name.trim() || editing.name}` : 'CURL do agent (rascunho)',
+      editing?.id,
+      form.collectorType,
+      config,
+      form.ticker,
+      form.variableValues,
+    );
+  };
+
   const closeActionsMenu = () => setActionsMenuId(null);
 
   const runMenuAction = (event: React.SyntheticEvent, action: () => void) => {
@@ -1707,6 +1775,15 @@ export const AgentsView: React.FC = () => {
             >
               <History size={15} />
               <span>Histórico</span>
+            </button>
+            <button
+              type="button"
+              className="table-actions-menu-item"
+              role="menuitem"
+              onClick={(e) => runMenuAction(e, () => openAgentCurlFromItem(item))}
+            >
+              <Terminal size={15} />
+              <span>Copiar CURL</span>
             </button>
             <button
               type="button"
@@ -2192,6 +2269,12 @@ export const AgentsView: React.FC = () => {
               <p className="agent-form-panel-intro">
                 Configure a fonte ({typeLabel(form.collectorType)}). Campos mudam conforme o tipo.
               </p>
+              <div style={{ marginBottom: '0.75rem' }}>
+                <button type="button" className="btn btn-outline btn-pill" onClick={openAgentCurlFromForm} disabled={submitting}>
+                  <Terminal size={15} />
+                  <span>Ver CURL</span>
+                </button>
+              </div>
 
               {form.collectorType !== 'DOCUMENT_FETCHER' ? (
                 <div className="form-group">
@@ -3031,6 +3114,14 @@ export const AgentsView: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      <CollectorCurlModal
+        isOpen={Boolean(curlModal)}
+        onClose={() => setCurlModal(null)}
+        title={curlModal?.title || 'CURL'}
+        subtitle={curlModal?.subtitle}
+        blocks={curlModal?.blocks || []}
+      />
     </div>
   );
 };
