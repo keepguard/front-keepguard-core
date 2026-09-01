@@ -331,19 +331,21 @@ export const DeviceSessionsCard: React.FC = () => {
   return (
     <div>
       {/* Toolbar no estilo Hostinger hPanel com Ação Global Real */}
-      <div className="table-toolbar">
-        <div className="search-input-wrapper">
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Pesquisar por dispositivo, IP ou localização..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="table-toolbar table-toolbar-stacked">
+        <div className="table-toolbar-row">
+          <div className="search-input-wrapper" style={{ minWidth: 220, maxWidth: 420 }}>
+            <Search size={16} className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Pesquisar por dispositivo, IP ou localização..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+        <div className="table-toolbar-row">
           <button
             className="btn btn-secondary btn-pill"
             onClick={() => loadSessions(true)}
@@ -355,7 +357,7 @@ export const DeviceSessionsCard: React.FC = () => {
           </button>
 
           <button
-            className="btn btn-danger btn-pill"
+            className="btn btn-danger btn-pill table-toolbar-push-end"
             onClick={handleRevokeAllOtherSessions}
             disabled={isRevokingAll || sessions.filter(s => !s.isCurrent).length === 0}
             title="Encerrar todas as outras sessões abertas"
