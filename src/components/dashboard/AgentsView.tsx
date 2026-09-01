@@ -297,20 +297,7 @@ function payloadItemBody(item: ExecutionPayloadItem): string {
   if (item.previewText) {
     return prettyPayloadJson(item.previewText);
   }
-  if (item.metadata && Object.keys(item.metadata).length > 0) {
-    return prettyPayloadJson(item.metadata);
-  }
-  return 'Nenhum conteúdo disponível.';
-}
-
-function payloadItemTitle(item: ExecutionPayloadItem, index: number): string {
-  if (item.kind === 'snapshot') {
-    return `Snapshot ${index + 1}`;
-  }
-  if (item.fileName) {
-    return item.fileName;
-  }
-  return `Documento ${index + 1}`;
+  return '';
 }
 
 function formatExecutionWhen(isoDate?: string): { primary: string; secondary: string } {
@@ -1536,8 +1523,8 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     setHistoryPayloadError(null);
     setHistoryPayloadLoading(true);
     try {
-      const items = await getExecutionPayloads(execution.id, token);
-      setHistoryPayloadData(Array.isArray(items) ? items : []);
+      const raw = await getExecutionPayloads(execution.id, token);
+      setHistoryPayloadData((Array.isArray(raw) ? raw : []).filter(isJsonPayloadItem));
     } catch (error) {
       setHistoryPayloadError(error instanceof Error ? error.message : 'Não foi possível carregar o payload.');
     } finally {
@@ -2634,7 +2621,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                           </button>
                         </th>
                         <th>Erro</th>
-                        <th className="agent-history-th-payload">Payload</th>
+                        <th className="agent-history-th-payload">JSON</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2719,7 +2706,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                               )}
                             </td>
                             <td className="agent-history-payload-cell">
-                              {executionHasPayload(execution) ? (
+                              {executionHasJsonPayload(execution, historyAgent) ? (
                                 <button
                                   type="button"
                                   className="agent-history-payload-btn"
@@ -2727,10 +2714,10 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                                     event.stopPropagation();
                                     void openHistoryPayload(execution, event);
                                   }}
-                                  aria-label={`Ver payload da coleta de ${when.primary}`}
-                                  title="Ver JSON salvo"
+                                  aria-label={`Ver JSON da coleta de ${when.primary}`}
+                                  title="Ver JSON"
                                 >
-                                  <FileText size={16} aria-hidden="true" />
+                                  <FileJson size={16} aria-hidden="true" />
                                 </button>
                               ) : (
                                 <span className="agent-history-payload-empty">—</span>
@@ -2770,15 +2757,15 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                             <p className="agent-history-mobile-card-warn">Envio incompleto</p>
                           ) : null}
                         </button>
-                        {executionHasPayload(execution) ? (
+                        {executionHasJsonPayload(execution, historyAgent) ? (
                           <button
                             type="button"
                             className="agent-history-payload-btn"
                             onClick={(event) => void openHistoryPayload(execution, event)}
-                            aria-label={`Ver payload da coleta de ${when.primary}`}
-                            title="Ver JSON salvo"
+                            aria-label={`Ver JSON da coleta de ${when.primary}`}
+                            title="Ver JSON"
                           >
-                            <FileText size={16} aria-hidden="true" />
+                            <FileJson size={16} aria-hidden="true" />
                           </button>
                         ) : null}
                       </div>
@@ -2856,6 +2843,16 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                 <p>{historyDetail.errorMessage}</p>
               </div>
             ) : null}
+            {executionHasJsonPayload(historyDetail, historyAgent) ? (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => void openHistoryPayload(historyDetail)}
+              >
+                <FileJson size={16} aria-hidden="true" />
+                Ver JSON
+              </button>
+            ) : null}
           </div>
         ) : null}
       </Modal>
@@ -2863,7 +2860,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
       <Modal
         isOpen={!!historyPayloadExecution}
         onClose={closeHistoryPayload}
-        title="Payload da coleta"
+        title="JSON da coleta"
         subtitle={historyPayloadExecution ? formatExecutionWhen(historyPayloadExecution.startedAt).primary : undefined}
         maxWidth="760px"
         maxHeight="80vh"
@@ -2871,34 +2868,30 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         {historyPayloadLoading ? (
           <div className="agent-history-loading" role="status" aria-live="polite">
             <span className="spinner-mini" aria-hidden="true" />
-            Carregando payload…
+            Carregando JSON…
           </div>
         ) : historyPayloadError ? (
           <div className="agent-history-payload-empty-state">
-            <p className="agent-history-empty-title">Não foi possível carregar o payload</p>
+            <p className="agent-history-empty-title">Não foi possível carregar o JSON</p>
             <p className="agent-history-empty-desc">{historyPayloadError}</p>
           </div>
         ) : historyPayloadData.length === 0 ? (
           <div className="agent-history-payload-empty-state">
-            <p className="agent-history-empty-title">Nenhum payload encontrado</p>
+            <p className="agent-history-empty-title">JSON não encontrado</p>
             <p className="agent-history-empty-desc">
-              Esta execução não tem JSON no MongoDB nem documento textual no MinIO.
+              Esta execução não tem um snapshot JSON salvo no MongoDB.
             </p>
           </div>
         ) : (
           <div className="agent-history-payload-list">
-            {historyPayloadData.map((item, index) => (
-              <section key={`${item.kind}-${item.id}-${index}`} className="agent-history-payload-item">
-                <div className="agent-history-payload-item-head">
-                  <strong>{payloadItemTitle(item, index)}</strong>
-                  <span className="agent-history-payload-kind">
-                    {item.kind === 'snapshot' ? 'MongoDB' : 'MinIO'}
-                    {item.contentType ? ` · ${item.contentType}` : ''}
-                  </span>
-                </div>
-                <pre className="agent-history-json-pre">{payloadItemBody(item)}</pre>
-              </section>
-            ))}
+            {historyPayloadData.map((item, index) => {
+              const body = payloadItemBody(item);
+              return (
+                <pre key={`${item.kind}-${item.id}-${index}`} className="agent-history-json-pre">
+                  {body || 'Nenhum JSON disponível.'}
+                </pre>
+              );
+            })}
           </div>
         )}
       </Modal>

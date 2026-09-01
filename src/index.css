@@ -1736,6 +1736,7 @@ body {
 
 .agent-history-hpanel-table {
   table-layout: fixed;
+  min-width: 760px;
 }
 
 .agent-history-row-clickable {
@@ -1968,7 +1969,7 @@ body {
 .agent-history-col-status { width: 14%; }
 .agent-history-col-count { width: 10%; }
 .agent-history-col-error { width: 20%; }
-.agent-history-col-payload { width: 10%; }
+.agent-history-col-payload { width: 72px; min-width: 72px; }
 
 .agent-history-th-num,
 .agent-history-num {
@@ -2123,7 +2124,7 @@ body {
 
   .agent-history-col-when { width: 30%; }
   .agent-history-col-error { width: 22%; }
-  .agent-history-col-payload { width: 12%; }
+  .agent-history-col-payload { width: 72px; min-width: 72px; }
 }
 
 .agent-test-running {
