@@ -93,120 +93,122 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        <nav className="sidebar-section" aria-label="Minha conta">
-          <div className="sidebar-section-header">
-            <span className="sidebar-heading">Minha conta</span>
-            <button
-              type="button"
-              className="sidebar-collapse-btn"
-              onClick={onToggleCollapse}
-              aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-              title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
-            >
-              {isCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
-            </button>
-          </div>
+        <div className="sidebar-scroll">
+          <nav className="sidebar-section" aria-label="Minha conta">
+            <div className="sidebar-section-header">
+              <span className="sidebar-heading">Minha conta</span>
+              <button
+                type="button"
+                className="sidebar-collapse-btn"
+                onClick={onToggleCollapse}
+                aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+                title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+              >
+                {isCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+              </button>
+            </div>
 
-          <SidebarLink
-            to={PATHS.overview}
-            end
-            label="Visão Geral"
-            icon={<Home size={18} className="sidebar-icon" />}
-            onCloseMobile={onCloseMobile}
-          />
+            <SidebarLink
+              to={PATHS.overview}
+              end
+              label="Visão Geral"
+              icon={<Home size={18} className="sidebar-icon" />}
+              onCloseMobile={onCloseMobile}
+            />
 
-          <SidebarLink
-            to={PATHS.sessions}
-            label="Minhas sessões"
-            icon={<Smartphone size={18} className="sidebar-icon" />}
-            onCloseMobile={onCloseMobile}
-          />
+            <SidebarLink
+              to={PATHS.sessions}
+              label="Minhas sessões"
+              icon={<Smartphone size={18} className="sidebar-icon" />}
+              onCloseMobile={onCloseMobile}
+            />
 
-          <SidebarLink
-            to={PATHS.blacklist}
-            label="Meus bloqueios"
-            icon={<Ban size={18} className="sidebar-icon" />}
-            onCloseMobile={onCloseMobile}
-          />
-        </nav>
-
-        {showAdminSection && (
-          <nav className="sidebar-section" aria-label="Administração">
-            <span className="sidebar-heading">Administração</span>
-            {canAccessTenantDevicesTab && (
-              <SidebarLink
-                to={PATHS.tenantSessions}
-                label="Sessões da organização"
-                icon={<Users size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-            {canAccessTenantDevicesTab && (
-              <SidebarLink
-                to={PATHS.adminBlacklist}
-                label="Bloqueios da organização"
-                icon={<ShieldAlert size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-            {canSeeConnections && (
-              <SidebarLink
-                to={PATHS.connections}
-                label="Conexões"
-                icon={<Cable size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-            {canSeeGuardian && (
-              <SidebarLink
-                to={PATHS.guardian}
-                label="Guardian"
-                icon={<Bot size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-            {canSeeClientSystem && (
-              <SidebarLink
-                to={PATHS.clientSystem}
-                label="Client system"
-                icon={<KeyRound size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-            {canSeeAgents && (
-              <SidebarLink
-                to={PATHS.agents}
-                label="Agents"
-                icon={<Cpu size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-            {canSeeDataSources && (
-              <SidebarLink
-                to={PATHS.dataSources}
-                label="Fontes de dados"
-                icon={<Database size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-            {canSeeKnowledge && (
-              <SidebarLink
-                to={PATHS.knowledge}
-                label="Conhecimento"
-                icon={<BookOpen size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-            {canSeeAudits && (
-              <SidebarLink
-                to={PATHS.audits}
-                label="Auditoria"
-                icon={<ScrollText size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
+            <SidebarLink
+              to={PATHS.blacklist}
+              label="Meus bloqueios"
+              icon={<Ban size={18} className="sidebar-icon" />}
+              onCloseMobile={onCloseMobile}
+            />
           </nav>
-        )}
+
+          {showAdminSection && (
+            <nav className="sidebar-section" aria-label="Administração">
+              <span className="sidebar-heading">Administração</span>
+              {canAccessTenantDevicesTab && (
+                <SidebarLink
+                  to={PATHS.tenantSessions}
+                  label="Sessões da organização"
+                  icon={<Users size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canAccessTenantDevicesTab && (
+                <SidebarLink
+                  to={PATHS.adminBlacklist}
+                  label="Bloqueios da organização"
+                  icon={<ShieldAlert size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeConnections && (
+                <SidebarLink
+                  to={PATHS.connections}
+                  label="Conexões"
+                  icon={<Cable size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeGuardian && (
+                <SidebarLink
+                  to={PATHS.guardian}
+                  label="Guardian"
+                  icon={<Bot size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeClientSystem && (
+                <SidebarLink
+                  to={PATHS.clientSystem}
+                  label="Client system"
+                  icon={<KeyRound size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeAgents && (
+                <SidebarLink
+                  to={PATHS.agents}
+                  label="Agents"
+                  icon={<Cpu size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeDataSources && (
+                <SidebarLink
+                  to={PATHS.dataSources}
+                  label="Fontes de dados"
+                  icon={<Database size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeKnowledge && (
+                <SidebarLink
+                  to={PATHS.knowledge}
+                  label="Conhecimento"
+                  icon={<BookOpen size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeAudits && (
+                <SidebarLink
+                  to={PATHS.audits}
+                  label="Auditoria"
+                  icon={<ScrollText size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+            </nav>
+          )}
+        </div>
       </aside>
     </>
   );
