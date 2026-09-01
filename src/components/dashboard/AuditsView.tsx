@@ -404,6 +404,8 @@ export const AuditsView: React.FC = () => {
             value={filters.sourceService}
             onChange={(e) => setFilters((f) => ({ ...f, sourceService: e.target.value }))}
           />
+        </div>
+        <div className="audits-filter-row audits-filter-row-sort">
           <div className="audits-sort-group">
             <select
               className="form-input audits-sort-select"

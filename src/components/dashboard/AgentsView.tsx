@@ -1807,7 +1807,7 @@ export const AgentsView: React.FC = () => {
       ) : null}
 
       <form className="audits-toolbar" onSubmit={handleSearch}>
-        <div className="audits-filter-row client-system-filter-row">
+        <div className="audits-filter-row client-system-filter-row agents-filter-row">
           <div className="search-input-wrapper audits-search-field">
             <Search size={16} className="search-icon" />
             <input

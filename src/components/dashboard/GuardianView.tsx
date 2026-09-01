@@ -473,6 +473,8 @@ export const GuardianView: React.FC = () => {
             value={filters.correlationId}
             onChange={(e) => setFilters((f) => ({ ...f, correlationId: e.target.value }))}
           />
+        </div>
+        <div className="audits-filter-row guardian-filter-row-sort">
           <div className="audits-sort-group">
             <select
               className="form-input audits-sort-select"

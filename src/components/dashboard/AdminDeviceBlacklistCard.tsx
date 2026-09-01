@@ -204,53 +204,57 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
 
   return (
     <div>
-      <form className="table-toolbar" onSubmit={handleSearch} style={{ flexWrap: 'wrap' }}>
-        <div className="search-input-wrapper" style={{ minWidth: 180, flex: 1 }}>
-          <Search size={16} className="search-icon" />
+      <form className="table-toolbar table-toolbar-stacked" onSubmit={handleSearch}>
+        <div className="table-toolbar-row">
+          <div className="search-input-wrapper" style={{ minWidth: 180, flex: 1 }}>
+            <Search size={16} className="search-icon" />
+            <input
+              className="search-input"
+              placeholder="Usuário (UUID)"
+              value={filters.userId}
+              onChange={(e) => setFilters((f) => ({ ...f, userId: e.target.value }))}
+            />
+          </div>
           <input
-            className="search-input"
-            placeholder="Usuário (UUID)"
-            value={filters.userId}
-            onChange={(e) => setFilters((f) => ({ ...f, userId: e.target.value }))}
+            className="form-input"
+            style={{ maxWidth: 180 }}
+            placeholder="Device ID"
+            value={filters.deviceId}
+            onChange={(e) => setFilters((f) => ({ ...f, deviceId: e.target.value }))}
+          />
+          <input
+            className="form-input"
+            style={{ maxWidth: 180 }}
+            placeholder="Nome do dispositivo"
+            value={filters.deviceName}
+            onChange={(e) => setFilters((f) => ({ ...f, deviceName: e.target.value }))}
+          />
+          <input
+            className="form-input"
+            style={{ maxWidth: 140 }}
+            placeholder="IP"
+            value={filters.ipAddress}
+            onChange={(e) => setFilters((f) => ({ ...f, ipAddress: e.target.value }))}
           />
         </div>
-        <input
-          className="form-input"
-          style={{ maxWidth: 180 }}
-          placeholder="Device ID"
-          value={filters.deviceId}
-          onChange={(e) => setFilters((f) => ({ ...f, deviceId: e.target.value }))}
-        />
-        <input
-          className="form-input"
-          style={{ maxWidth: 180 }}
-          placeholder="Nome do dispositivo"
-          value={filters.deviceName}
-          onChange={(e) => setFilters((f) => ({ ...f, deviceName: e.target.value }))}
-        />
-        <input
-          className="form-input"
-          style={{ maxWidth: 140 }}
-          placeholder="IP"
-          value={filters.ipAddress}
-          onChange={(e) => setFilters((f) => ({ ...f, ipAddress: e.target.value }))}
-        />
-        <button type="submit" className="btn btn-secondary btn-pill" disabled={loading}>
-          <Search size={15} />
-          <span>Filtrar</span>
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary btn-pill"
-          onClick={() => loadPage(page, applied)}
-          disabled={loading}
-        >
-          <RefreshCw size={15} className={loading ? 'spin' : ''} />
-        </button>
-        <button type="button" className="btn btn-primary btn-pill" onClick={() => setIsAddOpen(true)}>
-          <Plus size={15} />
-          <span>Bloquear dispositivo</span>
-        </button>
+        <div className="table-toolbar-row">
+          <button type="submit" className="btn btn-secondary btn-pill" disabled={loading}>
+            <Search size={15} />
+            <span>Filtrar</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-pill"
+            onClick={() => loadPage(page, applied)}
+            disabled={loading}
+          >
+            <RefreshCw size={15} className={loading ? 'spin' : ''} />
+          </button>
+          <button type="button" className="btn btn-primary btn-pill table-toolbar-push-end" onClick={() => setIsAddOpen(true)}>
+            <Plus size={15} />
+            <span>Bloquear dispositivo</span>
+          </button>
+        </div>
       </form>
 
       <div className="hpanel-table-card desktop-table-view">

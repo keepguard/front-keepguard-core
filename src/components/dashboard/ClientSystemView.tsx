@@ -601,6 +601,8 @@ export const ClientSystemView: React.FC = () => {
             <option value="ACTIVE">Ativo</option>
             <option value="BLOCKED">Bloqueado</option>
           </select>
+        </div>
+        <div className="audits-filter-row client-system-filter-row-sort">
           <div className="audits-sort-group">
             <select
               className="form-input audits-sort-select"

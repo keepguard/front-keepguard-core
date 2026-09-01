@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom';
 import {
   Home,
   Smartphone,
-  Sparkles,
   Ban,
   ShieldAlert,
   Cable,
@@ -15,6 +14,8 @@ import {
   Users,
   X,
   BookOpen,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { canReadAudits, canAccessTenantDevices, hasAdminRole } from '../../utils/roles';
@@ -23,15 +24,42 @@ import { PATHS } from '../../navigation/routes';
 interface SidebarProps {
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 function navClass(isActive: boolean) {
   return `sidebar-nav-item ${isActive ? 'active' : ''}`;
 }
 
+interface SidebarLinkProps {
+  to: string;
+  label: string;
+  icon: React.ReactNode;
+  end?: boolean;
+  onCloseMobile?: () => void;
+}
+
+function SidebarLink({ to, label, icon, end, onCloseMobile }: SidebarLinkProps) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) => navClass(isActive)}
+      onClick={onCloseMobile}
+      title={label}
+    >
+      {icon}
+      <span className="sidebar-nav-label">{label}</span>
+    </NavLink>
+  );
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile = false,
   onCloseMobile,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
   const { user, accessToken } = useAuth();
   const canAccessTenantDevicesTab = canAccessTenantDevices(user?.roles);
@@ -54,7 +82,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      <aside className={`app-sidebar ${isOpenMobile ? 'mobile-open' : ''}`}>
+      <aside
+        className={`app-sidebar ${isOpenMobile ? 'mobile-open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
+        aria-label="Menu principal"
+      >
         <div className="sidebar-mobile-header">
           <span className="sidebar-mobile-title">Menu de Navegação</span>
           <button className="sidebar-mobile-close-btn" onClick={onCloseMobile} title="Fechar Menu">
@@ -63,92 +94,119 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <nav className="sidebar-section" aria-label="Minha conta">
-          <span className="sidebar-heading">Minha conta</span>
+          <div className="sidebar-section-header">
+            <span className="sidebar-heading">Minha conta</span>
+            <button
+              type="button"
+              className="sidebar-collapse-btn"
+              onClick={onToggleCollapse}
+              aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+              title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            >
+              {isCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+            </button>
+          </div>
 
-          <NavLink to={PATHS.overview} end className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-            <Home size={18} className="sidebar-icon" />
-            <span>Visão Geral</span>
-          </NavLink>
+          <SidebarLink
+            to={PATHS.overview}
+            end
+            label="Visão Geral"
+            icon={<Home size={18} className="sidebar-icon" />}
+            onCloseMobile={onCloseMobile}
+          />
 
-          <NavLink to={PATHS.sessions} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-            <Smartphone size={18} className="sidebar-icon" />
-            <span>Minhas sessões</span>
-          </NavLink>
+          <SidebarLink
+            to={PATHS.sessions}
+            label="Minhas sessões"
+            icon={<Smartphone size={18} className="sidebar-icon" />}
+            onCloseMobile={onCloseMobile}
+          />
 
-          <NavLink to={PATHS.blacklist} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-            <Ban size={18} className="sidebar-icon" />
-            <span>Meus bloqueios</span>
-          </NavLink>
+          <SidebarLink
+            to={PATHS.blacklist}
+            label="Meus bloqueios"
+            icon={<Ban size={18} className="sidebar-icon" />}
+            onCloseMobile={onCloseMobile}
+          />
         </nav>
 
         {showAdminSection && (
           <nav className="sidebar-section" aria-label="Administração">
             <span className="sidebar-heading">Administração</span>
             {canAccessTenantDevicesTab && (
-              <NavLink to={PATHS.tenantSessions} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <Users size={18} className="sidebar-icon" />
-                <span>Sessões da organização</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.tenantSessions}
+                label="Sessões da organização"
+                icon={<Users size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
             {canAccessTenantDevicesTab && (
-              <NavLink to={PATHS.adminBlacklist} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <ShieldAlert size={18} className="sidebar-icon" />
-                <span>Bloqueios da organização</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.adminBlacklist}
+                label="Bloqueios da organização"
+                icon={<ShieldAlert size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
             {canSeeConnections && (
-              <NavLink to={PATHS.connections} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <Cable size={18} className="sidebar-icon" />
-                <span>Conexões</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.connections}
+                label="Conexões"
+                icon={<Cable size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
             {canSeeGuardian && (
-              <NavLink to={PATHS.guardian} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <Bot size={18} className="sidebar-icon" />
-                <span>Guardian</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.guardian}
+                label="Guardian"
+                icon={<Bot size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
             {canSeeClientSystem && (
-              <NavLink to={PATHS.clientSystem} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <KeyRound size={18} className="sidebar-icon" />
-                <span>Client system</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.clientSystem}
+                label="Client system"
+                icon={<KeyRound size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
             {canSeeAgents && (
-              <NavLink to={PATHS.agents} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <Cpu size={18} className="sidebar-icon" />
-                <span>Agents</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.agents}
+                label="Agents"
+                icon={<Cpu size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
             {canSeeDataSources && (
-              <NavLink to={PATHS.dataSources} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <Database size={18} className="sidebar-icon" />
-                <span>Fontes de dados</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.dataSources}
+                label="Fontes de dados"
+                icon={<Database size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
             {canSeeKnowledge && (
-              <NavLink to={PATHS.knowledge} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <BookOpen size={18} className="sidebar-icon" />
-                <span>Conhecimento</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.knowledge}
+                label="Conhecimento"
+                icon={<BookOpen size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
             {canSeeAudits && (
-              <NavLink to={PATHS.audits} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-                <ScrollText size={18} className="sidebar-icon" />
-                <span>Auditoria</span>
-              </NavLink>
+              <SidebarLink
+                to={PATHS.audits}
+                label="Auditoria"
+                icon={<ScrollText size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             )}
           </nav>
         )}
-
-        <nav className="sidebar-section" style={{ marginTop: 'auto' }} aria-label="Biblioteca de Templates">
-          <span className="sidebar-heading">Biblioteca de Templates</span>
-
-          <NavLink to={PATHS.templates} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
-            <Sparkles size={18} className="sidebar-icon text-primary" />
-            <span>Galeria de Templates</span>
-          </NavLink>
-        </nav>
       </aside>
     </>
   );

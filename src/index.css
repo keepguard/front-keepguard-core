@@ -367,13 +367,97 @@ body {
   width: 240px;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
-  padding: 1.25rem 0.75rem;
+  padding: 0.75rem 0.75rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   flex-shrink: 0;
-  min-height: calc(100vh - 64px);
+  position: sticky;
+  top: 64px;
+  align-self: flex-start;
+  max-height: calc(100vh - 64px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  transition: width 0.2s ease, padding 0.2s ease;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.app-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+
+.app-sidebar.collapsed {
+  width: 56px;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-height: 33px;
+}
+
+.app-sidebar.collapsed .sidebar-section-header {
+  justify-content: center;
+}
+
+.sidebar-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
   transition: var(--transition-smooth);
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.sidebar-collapse-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.sidebar-section-footer {
+  margin-top: auto;
+}
+
+.app-sidebar.collapsed .sidebar-heading,
+.app-sidebar.collapsed .sidebar-nav-label,
+.app-sidebar.collapsed .sidebar-mobile-title {
+  display: none;
+}
+
+.app-sidebar.collapsed .sidebar-nav-item {
+  justify-content: center;
+  padding: 0.45rem;
+  gap: 0;
+}
+
+.app-sidebar.collapsed .sidebar-section {
+  gap: 0.125rem;
+}
+
+.app-sidebar.collapsed .sidebar-section + .sidebar-section {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
 }
 
 .sidebar-mobile-header {
@@ -391,11 +475,38 @@ body {
     left: -280px;
     bottom: 0;
     width: 280px;
+    max-height: none;
     z-index: 1000;
     background: #ffffff;
     box-shadow: var(--shadow-xl);
     overflow-y: auto;
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .app-sidebar.collapsed {
+    width: 280px;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .app-sidebar.collapsed .sidebar-heading,
+  .app-sidebar.collapsed .sidebar-nav-label {
+    display: block;
+  }
+
+  .app-sidebar.collapsed .sidebar-nav-item {
+    justify-content: flex-start;
+    padding: 0.4rem 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .app-sidebar.collapsed .sidebar-section + .sidebar-section {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .sidebar-collapse-btn {
+    display: none;
   }
 
   .app-sidebar.mobile-open {
@@ -451,11 +562,17 @@ body {
   padding: 0.5rem 0.75rem;
 }
 
+.sidebar-section-header .sidebar-heading {
+  padding: 0.5rem 0 0.5rem 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
 .sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.65rem 0.75rem;
+  padding: 0.4rem 0.75rem;
   border-radius: 8px;
   color: var(--text-body);
   font-size: 0.88rem;
@@ -467,6 +584,12 @@ body {
   width: 100%;
   text-align: left;
   transition: var(--transition-smooth);
+  white-space: nowrap;
+}
+
+.sidebar-nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-nav-item:hover {
@@ -675,6 +798,23 @@ body {
   flex-wrap: wrap;
 }
 
+.table-toolbar-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.table-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.table-toolbar-push-end {
+  margin-left: auto;
+}
+
 .search-input-wrapper {
   position: relative;
   flex: 1;
@@ -816,11 +956,15 @@ body {
 }
 
 .audits-filter-row-tertiary {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.audits-filter-row-tertiary > .audits-sort-group {
-  justify-self: end;
+.audits-filter-row-sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  grid-template-columns: none;
 }
 
 .audits-toolbar .form-input,
@@ -938,11 +1082,6 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .audits-filter-row-tertiary > .audits-sort-group {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
-
   .audits-toolbar .form-input.audits-sort-select,
   .audits-toolbar .form-input.audits-dir-select {
     width: auto;
@@ -989,11 +1128,15 @@ body {
 }
 
 .audits-toolbar .guardian-filter-row-tertiary {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.audits-toolbar .guardian-filter-row-tertiary > .audits-sort-group {
-  justify-self: end;
+.audits-toolbar .guardian-filter-row-sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  grid-template-columns: none;
 }
 
 .client-system-create-row {
@@ -2233,8 +2376,16 @@ body {
   max-width: 9.5rem;
 }
 
-.audits-toolbar .client-system-filter-row .audits-sort-group {
-  margin-left: auto;
+.audits-toolbar .client-system-filter-row-sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  grid-template-columns: none;
+}
+
+.audits-toolbar .agents-filter-row .audits-sort-group {
+  margin-left: 0;
 }
 
 .guardian-table {
@@ -2393,14 +2544,6 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .audits-toolbar .guardian-filter-row-tertiary > .audits-sort-group {
-    justify-self: start;
-  }
-
-  .audits-toolbar .client-system-filter-row .audits-sort-group {
-    margin-left: 0;
-  }
-
   .audits-toolbar .client-system-filter-row .audits-compact-select {
     flex: 1 1 9.5rem;
     width: auto;
@@ -2417,8 +2560,14 @@ body {
   }
 
   .audits-toolbar .client-system-filter-row .audits-search-field,
-  .audits-toolbar .client-system-filter-row .audits-compact-select,
-  .audits-toolbar .client-system-filter-row .audits-sort-group {
+  .audits-toolbar .client-system-filter-row .audits-compact-select {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .audits-toolbar .client-system-filter-row-sort .audits-sort-group {
     flex: 1 1 100%;
     width: 100%;
     min-width: 0;

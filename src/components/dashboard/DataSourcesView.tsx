@@ -702,6 +702,13 @@ export const DataSourcesView: React.FC = () => {
 
   return (
     <>
+      <div className="client-system-create-row">
+        <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
+          <Plus size={15} />
+          <span>Nova fonte</span>
+        </button>
+      </div>
+
       <form
         className="audits-toolbar"
         onSubmit={(event) => {
@@ -730,12 +737,6 @@ export const DataSourcesView: React.FC = () => {
             <option value="true">Ativo</option>
             <option value="false">Inativo</option>
           </select>
-          <div className="audits-filter-actions">
-            <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
-              <Plus size={15} />
-              <span>Nova fonte</span>
-            </button>
-          </div>
         </div>
       </form>
 

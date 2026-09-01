@@ -23,12 +23,23 @@ const LegacyTabRedirect: React.FC = () => {
   return <Navigate to={to} replace />;
 };
 
+const SIDEBAR_COLLAPSED_KEY = 'keepguard-sidebar-collapsed';
+
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export const AppLayout: React.FC = () => {
   const { isAuthenticated, isInitializing, user, getAccessToken, logout } = useAuth();
   const { addToast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readSidebarCollapsed);
   const [termsState, setTermsState] = useState<CheckTermsResult>({
     hasPending: false,
     pendingDocuments: [],
@@ -78,6 +89,18 @@ export const AppLayout: React.FC = () => {
     });
   };
 
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        /* ignore storage errors */
+      }
+      return next;
+    });
+  };
+
   if (isInitializing) {
     return (
       <div className="app-layout">
@@ -102,6 +125,8 @@ export const AppLayout: React.FC = () => {
           <Sidebar
             isOpenMobile={isMobileMenuOpen}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={toggleSidebarCollapse}
           />
           <main className="app-content">
             <Outlet />
