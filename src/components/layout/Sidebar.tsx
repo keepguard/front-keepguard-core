@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   Home,
   Smartphone,
@@ -16,17 +17,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { canReadAudits, canAccessTenantDevices, hasAdminRole } from '../../utils/roles';
+import { PATHS } from '../../navigation/routes';
 
 interface SidebarProps {
-  activeTab?: string;
-  onSelectTab?: (tab: string) => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
 }
 
+function navClass(isActive: boolean) {
+  return `sidebar-nav-item ${isActive ? 'active' : ''}`;
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
-  activeTab = 'overview',
-  onSelectTab,
   isOpenMobile = false,
   onCloseMobile,
 }) => {
@@ -40,18 +42,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeKnowledge;
 
-  const handleItemClick = (tabKey: string) => {
-    if (onSelectTab) {
-      onSelectTab(tabKey);
-    }
-    if (onCloseMobile) {
-      onCloseMobile();
-    }
-  };
-
   return (
     <>
-      {/* Overlay translúcido no celular ao abrir a gaveta */}
       {isOpenMobile && (
         <div
           className="sidebar-mobile-overlay"
@@ -61,7 +53,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside className={`app-sidebar ${isOpenMobile ? 'mobile-open' : ''}`}>
-        {/* Cabeçalho da Sidebar apenas no celular para fechar */}
         <div className="sidebar-mobile-header">
           <span className="sidebar-mobile-title">Menu de Navegação</span>
           <button className="sidebar-mobile-close-btn" onClick={onCloseMobile} title="Fechar Menu">
@@ -69,125 +60,87 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Menu Principal Funcional */}
-        <div className="sidebar-section">
+        <nav className="sidebar-section" aria-label="Minha conta">
           <span className="sidebar-heading">Minha conta</span>
 
-          <button
-            className={`sidebar-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => handleItemClick('overview')}
-          >
+          <NavLink to={PATHS.overview} end className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
             <Home size={18} className="sidebar-icon" />
             <span>Visão Geral</span>
-          </button>
+          </NavLink>
 
-          <button
-            className={`sidebar-nav-item ${activeTab === 'sessions' ? 'active' : ''}`}
-            onClick={() => handleItemClick('sessions')}
-          >
+          <NavLink to={PATHS.sessions} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
             <Smartphone size={18} className="sidebar-icon" />
             <span>Minhas sessões</span>
-          </button>
+          </NavLink>
 
-          <button
-            className={`sidebar-nav-item ${activeTab === 'blacklist' ? 'active' : ''}`}
-            onClick={() => handleItemClick('blacklist')}
-          >
+          <NavLink to={PATHS.blacklist} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
             <Ban size={18} className="sidebar-icon" />
             <span>Meus bloqueios</span>
-          </button>
-        </div>
+          </NavLink>
+        </nav>
 
         {showAdminSection && (
-          <div className="sidebar-section">
+          <nav className="sidebar-section" aria-label="Administração">
             <span className="sidebar-heading">Administração</span>
             {canAccessTenantDevicesTab && (
-              <button
-                className={`sidebar-nav-item ${activeTab === 'tenant-sessions' ? 'active' : ''}`}
-                onClick={() => handleItemClick('tenant-sessions')}
-              >
+              <NavLink to={PATHS.tenantSessions} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <Users size={18} className="sidebar-icon" />
                 <span>Sessões da organização</span>
-              </button>
+              </NavLink>
             )}
             {canAccessTenantDevicesTab && (
-              <button
-                className={`sidebar-nav-item ${activeTab === 'admin-blacklist' ? 'active' : ''}`}
-                onClick={() => handleItemClick('admin-blacklist')}
-              >
+              <NavLink to={PATHS.adminBlacklist} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <ShieldAlert size={18} className="sidebar-icon" />
                 <span>Bloqueios da organização</span>
-              </button>
+              </NavLink>
             )}
             {canSeeConnections && (
-              <button
-                className={`sidebar-nav-item ${activeTab === 'connections' ? 'active' : ''}`}
-                onClick={() => handleItemClick('connections')}
-              >
+              <NavLink to={PATHS.connections} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <Cable size={18} className="sidebar-icon" />
                 <span>Conexões</span>
-              </button>
+              </NavLink>
             )}
             {canSeeGuardian && (
-              <button
-                className={`sidebar-nav-item ${activeTab === 'guardian' ? 'active' : ''}`}
-                onClick={() => handleItemClick('guardian')}
-              >
+              <NavLink to={PATHS.guardian} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <Bot size={18} className="sidebar-icon" />
                 <span>Guardian</span>
-              </button>
+              </NavLink>
             )}
             {canSeeClientSystem && (
-              <button
-                className={`sidebar-nav-item ${activeTab === 'client-system' ? 'active' : ''}`}
-                onClick={() => handleItemClick('client-system')}
-              >
+              <NavLink to={PATHS.clientSystem} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <KeyRound size={18} className="sidebar-icon" />
                 <span>Client system</span>
-              </button>
+              </NavLink>
             )}
             {canSeeAgents && (
-              <button
-                className={`sidebar-nav-item ${activeTab === 'agents' ? 'active' : ''}`}
-                onClick={() => handleItemClick('agents')}
-              >
+              <NavLink to={PATHS.agents} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <Cpu size={18} className="sidebar-icon" />
                 <span>Agents</span>
-              </button>
+              </NavLink>
             )}
             {canSeeKnowledge && (
-              <button
-                className={`sidebar-nav-item ${activeTab === 'knowledge' ? 'active' : ''}`}
-                onClick={() => handleItemClick('knowledge')}
-              >
+              <NavLink to={PATHS.knowledge} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <BookOpen size={18} className="sidebar-icon" />
                 <span>Conhecimento</span>
-              </button>
+              </NavLink>
             )}
             {canSeeAudits && (
-              <button
-                className={`sidebar-nav-item ${activeTab === 'audits' ? 'active' : ''}`}
-                onClick={() => handleItemClick('audits')}
-              >
+              <NavLink to={PATHS.audits} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <ScrollText size={18} className="sidebar-icon" />
                 <span>Auditoria</span>
-              </button>
+              </NavLink>
             )}
-          </div>
+          </nav>
         )}
 
-        {/* Templates e Design System Preservados */}
-        <div className="sidebar-section" style={{ marginTop: 'auto' }}>
+        <nav className="sidebar-section" style={{ marginTop: 'auto' }} aria-label="Biblioteca de Templates">
           <span className="sidebar-heading">Biblioteca de Templates</span>
 
-          <button
-            className={`sidebar-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
-            onClick={() => handleItemClick('templates')}
-          >
+          <NavLink to={PATHS.templates} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
             <Sparkles size={18} className="sidebar-icon text-primary" />
             <span>Galeria de Templates</span>
-          </button>
-        </div>
+          </NavLink>
+        </nav>
       </aside>
     </>
   );

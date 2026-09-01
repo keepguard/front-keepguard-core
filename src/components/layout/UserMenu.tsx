@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Settings, UserCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { PATHS } from '../../navigation/routes';
 
 interface UserMenuProps {
-  onNavigateTab?: (tab: string) => void;
   onLogout?: () => void;
 }
 
-export const UserMenu: React.FC<UserMenuProps> = ({ onNavigateTab, onLogout }) => {
+export const UserMenu: React.FC<UserMenuProps> = ({ onLogout }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -41,8 +43,8 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onNavigateTab, onLogout }) =
     };
   }, [isOpen]);
 
-  const handleNavigate = (tab: string) => {
-    onNavigateTab?.(tab);
+  const handleNavigate = (path: string) => {
+    navigate(path);
     setIsOpen(false);
   };
 
@@ -75,7 +77,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onNavigateTab, onLogout }) =
             type="button"
             className="user-menu-item"
             role="menuitem"
-            onClick={() => handleNavigate('settings')}
+            onClick={() => handleNavigate(PATHS.settings)}
           >
             <Settings size={16} />
             <span>Configuração</span>
@@ -84,7 +86,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onNavigateTab, onLogout }) =
             type="button"
             className="user-menu-item"
             role="menuitem"
-            onClick={() => handleNavigate('account')}
+            onClick={() => handleNavigate(PATHS.account)}
           >
             <UserCircle size={16} />
             <span>Conta</span>

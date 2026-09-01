@@ -27,6 +27,7 @@ import {
   type OAuthClientDetail,
   type OAuthServiceRole,
 } from '../../services/oauthClientService';
+import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 
 type Filters = {
   clientId: string;
@@ -36,6 +37,13 @@ type Filters = {
 };
 
 type ConfirmKind = 'block' | 'delete';
+
+const EMPTY_FILTERS: Filters = {
+  clientId: '',
+  status: '',
+  sort: 'createdAt',
+  dir: 'desc',
+};
 
 function formatDate(isoDate?: string) {
   if (!isoDate) return '—';
@@ -183,15 +191,8 @@ export const ClientSystemView: React.FC = () => {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
 
-  const [filters, setFilters] = useState<Filters>({
-    clientId: '',
-    status: '',
-    sort: 'createdAt',
-    dir: 'desc',
-  });
-  const [applied, setApplied] = useState<Filters>(filters);
+  const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
   const [items, setItems] = useState<OAuthClient[]>([]);
-  const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<OAuthClientDetail | null>(null);
@@ -237,7 +238,6 @@ export const ClientSystemView: React.FC = () => {
         token
       );
       setItems(result.content || []);
-      setPage(result.page ?? nextPage);
       setTotalPages(Math.max(result.totalPages || 1, 1));
     } catch (err: any) {
       if (err?.status === 401 || err?.status === 403) {
@@ -260,9 +260,8 @@ export const ClientSystemView: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    loadPage(0, applied);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- carrega só ao autenticar
-  }, [isAuthenticated]);
+    void loadPage(page, applied);
+  }, [applied, isAuthenticated, loadPage, page]);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -296,8 +295,7 @@ export const ClientSystemView: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setApplied(filters);
-    loadPage(0, filters);
+    applyFilters(filters);
   };
 
   const openDetail = async (item: OAuthClient) => {
@@ -405,7 +403,7 @@ export const ClientSystemView: React.FC = () => {
       setCreateOpen(false);
       setCreateForm({ clientId: '', description: '', roleId: '', tokenTtlSeconds: '28800' });
       setCreatedSecret(created);
-      await loadPage(0, filters);
+      await loadPage(0, applied);
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -517,8 +515,8 @@ export const ClientSystemView: React.FC = () => {
       loading={loading}
       page={page}
       totalPages={totalPages}
-      onPrev={() => loadPage(page - 1, applied)}
-      onNext={() => loadPage(page + 1, applied)}
+      onPrev={() => goToPage(page - 1)}
+      onNext={() => goToPage(page + 1)}
       leading={includeFilter ? filterActions : undefined}
     />
   );

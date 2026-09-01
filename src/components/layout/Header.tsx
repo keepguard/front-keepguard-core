@@ -1,22 +1,35 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { UserMenu } from './UserMenu';
+import { PATHS } from '../../navigation/routes';
 
 interface HeaderProps {
   isMobileMenuOpen?: boolean;
   onToggleMobileMenu?: () => void;
-  onNavigateTab?: (tab: string) => void;
   onLogout?: () => void;
+  homeLink?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   isMobileMenuOpen = false,
   onToggleMobileMenu,
-  onNavigateTab,
   onLogout,
+  homeLink = false,
 }) => {
   const { isAuthenticated } = useAuth();
+
+  const logo = (
+    <>
+      <div className="logo-icon-box">
+        <span>H</span>
+      </div>
+      <div className="logo-text-group">
+        <span className="logo-title">KEEP<span className="logo-accent">GUARD</span></span>
+      </div>
+    </>
+  );
 
   return (
     <header className="app-header">
@@ -32,19 +45,18 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        <div className="header-logo-group">
-          <div className="logo-icon-box">
-            <span>H</span>
-          </div>
-          <div className="logo-text-group">
-            <span className="logo-title">KEEP<span className="logo-accent">GUARD</span></span>
-          </div>
-        </div>
+        {homeLink ? (
+          <Link to={PATHS.overview} className="header-logo-group" aria-label="Ir para visão geral">
+            {logo}
+          </Link>
+        ) : (
+          <div className="header-logo-group">{logo}</div>
+        )}
       </div>
 
       {isAuthenticated && (
         <div className="header-actions">
-          <UserMenu onNavigateTab={onNavigateTab} onLogout={onLogout} />
+          <UserMenu onLogout={onLogout} />
         </div>
       )}
     </header>

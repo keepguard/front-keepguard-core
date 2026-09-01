@@ -29,8 +29,11 @@ import {
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
+import { PATHS } from '../../navigation/routes';
 import {
   COLLECTOR_SERVICE_CLIENT_ID,
   createCollectorAgent,
@@ -61,6 +64,15 @@ type Filters = {
   dataSourceId: string;
   sort: 'createdAt' | 'name' | 'enabled' | 'collectorType';
   dir: 'asc' | 'desc';
+};
+
+const EMPTY_FILTERS: Filters = {
+  q: '',
+  enabled: '',
+  collectorType: '',
+  dataSourceId: '',
+  sort: 'createdAt',
+  dir: 'desc',
 };
 
 type CredentialState =
@@ -1095,21 +1107,13 @@ const AgentPager: React.FC<{
   </div>
 );
 
-export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = ({ onNavigateTab }) => {
+export const AgentsView: React.FC = () => {
   const { getAccessToken } = useAuth();
   const { addToast } = useToast();
+  const navigate = useNavigate();
 
-  const [filters, setFilters] = useState<Filters>({
-    q: '',
-    enabled: '',
-    collectorType: '',
-    dataSourceId: '',
-    sort: 'createdAt',
-    dir: 'desc',
-  });
-  const [applied, setApplied] = useState<Filters>(filters);
+  const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
   const [items, setItems] = useState<CollectorAgent[]>([]);
-  const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [credential, setCredential] = useState<CredentialState>({ kind: 'loading' });
@@ -1202,7 +1206,6 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         dir: nextFilters.dir,
       }, token);
       setItems(result.content || []);
-      setPage(result.page || 0);
       setTotalPages(Math.max(result.totalPages || 1, 1));
     } catch (error) {
       addToast({
@@ -1228,12 +1231,12 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   }, [getAccessToken]);
 
   useEffect(() => {
-    loadPage(0, applied);
-  }, [applied, loadPage]);
+    loadPage(page, applied);
+  }, [applied, loadPage, page]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
-    setApplied(filters);
+    applyFilters(filters);
   };
 
   const openCreate = () => {
@@ -1654,8 +1657,8 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
       loading={loading}
       page={page}
       totalPages={totalPages}
-      onPrev={() => loadPage(page - 1, applied)}
-      onNext={() => loadPage(page + 1, applied)}
+      onPrev={() => goToPage(page - 1)}
+      onNext={() => goToPage(page + 1)}
       leading={includeFilter ? filterActions : undefined}
     />
   );
@@ -1748,7 +1751,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     );
   };
 
-  const goClientSystem = () => onNavigateTab?.('client-system');
+  const goClientSystem = () => navigate(PATHS.clientSystem);
 
   return (
     <div>
@@ -1759,7 +1762,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         </button>
         <CredentialStatusPill
           state={credential}
-          onOpenClientSystem={onNavigateTab ? goClientSystem : undefined}
+          onOpenClientSystem={goClientSystem}
         />
       </div>
 
@@ -2068,7 +2071,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
               </p>
               <CredentialChip
                 state={credential}
-                onOpenClientSystem={onNavigateTab ? goClientSystem : undefined}
+                onOpenClientSystem={goClientSystem}
               />
               <div className="form-group">
                 <label htmlFor="agent-data-source">Fonte de dados</label>

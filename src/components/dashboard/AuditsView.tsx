@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getAudit, searchAudits, type AuditDetail, type AuditEvent } from '../../services/auditService';
 import { assertAuditReadVisibility } from '../../utils/roles';
+import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 
 const visibilityFailures = assertAuditReadVisibility();
 if (visibilityFailures.length > 0 && import.meta.env.DEV) {
@@ -122,6 +123,25 @@ function isAlphaSort(sort: Filters['sort']) {
   return sort === 'actor' || sort === 'action' || sort === 'resource' || sort === 'outcome' || sort === 'sourceService';
 }
 
+const EMPTY_FILTERS: Filters = {
+  from: '',
+  to: '',
+  outcome: '',
+  actorCodeUser: '',
+  action: '',
+  resourceType: '',
+  resourceId: '',
+  correlationId: '',
+  sourceService: '',
+  sort: '',
+  dir: '',
+};
+
+const AUDIT_QUERY_ALIASES = {
+  actorCodeUser: 'actor',
+  sourceService: 'source',
+} as const;
+
 const AuditPager: React.FC<{
   loading: boolean;
   refreshing: boolean;
@@ -161,24 +181,12 @@ const AuditPager: React.FC<{
 export const AuditsView: React.FC = () => {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
-  const [filters, setFilters] = useState<Filters>({
-    from: '',
-    to: '',
-    outcome: '',
-    actorCodeUser: '',
-    action: '',
-    resourceType: '',
-    resourceId: '',
-    correlationId: '',
-    sourceService: '',
-    sort: '',
-    dir: '',
+  const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS, {
+    aliases: AUDIT_QUERY_ALIASES,
   });
-  const [applied, setApplied] = useState<Filters>(filters);
   const [items, setItems] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [detail, setDetail] = useState<AuditDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -220,7 +228,6 @@ export const AuditsView: React.FC = () => {
         token
       );
       setItems(result.content || []);
-      setPage(result.page ?? nextPage);
       setTotalPages(Math.max(result.totalPages || 1, 1));
       setSortKey(null);
       setSortDir('asc');
@@ -246,9 +253,8 @@ export const AuditsView: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    loadPage(0, applied);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- carrega só ao autenticar
-  }, [isAuthenticated]);
+    void loadPage(page, applied);
+  }, [applied, isAuthenticated, loadPage, page]);
 
   const displayedItems = useMemo(() => {
     if (!sortKey) return items;
@@ -258,8 +264,7 @@ export const AuditsView: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setApplied(filters);
-    loadPage(0, filters);
+    applyFilters(filters);
   };
 
   const toggleSort = (key: SortKey) => {
@@ -295,11 +300,8 @@ export const AuditsView: React.FC = () => {
   };
 
   const applyCorrelation = (correlationId: string) => {
-    const next = { ...filters, correlationId };
-    setFilters(next);
-    setApplied(next);
+    applyFilters({ ...applied, correlationId });
     setDetail(null);
-    loadPage(0, next);
   };
 
   const filterActions = (
@@ -322,8 +324,8 @@ export const AuditsView: React.FC = () => {
       refreshing={refreshing}
       page={page}
       totalPages={totalPages}
-      onPrev={() => loadPage(page - 1, applied)}
-      onNext={() => loadPage(page + 1, applied)}
+      onPrev={() => goToPage(page - 1)}
+      onNext={() => goToPage(page + 1)}
       leading={includeFilter ? filterActions : undefined}
     />
   );
@@ -450,7 +452,6 @@ export const AuditsView: React.FC = () => {
         <table className="hpanel-table">
           <thead>
             <tr>
-              <th>Fonte</th>
               <th>
                 <button type="button" className="th-sort" onClick={() => toggleSort('occurredAt')}>
                   Quando {sortIcon('occurredAt')}
@@ -486,13 +487,13 @@ export const AuditsView: React.FC = () => {
           <tbody>
             {loading && displayedItems.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   Carregando eventos de auditoria...
                 </td>
               </tr>
             ) : displayedItems.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <ScrollText size={22} />
                     <span>Nenhum evento de auditoria para os filtros atuais.</span>
@@ -506,9 +507,6 @@ export const AuditsView: React.FC = () => {
                   onClick={() => openDetail(event)}
                   style={{ cursor: 'pointer' }}
                 >
-                  <td>
-                    <span className="id-compact">{metadataDataSourceName(event.metadata)}</span>
-                  </td>
                   <td>{formatDate(event.occurredAt)}</td>
                   <td>
                     <span className="id-compact" title={event.actor?.codeUser || event.actor?.type}>
@@ -548,11 +546,6 @@ export const AuditsView: React.FC = () => {
             onClick={() => openDetail(event)}
             style={{ textAlign: 'left', width: '100%', border: 'none', background: 'inherit' }}
           >
-            <div className="mobile-card-subinfo">
-              {metadataDataSourceName(event.metadata) !== '—'
-                ? metadataDataSourceName(event.metadata)
-                : '—'}
-            </div>
             <div className="mobile-card-top">
               <span className="mobile-domain-name">{event.action}</span>
               <span className="badge-role" style={outcomeStyle(event.outcome)}>

@@ -11,9 +11,22 @@ import {
   type ConnectionServiceStatus,
   type ConnectionsHealthSnapshot,
 } from '../../services/connectionsHealth';
+import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 
 type StatusFilter = 'all' | 'healthy' | 'unhealthy';
 type GroupFilter = 'all' | ConnectionGroup;
+
+type ConnectionFilters = {
+  q: string;
+  status: StatusFilter;
+  group: GroupFilter;
+};
+
+const EMPTY_CONNECTION_FILTERS: ConnectionFilters = {
+  q: '',
+  status: 'all',
+  group: 'all',
+};
 
 const statusLabel = (status: ConnectionServiceStatus['status'] | 'checking') => {
   if (status === 'healthy') return 'Online';
@@ -47,13 +60,13 @@ function remainingFromExpiresAt(expiresAt?: string): number {
 
 export const ConnectionsView: React.FC = () => {
   const { isAuthenticated, getAccessToken } = useAuth();
+  const { applied, applyFilters, filters, setFilters } = useAppliedListUrl(EMPTY_CONNECTION_FILTERS);
   const [snapshot, setSnapshot] = useState<ConnectionsHealthSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
+  const statusFilter = (applied.status === 'healthy' || applied.status === 'unhealthy' ? applied.status : 'all') as StatusFilter;
+  const groupFilter = (applied.group === 'all' || isConnectionGroup(applied.group) ? applied.group : 'all') as GroupFilter;
 
   const load = useCallback(async () => {
     const token = getAccessToken();
@@ -95,6 +108,14 @@ export const ConnectionsView: React.FC = () => {
     return () => window.clearInterval(id);
   }, [snapshot?.expiresAt, snapshot?.checkedAt]);
 
+  useEffect(() => {
+    if (filters.q === applied.q) return;
+    const id = window.setTimeout(() => {
+      applyFilters({ ...applied, q: filters.q }, 'replace');
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [applied, applyFilters, filters.q]);
+
   const services = snapshot?.services || [];
 
   const counts = useMemo(() => ({
@@ -104,7 +125,7 @@ export const ConnectionsView: React.FC = () => {
   }), [services]);
 
   const filtered = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = filters.q.trim().toLowerCase();
     return services.filter((item) => {
       const group = isConnectionGroup(item.group) ? item.group : 'infra';
       if (groupFilter !== 'all' && group !== groupFilter) return false;
@@ -117,7 +138,7 @@ export const ConnectionsView: React.FC = () => {
         CONNECTION_GROUP_LABELS[group].toLowerCase().includes(term)
       );
     });
-  }, [groupFilter, searchTerm, services, statusFilter]);
+  }, [filters.q, groupFilter, services, statusFilter]);
 
   const freshnessLabel = snapshot
     ? snapshot.cached
@@ -131,7 +152,7 @@ export const ConnectionsView: React.FC = () => {
         <button
           type="button"
           className={`connections-summary-chip ${statusFilter === 'all' ? 'is-active' : ''}`}
-          onClick={() => setStatusFilter('all')}
+          onClick={() => applyFilters({ ...applied, q: filters.q, status: 'all' })}
         >
           <Activity size={14} />
           {counts.total} serviços
@@ -139,14 +160,14 @@ export const ConnectionsView: React.FC = () => {
         <button
           type="button"
           className={`connections-summary-chip is-ok ${statusFilter === 'healthy' ? 'is-active' : ''}`}
-          onClick={() => setStatusFilter('healthy')}
+          onClick={() => applyFilters({ ...applied, q: filters.q, status: 'healthy' })}
         >
           {counts.healthy} online
         </button>
         <button
           type="button"
           className={`connections-summary-chip is-off ${statusFilter === 'unhealthy' ? 'is-active' : ''}`}
-          onClick={() => setStatusFilter('unhealthy')}
+          onClick={() => applyFilters({ ...applied, q: filters.q, status: 'unhealthy' })}
         >
           {counts.unhealthy} offline
         </button>
@@ -168,14 +189,14 @@ export const ConnectionsView: React.FC = () => {
               type="text"
               className="search-input"
               placeholder="Filtrar por serviço, tipo ou endpoint..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              value={filters.q}
+              onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))}
             />
           </div>
           <select
             className="filter-select"
             value={groupFilter}
-            onChange={(event) => setGroupFilter(event.target.value as GroupFilter)}
+            onChange={(event) => applyFilters({ ...applied, q: filters.q, group: event.target.value as GroupFilter })}
             aria-label="Filtrar por tipo"
           >
             <option value="all">Todos os tipos</option>

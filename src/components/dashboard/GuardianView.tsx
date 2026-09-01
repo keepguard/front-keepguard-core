@@ -25,6 +25,7 @@ import {
   type IncidentDetail,
   type SuggestionDTO,
 } from '../../services/guardianService';
+import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 
 type SortKey = 'lastSeenAt' | 'createdAt' | 'severity' | 'status' | 'serviceName';
 type SortDir = 'asc' | 'desc';
@@ -200,10 +201,8 @@ const GuardianPager: React.FC<{
 export const GuardianView: React.FC = () => {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS);
+  const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
   const [items, setItems] = useState<GuardianIncidentListItem[]>([]);
-  const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -248,7 +247,6 @@ export const GuardianView: React.FC = () => {
         token
       );
       setItems(result.content || []);
-      setPage(result.page ?? nextPage);
       setTotalPages(Math.max(result.totalPages || 1, 1));
     } catch (error) {
       addToast({
@@ -274,24 +272,23 @@ export const GuardianView: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    void loadPage(0, applied);
     void loadRecipients();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- carrega só ao autenticar; filtros via handleSearch
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadRecipients]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void loadPage(page, applied);
+  }, [applied, isAuthenticated, loadPage, page]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
-    setApplied(filters);
-    void loadPage(0, filters);
+    applyFilters(filters);
   };
 
   const toggleSort = (key: SortKey) => {
     const nextDir: SortDir =
       applied.sort === key ? (applied.dir === 'asc' ? 'desc' : 'asc') : key === 'serviceName' || key === 'status' || key === 'severity' ? 'asc' : 'desc';
-    const next = { ...applied, sort: key, dir: nextDir };
-    setFilters((current) => ({ ...current, sort: key, dir: nextDir }));
-    setApplied(next);
-    void loadPage(0, next);
+    applyFilters({ ...applied, sort: key, dir: nextDir });
   };
 
   const sortIcon = (key: SortKey) => {
@@ -325,11 +322,8 @@ export const GuardianView: React.FC = () => {
   };
 
   const applyCorrelation = (correlationId: string) => {
-    const next = { ...filters, correlationId };
-    setFilters(next);
-    setApplied(next);
+    applyFilters({ ...applied, correlationId });
     setDetail(null);
-    void loadPage(0, next);
   };
 
   const runAction = async (suggestion: SuggestionDTO) => {
@@ -401,8 +395,8 @@ export const GuardianView: React.FC = () => {
       refreshing={refreshing}
       page={page}
       totalPages={totalPages}
-      onPrev={() => void loadPage(page - 1, applied)}
-      onNext={() => void loadPage(page + 1, applied)}
+      onPrev={() => goToPage(page - 1)}
+      onNext={() => goToPage(page + 1)}
       leading={includeFilter ? filterActions : undefined}
     />
   );
