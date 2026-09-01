@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Cpu,
   Database,
   Pencil,
   Plus,
   Power,
   PowerOff,
-  RefreshCw,
   Search,
+  Share2,
   Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../common/Modal';
+import { Tooltip } from '../common/Tooltip';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { PATHS } from '../../navigation/routes';
@@ -700,6 +702,58 @@ export const DataSourcesView: React.FC = () => {
 
   const disabled = submitting;
 
+  const renderRowActions = (item: CollectorDataSource) => (
+    <div className="table-actions-group" style={{ justifyContent: 'flex-end' }}>
+      <Tooltip label="Editar" description="Altera URL, variáveis e agenda do template.">
+        <button type="button" className="btn-table-icon" aria-label={`Editar ${item.name}`} onClick={() => openEdit(item)}>
+          <Pencil size={15} />
+        </button>
+      </Tooltip>
+      <Tooltip label="Propagar" description="Aplica alterações da fonte nos agents vinculados.">
+        <button
+          type="button"
+          className="btn-table-icon"
+          aria-label={`Propagar ${item.name} para agents vinculados`}
+          onClick={() => setPropagate({ source: item, lockUnchanged: false })}
+        >
+          <Share2 size={15} />
+        </button>
+      </Tooltip>
+      <Tooltip label="Usar em agent" description="Abre Agents com esta fonte pré-selecionada.">
+        <button
+          type="button"
+          className="btn-table-icon"
+          aria-label={`Usar ${item.name} em um agent`}
+          onClick={() => navigate(`${PATHS.agents}?dataSourceId=${encodeURIComponent(item.id)}`)}
+        >
+          <Cpu size={15} />
+        </button>
+      </Tooltip>
+      <Tooltip
+        label={item.enabled === false ? 'Ativar' : 'Desativar'}
+        description={
+          item.enabled === false
+            ? 'Permite usar esta fonte em novos agents.'
+            : 'Impede novos agents de usar esta fonte.'
+        }
+      >
+        <button
+          type="button"
+          className="btn-table-icon"
+          aria-label={item.enabled === false ? `Ativar ${item.name}` : `Desativar ${item.name}`}
+          onClick={() => void handleToggle(item)}
+        >
+          {item.enabled === false ? <Power size={15} /> : <PowerOff size={15} />}
+        </button>
+      </Tooltip>
+      <Tooltip label="Excluir" description="Remove a fonte; agents vinculados ficam personalizados.">
+        <button type="button" className="btn-table-icon" aria-label={`Excluir ${item.name}`} onClick={() => void openDelete(item)}>
+          <Trash2 size={15} />
+        </button>
+      </Tooltip>
+    </div>
+  );
+
   return (
     <>
       <div className="client-system-create-row">
@@ -747,7 +801,7 @@ export const DataSourcesView: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="hpanel-table-card desktop-table-view">
+      <div className="hpanel-table-card desktop-table-view has-row-action-menus">
         <table className="hpanel-table">
           <thead>
             <tr>
@@ -757,7 +811,7 @@ export const DataSourcesView: React.FC = () => {
               <th>Variáveis</th>
               <th>Agents</th>
               <th>Status</th>
-              <th style={{ textAlign: 'right' }}>Ações</th>
+              <th className="cell-actions" style={{ textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -806,43 +860,7 @@ export const DataSourcesView: React.FC = () => {
                       {item.enabled !== false ? 'Ativo' : 'Inativo'}
                     </span>
                   </td>
-                  <td>
-                    <div className="table-actions-group" style={{ justifyContent: 'flex-end' }}>
-                      <button type="button" className="btn-table-icon" title="Editar" aria-label={`Editar ${item.name}`} onClick={() => openEdit(item)}>
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-table-icon"
-                        title="Propagar para agents"
-                        aria-label={`Propagar ${item.name} para agents vinculados`}
-                        onClick={() => setPropagate({ source: item, lockUnchanged: false })}
-                      >
-                        <RefreshCw size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-table-icon"
-                        title={item.enabled === false ? 'Ativar' : 'Desativar'}
-                        aria-label={item.enabled === false ? `Ativar ${item.name}` : `Desativar ${item.name}`}
-                        onClick={() => void handleToggle(item)}
-                      >
-                        {item.enabled === false ? <Power size={15} /> : <PowerOff size={15} />}
-                      </button>
-                      <button type="button" className="btn-table-icon" title="Excluir" aria-label={`Excluir ${item.name}`} onClick={() => void openDelete(item)}>
-                        <Trash2 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-table-icon"
-                        title="Usar em um agent"
-                        aria-label={`Usar ${item.name} em um agent`}
-                        onClick={() => navigate(`${PATHS.agents}?dataSourceId=${encodeURIComponent(item.id)}`)}
-                      >
-                        <Plus size={15} />
-                      </button>
-                    </div>
-                  </td>
+                  <td className="cell-actions">{renderRowActions(item)}</td>
                 </tr>
               ))
             )}
@@ -864,13 +882,7 @@ export const DataSourcesView: React.FC = () => {
               </span>
             </div>
             <div className="mobile-card-subinfo">{typeLabel(item.collectorType)} · {variablesLabel(item)} · {agentCounts[item.id] ?? 0} agents</div>
-            <div className="mobile-card-actions">
-              <button type="button" className="btn btn-outline btn-pill" onClick={() => openEdit(item)}>Editar</button>
-              <button type="button" className="btn btn-outline btn-pill" onClick={() => setPropagate({ source: item, lockUnchanged: false })}>Propagar</button>
-              <button type="button" className="btn btn-outline btn-pill" onClick={() => void handleToggle(item)}>
-                {item.enabled === false ? 'Ativar' : 'Desativar'}
-              </button>
-            </div>
+            <div className="mobile-card-actions table-actions-group">{renderRowActions(item)}</div>
           </div>
         ))}
       </div>

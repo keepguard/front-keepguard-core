@@ -1852,6 +1852,8 @@ export const AgentsView: React.FC = () => {
             <option value="true">Ativo</option>
             <option value="false">Inativo</option>
           </select>
+        </div>
+        <div className="audits-filter-row client-system-filter-row-sort">
           <div className="audits-sort-group">
             <select
               className="form-input audits-sort-select"
