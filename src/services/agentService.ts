@@ -24,6 +24,9 @@ export interface CollectorAgent {
   prompt?: string;
   schedule: CollectorSchedule;
   enabled: boolean;
+  dataSourceId?: string;
+  dataSourceSlug?: string;
+  dataSourceName?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -55,6 +58,7 @@ export interface CreateCollectorAgentBody {
   prompt?: string;
   schedule: CollectorSchedule;
   enabled?: boolean;
+  dataSourceId?: string;
 }
 
 export interface UpdateCollectorAgentBody {
@@ -64,6 +68,7 @@ export interface UpdateCollectorAgentBody {
   collectorConfig?: Record<string, unknown>;
   prompt?: string;
   schedule?: CollectorSchedule;
+  dataSourceId?: string;
 }
 
 const base = `${BFF_CORE_URL}/api/v1/core/collector/agents`;
@@ -155,8 +160,41 @@ export interface CollectorExecution {
   itemsCollected: number;
   itemsUploaded: number;
   errorMessage?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export function listCollectorAgentExecutions(id: string, token: string): Promise<CollectorExecution[]> {
   return customFetch<CollectorExecution[]>(`${base}/${id}/executions?limit=50`, { method: 'GET' }, token);
+}
+
+export interface CollectorDataSourceVariable {
+  key: string;
+  label: string;
+  required?: boolean;
+  placeholder?: string;
+}
+
+export interface CollectorDataSource {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  websiteUrl?: string;
+  collectorType: CollectorType | string;
+  nameTemplate?: string;
+  descriptionTemplate?: string;
+  promptTemplate?: string;
+  defaultContext?: string;
+  defaultSchedule?: CollectorSchedule;
+  configTemplate?: Record<string, unknown> | null;
+  variables?: CollectorDataSourceVariable[];
+  notes?: string;
+}
+
+export function listCollectorDataSources(token: string): Promise<CollectorDataSource[]> {
+  return customFetch<CollectorDataSource[]>(
+    `${BFF_CORE_URL}/api/v1/core/collector/data-sources`,
+    { method: 'GET' },
+    token,
+  );
 }

@@ -31,6 +31,12 @@ function formatDate(isoDate?: string) {
   }
 }
 
+function metadataDataSourceName(meta?: Record<string, unknown>): string {
+  if (!meta) return '—';
+  const name = meta.data_source_name ?? meta.dataSourceName;
+  return typeof name === 'string' && name.trim() ? name : '—';
+}
+
 function compactId(value?: string): string {
   if (!value) return '—';
   const trimmed = value.trim();
@@ -464,6 +470,7 @@ export const AuditsView: React.FC = () => {
                   Recurso {sortIcon('resource')}
                 </button>
               </th>
+              <th>Fonte</th>
               <th>
                 <button type="button" className="th-sort" onClick={() => toggleSort('outcome')}>
                   Resultado {sortIcon('outcome')}
@@ -479,13 +486,13 @@ export const AuditsView: React.FC = () => {
           <tbody>
             {loading && displayedItems.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   Carregando eventos de auditoria...
                 </td>
               </tr>
             ) : displayedItems.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <ScrollText size={22} />
                     <span>Nenhum evento de auditoria para os filtros atuais.</span>
@@ -513,6 +520,9 @@ export const AuditsView: React.FC = () => {
                       {event.resource?.type || '—'}
                       {event.resource?.id ? ` · ${compactId(event.resource.id)}` : ''}
                     </span>
+                  </td>
+                  <td>
+                    <span className="id-compact">{metadataDataSourceName(event.metadata)}</span>
                   </td>
                   <td>
                     <span className="badge-role" style={outcomeStyle(event.outcome)}>
@@ -547,6 +557,9 @@ export const AuditsView: React.FC = () => {
             <div className="mobile-card-subinfo">{formatDate(event.occurredAt)}</div>
             <div className="mobile-card-meta">
               {event.actor?.codeUser || event.actor?.type} · {event.sourceService}
+              {metadataDataSourceName(event.metadata) !== '—'
+                ? ` · ${metadataDataSourceName(event.metadata)}`
+                : ''}
             </div>
           </button>
         ))}
@@ -580,6 +593,10 @@ export const AuditsView: React.FC = () => {
               <span className="info-value">
                 {detail.resource?.type || '—'} {detail.resource?.id ? `· ${detail.resource.id}` : ''}
               </span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Fonte de dados</span>
+              <span className="info-value">{metadataDataSourceName(detail.metadata)}</span>
             </div>
             <div className="info-row">
               <span className="info-label">Origem</span>

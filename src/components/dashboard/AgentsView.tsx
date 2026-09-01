@@ -33,11 +33,13 @@ import {
   enableCollectorAgent,
   getCollectorAgent,
   listCollectorAgentExecutions,
+  listCollectorDataSources,
   searchCollectorAgents,
   testCollectorAgent,
   updateCollectorAgent,
   type CollectorAgent,
   type CollectorAgentTestResult,
+  type CollectorDataSource,
   type CollectorExecution,
   type CollectorSchedule,
   type CollectorType,
@@ -71,6 +73,8 @@ type AgentForm = {
   description: string;
   context: string;
   collectorType: CollectorType;
+  dataSourceId: string;
+  ticker: string;
   prompt: string;
   enabled: boolean;
   url: string;
@@ -121,6 +125,8 @@ function emptyForm(): AgentForm {
     description: '',
     context: 'geral',
     collectorType: 'API_REST',
+    dataSourceId: '',
+    ticker: '',
     prompt: '',
     enabled: false,
     url: '',
@@ -339,26 +345,32 @@ function linesToList(text: string): string[] {
     .filter(Boolean);
 }
 
+function attachTickerHint(config: Record<string, unknown>, form: AgentForm): Record<string, unknown> {
+  const ticker = form.ticker.trim().toUpperCase();
+  if (ticker) config.entity_hint = ticker;
+  return config;
+}
+
 function buildCollectorConfig(form: AgentForm): Record<string, unknown> {
   if (form.collectorType === 'HTML_SCRAPER') {
-    return {
+    return attachTickerHint({
       url: form.url.trim(),
       css_selectors: linesToList(form.cssSelectorsText),
       extract_links: form.extractLinks,
       output_format: form.outputFormat || 'html',
       output_file_name: form.outputFileName.trim() || undefined,
-    };
+    }, form);
   }
   if (form.collectorType === 'DOCUMENT_FETCHER') {
     const maxSize = Number(form.maxFileSizeBytes);
-    return {
+    return attachTickerHint({
       urls: linesToList(form.urlsText),
       accepted_extensions: form.acceptedExtensions
         .split(',')
         .map((item) => item.trim())
         .filter(Boolean),
       max_file_size_bytes: Number.isFinite(maxSize) && maxSize > 0 ? maxSize : undefined,
-    };
+    }, form);
   }
   const headers = pairsToMap(form.headers);
   const queryParams = pairsToMap(form.queryParams);
@@ -392,7 +404,7 @@ function buildCollectorConfig(form: AgentForm): Record<string, unknown> {
     }
     config.auth = auth;
   }
-  return config;
+  return attachTickerHint(config, form);
 }
 
 function buildSchedule(form: AgentForm): CollectorSchedule {
@@ -405,21 +417,61 @@ function buildSchedule(form: AgentForm): CollectorSchedule {
   };
 }
 
-function formFromAgent(agent: CollectorAgent): AgentForm {
-  const cfg = (agent.collectorConfig || {}) as Record<string, unknown>;
+function asConfigRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function applyPlaceholders(value: string, ticker: string): string {
+  const t = ticker.trim().toUpperCase();
+  if (!t) return value;
+  return value
+    .replaceAll('{{ticker}}', t)
+    .replaceAll('{{ticker_lower}}', t.toLowerCase())
+    .replaceAll('{{symbol}}', `${t}.SA`);
+}
+
+function applyPlaceholdersDeep(value: unknown, ticker: string): unknown {
+  if (typeof value === 'string') return applyPlaceholders(value, ticker);
+  if (Array.isArray(value)) return value.map((item) => applyPlaceholdersDeep(item, ticker));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
+      out[key] = applyPlaceholdersDeep(item, ticker);
+    });
+    return out;
+  }
+  return value;
+}
+
+function tickerFromConfig(cfg: Record<string, unknown>): string {
+  return String(cfg.entity_hint || '').trim().toUpperCase().replace(/\.SA$/i, '');
+}
+
+function sourceHasTicker(source: CollectorDataSource | null | undefined): boolean {
+  return Boolean(source?.variables?.some((item) => item.key === 'ticker'));
+}
+
+function dataSourceLabel(name?: string | null): string {
+  return name?.trim() ? name : '—';
+}
+
+function metadataDataSourceName(meta?: Record<string, unknown>): string {
+  if (!meta) return '—';
+  const name = meta.data_source_name ?? meta.dataSourceName;
+  return typeof name === 'string' && name.trim() ? name : '—';
+}
+
+function formFromCollectorConfig(cfg: Record<string, unknown>, base: AgentForm): AgentForm {
   const auth = (cfg.auth && typeof cfg.auth === 'object' ? cfg.auth : {}) as Record<string, unknown>;
   const authTypeRaw = String(auth.type || 'NONE').toUpperCase();
   const authType: AuthType = authTypeRaw === 'STATIC_BEARER' || authTypeRaw === 'LOGIN_PASSWORD'
     ? authTypeRaw
     : 'NONE';
   return {
-    ...emptyForm(),
-    name: agent.name || '',
-    description: agent.description || '',
-    context: agent.context || 'geral',
-    collectorType: (agent.collectorType as CollectorType) || 'API_REST',
-    prompt: agent.prompt || '',
-    enabled: agent.enabled,
+    ...base,
     url: String(cfg.url || ''),
     method: String(cfg.method || 'GET'),
     headers: mapToPairs(cfg.headers),
@@ -427,10 +479,10 @@ function formFromAgent(agent: CollectorAgent): AgentForm {
     bodyTemplate: String(cfg.body_template || ''),
     outputFileName: String(cfg.output_file_name || ''),
     authType,
-    authToken: '',
+    authToken: base.authToken,
     hasToken: Boolean(auth.has_token),
     authUsername: String(auth.username || ''),
-    authPassword: '',
+    authPassword: base.authPassword,
     hasPassword: Boolean(auth.has_password),
     loginUrl: String(auth.login_url || ''),
     loginMethod: String(auth.login_method || 'POST'),
@@ -447,6 +499,44 @@ function formFromAgent(agent: CollectorAgent): AgentForm {
       ? (cfg.accepted_extensions as string[]).join(', ')
       : '',
     maxFileSizeBytes: cfg.max_file_size_bytes ? String(cfg.max_file_size_bytes) : '',
+  };
+}
+
+function applyDataSource(base: AgentForm, source: CollectorDataSource, ticker: string): AgentForm {
+  const filled = applyPlaceholdersDeep(asConfigRecord(source.configTemplate), ticker);
+  const next = formFromCollectorConfig(asConfigRecord(filled), {
+    ...base,
+    dataSourceId: source.id,
+    ticker: ticker.trim().toUpperCase(),
+    collectorType: (source.collectorType as CollectorType) || 'API_REST',
+  });
+  const sched = source.defaultSchedule;
+  return {
+    ...next,
+    name: applyPlaceholders(source.nameTemplate || next.name, ticker),
+    description: applyPlaceholders(source.descriptionTemplate || next.description, ticker),
+    prompt: applyPlaceholders(source.promptTemplate || next.prompt, ticker),
+    context: source.defaultContext || next.context,
+    daysOfWeek: sched?.daysOfWeek?.length ? sched.daysOfWeek : next.daysOfWeek,
+    startTime: sched?.startTime || next.startTime,
+    endTime: sched?.endTime || next.endTime,
+    intervalMinutes: String(sched?.intervalMinutes || next.intervalMinutes),
+    timezone: sched?.timezone || next.timezone,
+  };
+}
+
+function formFromAgent(agent: CollectorAgent): AgentForm {
+  const cfg = (agent.collectorConfig || {}) as Record<string, unknown>;
+  return {
+    ...formFromCollectorConfig(cfg, emptyForm()),
+    name: agent.name || '',
+    description: agent.description || '',
+    context: agent.context || 'geral',
+    collectorType: (agent.collectorType as CollectorType) || 'API_REST',
+    dataSourceId: agent.dataSourceId || '',
+    ticker: tickerFromConfig(cfg),
+    prompt: agent.prompt || '',
+    enabled: agent.enabled,
     daysOfWeek: agent.schedule?.daysOfWeek?.length ? agent.schedule.daysOfWeek : [1, 2, 3, 4, 5],
     startTime: agent.schedule?.startTime || '09:00',
     endTime: agent.schedule?.endTime || '17:00',
@@ -462,8 +552,8 @@ const FORM_STEPS: Array<{
   label: string;
   hint: string;
 }> = [
-  { id: 'identity', label: 'Identidade', hint: 'Nome e tipo' },
-  { id: 'collector', label: 'Coleta', hint: 'Fonte e config' },
+  { id: 'identity', label: 'Identidade', hint: 'Fonte, nome e tipo' },
+  { id: 'collector', label: 'Coleta', hint: 'URL e config' },
   { id: 'schedule', label: 'Agenda', hint: 'Quando roda' },
 ];
 
@@ -857,6 +947,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   const [formStep, setFormStep] = useState<FormStep>('identity');
   const [editing, setEditing] = useState<CollectorAgent | null>(null);
   const [form, setForm] = useState<AgentForm>(emptyForm());
+  const [dataSources, setDataSources] = useState<CollectorDataSource[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<CollectorAgent | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -954,6 +1045,14 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   }, [loadCredential]);
 
   useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    void listCollectorDataSources(token)
+      .then((sources) => setDataSources(Array.isArray(sources) ? sources : []))
+      .catch(() => setDataSources([]));
+  }, [getAccessToken]);
+
+  useEffect(() => {
     loadPage(0, applied);
   }, [applied, loadPage]);
 
@@ -988,8 +1087,35 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     }
   };
 
+  const selectedSource = useMemo(
+    () => dataSources.find((source) => source.id === form.dataSourceId) || null,
+    [dataSources, form.dataSourceId],
+  );
+
+  const handleDataSourceChange = (id: string) => {
+    if (!id) {
+      setForm((current) => ({ ...current, dataSourceId: '', ticker: current.ticker }));
+      return;
+    }
+    const source = dataSources.find((item) => item.id === id);
+    if (!source) return;
+    setForm((current) => applyDataSource(current, source, current.ticker));
+  };
+
+  const handleTickerChange = (ticker: string) => {
+    setForm((current) => {
+      const source = dataSources.find((item) => item.id === current.dataSourceId);
+      if (!source) return { ...current, ticker };
+      return applyDataSource(current, source, ticker);
+    });
+  };
+
   const validateStep = (step: FormStep): boolean => {
     if (step === 'identity') {
+      if (selectedSource && sourceHasTicker(selectedSource) && !form.ticker.trim()) {
+        addToast({ type: 'error', title: 'Ticker é obrigatório para esta fonte' });
+        return false;
+      }
       if (!form.name.trim()) {
         addToast({ type: 'error', title: 'Nome é obrigatório' });
         return false;
@@ -1076,6 +1202,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
           collectorConfig: buildCollectorConfig(form),
           prompt: form.prompt,
           schedule: buildSchedule(form),
+          dataSourceId: form.dataSourceId || undefined,
         }, token);
         addToast({ type: 'success', title: 'Agent atualizado' });
       } else {
@@ -1088,6 +1215,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
           prompt: form.prompt || undefined,
           schedule: buildSchedule(form),
           enabled: form.enabled,
+          dataSourceId: form.dataSourceId || undefined,
         }, token);
         addToast({ type: 'success', title: 'Agent criado' });
       }
@@ -1527,6 +1655,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
           <thead>
             <tr>
               <th>Nome</th>
+              <th>Fonte</th>
               <th>Tipo</th>
               <th>Status</th>
               <th>Agenda</th>
@@ -1537,13 +1666,13 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
           <tbody>
             {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   Carregando agents...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <Cpu size={22} />
                     <span>Nenhum agent para os filtros atuais.</span>
@@ -1561,6 +1690,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                     <span className="table-cell-title" title={item.name}>{item.name}</span>
                     {item.description ? <div className="table-cell-muted">{item.description}</div> : null}
                   </td>
+                  <td>{dataSourceLabel(item.dataSourceName)}</td>
                   <td>{typeLabel(item.collectorType)}</td>
                   <td>
                     <span className="badge-role" style={item.enabled
@@ -1598,7 +1728,9 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                 {item.enabled ? 'Ativo' : 'Inativo'}
               </span>
             </div>
-            <div className="mobile-card-subinfo">{typeLabel(item.collectorType)} · {formatDate(item.createdAt)}</div>
+            <div className="mobile-card-subinfo">
+              {dataSourceLabel(item.dataSourceName)} · {typeLabel(item.collectorType)} · {formatDate(item.createdAt)}
+            </div>
             <div className="mobile-card-meta">{scheduleSummary(item.schedule)}</div>
             <div className="mobile-card-actions">{renderActions(item)}</div>
           </div>
@@ -1681,11 +1813,52 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
             <div className="agent-form-panel">
               <p className="agent-form-panel-intro">
                 Defina o job e confirme a credencial compartilhada da organização.
+                Uma fonte pré-preenche URL, headers, agenda e prompt — você só personaliza o ticker.
               </p>
               <CredentialChip
                 state={credential}
                 onOpenClientSystem={onNavigateTab ? goClientSystem : undefined}
               />
+              <div className="form-group">
+                <label htmlFor="agent-data-source">Fonte de dados</label>
+                <select
+                  id="agent-data-source"
+                  className="form-input"
+                  value={form.dataSourceId}
+                  onChange={(e) => handleDataSourceChange(e.target.value)}
+                >
+                  <option value="">Personalizada</option>
+                  {dataSources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedSource?.description ? (
+                  <p className="table-cell-muted" style={{ margin: '0.35rem 0 0' }}>
+                    {selectedSource.description}
+                  </p>
+                ) : null}
+                {selectedSource?.notes ? (
+                  <p className="table-cell-muted" style={{ margin: '0.25rem 0 0' }}>
+                    {selectedSource.notes}
+                  </p>
+                ) : null}
+              </div>
+              {sourceHasTicker(selectedSource) ? (
+                <div className="form-group">
+                  <label htmlFor="agent-ticker">Ticker</label>
+                  <input
+                    id="agent-ticker"
+                    className="form-input"
+                    value={form.ticker}
+                    onChange={(e) => handleTickerChange(e.target.value.toUpperCase())}
+                    placeholder={selectedSource?.variables?.find((item) => item.key === 'ticker')?.placeholder || 'PETR4'}
+                    autoFocus
+                    required
+                  />
+                </div>
+              ) : null}
               <div className="form-group">
                 <label htmlFor="agent-name">Nome</label>
                 <input
@@ -1695,7 +1868,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="Ex.: scraper-noticias-diarias"
                   required
-                  autoFocus
+                  autoFocus={!sourceHasTicker(selectedSource)}
                 />
               </div>
               <div className="form-group">
@@ -1724,7 +1897,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                   id="agent-type"
                   className="form-input"
                   value={form.collectorType}
-                  disabled={Boolean(editing)}
+                  disabled={Boolean(editing) || Boolean(form.dataSourceId)}
                   onChange={(e) => setForm((f) => ({ ...f, collectorType: e.target.value as CollectorType }))}
                 >
                   <option value="API_REST">API REST</option>
@@ -2064,7 +2237,11 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         isOpen={!!historyAgent}
         onClose={closeHistory}
         title="Histórico de coletas"
-        subtitle={historyAgent?.name}
+        subtitle={
+          historyAgent
+            ? `${historyAgent.name}${historyAgent.dataSourceName ? ` · ${historyAgent.dataSourceName}` : ''}`
+            : undefined
+        }
         maxWidth="min(96vw, 1100px)"
         maxHeight="min(92vh, 820px)"
         footer={
@@ -2422,6 +2599,14 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
               <span className="info-label">Status</span>
               <span className="badge-role" style={executionStatusStyle(historyDetail.status)}>
                 {executionStatusLabel(historyDetail.status)}
+              </span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Fonte</span>
+              <span className="info-value">
+                {metadataDataSourceName(historyDetail.metadata) !== '—'
+                  ? metadataDataSourceName(historyDetail.metadata)
+                  : dataSourceLabel(historyAgent?.dataSourceName)}
               </span>
             </div>
             <div className="info-row">
