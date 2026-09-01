@@ -53,6 +53,34 @@ function freshnessLabel(briefing: KnowledgeAskResponse): string | null {
   return ago ? `última coleta ${ago}` : 'última coleta recente';
 }
 
+function modeLabel(mode?: string): string {
+  switch ((mode || '').toUpperCase()) {
+    case 'HEURISTIC':
+      return 'Fato';
+    case 'EXTRACTIVE':
+      return 'Trecho';
+    case 'LLM':
+      return 'Síntese';
+    case 'UNKNOWN':
+      return 'Sem dados';
+    default:
+      return mode || '—';
+  }
+}
+
+function modeChipClass(mode?: string): string {
+  switch ((mode || '').toUpperCase()) {
+    case 'HEURISTIC':
+      return 'is-fact';
+    case 'EXTRACTIVE':
+      return 'is-extract';
+    case 'LLM':
+      return 'is-llm';
+    default:
+      return 'is-muted';
+  }
+}
+
 function shortDocumentId(id?: string): string {
   if (!id) return '—';
   return id.length > 8 ? `${id.slice(0, 8)}…` : id;
@@ -182,7 +210,10 @@ export const KnowledgeView: React.FC = () => {
             {briefing.stale && <span className="knowledge-chip is-warn">dado velho</span>}
             {briefing.freshness?.failed && <span className="knowledge-chip is-fail">coleta falhou</span>}
             {briefing.unknown && <span className="knowledge-chip is-muted">não sei</span>}
-            <span className="knowledge-chip is-muted">{briefing.intent} · {briefing.mode}</span>
+            <span className={`knowledge-chip ${modeChipClass(briefing.mode)}`}>
+              {modeLabel(briefing.mode)}
+            </span>
+            <span className="knowledge-chip is-muted">{briefing.intent}</span>
           </div>
           <div className="knowledge-sources">
             <h3>Fontes</h3>

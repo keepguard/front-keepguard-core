@@ -3884,6 +3884,24 @@ textarea.form-input {
   color: #a15c00;
 }
 
+.knowledge-chip.is-fact {
+  background: #e8f4fd;
+  color: #1677ff;
+  border-color: #91caff;
+}
+
+.knowledge-chip.is-extract {
+  background: #f6ffed;
+  color: #389e0d;
+  border-color: #b7eb8f;
+}
+
+.knowledge-chip.is-llm {
+  background: #f9f0ff;
+  color: #722ed1;
+  border-color: #d3adf7;
+}
+
 .knowledge-chip.is-muted {
   background: #eef1f4;
   color: #5f6368;
