@@ -135,9 +135,9 @@ log_info "Imagem Tag:    ${IMAGE_TAG}"
 log_info "============================================"
 
 # 1. Build Docker Image
-log_step "1/4 Construindo imagem Docker multi-stage com apontamento local (linux/amd64)..."
+log_step "1/4 Construindo imagem Docker multi-stage com proxy nginx → BFFs (linux/amd64)..."
 cd "${SCRIPT_DIR}"
-docker build --platform linux/amd64 --build-arg BUILD_MODE=development -t "${IMAGE_TAG}" -t "${IMAGE_LATEST}" .
+docker build --platform linux/amd64 --build-arg BUILD_MODE=docker -t "${IMAGE_TAG}" -t "${IMAGE_LATEST}" .
 log_success "Imagem Docker construída com sucesso: ${IMAGE_TAG}"
 
 # 2. Push para GitHub Container Registry

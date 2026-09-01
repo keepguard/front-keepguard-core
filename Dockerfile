@@ -10,8 +10,8 @@ RUN npm ci
 # Copia código-fonte e arquivos de configuração
 COPY . .
 
-# Argumento para definir o modo de build (padrão development para Docker local)
-ARG BUILD_MODE=development
+# Modo docker: URLs relativas + proxy nginx → bff-auth/bff-core na rede compose
+ARG BUILD_MODE=docker
 ENV NODE_ENV=production
 
 # Build com o modo selecionado
