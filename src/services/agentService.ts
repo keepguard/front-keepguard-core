@@ -169,6 +169,24 @@ export function listCollectorAgentExecutions(id: string, token: string): Promise
   return customFetch<CollectorExecution[]>(`${base}/${id}/executions?limit=50`, { method: 'GET' }, token);
 }
 
+export interface ExecutionPayloadItem {
+  kind: 'snapshot' | 'document' | string;
+  id: string;
+  contentType?: string;
+  fileName?: string;
+  payload?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  previewText?: string;
+}
+
+export function getExecutionPayloads(executionId: string, token: string): Promise<ExecutionPayloadItem[]> {
+  return customFetch<ExecutionPayloadItem[]>(
+    `${BFF_CORE_URL}/api/v1/core/collector/executions/${executionId}/payloads`,
+    { method: 'GET' },
+    token,
+  );
+}
+
 export interface CollectorDataSourceVariable {
   key: string;
   label: string;

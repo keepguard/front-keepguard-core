@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Cpu,
   FlaskConical,
+  FileJson,
   History,
   Inbox,
   KeyRound,
@@ -32,6 +33,7 @@ import {
   disableCollectorAgent,
   enableCollectorAgent,
   getCollectorAgent,
+  getExecutionPayloads,
   listCollectorAgentExecutions,
   listCollectorDataSources,
   searchCollectorAgents,
@@ -43,6 +45,7 @@ import {
   type CollectorExecution,
   type CollectorSchedule,
   type CollectorType,
+  type ExecutionPayloadItem,
 } from '../../services/agentService';
 import { searchOAuthClients, type OAuthClient } from '../../services/oauthClientService';
 
@@ -221,6 +224,93 @@ function executionDuration(item: CollectorExecution): string {
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.round(ms / 60_000)} min`;
+}
+
+function looksLikeJson(value?: string): boolean {
+  const normalized = (value || '').trim().toLowerCase();
+  return normalized.includes('json') || normalized.endsWith('.json');
+}
+
+function payloadRefsFromMetadata(meta?: Record<string, unknown>): Array<{ kind: string; id: string }> {
+  const raw = meta?.payload_refs;
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const item = entry as Record<string, unknown>;
+    const kind = String(item.kind || '').trim().toLowerCase();
+    const id = String(item.id || '').trim();
+    if (!kind || !id) return [];
+    return [{ kind, id }];
+  });
+}
+
+function executionHasJsonPayload(item: CollectorExecution, agent: CollectorAgent | null): boolean {
+  const status = (item.status || '').toUpperCase();
+  if (item.itemsUploaded <= 0 || status === 'RUNNING') return false;
+
+  const refs = payloadRefsFromMetadata(item.metadata);
+  if (refs.length > 0) {
+    return refs.some((ref) => ref.kind === 'snapshot');
+  }
+
+  const outputName = String(agent?.collectorConfig?.output_file_name || agent?.collectorConfig?.outputFileName || '');
+  if (looksLikeJson(outputName)) return true;
+
+  return String(agent?.collectorType || '').toUpperCase() === 'API_REST';
+}
+
+function isJsonPayloadItem(item: ExecutionPayloadItem): boolean {
+  if (item.kind === 'snapshot') return true;
+  if (looksLikeJson(item.contentType) || looksLikeJson(item.fileName)) return true;
+  if (item.payload && Object.keys(item.payload).length > 0) return true;
+  if (item.previewText) {
+    try {
+      JSON.parse(item.previewText);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+function prettyPayloadJson(value: unknown): string {
+  if (value == null || value === '') return '';
+  if (typeof value === 'string') {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function payloadItemBody(item: ExecutionPayloadItem): string {
+  if (item.payload && Object.keys(item.payload).length > 0) {
+    return prettyPayloadJson(item.payload);
+  }
+  if (item.previewText) {
+    return prettyPayloadJson(item.previewText);
+  }
+  if (item.metadata && Object.keys(item.metadata).length > 0) {
+    return prettyPayloadJson(item.metadata);
+  }
+  return 'Nenhum conteúdo disponível.';
+}
+
+function payloadItemTitle(item: ExecutionPayloadItem, index: number): string {
+  if (item.kind === 'snapshot') {
+    return `Snapshot ${index + 1}`;
+  }
+  if (item.fileName) {
+    return item.fileName;
+  }
+  return `Documento ${index + 1}`;
 }
 
 function formatExecutionWhen(isoDate?: string): { primary: string; secondary: string } {
@@ -966,6 +1056,10 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   const [historySortDir, setHistorySortDir] = useState<HistorySortDir>('desc');
   const [historyPage, setHistoryPage] = useState(0);
   const [historyDetail, setHistoryDetail] = useState<CollectorExecution | null>(null);
+  const [historyPayloadExecution, setHistoryPayloadExecution] = useState<CollectorExecution | null>(null);
+  const [historyPayloadData, setHistoryPayloadData] = useState<ExecutionPayloadItem[]>([]);
+  const [historyPayloadLoading, setHistoryPayloadLoading] = useState(false);
+  const [historyPayloadError, setHistoryPayloadError] = useState<string | null>(null);
   const [actionsMenuId, setActionsMenuId] = useState<string | null>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
   const historyItemsRef = useRef(historyItems);
@@ -1339,6 +1433,9 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     setHistoryAgent(null);
     setHistoryItems([]);
     setHistoryDetail(null);
+    setHistoryPayloadExecution(null);
+    setHistoryPayloadData([]);
+    setHistoryPayloadError(null);
     setHistoryPage(0);
     setHistoryStatusFilter('');
     setHistorySortKey(null);
@@ -1352,6 +1449,9 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     setHistoryAgent(item);
     setHistoryItems([]);
     setHistoryDetail(null);
+    setHistoryPayloadExecution(null);
+    setHistoryPayloadData([]);
+    setHistoryPayloadError(null);
     setHistoryPage(0);
     setHistoryStatusFilter('');
     setHistorySortKey(null);
@@ -1418,6 +1518,31 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
   const openHistoryDetail = (execution: CollectorExecution) => {
     setHistoryDetail(execution);
+  };
+
+  const closeHistoryPayload = () => {
+    setHistoryPayloadExecution(null);
+    setHistoryPayloadData([]);
+    setHistoryPayloadError(null);
+    setHistoryPayloadLoading(false);
+  };
+
+  const openHistoryPayload = async (execution: CollectorExecution, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    const token = getAccessToken();
+    if (!token) return;
+    setHistoryPayloadExecution(execution);
+    setHistoryPayloadData([]);
+    setHistoryPayloadError(null);
+    setHistoryPayloadLoading(true);
+    try {
+      const items = await getExecutionPayloads(execution.id, token);
+      setHistoryPayloadData(Array.isArray(items) ? items : []);
+    } catch (error) {
+      setHistoryPayloadError(error instanceof Error ? error.message : 'Não foi possível carregar o payload.');
+    } finally {
+      setHistoryPayloadLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -1797,11 +1922,26 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
               </button>
             ) : null}
             {formStep !== 'schedule' ? (
-              <button type="button" className="btn btn-primary" onClick={handleNextStep} disabled={submitting}>
+              <button
+                key="agent-form-continue"
+                type="button"
+                className="btn btn-primary"
+                onClick={handleNextStep}
+                disabled={submitting}
+              >
                 Continuar
               </button>
             ) : (
-              <button type="submit" form="agent-form" className="btn btn-primary" disabled={submitting}>
+              <button
+                key="agent-form-submit"
+                type="button"
+                className="btn btn-primary"
+                disabled={submitting}
+                onClick={() => {
+                  const form = document.getElementById('agent-form') as HTMLFormElement | null;
+                  form?.requestSubmit();
+                }}
+              >
                 {submitting ? 'Salvando...' : editing ? 'Salvar' : 'Criar'}
               </button>
             )}
@@ -2464,6 +2604,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                       <col className="agent-history-col-count" />
                       <col className="agent-history-col-count" />
                       <col className="agent-history-col-error" />
+                      <col className="agent-history-col-payload" />
                     </colgroup>
                     <thead>
                       <tr>
@@ -2493,6 +2634,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                           </button>
                         </th>
                         <th>Erro</th>
+                        <th className="agent-history-th-payload">Payload</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2576,6 +2718,24 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                                 </span>
                               )}
                             </td>
+                            <td className="agent-history-payload-cell">
+                              {executionHasPayload(execution) ? (
+                                <button
+                                  type="button"
+                                  className="agent-history-payload-btn"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void openHistoryPayload(execution, event);
+                                  }}
+                                  aria-label={`Ver payload da coleta de ${when.primary}`}
+                                  title="Ver JSON salvo"
+                                >
+                                  <FileText size={16} aria-hidden="true" />
+                                </button>
+                              ) : (
+                                <span className="agent-history-payload-empty">—</span>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
@@ -2589,27 +2749,39 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                     const hasError = Boolean((execution.errorMessage || '').trim());
                     const uploadGap = execution.itemsUploaded < execution.itemsCollected;
                     return (
-                      <button
-                        key={execution.id}
-                        type="button"
-                        className="agent-history-mobile-card"
-                        onClick={() => openHistoryDetail(execution)}
-                      >
-                        <div className="agent-history-mobile-card-top">
-                          <span className="agent-history-when-primary">{when.primary}</span>
-                          <span className="badge-role" style={executionStatusStyle(execution.status)}>
-                            {executionStatusLabel(execution.status)}
-                          </span>
-                        </div>
-                        <div className="agent-history-mobile-card-meta">
-                          {executionDuration(execution)} · {execution.itemsCollected} coletados · {execution.itemsUploaded} enviados
-                        </div>
-                        {hasError ? (
-                          <p className="agent-history-mobile-card-error">{execution.errorMessage}</p>
-                        ) : uploadGap ? (
-                          <p className="agent-history-mobile-card-warn">Envio incompleto</p>
+                      <div key={execution.id} className="agent-history-mobile-card">
+                        <button
+                          type="button"
+                          className="agent-history-mobile-card-main"
+                          onClick={() => openHistoryDetail(execution)}
+                        >
+                          <div className="agent-history-mobile-card-top">
+                            <span className="agent-history-when-primary">{when.primary}</span>
+                            <span className="badge-role" style={executionStatusStyle(execution.status)}>
+                              {executionStatusLabel(execution.status)}
+                            </span>
+                          </div>
+                          <div className="agent-history-mobile-card-meta">
+                            {executionDuration(execution)} · {execution.itemsCollected} coletados · {execution.itemsUploaded} enviados
+                          </div>
+                          {hasError ? (
+                            <p className="agent-history-mobile-card-error">{execution.errorMessage}</p>
+                          ) : uploadGap ? (
+                            <p className="agent-history-mobile-card-warn">Envio incompleto</p>
+                          ) : null}
+                        </button>
+                        {executionHasPayload(execution) ? (
+                          <button
+                            type="button"
+                            className="agent-history-payload-btn"
+                            onClick={(event) => void openHistoryPayload(execution, event)}
+                            aria-label={`Ver payload da coleta de ${when.primary}`}
+                            title="Ver JSON salvo"
+                          >
+                            <FileText size={16} aria-hidden="true" />
+                          </button>
                         ) : null}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -2686,6 +2858,49 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
             ) : null}
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={!!historyPayloadExecution}
+        onClose={closeHistoryPayload}
+        title="Payload da coleta"
+        subtitle={historyPayloadExecution ? formatExecutionWhen(historyPayloadExecution.startedAt).primary : undefined}
+        maxWidth="760px"
+        maxHeight="80vh"
+      >
+        {historyPayloadLoading ? (
+          <div className="agent-history-loading" role="status" aria-live="polite">
+            <span className="spinner-mini" aria-hidden="true" />
+            Carregando payload…
+          </div>
+        ) : historyPayloadError ? (
+          <div className="agent-history-payload-empty-state">
+            <p className="agent-history-empty-title">Não foi possível carregar o payload</p>
+            <p className="agent-history-empty-desc">{historyPayloadError}</p>
+          </div>
+        ) : historyPayloadData.length === 0 ? (
+          <div className="agent-history-payload-empty-state">
+            <p className="agent-history-empty-title">Nenhum payload encontrado</p>
+            <p className="agent-history-empty-desc">
+              Esta execução não tem JSON no MongoDB nem documento textual no MinIO.
+            </p>
+          </div>
+        ) : (
+          <div className="agent-history-payload-list">
+            {historyPayloadData.map((item, index) => (
+              <section key={`${item.kind}-${item.id}-${index}`} className="agent-history-payload-item">
+                <div className="agent-history-payload-item-head">
+                  <strong>{payloadItemTitle(item, index)}</strong>
+                  <span className="agent-history-payload-kind">
+                    {item.kind === 'snapshot' ? 'MongoDB' : 'MinIO'}
+                    {item.contentType ? ` · ${item.contentType}` : ''}
+                  </span>
+                </div>
+                <pre className="agent-history-json-pre">{payloadItemBody(item)}</pre>
+              </section>
+            ))}
+          </div>
+        )}
       </Modal>
     </div>
   );
