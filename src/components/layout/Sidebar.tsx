@@ -11,6 +11,7 @@ import {
   Bot,
   KeyRound,
   Cpu,
+  Database,
   Users,
   X,
   BookOpen,
@@ -38,9 +39,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeClientSystem = hasAdminRole(user?.roles);
   const canSeeAgents = hasAdminRole(user?.roles);
+  const canSeeDataSources = hasAdminRole(user?.roles);
   const canSeeKnowledge = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeKnowledge;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeDataSources || canSeeKnowledge;
 
   return (
     <>
@@ -116,6 +118,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <NavLink to={PATHS.agents} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
                 <Cpu size={18} className="sidebar-icon" />
                 <span>Agents</span>
+              </NavLink>
+            )}
+            {canSeeDataSources && (
+              <NavLink to={PATHS.dataSources} className={({ isActive }) => navClass(isActive)} onClick={onCloseMobile}>
+                <Database size={18} className="sidebar-icon" />
+                <span>Fontes de dados</span>
               </NavLink>
             )}
             {canSeeKnowledge && (

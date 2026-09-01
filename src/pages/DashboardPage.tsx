@@ -14,6 +14,7 @@ import { AuditsView } from '../components/dashboard/AuditsView';
 import { GuardianView } from '../components/dashboard/GuardianView';
 import { ClientSystemView } from '../components/dashboard/ClientSystemView';
 import { AgentsView } from '../components/dashboard/AgentsView';
+import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
@@ -30,6 +31,7 @@ import {
   Bot,
   KeyRound,
   Cpu,
+  Database,
   Users,
   BookOpen,
 } from 'lucide-react';
@@ -304,6 +306,23 @@ export const AgentsPage: React.FC = () => (
       </div>
     </div>
     <AgentsView />
+  </DashboardShell>
+);
+
+export const DataSourcesPage: React.FC = () => (
+  <DashboardShell>
+    <div className="dashboard-header">
+      <div className="dashboard-title-group">
+        <h1 className="dashboard-title">
+          <Database size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          Fontes de dados
+        </h1>
+        <p className="dashboard-subtitle">
+          Templates reutilizáveis para pré-preencher agents. Visível para ADMIN e SYSTEM.
+        </p>
+      </div>
+    </div>
+    <DataSourcesView />
   </DashboardShell>
 );
 

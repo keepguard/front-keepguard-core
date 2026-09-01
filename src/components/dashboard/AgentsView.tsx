@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
@@ -96,6 +96,7 @@ type AgentForm = {
   collectorType: CollectorType;
   dataSourceId: string;
   ticker: string;
+  variableValues: Record<string, string>;
   prompt: string;
   enabled: boolean;
   url: string;
@@ -148,6 +149,7 @@ function emptyForm(): AgentForm {
     collectorType: 'API_REST',
     dataSourceId: '',
     ticker: '',
+    variableValues: {},
     prompt: '',
     enabled: false,
     url: '',
@@ -605,22 +607,32 @@ function asConfigRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function applyPlaceholders(value: string, ticker: string): string {
-  const t = ticker.trim().toUpperCase();
-  if (!t) return value;
-  return value
-    .replaceAll('{{ticker}}', t)
-    .replaceAll('{{ticker_lower}}', t.toLowerCase())
-    .replaceAll('{{symbol}}', `${t}.SA`);
+function applyPlaceholders(value: string, values: Record<string, string>): string {
+  let out = value;
+  const ticker = (values.ticker || '').trim().toUpperCase();
+  if (ticker) {
+    out = out
+      .replaceAll('{{ticker}}', ticker)
+      .replaceAll('{{ticker_lower}}', ticker.toLowerCase())
+      .replaceAll('{{symbol}}', `${ticker}.SA`);
+  }
+  Object.entries(values).forEach(([key, raw]) => {
+    if (!key || key === 'ticker') return;
+    const v = String(raw || '').trim();
+    if (!v) return;
+    out = out.replaceAll(`{{${key}}}`, v);
+    out = out.replaceAll(`{{${key}_lower}}`, v.toLowerCase());
+  });
+  return out;
 }
 
-function applyPlaceholdersDeep(value: unknown, ticker: string): unknown {
-  if (typeof value === 'string') return applyPlaceholders(value, ticker);
-  if (Array.isArray(value)) return value.map((item) => applyPlaceholdersDeep(item, ticker));
+function applyPlaceholdersDeep(value: unknown, values: Record<string, string>): unknown {
+  if (typeof value === 'string') return applyPlaceholders(value, values);
+  if (Array.isArray(value)) return value.map((item) => applyPlaceholdersDeep(item, values));
   if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
-      out[key] = applyPlaceholdersDeep(item, ticker);
+      out[key] = applyPlaceholdersDeep(item, values);
     });
     return out;
   }
@@ -629,10 +641,6 @@ function applyPlaceholdersDeep(value: unknown, ticker: string): unknown {
 
 function tickerFromConfig(cfg: Record<string, unknown>): string {
   return String(cfg.entity_hint || '').trim().toUpperCase().replace(/\.SA$/i, '');
-}
-
-function sourceHasTicker(source: CollectorDataSource | null | undefined): boolean {
-  return Boolean(source?.variables?.some((item) => item.key === 'ticker'));
 }
 
 function dataSourceLabel(name?: string | null): string {
@@ -683,20 +691,23 @@ function formFromCollectorConfig(cfg: Record<string, unknown>, base: AgentForm):
   };
 }
 
-function applyDataSource(base: AgentForm, source: CollectorDataSource, ticker: string): AgentForm {
-  const filled = applyPlaceholdersDeep(asConfigRecord(source.configTemplate), ticker);
+function applyDataSource(base: AgentForm, source: CollectorDataSource, values: Record<string, string>): AgentForm {
+  const ticker = (values.ticker || '').trim().toUpperCase();
+  const resolved = { ...values, ...(ticker ? { ticker } : {}) };
+  const filled = applyPlaceholdersDeep(asConfigRecord(source.configTemplate), resolved);
   const next = formFromCollectorConfig(asConfigRecord(filled), {
     ...base,
     dataSourceId: source.id,
-    ticker: ticker.trim().toUpperCase(),
+    ticker,
+    variableValues: resolved,
     collectorType: (source.collectorType as CollectorType) || 'API_REST',
   });
   const sched = source.defaultSchedule;
   return {
     ...next,
-    name: applyPlaceholders(source.nameTemplate || next.name, ticker),
-    description: applyPlaceholders(source.descriptionTemplate || next.description, ticker),
-    prompt: applyPlaceholders(source.promptTemplate || next.prompt, ticker),
+    name: applyPlaceholders(source.nameTemplate || next.name, resolved),
+    description: applyPlaceholders(source.descriptionTemplate || next.description, resolved),
+    prompt: applyPlaceholders(source.promptTemplate || next.prompt, resolved),
     context: source.defaultContext || next.context,
     daysOfWeek: sched?.daysOfWeek?.length ? sched.daysOfWeek : next.daysOfWeek,
     startTime: sched?.startTime || next.startTime,
@@ -716,6 +727,7 @@ function formFromAgent(agent: CollectorAgent): AgentForm {
     collectorType: (agent.collectorType as CollectorType) || 'API_REST',
     dataSourceId: agent.dataSourceId || '',
     ticker: tickerFromConfig(cfg),
+    variableValues: tickerFromConfig(cfg) ? { ticker: tickerFromConfig(cfg) } : {},
     prompt: agent.prompt || '',
     enabled: agent.enabled,
     daysOfWeek: agent.schedule?.daysOfWeek?.length ? agent.schedule.daysOfWeek : [1, 2, 3, 4, 5],
@@ -1270,6 +1282,8 @@ export const AgentsView: React.FC = () => {
     [dataSources, form.dataSourceId],
   );
 
+  const sourceVariables = selectedSource?.variables || [];
+
   const handleDataSourceChange = (id: string) => {
     if (!id) {
       setForm((current) => ({ ...current, dataSourceId: '', ticker: current.ticker }));
@@ -1277,22 +1291,44 @@ export const AgentsView: React.FC = () => {
     }
     const source = dataSources.find((item) => item.id === id);
     if (!source) return;
-    setForm((current) => applyDataSource(current, source, current.ticker));
+    setForm((current) => {
+      const values: Record<string, string> = { ...current.variableValues };
+      if (current.ticker) values.ticker = current.ticker;
+      (source.variables || []).forEach((item) => {
+        if (values[item.key] === undefined) {
+          values[item.key] = item.key === 'ticker' ? (current.ticker || '') : '';
+        }
+      });
+      return applyDataSource(current, source, values);
+    });
   };
 
-  const handleTickerChange = (ticker: string) => {
+  const handleVariableChange = (key: string, value: string) => {
     setForm((current) => {
+      const nextValue = key === 'ticker' ? value.toUpperCase() : value;
+      const values = { ...current.variableValues, [key]: nextValue };
       const source = dataSources.find((item) => item.id === current.dataSourceId);
-      if (!source) return { ...current, ticker };
-      return applyDataSource(current, source, ticker);
+      if (!source) {
+        return { ...current, variableValues: values, ticker: key === 'ticker' ? nextValue : current.ticker };
+      }
+      return applyDataSource({ ...current, ticker: key === 'ticker' ? nextValue : current.ticker, variableValues: values }, source, values);
     });
   };
 
   const validateStep = (step: FormStep): boolean => {
     if (step === 'identity') {
-      if (selectedSource && sourceHasTicker(selectedSource) && !form.ticker.trim()) {
-        addToast({ type: 'error', title: 'Ticker é obrigatório para esta fonte' });
-        return false;
+      if (selectedSource) {
+        const missing = (selectedSource.variables || []).find((item) => {
+          if (!item.required) return false;
+          const value = item.key === 'ticker'
+            ? (form.variableValues.ticker || form.ticker)
+            : form.variableValues[item.key];
+          return !String(value || '').trim();
+        });
+        if (missing) {
+          addToast({ type: 'error', title: `${missing.label || missing.key} é obrigatório para esta fonte` });
+          return false;
+        }
       }
       if (!form.name.trim()) {
         addToast({ type: 'error', title: 'Nome é obrigatório' });
@@ -2074,7 +2110,10 @@ export const AgentsView: React.FC = () => {
                 onOpenClientSystem={goClientSystem}
               />
               <div className="form-group">
-                <label htmlFor="agent-data-source">Fonte de dados</label>
+                <div className="form-label-row">
+                  <label htmlFor="agent-data-source">Fonte de dados</label>
+                  <Link to={PATHS.dataSources} className="oauth-authorities-count">Nova fonte</Link>
+                </div>
                 <select
                   id="agent-data-source"
                   className="form-input"
@@ -2099,19 +2138,27 @@ export const AgentsView: React.FC = () => {
                   </p>
                 ) : null}
               </div>
-              {sourceHasTicker(selectedSource) ? (
-                <div className="form-group">
-                  <label htmlFor="agent-ticker">Ticker</label>
-                  <input
-                    id="agent-ticker"
-                    className="form-input"
-                    value={form.ticker}
-                    onChange={(e) => handleTickerChange(e.target.value.toUpperCase())}
-                    placeholder={selectedSource?.variables?.find((item) => item.key === 'ticker')?.placeholder || 'PETR4'}
-                    autoFocus
-                    required
-                  />
-                </div>
+              {sourceVariables.length > 0 ? (
+                sourceVariables.map((item, index) => {
+                  const fieldId = `agent-var-${item.key}`;
+                  const value = item.key === 'ticker'
+                    ? (form.variableValues.ticker || form.ticker)
+                    : (form.variableValues[item.key] || '');
+                  return (
+                    <div className="form-group" key={item.key}>
+                      <label htmlFor={fieldId}>{item.label || item.key}</label>
+                      <input
+                        id={fieldId}
+                        className="form-input"
+                        value={value}
+                        onChange={(e) => handleVariableChange(item.key, e.target.value)}
+                        placeholder={item.placeholder || item.key}
+                        autoFocus={index === 0}
+                        required={item.required}
+                      />
+                    </div>
+                  );
+                })
               ) : null}
               <div className="form-group">
                 <label htmlFor="agent-name">Nome</label>
@@ -2122,7 +2169,7 @@ export const AgentsView: React.FC = () => {
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="Ex.: scraper-noticias-diarias"
                   required
-                  autoFocus={!sourceHasTicker(selectedSource)}
+                  autoFocus={sourceVariables.length === 0}
                 />
               </div>
               <div className="form-group">

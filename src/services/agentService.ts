@@ -194,8 +194,13 @@ export interface CollectorDataSourceVariable {
   placeholder?: string;
 }
 
+export type DataSourceScope = 'keepguard' | 'company';
+
 export interface CollectorDataSource {
   id: string;
+  code?: string;
+  companyId?: string;
+  scope?: DataSourceScope | string;
   slug: string;
   name: string;
   description?: string;
@@ -209,12 +214,77 @@ export interface CollectorDataSource {
   configTemplate?: Record<string, unknown> | null;
   variables?: CollectorDataSourceVariable[];
   notes?: string;
+  enabled?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export function listCollectorDataSources(token: string): Promise<CollectorDataSource[]> {
+export interface CreateCollectorDataSourceBody {
+  name: string;
+  slug: string;
+  description?: string;
+  websiteUrl?: string;
+  collectorType: string;
+  nameTemplate?: string;
+  descriptionTemplate?: string;
+  promptTemplate?: string;
+  defaultContext?: string;
+  defaultSchedule: CollectorSchedule;
+  configTemplate: Record<string, unknown>;
+  variables?: CollectorDataSourceVariable[];
+  notes?: string;
+  enabled?: boolean;
+}
+
+export interface UpdateCollectorDataSourceBody {
+  name?: string;
+  slug?: string;
+  description?: string;
+  websiteUrl?: string;
+  nameTemplate?: string;
+  descriptionTemplate?: string;
+  promptTemplate?: string;
+  defaultContext?: string;
+  defaultSchedule?: CollectorSchedule;
+  configTemplate?: Record<string, unknown>;
+  variables?: CollectorDataSourceVariable[];
+  notes?: string;
+}
+
+const dataSourcesBase = `${BFF_CORE_URL}/api/v1/core/collector/data-sources`;
+
+export function listCollectorDataSources(
+  token: string,
+  opts?: { includeDisabled?: boolean },
+): Promise<CollectorDataSource[]> {
+  const query = opts?.includeDisabled ? '?includeDisabled=true' : '';
   return customFetch<CollectorDataSource[]>(
-    `${BFF_CORE_URL}/api/v1/core/collector/data-sources`,
+    `${dataSourcesBase}${query}`,
     { method: 'GET' },
     token,
   );
+}
+
+export function getCollectorDataSource(id: string, token: string): Promise<CollectorDataSource> {
+  return customFetch<CollectorDataSource>(`${dataSourcesBase}/${id}`, { method: 'GET' }, token);
+}
+
+export function createCollectorDataSource(body: CreateCollectorDataSourceBody, token: string): Promise<CollectorDataSource> {
+  return customFetch<CollectorDataSource>(dataSourcesBase, { method: 'POST', body: JSON.stringify(body) }, token);
+}
+
+export function updateCollectorDataSource(id: string, body: UpdateCollectorDataSourceBody, token: string): Promise<CollectorDataSource> {
+  return customFetch<CollectorDataSource>(`${dataSourcesBase}/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token);
+}
+
+export function enableCollectorDataSource(id: string, token: string): Promise<CollectorDataSource> {
+  return customFetch<CollectorDataSource>(`${dataSourcesBase}/${id}/enable`, { method: 'POST' }, token);
+}
+
+export function disableCollectorDataSource(id: string, token: string): Promise<CollectorDataSource> {
+  return customFetch<CollectorDataSource>(`${dataSourcesBase}/${id}/disable`, { method: 'POST' }, token);
+}
+
+export function deleteCollectorDataSource(id: string, token: string): Promise<void> {
+  return customFetch<void>(`${dataSourcesBase}/${id}`, { method: 'DELETE' }, token);
 }

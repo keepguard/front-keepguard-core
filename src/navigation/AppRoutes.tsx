@@ -5,6 +5,7 @@ import {
   AccountPage,
   AdminBlacklistPage,
   AgentsPage,
+  DataSourcesPage,
   AuditsPage,
   ClientSystemPage,
   ConnectionsPage,
@@ -79,6 +80,14 @@ export const AppRoutes: React.FC = () => {
           element={(
             <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM gerenciam agents.">
               <AgentsPage />
+            </RequireAccess>
+          )}
+        />
+        <Route
+          path={PATHS.dataSources}
+          element={(
+            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM gerenciam fontes de dados.">
+              <DataSourcesPage />
             </RequireAccess>
           )}
         />
