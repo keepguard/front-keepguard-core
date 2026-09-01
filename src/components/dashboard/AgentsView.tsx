@@ -50,6 +50,7 @@ type Filters = {
   q: string;
   enabled: '' | 'true' | 'false';
   collectorType: '' | CollectorType;
+  dataSourceId: string;
   sort: 'createdAt' | 'name' | 'enabled' | 'collectorType';
   dir: 'asc' | 'desc';
 };
@@ -934,6 +935,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     q: '',
     enabled: '',
     collectorType: '',
+    dataSourceId: '',
     sort: 'createdAt',
     dir: 'desc',
   });
@@ -1021,6 +1023,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         q: nextFilters.q,
         enabled: nextFilters.enabled || undefined,
         collectorType: nextFilters.collectorType || undefined,
+        dataSourceId: nextFilters.dataSourceId || undefined,
         page: nextPage,
         size: 20,
         sort: nextFilters.sort,
@@ -1609,6 +1612,20 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
           </div>
           <select
             className="form-input audits-compact-select"
+            value={filters.dataSourceId}
+            onChange={(e) => setFilters((f) => ({ ...f, dataSourceId: e.target.value }))}
+            aria-label="Fonte"
+          >
+            <option value="">Todas as fontes</option>
+            <option value="none">Personalizada</option>
+            {dataSources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-input audits-compact-select"
             value={filters.collectorType}
             onChange={(e) => setFilters((f) => ({ ...f, collectorType: e.target.value as Filters['collectorType'] }))}
             aria-label="Tipo"
@@ -1658,8 +1675,8 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         <table className="hpanel-table">
           <thead>
             <tr>
-              <th>Nome</th>
               <th>Fonte</th>
+              <th>Nome</th>
               <th>Tipo</th>
               <th>Status</th>
               <th>Agenda</th>
@@ -1690,11 +1707,11 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                   className={`agent-row-clickable${actionsMenuId === item.id ? ' has-open-menu' : ''}`}
                   onClick={() => openHistory(item)}
                 >
+                  <td>{dataSourceLabel(item.dataSourceName)}</td>
                   <td>
                     <span className="table-cell-title" title={item.name}>{item.name}</span>
                     {item.description ? <div className="table-cell-muted">{item.description}</div> : null}
                   </td>
-                  <td>{dataSourceLabel(item.dataSourceName)}</td>
                   <td>{typeLabel(item.collectorType)}</td>
                   <td>
                     <span className="badge-role" style={item.enabled
@@ -1721,6 +1738,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
             className={`mobile-domain-card agent-row-clickable${actionsMenuId === item.id ? ' has-open-menu' : ''}`}
             onClick={() => openHistory(item)}
           >
+            <div className="mobile-card-subinfo">{dataSourceLabel(item.dataSourceName)}</div>
             <div className="mobile-card-top">
               <span className="mobile-domain-name">{item.name}</span>
               <span
@@ -1733,7 +1751,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
               </span>
             </div>
             <div className="mobile-card-subinfo">
-              {dataSourceLabel(item.dataSourceName)} · {typeLabel(item.collectorType)} · {formatDate(item.createdAt)}
+              {typeLabel(item.collectorType)} · {formatDate(item.createdAt)}
             </div>
             <div className="mobile-card-meta">{scheduleSummary(item.schedule)}</div>
             <div className="mobile-card-actions">{renderActions(item)}</div>

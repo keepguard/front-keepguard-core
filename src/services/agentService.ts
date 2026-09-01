@@ -43,6 +43,7 @@ export interface SearchCollectorAgentsParams {
   q?: string;
   enabled?: string;
   collectorType?: string;
+  dataSourceId?: string;
   page?: number;
   size?: number;
   sort?: string;
@@ -92,6 +93,7 @@ export function searchCollectorAgents(params: SearchCollectorAgentsParams, token
       q: params.q,
       enabled: params.enabled,
       collectorType: params.collectorType,
+      dataSourceId: params.dataSourceId,
       page: params.page,
       size: params.size,
       sort: params.sort,

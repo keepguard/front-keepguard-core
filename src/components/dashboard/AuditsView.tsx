@@ -450,6 +450,7 @@ export const AuditsView: React.FC = () => {
         <table className="hpanel-table">
           <thead>
             <tr>
+              <th>Fonte</th>
               <th>
                 <button type="button" className="th-sort" onClick={() => toggleSort('occurredAt')}>
                   Quando {sortIcon('occurredAt')}
@@ -470,7 +471,6 @@ export const AuditsView: React.FC = () => {
                   Recurso {sortIcon('resource')}
                 </button>
               </th>
-              <th>Fonte</th>
               <th>
                 <button type="button" className="th-sort" onClick={() => toggleSort('outcome')}>
                   Resultado {sortIcon('outcome')}
@@ -506,6 +506,9 @@ export const AuditsView: React.FC = () => {
                   onClick={() => openDetail(event)}
                   style={{ cursor: 'pointer' }}
                 >
+                  <td>
+                    <span className="id-compact">{metadataDataSourceName(event.metadata)}</span>
+                  </td>
                   <td>{formatDate(event.occurredAt)}</td>
                   <td>
                     <span className="id-compact" title={event.actor?.codeUser || event.actor?.type}>
@@ -520,9 +523,6 @@ export const AuditsView: React.FC = () => {
                       {event.resource?.type || '—'}
                       {event.resource?.id ? ` · ${compactId(event.resource.id)}` : ''}
                     </span>
-                  </td>
-                  <td>
-                    <span className="id-compact">{metadataDataSourceName(event.metadata)}</span>
                   </td>
                   <td>
                     <span className="badge-role" style={outcomeStyle(event.outcome)}>
@@ -548,6 +548,11 @@ export const AuditsView: React.FC = () => {
             onClick={() => openDetail(event)}
             style={{ textAlign: 'left', width: '100%', border: 'none', background: 'inherit' }}
           >
+            <div className="mobile-card-subinfo">
+              {metadataDataSourceName(event.metadata) !== '—'
+                ? metadataDataSourceName(event.metadata)
+                : '—'}
+            </div>
             <div className="mobile-card-top">
               <span className="mobile-domain-name">{event.action}</span>
               <span className="badge-role" style={outcomeStyle(event.outcome)}>
@@ -557,9 +562,6 @@ export const AuditsView: React.FC = () => {
             <div className="mobile-card-subinfo">{formatDate(event.occurredAt)}</div>
             <div className="mobile-card-meta">
               {event.actor?.codeUser || event.actor?.type} · {event.sourceService}
-              {metadataDataSourceName(event.metadata) !== '—'
-                ? ` · ${metadataDataSourceName(event.metadata)}`
-                : ''}
             </div>
           </button>
         ))}
