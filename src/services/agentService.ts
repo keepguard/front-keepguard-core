@@ -196,6 +196,65 @@ export interface CollectorDataSourceVariable {
 
 export type DataSourceScope = 'company';
 
+export interface CollectorRateLimit {
+  maxRequestsPerMinute: number;
+  maxConcurrent: number;
+  minIntervalMs: number;
+  burst: number;
+}
+
+/** Corpo JSON da API do collector (snake_case interno). */
+export interface CollectorRateLimitPayload {
+  max_requests_per_minute: number;
+  max_concurrent: number;
+  min_interval_ms: number;
+  burst: number;
+}
+
+export const DEFAULT_COLLECTOR_RATE_LIMIT: CollectorRateLimit = {
+  maxRequestsPerMinute: 20,
+  maxConcurrent: 2,
+  minIntervalMs: 500,
+  burst: 5,
+};
+
+function positiveInt(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
+export function parseCollectorRateLimit(raw: unknown): CollectorRateLimit {
+  if (!raw || typeof raw !== 'object') {
+    return { ...DEFAULT_COLLECTOR_RATE_LIMIT };
+  }
+  const row = raw as Record<string, unknown>;
+  return {
+    maxRequestsPerMinute: positiveInt(
+      row.maxRequestsPerMinute ?? row.max_requests_per_minute,
+      DEFAULT_COLLECTOR_RATE_LIMIT.maxRequestsPerMinute,
+    ),
+    maxConcurrent: positiveInt(
+      row.maxConcurrent ?? row.max_concurrent,
+      DEFAULT_COLLECTOR_RATE_LIMIT.maxConcurrent,
+    ),
+    minIntervalMs: positiveInt(
+      row.minIntervalMs ?? row.min_interval_ms,
+      DEFAULT_COLLECTOR_RATE_LIMIT.minIntervalMs,
+    ),
+    burst: positiveInt(row.burst, DEFAULT_COLLECTOR_RATE_LIMIT.burst),
+  };
+}
+
+export function toCollectorRateLimitPayload(limit: CollectorRateLimit): CollectorRateLimitPayload {
+  return {
+    max_requests_per_minute: limit.maxRequestsPerMinute,
+    max_concurrent: limit.maxConcurrent,
+    min_interval_ms: limit.minIntervalMs,
+    burst: limit.burst,
+  };
+}
+
 export interface CollectorDataSource {
   id: string;
   code?: string;
@@ -215,6 +274,7 @@ export interface CollectorDataSource {
   variables?: CollectorDataSourceVariable[];
   notes?: string;
   enabled?: boolean;
+  rateLimit?: CollectorRateLimit | CollectorRateLimitPayload | Record<string, unknown> | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -234,6 +294,7 @@ export interface CreateCollectorDataSourceBody {
   variables?: CollectorDataSourceVariable[];
   notes?: string;
   enabled?: boolean;
+  rateLimit?: CollectorRateLimitPayload;
 }
 
 export interface UpdateCollectorDataSourceBody {
@@ -249,6 +310,7 @@ export interface UpdateCollectorDataSourceBody {
   configTemplate?: Record<string, unknown>;
   variables?: CollectorDataSourceVariable[];
   notes?: string;
+  rateLimit?: CollectorRateLimitPayload;
 }
 
 const dataSourcesBase = `${BFF_CORE_URL}/api/v1/core/collector/data-sources`;

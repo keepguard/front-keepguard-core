@@ -22,10 +22,14 @@ import {
   disableCollectorDataSource,
   enableCollectorDataSource,
   listCollectorDataSources,
+  parseCollectorRateLimit,
   searchCollectorAgents,
+  toCollectorRateLimitPayload,
   updateCollectorDataSource,
+  DEFAULT_COLLECTOR_RATE_LIMIT,
   type CollectorDataSource,
   type CollectorDataSourceVariable,
+  type CollectorRateLimit,
   type CollectorSchedule,
   type CollectorType,
   type CreateCollectorDataSourceBody,
@@ -79,6 +83,10 @@ type SourceForm = {
   endTime: string;
   intervalMinutes: string;
   timezone: string;
+  maxRequestsPerMinute: string;
+  maxConcurrent: string;
+  minIntervalMs: string;
+  burst: string;
 };
 
 const WEEKDAYS = [
@@ -94,7 +102,7 @@ const WEEKDAYS = [
 const FORM_STEPS: Array<{ id: FormStep; label: string; hint: string }> = [
   { id: 'identity', label: 'Identidade', hint: 'Nome, slug e variáveis' },
   { id: 'collector', label: 'Coleta', hint: 'URL e config' },
-  { id: 'defaults', label: 'Padrões', hint: 'Templates e agenda' },
+  { id: 'defaults', label: 'Padrões', hint: 'Templates, agenda e limite' },
 ];
 
 function newId(prefix: string): string {
@@ -150,6 +158,10 @@ function emptyForm(): SourceForm {
     endTime: '17:00',
     intervalMinutes: '60',
     timezone: 'America/Sao_Paulo',
+    maxRequestsPerMinute: String(DEFAULT_COLLECTOR_RATE_LIMIT.maxRequestsPerMinute),
+    maxConcurrent: String(DEFAULT_COLLECTOR_RATE_LIMIT.maxConcurrent),
+    minIntervalMs: String(DEFAULT_COLLECTOR_RATE_LIMIT.minIntervalMs),
+    burst: String(DEFAULT_COLLECTOR_RATE_LIMIT.burst),
   };
 }
 
@@ -163,6 +175,51 @@ function typeLabel(type?: string): string {
 function variablesLabel(source: CollectorDataSource): string {
   const keys = (source.variables || []).map((item) => item.key).filter(Boolean);
   return keys.length ? keys.join(', ') : '—';
+}
+
+function formatIntervalMs(ms: number): string {
+  if (ms >= 1000) {
+    const seconds = ms / 1000;
+    return `${seconds.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}s`;
+  }
+  return `${ms}ms`;
+}
+
+function rateLimitLabel(source: CollectorDataSource): string {
+  const limit = parseCollectorRateLimit(source.rateLimit);
+  return `${limit.maxRequestsPerMinute}/min · ${formatIntervalMs(limit.minIntervalMs)}`;
+}
+
+function rateLimitTitle(source: CollectorDataSource): string {
+  const limit = parseCollectorRateLimit(source.rateLimit);
+  return [
+    `${limit.maxRequestsPerMinute} req/min`,
+    `${limit.maxConcurrent} simultânea(s)`,
+    `intervalo ${formatIntervalMs(limit.minIntervalMs)}`,
+    `burst ${limit.burst}`,
+  ].join(' · ');
+}
+
+function parsePositiveInt(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
+function buildRateLimit(form: SourceForm): CollectorRateLimit | null {
+  const maxRequestsPerMinute = parsePositiveInt(form.maxRequestsPerMinute);
+  const maxConcurrent = parsePositiveInt(form.maxConcurrent);
+  const minIntervalMs = parsePositiveInt(form.minIntervalMs);
+  const burst = parsePositiveInt(form.burst);
+  if (!maxRequestsPerMinute || !maxConcurrent || !minIntervalMs || !burst) return null;
+  return { maxRequestsPerMinute, maxConcurrent, minIntervalMs, burst };
+}
+
+function effectiveRatePerMinute(limit: CollectorRateLimit): number {
+  const fromInterval = Math.floor(60_000 / limit.minIntervalMs);
+  return Math.min(limit.maxRequestsPerMinute, fromInterval);
 }
 
 function pairsToMap(entries: KeyValueEntry[]): Record<string, string> {
@@ -282,6 +339,7 @@ function formFromSource(source: CollectorDataSource): SourceForm {
   const authTypeRaw = String(auth.type || 'NONE').toUpperCase();
   const authType: AuthType = authTypeRaw === 'STATIC_BEARER' || authTypeRaw === 'LOGIN_PASSWORD' ? authTypeRaw : 'NONE';
   const sched = source.defaultSchedule;
+  const limit = parseCollectorRateLimit(source.rateLimit);
   return {
     ...emptyForm(),
     name: source.name || '',
@@ -321,10 +379,15 @@ function formFromSource(source: CollectorDataSource): SourceForm {
     endTime: sched?.endTime || '17:00',
     intervalMinutes: String(sched?.intervalMinutes || 60),
     timezone: sched?.timezone || 'America/Sao_Paulo',
+    maxRequestsPerMinute: String(limit.maxRequestsPerMinute),
+    maxConcurrent: String(limit.maxConcurrent),
+    minIntervalMs: String(limit.minIntervalMs),
+    burst: String(limit.burst),
   };
 }
 
 function toCreateBody(form: SourceForm): CreateCollectorDataSourceBody {
+  const rateLimit = buildRateLimit(form) || DEFAULT_COLLECTOR_RATE_LIMIT;
   return {
     name: form.name.trim(),
     slug: form.slug.trim(),
@@ -347,6 +410,7 @@ function toCreateBody(form: SourceForm): CreateCollectorDataSourceBody {
       .filter((item) => item.key),
     notes: form.notes.trim() || undefined,
     enabled: true,
+    rateLimit: toCollectorRateLimitPayload(rateLimit),
   };
 }
 
@@ -468,6 +532,7 @@ export const DataSourcesView: React.FC = () => {
         variables: normalizeVariables(source.variables),
         enabled: source.enabled !== false,
         scope: source.scope || 'company',
+        rateLimit: parseCollectorRateLimit(source.rateLimit),
       }));
       setItems(mapped);
       const counts: Record<string, number> = {};
@@ -555,6 +620,9 @@ export const DataSourcesView: React.FC = () => {
       if (!form.daysOfWeek.length) return 'Selecione ao menos um dia.';
       if (form.startTime >= form.endTime) return 'O horário inicial deve ser anterior ao final.';
       if (Number(form.intervalMinutes) <= 0) return 'Intervalo deve ser positivo.';
+      if (!buildRateLimit(form)) {
+        return 'Rate limit: use números inteiros maiores que zero (req/min, simultâneas, intervalo e burst).';
+      }
     }
     return null;
   };
@@ -602,7 +670,7 @@ export const DataSourcesView: React.FC = () => {
       if (editing) {
         const previousTemplate = (editing.configTemplate || {}) as Record<string, unknown>;
         const next = await updateCollectorDataSource(editing.id, body, token);
-        setItems((current) => current.map((item) => (item.id === next.id ? { ...item, ...next, variables: normalizeVariables(next.variables) } : item)));
+        setItems((current) => current.map((item) => (item.id === next.id ? { ...item, ...next, variables: normalizeVariables(next.variables), rateLimit: parseCollectorRateLimit(next.rateLimit) } : item)));
         const groups = changedFieldGroups(previousTemplate, body.configTemplate);
         setFormOpen(false);
         if (groups.length > 0) {
@@ -629,7 +697,7 @@ export const DataSourcesView: React.FC = () => {
         }
       } else {
         const created = await createCollectorDataSource(body, token);
-        setItems((current) => [{ ...created, variables: normalizeVariables(created.variables), enabled: created.enabled !== false, scope: created.scope || 'company' }, ...current]);
+        setItems((current) => [{ ...created, variables: normalizeVariables(created.variables), enabled: created.enabled !== false, scope: created.scope || 'company', rateLimit: parseCollectorRateLimit(created.rateLimit) }, ...current]);
         addToast({ type: 'success', title: 'Fonte cadastrada', description: 'Ela já aparece no combo de agents.' });
       }
       setFormOpen(false);
@@ -701,10 +769,12 @@ export const DataSourcesView: React.FC = () => {
   };
 
   const disabled = submitting;
+  const draftRateLimit = buildRateLimit(form);
+  const draftEffectiveRate = draftRateLimit ? effectiveRatePerMinute(draftRateLimit) : null;
 
   const renderRowActions = (item: CollectorDataSource) => (
     <div className="table-actions-group" style={{ justifyContent: 'flex-end' }}>
-      <Tooltip label="Editar" description="Altera URL, variáveis e agenda do template.">
+      <Tooltip label="Editar" description="Altera URL, variáveis, agenda e limite de requisições da fonte.">
         <button type="button" className="btn-table-icon" aria-label={`Editar ${item.name}`} onClick={() => openEdit(item)}>
           <Pencil size={15} />
         </button>
@@ -808,6 +878,7 @@ export const DataSourcesView: React.FC = () => {
               <th>Nome</th>
               <th>Slug</th>
               <th>Tipo</th>
+              <th>Limite da fonte</th>
               <th>Variáveis</th>
               <th>Agents</th>
               <th>Status</th>
@@ -817,11 +888,11 @@ export const DataSourcesView: React.FC = () => {
           <tbody>
             {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>Carregando fontes...</td>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>Carregando fontes...</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <Database size={22} />
                     <span>
@@ -841,6 +912,7 @@ export const DataSourcesView: React.FC = () => {
                   </td>
                   <td><span className="id-compact">{item.slug}</span></td>
                   <td>{typeLabel(item.collectorType)}</td>
+                  <td><span className="id-compact" title={rateLimitTitle(item)}>{rateLimitLabel(item)}</span></td>
                   <td><span className="id-compact">{variablesLabel(item)}</span></td>
                   <td>
                     <button
@@ -881,7 +953,7 @@ export const DataSourcesView: React.FC = () => {
                 {item.enabled !== false ? 'Ativo' : 'Inativo'}
               </span>
             </div>
-            <div className="mobile-card-subinfo">{typeLabel(item.collectorType)} · {variablesLabel(item)} · {agentCounts[item.id] ?? 0} agents</div>
+            <div className="mobile-card-subinfo">{typeLabel(item.collectorType)} · {rateLimitLabel(item)} · {variablesLabel(item)} · {agentCounts[item.id] ?? 0} agents</div>
             <div className="mobile-card-actions table-actions-group">{renderRowActions(item)}</div>
           </div>
         ))}
@@ -1223,6 +1295,82 @@ export const DataSourcesView: React.FC = () => {
                   <label htmlFor="ds-tz">Timezone</label>
                   <input id="ds-tz" className="form-input" value={form.timezone} disabled={disabled} onChange={(e) => setFormField('timezone', e.target.value)} required />
                 </div>
+              </div>
+              <p className="agent-form-panel-intro" style={{ marginTop: '0.35rem' }}>
+                Limite de requisições compartilhado por todos os agents desta fonte. Se não houver slot, o job espera 15s e tenta de novo — evita bloqueio pela origem.
+              </p>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="ds-rpm">Req. por minuto</label>
+                  <input
+                    id="ds-rpm"
+                    className="form-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={form.maxRequestsPerMinute}
+                    disabled={disabled}
+                    onChange={(e) => setFormField('maxRequestsPerMinute', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="ds-concurrent">Simultâneas</label>
+                  <input
+                    id="ds-concurrent"
+                    className="form-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={form.maxConcurrent}
+                    disabled={disabled}
+                    onChange={(e) => setFormField('maxConcurrent', e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="ds-interval-ms">Intervalo mín. (ms)</label>
+                  <input
+                    id="ds-interval-ms"
+                    className="form-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={form.minIntervalMs}
+                    disabled={disabled}
+                    onChange={(e) => setFormField('minIntervalMs', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="ds-burst">Burst</label>
+                  <input
+                    id="ds-burst"
+                    className="form-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={form.burst}
+                    disabled={disabled}
+                    onChange={(e) => setFormField('burst', e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="agent-form-summary">
+                {draftRateLimit && draftEffectiveRate != null ? (
+                  <>
+                    Limite efetivo: até <strong>{draftEffectiveRate} req/min</strong>
+                    {' '}({draftRateLimit.maxConcurrent} simultânea{draftRateLimit.maxConcurrent === 1 ? '' : 's'},
+                    intervalo {formatIntervalMs(draftRateLimit.minIntervalMs)}, burst {draftRateLimit.burst}).
+                    {' '}Ex.: 10 agents com este limite cabem cerca de 1 coleta a cada{' '}
+                    <strong>{Math.max(1, Math.ceil(10 / draftEffectiveRate))} min</strong> por agent.
+                  </>
+                ) : (
+                  <>Informe números inteiros maiores que zero para calcular o limite efetivo.</>
+                )}
               </div>
             </div>
           ) : null}
