@@ -1,11 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertCircle,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
+  ChevronUp,
   Cpu,
   FlaskConical,
   History,
+  Inbox,
   KeyRound,
   MoreVertical,
   Pencil,
@@ -17,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { RefreshCombo } from '../common/RefreshCombo';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -210,11 +216,79 @@ function executionDuration(item: CollectorExecution): string {
   return `${Math.round(ms / 60_000)} min`;
 }
 
-function truncateError(message?: string, max = 80): string {
-  const text = (message || '').trim();
-  if (!text) return '—';
-  if (text.length <= max) return text;
-  return `${text.slice(0, max)}…`;
+function formatExecutionWhen(isoDate?: string): { primary: string; secondary: string } {
+  if (!isoDate) return { primary: '—', secondary: '' };
+  try {
+    const date = new Date(isoDate);
+    const primary = date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const secondary = date.toLocaleString('pt-BR', { weekday: 'short' });
+    return { primary, secondary };
+  } catch {
+    return { primary: isoDate, secondary: '' };
+  }
+}
+
+type HistorySortKey = 'startedAt' | 'duration' | 'status' | 'itemsCollected' | 'itemsUploaded';
+type HistorySortDir = 'asc' | 'desc';
+type HistoryStatusFilter = '' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'RUNNING';
+
+const HISTORY_PAGE_SIZE = 10;
+
+function executionDurationMs(item: CollectorExecution): number {
+  if ((item.status || '').toUpperCase() === 'RUNNING' || !item.finishedAt) {
+    return -1;
+  }
+  const start = new Date(item.startedAt).getTime();
+  const end = new Date(item.finishedAt).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    return 0;
+  }
+  return end - start;
+}
+
+function compareHistoryExecutions(a: CollectorExecution, b: CollectorExecution, key: HistorySortKey): number {
+  switch (key) {
+    case 'startedAt':
+      return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+    case 'duration':
+      return executionDurationMs(a) - executionDurationMs(b);
+    case 'status':
+      return executionStatusLabel(a.status).localeCompare(executionStatusLabel(b.status), 'pt-BR');
+    case 'itemsCollected':
+      return a.itemsCollected - b.itemsCollected;
+    case 'itemsUploaded':
+      return a.itemsUploaded - b.itemsUploaded;
+    default:
+      return 0;
+  }
+}
+
+function compactExecutionId(value?: string): string {
+  if (!value) return '—';
+  const trimmed = value.trim();
+  if (trimmed.length <= 14) return trimmed;
+  return `${trimmed.slice(0, 8)}…${trimmed.slice(-4)}`;
+}
+
+function executionSummary(items: CollectorExecution[]) {
+  const normalized = items.map((item) => (item.status || '').toUpperCase());
+  const success = normalized.filter((status) => status === 'SUCCESS').length;
+  const completed = normalized.filter((status) => status !== 'RUNNING').length;
+  return {
+    total: items.length,
+    success,
+    failed: normalized.filter((status) => status === 'FAILED').length,
+    partial: normalized.filter((status) => status === 'PARTIAL').length,
+    running: normalized.filter((status) => status === 'RUNNING').length,
+    successRate: completed > 0 ? Math.round((success / completed) * 100) : null,
+    last: items[0],
+  };
 }
 
 function typeLabel(type?: string): string {
@@ -793,8 +867,16 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
   const [historyAgent, setHistoryAgent] = useState<CollectorAgent | null>(null);
   const [historyItems, setHistoryItems] = useState<CollectorExecution[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRefreshing, setHistoryRefreshing] = useState(false);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<HistoryStatusFilter>('');
+  const [historySortKey, setHistorySortKey] = useState<HistorySortKey | null>(null);
+  const [historySortDir, setHistorySortDir] = useState<HistorySortDir>('desc');
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyDetail, setHistoryDetail] = useState<CollectorExecution | null>(null);
   const [actionsMenuId, setActionsMenuId] = useState<string | null>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const historyItemsRef = useRef(historyItems);
+  historyItemsRef.current = historyItems;
 
   useEffect(() => {
     if (!actionsMenuId) return;
@@ -1092,26 +1174,115 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     }
   };
 
+  const loadHistoryData = useCallback(async (agentId: string, silent = false) => {
+    const token = getAccessToken();
+    if (!token) return;
+    if (silent) {
+      setHistoryRefreshing(true);
+    } else {
+      setHistoryLoading(true);
+    }
+    try {
+      const executions = await listCollectorAgentExecutions(agentId, token);
+      setHistoryItems(Array.isArray(executions) ? executions : []);
+    } catch (error) {
+      if (!silent) {
+        setHistoryAgent(null);
+        addToast({
+          type: 'error',
+          title: 'Falha ao carregar histórico',
+          description: error instanceof Error ? error.message : 'Tente novamente.',
+        });
+      }
+    } finally {
+      setHistoryLoading(false);
+      setHistoryRefreshing(false);
+    }
+  }, [addToast, getAccessToken]);
+
+  const closeHistory = () => {
+    setHistoryAgent(null);
+    setHistoryItems([]);
+    setHistoryDetail(null);
+    setHistoryPage(0);
+    setHistoryStatusFilter('');
+    setHistorySortKey(null);
+    setHistorySortDir('desc');
+  };
+
   const openHistory = async (item: CollectorAgent, event?: React.MouseEvent) => {
     event?.stopPropagation();
     const token = getAccessToken();
     if (!token) return;
     setHistoryAgent(item);
     setHistoryItems([]);
-    setHistoryLoading(true);
-    try {
-      const executions = await listCollectorAgentExecutions(item.id, token);
-      setHistoryItems(Array.isArray(executions) ? executions : []);
-    } catch (error) {
-      setHistoryAgent(null);
-      addToast({
-        type: 'error',
-        title: 'Falha ao carregar histórico',
-        description: error instanceof Error ? error.message : 'Tente novamente.',
-      });
-    } finally {
-      setHistoryLoading(false);
+    setHistoryDetail(null);
+    setHistoryPage(0);
+    setHistoryStatusFilter('');
+    setHistorySortKey(null);
+    setHistorySortDir('desc');
+    await loadHistoryData(item.id, false);
+  };
+
+  useEffect(() => {
+    if (!historyAgent) return undefined;
+    const intervalId = window.setInterval(() => {
+      const hasRunning = historyItemsRef.current.some(
+        (item) => (item.status || '').toUpperCase() === 'RUNNING',
+      );
+      if (hasRunning) {
+        void loadHistoryData(historyAgent.id, true);
+      }
+    }, 4000);
+    return () => window.clearInterval(intervalId);
+  }, [historyAgent, loadHistoryData]);
+
+  const historyFiltered = useMemo(() => {
+    if (!historyStatusFilter) return historyItems;
+    return historyItems.filter(
+      (item) => (item.status || '').toUpperCase() === historyStatusFilter,
+    );
+  }, [historyItems, historyStatusFilter]);
+
+  const historySorted = useMemo(() => {
+    if (!historySortKey) return historyFiltered;
+    const sorted = [...historyFiltered].sort((a, b) => compareHistoryExecutions(a, b, historySortKey));
+    return historySortDir === 'asc' ? sorted : sorted.reverse();
+  }, [historyFiltered, historySortKey, historySortDir]);
+
+  const historyTotalPages = Math.max(1, Math.ceil(historySorted.length / HISTORY_PAGE_SIZE));
+
+  const historyDisplayed = useMemo(() => {
+    const start = historyPage * HISTORY_PAGE_SIZE;
+    return historySorted.slice(start, start + HISTORY_PAGE_SIZE);
+  }, [historySorted, historyPage]);
+
+  useEffect(() => {
+    setHistoryPage(0);
+  }, [historyStatusFilter, historySortKey, historySortDir]);
+
+  useEffect(() => {
+    if (historyPage > historyTotalPages - 1) {
+      setHistoryPage(Math.max(historyTotalPages - 1, 0));
     }
+  }, [historyPage, historyTotalPages]);
+
+  const toggleHistorySort = (key: HistorySortKey) => {
+    if (historySortKey === key) {
+      setHistorySortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setHistorySortKey(key);
+    setHistorySortDir(key === 'startedAt' || key === 'duration' ? 'desc' : 'asc');
+  };
+
+  const historySortIcon = (key: HistorySortKey) => {
+    if (historySortKey !== key) return <ChevronsUpDown size={13} />;
+    return historySortDir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />;
+  };
+
+  const openHistoryDetail = (execution: CollectorExecution) => {
+    setHistoryDetail(execution);
   };
 
   const handleDelete = async () => {
@@ -1891,56 +2062,412 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
 
       <Modal
         isOpen={!!historyAgent}
-        onClose={() => {
-          if (historyLoading) return;
-          setHistoryAgent(null);
-          setHistoryItems([]);
-        }}
+        onClose={closeHistory}
         title="Histórico de coletas"
         subtitle={historyAgent?.name}
-        maxWidth="860px"
-        maxHeight="min(90vh, 720px)"
+        maxWidth="min(96vw, 1100px)"
+        maxHeight="min(92vh, 820px)"
+        footer={
+          !historyLoading && historyItems.length > 0 ? (
+            <div className="agent-history-footer">
+              <p className="agent-history-footer-note">
+                {historyStatusFilter
+                  ? `${historyFiltered.length} de ${historyItems.length} execuções (filtro ativo)`
+                  : `Últimas ${historyItems.length} execuções`}
+                {historySortKey ? ' · ordenação personalizada' : ' · mais recente primeiro'}
+              </p>
+              {historySorted.length > HISTORY_PAGE_SIZE ? (
+                <div className="agent-history-footer-pager">
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-pill btn-icon-pager"
+                    disabled={historyPage <= 0}
+                    onClick={() => setHistoryPage((p) => Math.max(p - 1, 0))}
+                    aria-label="Página anterior"
+                    title="Página anterior"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <span className="agent-history-page-label">
+                    Página {historyPage + 1} de {historyTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-pill btn-icon-pager"
+                    disabled={historyPage >= historyTotalPages - 1}
+                    onClick={() => setHistoryPage((p) => Math.min(p + 1, historyTotalPages - 1))}
+                    aria-label="Próxima página"
+                    title="Próxima página"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : undefined
+        }
       >
         {historyLoading ? (
-          <p className="agent-history-empty">Carregando execuções...</p>
+          <div className="agent-history-loading" role="status" aria-live="polite">
+            <span className="spinner-small" style={{ borderTopColor: '#673de6', borderColor: '#dcd2f9' }} />
+            <span>Carregando execuções…</span>
+          </div>
         ) : historyItems.length === 0 ? (
-          <p className="agent-history-empty">Nenhuma coleta agendada ainda. O botão Testar não grava histórico.</p>
+          <div className="agent-history-empty-state">
+            <Inbox size={32} strokeWidth={1.5} aria-hidden="true" />
+            <p className="agent-history-empty-title">Nenhuma coleta registrada</p>
+            <p className="agent-history-empty-desc">
+              Execuções via agenda ou botão <strong>Executar</strong> aparecem aqui.
+              O <strong>Testar</strong> não grava histórico.
+            </p>
+          </div>
         ) : (
-          <div className="table-responsive agent-history-table-wrap">
-            <table className="data-table agent-history-table">
-              <thead>
-                <tr>
-                  <th>Quando</th>
-                  <th>Duração</th>
-                  <th>Status</th>
-                  <th>Coletados</th>
-                  <th>Enviados</th>
-                  <th>Erro</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyItems.map((execution) => (
-                  <tr key={execution.id}>
-                    <td>{formatDate(execution.startedAt)}</td>
-                    <td>{executionDuration(execution)}</td>
-                    <td>
-                      <span className="badge-role" style={executionStatusStyle(execution.status)}>
-                        {executionStatusLabel(execution.status)}
-                      </span>
-                    </td>
-                    <td>{execution.itemsCollected}</td>
-                    <td>{execution.itemsUploaded}</td>
-                    <td>
-                      <span className="agent-history-error" title={execution.errorMessage || undefined}>
-                        {truncateError(execution.errorMessage)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="agent-history-modal-body">
+            {(() => {
+              const summary = executionSummary(historyItems);
+              const lastWhen = formatExecutionWhen(summary.last?.startedAt);
+              return (
+                <div className="agent-history-summary" aria-label="Resumo do histórico">
+                  <div className="agent-history-stat">
+                    <span className="agent-history-stat-label">Execuções</span>
+                    <span className="agent-history-stat-value">{summary.total}</span>
+                  </div>
+                  <div className="agent-history-stat">
+                    <span className="agent-history-stat-label">Sucesso</span>
+                    <span className="agent-history-stat-value agent-history-stat-value--success">
+                      {summary.success}
+                    </span>
+                    {summary.successRate !== null ? (
+                      <span className="agent-history-stat-hint">{summary.successRate}% taxa</span>
+                    ) : null}
+                  </div>
+                  <div className="agent-history-stat">
+                    <span className="agent-history-stat-label">Falhas / parciais</span>
+                    <span className="agent-history-stat-value agent-history-stat-value--warn">
+                      {summary.failed + summary.partial}
+                    </span>
+                    {summary.running > 0 ? (
+                      <span className="agent-history-stat-hint">{summary.running} em andamento</span>
+                    ) : null}
+                  </div>
+                  <div className="agent-history-stat">
+                    <span className="agent-history-stat-label">Última coleta</span>
+                    <span className="agent-history-stat-value agent-history-stat-value--compact">
+                      {lastWhen.primary}
+                    </span>
+                    {lastWhen.secondary ? (
+                      <span className="agent-history-stat-hint">{lastWhen.secondary}</span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="agent-history-toolbar">
+              <div className="agent-history-filters">
+                <select
+                  className="form-input audits-sort-select"
+                  value={historyStatusFilter}
+                  onChange={(e) => setHistoryStatusFilter(e.target.value as HistoryStatusFilter)}
+                  aria-label="Filtrar por status"
+                >
+                  <option value="">Todos os status</option>
+                  <option value="SUCCESS">Sucesso</option>
+                  <option value="FAILED">Falha</option>
+                  <option value="PARTIAL">Parcial</option>
+                  <option value="RUNNING">Em andamento</option>
+                </select>
+                <select
+                  className="form-input audits-sort-select"
+                  value={historySortKey || ''}
+                  onChange={(e) => {
+                    const value = e.target.value as HistorySortKey | '';
+                    if (!value) {
+                      setHistorySortKey(null);
+                      setHistorySortDir('desc');
+                      return;
+                    }
+                    setHistorySortKey(value);
+                    setHistorySortDir(value === 'startedAt' || value === 'duration' ? 'desc' : 'asc');
+                  }}
+                  aria-label="Ordenar por"
+                >
+                  <option value="">Ordenação padrão</option>
+                  <option value="startedAt">Quando</option>
+                  <option value="duration">Duração</option>
+                  <option value="status">Status</option>
+                  <option value="itemsCollected">Coletados</option>
+                  <option value="itemsUploaded">Enviados</option>
+                </select>
+                {historySortKey ? (
+                  <select
+                    className="form-input audits-dir-select"
+                    value={historySortDir}
+                    onChange={(e) => setHistorySortDir(e.target.value as HistorySortDir)}
+                    aria-label="Direção da ordenação"
+                  >
+                    {historySortKey === 'status' ? (
+                      <>
+                        <option value="asc">A–Z</option>
+                        <option value="desc">Z–A</option>
+                      </>
+                    ) : historySortKey === 'startedAt' || historySortKey === 'duration' ? (
+                      <>
+                        <option value="desc">Mais recentes</option>
+                        <option value="asc">Mais antigos</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="desc">Maior</option>
+                        <option value="asc">Menor</option>
+                      </>
+                    )}
+                  </select>
+                ) : null}
+              </div>
+              <RefreshCombo
+                onRefresh={() => historyAgent && void loadHistoryData(historyAgent.id, true)}
+                disabled={!historyAgent}
+                refreshing={historyRefreshing}
+              />
+            </div>
+
+            {historyFiltered.length === 0 ? (
+              <div className="agent-history-filter-empty">
+                <p>Nenhuma execução com o status selecionado.</p>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-pill"
+                  onClick={() => setHistoryStatusFilter('')}
+                >
+                  Limpar filtro
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="hpanel-table-card desktop-table-view agent-history-table-card">
+                  <table className="hpanel-table agent-history-hpanel-table">
+                    <colgroup>
+                      <col className="agent-history-col-when" />
+                      <col className="agent-history-col-duration" />
+                      <col className="agent-history-col-status" />
+                      <col className="agent-history-col-count" />
+                      <col className="agent-history-col-count" />
+                      <col className="agent-history-col-error" />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>
+                          <button type="button" className="th-sort" onClick={() => toggleHistorySort('startedAt')}>
+                            Quando {historySortIcon('startedAt')}
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="th-sort" onClick={() => toggleHistorySort('duration')}>
+                            Duração {historySortIcon('duration')}
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" className="th-sort" onClick={() => toggleHistorySort('status')}>
+                            Status {historySortIcon('status')}
+                          </button>
+                        </th>
+                        <th className="agent-history-th-num">
+                          <button type="button" className="th-sort" onClick={() => toggleHistorySort('itemsCollected')}>
+                            Coletados {historySortIcon('itemsCollected')}
+                          </button>
+                        </th>
+                        <th className="agent-history-th-num">
+                          <button type="button" className="th-sort" onClick={() => toggleHistorySort('itemsUploaded')}>
+                            Enviados {historySortIcon('itemsUploaded')}
+                          </button>
+                        </th>
+                        <th>Erro</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyDisplayed.map((execution) => {
+                        const when = formatExecutionWhen(execution.startedAt);
+                        const status = (execution.status || '').toUpperCase();
+                        const isRunning = status === 'RUNNING';
+                        const hasError = Boolean((execution.errorMessage || '').trim());
+                        const uploadGap = execution.itemsUploaded < execution.itemsCollected;
+                        const rowClass = [
+                          'agent-history-row-clickable',
+                          hasError ? 'agent-history-row--error' : '',
+                          uploadGap && !hasError ? 'agent-history-row--warn' : '',
+                        ].filter(Boolean).join(' ');
+                        return (
+                          <tr
+                            key={execution.id}
+                            className={rowClass}
+                            onClick={() => openHistoryDetail(execution)}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                openHistoryDetail(execution);
+                              }
+                            }}
+                            aria-label={`Execução ${when.primary}, ${executionStatusLabel(execution.status)}`}
+                          >
+                            <td>
+                              <div className="agent-history-when">
+                                <span className="agent-history-when-primary">{when.primary}</span>
+                                {when.secondary ? (
+                                  <span className="agent-history-when-secondary">{when.secondary}</span>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td>
+                              <span className="agent-history-duration">
+                                {isRunning ? (
+                                  <>
+                                    <span className="spinner-mini" aria-hidden="true" />
+                                    {executionDuration(execution)}
+                                  </>
+                                ) : (
+                                  executionDuration(execution)
+                                )}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="badge-role" style={executionStatusStyle(execution.status)}>
+                                {executionStatusLabel(execution.status)}
+                              </span>
+                            </td>
+                            <td className="agent-history-num">{execution.itemsCollected}</td>
+                            <td className="agent-history-num">
+                              <span className="agent-history-upload">
+                                {execution.itemsUploaded}
+                                {uploadGap ? (
+                                  <AlertCircle
+                                    size={14}
+                                    className="agent-history-upload-warn"
+                                    aria-label="Menos itens enviados que coletados"
+                                  />
+                                ) : null}
+                              </span>
+                            </td>
+                            <td>
+                              {hasError ? (
+                                <span className="agent-history-error" title={execution.errorMessage}>
+                                  {execution.errorMessage}
+                                </span>
+                              ) : uploadGap ? (
+                                <span className="agent-history-detail-hint">
+                                  <AlertCircle size={14} aria-hidden="true" />
+                                  Envio incompleto
+                                </span>
+                              ) : (
+                                <span className="agent-history-detail-ok">
+                                  <CheckCircle2 size={14} aria-hidden="true" />
+                                  Sem erro
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="agent-history-mobile-list">
+                  {historyDisplayed.map((execution) => {
+                    const when = formatExecutionWhen(execution.startedAt);
+                    const hasError = Boolean((execution.errorMessage || '').trim());
+                    const uploadGap = execution.itemsUploaded < execution.itemsCollected;
+                    return (
+                      <button
+                        key={execution.id}
+                        type="button"
+                        className="agent-history-mobile-card"
+                        onClick={() => openHistoryDetail(execution)}
+                      >
+                        <div className="agent-history-mobile-card-top">
+                          <span className="agent-history-when-primary">{when.primary}</span>
+                          <span className="badge-role" style={executionStatusStyle(execution.status)}>
+                            {executionStatusLabel(execution.status)}
+                          </span>
+                        </div>
+                        <div className="agent-history-mobile-card-meta">
+                          {executionDuration(execution)} · {execution.itemsCollected} coletados · {execution.itemsUploaded} enviados
+                        </div>
+                        {hasError ? (
+                          <p className="agent-history-mobile-card-error">{execution.errorMessage}</p>
+                        ) : uploadGap ? (
+                          <p className="agent-history-mobile-card-warn">Envio incompleto</p>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={!!historyDetail}
+        onClose={() => setHistoryDetail(null)}
+        title="Detalhe da execução"
+        subtitle={historyDetail ? formatExecutionWhen(historyDetail.startedAt).primary : undefined}
+        maxWidth="640px"
+      >
+        {historyDetail ? (
+          <div className="agent-history-detail">
+            <div className="info-row">
+              <span className="info-label">Status</span>
+              <span className="badge-role" style={executionStatusStyle(historyDetail.status)}>
+                {executionStatusLabel(historyDetail.status)}
+              </span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">ID</span>
+              <span className="info-value text-mono" title={historyDetail.id}>
+                {compactExecutionId(historyDetail.id)}
+              </span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Início</span>
+              <span className="info-value">{formatDate(historyDetail.startedAt)}</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Fim</span>
+              <span className="info-value">
+                {historyDetail.finishedAt ? formatDate(historyDetail.finishedAt) : '—'}
+              </span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Duração</span>
+              <span className="info-value">{executionDuration(historyDetail)}</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Coletados</span>
+              <span className="info-value">{historyDetail.itemsCollected}</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Enviados</span>
+              <span className="info-value">
+                {historyDetail.itemsUploaded}
+                {historyDetail.itemsUploaded < historyDetail.itemsCollected ? (
+                  <span className="agent-history-detail-gap">
+                    <AlertCircle size={14} aria-hidden="true" />
+                    Menos itens enviados que coletados
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            {historyDetail.errorMessage ? (
+              <div className="agent-history-detail-error-block">
+                <span className="info-label">Erro</span>
+                <p>{historyDetail.errorMessage}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </Modal>
     </div>
   );
