@@ -9,7 +9,12 @@ import {
   ChevronUp,
   Cpu,
   FlaskConical,
+  File,
+  FileCode,
   FileJson,
+  FileSpreadsheet,
+  FileText,
+  FileType,
   History,
   Inbox,
   KeyRound,
@@ -226,9 +231,93 @@ function executionDuration(item: CollectorExecution): string {
   return `${Math.round(ms / 60_000)} min`;
 }
 
+type ExecutionFileKind = 'json' | 'html' | 'text' | 'pdf' | 'csv' | 'markdown' | 'generic';
+
 function looksLikeJson(value?: string): boolean {
   const normalized = (value || '').trim().toLowerCase();
   return normalized.includes('json') || normalized.endsWith('.json');
+}
+
+function fileKindFromNameOrType(fileName?: string, contentType?: string): ExecutionFileKind | null {
+  const name = (fileName || '').trim().toLowerCase();
+  const type = (contentType || '').trim().toLowerCase();
+  if (looksLikeJson(name) || type.includes('json')) return 'json';
+  if (name.endsWith('.html') || type.includes('html')) return 'html';
+  if (name.endsWith('.md') || type.includes('markdown')) return 'markdown';
+  if (name.endsWith('.csv') || type.includes('csv')) return 'csv';
+  if (name.endsWith('.pdf') || type.includes('pdf')) return 'pdf';
+  if (name.endsWith('.txt') || type === 'text/plain') return 'text';
+  return null;
+}
+
+function agentDefaultFileKind(agent: CollectorAgent | null): ExecutionFileKind {
+  if (!agent) return 'generic';
+  const collectorType = String(agent.collectorType || '').toUpperCase();
+  const cfg = agent.collectorConfig || {};
+  const outputName = String(cfg.output_file_name || cfg.outputFileName || '');
+  const fromOutput = fileKindFromNameOrType(outputName);
+  if (fromOutput) return fromOutput;
+
+  if (collectorType === 'API_REST') return 'json';
+  if (collectorType === 'HTML_SCRAPER') {
+    const format = String(cfg.output_format || cfg.outputFormat || 'html').toLowerCase();
+    return format === 'text' ? 'text' : 'html';
+  }
+  if (collectorType === 'DOCUMENT_FETCHER') {
+    const extensions = cfg.accepted_extensions ?? cfg.acceptedExtensions;
+    const normalized = Array.isArray(extensions)
+      ? extensions.map((item) => String(item).toLowerCase()).join(',')
+      : String(extensions || '').toLowerCase();
+    if (normalized.includes('pdf')) return 'pdf';
+    if (normalized.includes('csv')) return 'csv';
+    if (normalized.includes('html')) return 'html';
+    if (normalized.includes('md')) return 'markdown';
+    if (normalized.includes('txt')) return 'text';
+  }
+  return 'generic';
+}
+
+function executionFileKind(item: CollectorExecution, agent: CollectorAgent | null): ExecutionFileKind {
+  const refs = payloadRefsFromMetadata(item.metadata);
+  if (refs.some((ref) => ref.kind === 'snapshot')) return 'json';
+  if (refs.some((ref) => ref.kind === 'document')) return agentDefaultFileKind(agent);
+  return agentDefaultFileKind(agent);
+}
+
+function executionFileLabel(kind: ExecutionFileKind): string {
+  const labels: Record<ExecutionFileKind, string> = {
+    json: 'JSON',
+    html: 'HTML',
+    text: 'texto',
+    pdf: 'PDF',
+    csv: 'CSV',
+    markdown: 'Markdown',
+    generic: 'arquivo',
+  };
+  return labels[kind];
+}
+
+function executionFileIcon(kind: ExecutionFileKind) {
+  switch (kind) {
+    case 'json':
+      return FileJson;
+    case 'html':
+      return FileCode;
+    case 'text':
+    case 'markdown':
+      return FileText;
+    case 'csv':
+      return FileSpreadsheet;
+    case 'pdf':
+      return FileType;
+    default:
+      return File;
+  }
+}
+
+function ExecutionFileIcon({ kind, size = 16 }: { kind: ExecutionFileKind; size?: number }) {
+  const Icon = executionFileIcon(kind);
+  return <Icon size={size} aria-hidden="true" />;
 }
 
 function payloadRefsFromMetadata(meta?: Record<string, unknown>): Array<{ kind: string; id: string }> {
@@ -244,19 +333,10 @@ function payloadRefsFromMetadata(meta?: Record<string, unknown>): Array<{ kind: 
   });
 }
 
-function executionHasJsonPayload(item: CollectorExecution, agent: CollectorAgent | null): boolean {
+function executionHasFilePayload(item: CollectorExecution): boolean {
   const status = (item.status || '').toUpperCase();
   if (item.itemsUploaded <= 0 || status === 'RUNNING') return false;
-
-  const refs = payloadRefsFromMetadata(item.metadata);
-  if (refs.length > 0) {
-    return refs.some((ref) => ref.kind === 'snapshot');
-  }
-
-  const outputName = String(agent?.collectorConfig?.output_file_name || agent?.collectorConfig?.outputFileName || '');
-  if (looksLikeJson(outputName)) return true;
-
-  return String(agent?.collectorType || '').toUpperCase() === 'API_REST';
+  return true;
 }
 
 function isJsonPayloadItem(item: ExecutionPayloadItem): boolean {
@@ -290,12 +370,23 @@ function prettyPayloadJson(value: unknown): string {
   }
 }
 
+function payloadItemKind(item: ExecutionPayloadItem, agent: CollectorAgent | null): ExecutionFileKind {
+  if (item.kind === 'snapshot') return 'json';
+  const fromMeta = fileKindFromNameOrType(item.fileName, item.contentType);
+  if (fromMeta) return fromMeta;
+  return agentDefaultFileKind(agent);
+}
+
 function payloadItemBody(item: ExecutionPayloadItem): string {
   if (item.payload && Object.keys(item.payload).length > 0) {
-    return prettyPayloadJson(item.payload);
+    return isJsonPayloadItem(item) ? prettyPayloadJson(item.payload) : prettyPayloadJson(item.payload);
   }
   if (item.previewText) {
-    return prettyPayloadJson(item.previewText);
+    return isJsonPayloadItem(item) ? prettyPayloadJson(item.previewText) : item.previewText;
+  }
+  if (item.fileName) {
+    const suffix = item.contentType ? ` (${item.contentType})` : '';
+    return `Arquivo: ${item.fileName}${suffix}`;
   }
   return '';
 }
@@ -1524,7 +1615,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
     setHistoryPayloadLoading(true);
     try {
       const raw = await getExecutionPayloads(execution.id, token);
-      setHistoryPayloadData((Array.isArray(raw) ? raw : []).filter(isJsonPayloadItem));
+      setHistoryPayloadData(Array.isArray(raw) ? raw : []);
     } catch (error) {
       setHistoryPayloadError(error instanceof Error ? error.message : 'Não foi possível carregar o payload.');
     } finally {
@@ -2621,7 +2712,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                           </button>
                         </th>
                         <th>Erro</th>
-                        <th className="agent-history-th-payload">JSON</th>
+                        <th className="agent-history-th-payload">Arquivo</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2706,7 +2797,11 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                               )}
                             </td>
                             <td className="agent-history-payload-cell">
-                              {executionHasJsonPayload(execution, historyAgent) ? (
+                              {executionHasFilePayload(execution) ? (
+                                (() => {
+                                  const fileKind = executionFileKind(execution, historyAgent);
+                                  const fileLabel = executionFileLabel(fileKind);
+                                  return (
                                 <button
                                   type="button"
                                   className="agent-history-payload-btn"
@@ -2714,11 +2809,13 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                                     event.stopPropagation();
                                     void openHistoryPayload(execution, event);
                                   }}
-                                  aria-label={`Ver JSON da coleta de ${when.primary}`}
-                                  title="Ver JSON"
+                                  aria-label={`Ver ${fileLabel} da coleta de ${when.primary}`}
+                                  title={`Ver ${fileLabel}`}
                                 >
-                                  <FileJson size={16} aria-hidden="true" />
+                                  <ExecutionFileIcon kind={fileKind} />
                                 </button>
+                                  );
+                                })()
                               ) : (
                                 <span className="agent-history-payload-empty">—</span>
                               )}
@@ -2757,16 +2854,22 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                             <p className="agent-history-mobile-card-warn">Envio incompleto</p>
                           ) : null}
                         </button>
-                        {executionHasJsonPayload(execution, historyAgent) ? (
+                        {executionHasFilePayload(execution) ? (
+                          (() => {
+                            const fileKind = executionFileKind(execution, historyAgent);
+                            const fileLabel = executionFileLabel(fileKind);
+                            return (
                           <button
                             type="button"
                             className="agent-history-payload-btn"
                             onClick={(event) => void openHistoryPayload(execution, event)}
-                            aria-label={`Ver JSON da coleta de ${when.primary}`}
-                            title="Ver JSON"
+                            aria-label={`Ver ${fileLabel} da coleta de ${when.primary}`}
+                            title={`Ver ${fileLabel}`}
                           >
-                            <FileJson size={16} aria-hidden="true" />
+                            <ExecutionFileIcon kind={fileKind} />
                           </button>
+                            );
+                          })()
                         ) : null}
                       </div>
                     );
@@ -2843,15 +2946,21 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
                 <p>{historyDetail.errorMessage}</p>
               </div>
             ) : null}
-            {executionHasJsonPayload(historyDetail, historyAgent) ? (
+            {executionHasFilePayload(historyDetail) ? (
+              (() => {
+                const fileKind = executionFileKind(historyDetail, historyAgent);
+                const fileLabel = executionFileLabel(fileKind);
+                return (
               <button
                 type="button"
                 className="btn btn-outline"
                 onClick={() => void openHistoryPayload(historyDetail)}
               >
-                <FileJson size={16} aria-hidden="true" />
-                Ver JSON
+                <ExecutionFileIcon kind={fileKind} />
+                Ver {fileLabel}
               </button>
+                );
+              })()
             ) : null}
           </div>
         ) : null}
@@ -2860,7 +2969,7 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
       <Modal
         isOpen={!!historyPayloadExecution}
         onClose={closeHistoryPayload}
-        title="JSON da coleta"
+        title="Arquivo da coleta"
         subtitle={historyPayloadExecution ? formatExecutionWhen(historyPayloadExecution.startedAt).primary : undefined}
         maxWidth="760px"
         maxHeight="80vh"
@@ -2868,28 +2977,38 @@ export const AgentsView: React.FC<{ onNavigateTab?: (tab: string) => void }> = (
         {historyPayloadLoading ? (
           <div className="agent-history-loading" role="status" aria-live="polite">
             <span className="spinner-mini" aria-hidden="true" />
-            Carregando JSON…
+            Carregando arquivo…
           </div>
         ) : historyPayloadError ? (
           <div className="agent-history-payload-empty-state">
-            <p className="agent-history-empty-title">Não foi possível carregar o JSON</p>
+            <p className="agent-history-empty-title">Não foi possível carregar o arquivo</p>
             <p className="agent-history-empty-desc">{historyPayloadError}</p>
           </div>
         ) : historyPayloadData.length === 0 ? (
           <div className="agent-history-payload-empty-state">
-            <p className="agent-history-empty-title">JSON não encontrado</p>
+            <p className="agent-history-empty-title">Arquivo não encontrado</p>
             <p className="agent-history-empty-desc">
-              Esta execução não tem um snapshot JSON salvo no MongoDB.
+              Esta execução não tem um arquivo salvo no knowledge.
             </p>
           </div>
         ) : (
           <div className="agent-history-payload-list">
             {historyPayloadData.map((item, index) => {
               const body = payloadItemBody(item);
+              const itemKind = payloadItemKind(item, historyAgent);
               return (
-                <pre key={`${item.kind}-${item.id}-${index}`} className="agent-history-json-pre">
-                  {body || 'Nenhum JSON disponível.'}
-                </pre>
+                <div key={`${item.kind}-${item.id}-${index}`} className="agent-history-payload-item">
+                  {historyPayloadData.length > 1 ? (
+                    <div className="agent-history-payload-item-head">
+                      <span className="agent-history-payload-kind">
+                        {item.fileName || executionFileLabel(itemKind)}
+                      </span>
+                    </div>
+                  ) : null}
+                  <pre className="agent-history-json-pre">
+                    {body || 'Nenhum conteúdo disponível para visualização.'}
+                  </pre>
+                </div>
               );
             })}
           </div>
