@@ -19,6 +19,11 @@ spec:
       - name: front-keepguard-core
         image: ghcr.io/keepguard/front-keepguard-core:1.0.0
         imagePullPolicy: Always
+        env:
+        - name: DEFAULT_TENANT_ID
+          value: {{ .Values.tenantId | default "f7fc7350-b9fc-4e54-9c58-ac9385b23ae3" | quote }}
+        - name: FRONT_TENANT_ID_IN_BUNDLE
+          value: "f7fc7350-b9fc-4e54-9c58-ac9385b23ae3"
         ports:
         - name: http
           containerPort: 80
@@ -29,6 +34,10 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "200m"
+        volumeMounts:
+        - name: tenant-rewrite
+          mountPath: /docker-entrypoint.d/45-tenant-id.sh
+          subPath: 45-tenant-id.sh
         startupProbe:
           httpGet:
             path: /healthz
@@ -50,3 +59,8 @@ spec:
           initialDelaySeconds: 3
           periodSeconds: 5
           failureThreshold: 2
+      volumes:
+      - name: tenant-rewrite
+        configMap:
+          name: front-tenant-rewrite
+          defaultMode: 0755
