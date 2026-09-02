@@ -153,6 +153,19 @@ export function testCollectorAgent(id: string, token: string): Promise<Collector
   }, token);
 }
 
+export interface CollectorAgentRunResult {
+  status: string;
+  agentId: string;
+}
+
+/** Enfileira uma coleta real (ignora a agenda). Aparece no histórico. */
+export function runCollectorAgent(id: string, token: string): Promise<CollectorAgentRunResult> {
+  return customFetch<CollectorAgentRunResult>(`${base}/${id}/run`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  }, token);
+}
+
 export interface CollectorExecution {
   id: string;
   agentId: string;

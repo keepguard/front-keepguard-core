@@ -20,6 +20,7 @@ import {
   KeyRound,
   MoreVertical,
   Pencil,
+  Play,
   Plus,
   Power,
   PowerOff,
@@ -52,6 +53,7 @@ import {
   getExecutionPayloads,
   listCollectorAgentExecutions,
   listCollectorDataSources,
+  runCollectorAgent,
   searchCollectorAgents,
   testCollectorAgent,
   updateCollectorAgent,
@@ -1109,6 +1111,7 @@ export const AgentsView: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<CollectorAgent | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [runningId, setRunningId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{
     agentName: string;
     result: CollectorAgentTestResult;
@@ -1497,6 +1500,31 @@ export const AgentsView: React.FC = () => {
     }
   };
 
+  const handleRun = async (item: CollectorAgent, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    const token = getAccessToken();
+    if (!token) return;
+    setRunningId(item.id);
+    try {
+      const result = await runCollectorAgent(item.id, token);
+      addToast({
+        type: 'success',
+        title: 'Coleta enfileirada',
+        description: result.status === 'queued'
+          ? `${item.name} vai executar agora, fora da agenda. Acompanhe no Histórico.`
+          : `${item.name}: ${result.status}`,
+      });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Falha ao executar agent',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+      });
+    } finally {
+      setRunningId(null);
+    }
+  };
+
   const loadHistoryData = useCallback(async (agentId: string, silent = false) => {
     const token = getAccessToken();
     if (!token) return;
@@ -1794,6 +1822,16 @@ export const AgentsView: React.FC = () => {
             >
               <FlaskConical size={15} />
               <span>{testingId === item.id ? 'Testando…' : 'Testar coleta'}</span>
+            </button>
+            <button
+              type="button"
+              className="table-actions-menu-item"
+              role="menuitem"
+              disabled={runningId === item.id}
+              onClick={(e) => runMenuAction(e, () => { void handleRun(item); })}
+            >
+              <Play size={15} />
+              <span>{runningId === item.id ? 'Enfileirando…' : 'Executar'}</span>
             </button>
             <button
               type="button"
