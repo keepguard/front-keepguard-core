@@ -66,6 +66,7 @@ type SourceForm = {
   queryParams: KeyValueEntry[];
   bodyTemplate: string;
   outputFileName: string;
+  parse: string;
   entityHint: string;
   authType: AuthType;
   loginUrl: string;
@@ -141,6 +142,7 @@ function emptyForm(): SourceForm {
     queryParams: [],
     bodyTemplate: '',
     outputFileName: '',
+    parse: '',
     entityHint: '{{ticker}}',
     authType: 'NONE',
     loginUrl: '',
@@ -310,6 +312,9 @@ function buildConfigTemplate(form: SourceForm): Record<string, unknown> {
     output_file_name: form.outputFileName.trim() || undefined,
     entity_hint: form.entityHint.trim() || undefined,
   };
+  if (form.parse.trim()) {
+    config.parse = form.parse.trim().toLowerCase();
+  }
   if (form.authType !== 'NONE') {
     const loginHeaders = pairsToMap(form.loginHeaders);
     const auth: Record<string, unknown> = {
@@ -362,6 +367,7 @@ function formFromSource(source: CollectorDataSource): SourceForm {
     queryParams: mapToPairs(cfg.query_params),
     bodyTemplate: String(cfg.body_template || ''),
     outputFileName: String(cfg.output_file_name || ''),
+    parse: typeof cfg.parse === 'string' ? cfg.parse : '',
     entityHint: String(cfg.entity_hint || ''),
     authType,
     loginUrl: String(auth.login_url || ''),

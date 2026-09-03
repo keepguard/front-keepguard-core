@@ -115,6 +115,7 @@ type AgentForm = {
   queryParams: KeyValueEntry[];
   bodyTemplate: string;
   outputFileName: string;
+  parse: string;
   authType: AuthType;
   authToken: string;
   hasToken: boolean;
@@ -168,6 +169,7 @@ function emptyForm(): AgentForm {
     queryParams: [],
     bodyTemplate: '',
     outputFileName: '',
+    parse: '',
     authType: 'NONE',
     authToken: '',
     hasToken: false,
@@ -575,6 +577,9 @@ function buildCollectorConfig(form: AgentForm): Record<string, unknown> {
     body_template: form.bodyTemplate.trim() || undefined,
     output_file_name: form.outputFileName.trim() || undefined,
   };
+  if (form.parse.trim()) {
+    config.parse = form.parse.trim().toLowerCase();
+  }
   if (form.authType !== 'NONE') {
     const loginHeaders = pairsToMap(form.loginHeaders);
     const auth: Record<string, unknown> = {
@@ -641,6 +646,7 @@ function formFromCollectorConfig(cfg: Record<string, unknown>, base: AgentForm):
     queryParams: mapToPairs(cfg.query_params),
     bodyTemplate: String(cfg.body_template || ''),
     outputFileName: String(cfg.output_file_name || ''),
+    parse: typeof cfg.parse === 'string' ? cfg.parse : '',
     authType,
     authToken: base.authToken,
     hasToken: Boolean(auth.has_token),
