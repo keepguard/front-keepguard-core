@@ -3,6 +3,7 @@ import {
   Ban,
   ChevronLeft,
   ChevronRight,
+  Copy,
   KeyRound,
   LockOpen,
   Pencil,
@@ -450,10 +451,10 @@ export const ClientSystemView: React.FC = () => {
     }
   };
 
-  const copySecret = async () => {
-    if (!createdSecret?.clientSecret) return;
-    await navigator.clipboard.writeText(createdSecret.clientSecret);
-    addToast({ type: 'info', title: 'Secret copiado', description: 'Guarde em local seguro. Ele não será exibido de novo.' });
+  const copySecret = async (secret?: string) => {
+    if (!secret) return;
+    await navigator.clipboard.writeText(secret);
+    addToast({ type: 'info', title: 'Secret copiado', description: 'Client secret copiado para a área de transferência.' });
   };
 
   const loadServiceRoles = async (preferredRoleId?: string) => {
@@ -633,6 +634,7 @@ export const ClientSystemView: React.FC = () => {
           <thead>
             <tr>
               <th>Client ID</th>
+              <th>Secret</th>
               <th>Status</th>
               <th>Perfil / Authorities</th>
               <th>TTL</th>
@@ -643,13 +645,13 @@ export const ClientSystemView: React.FC = () => {
           <tbody>
             {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   Carregando OAuth clients...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <KeyRound size={22} />
                     <span>Nenhum OAuth client para os filtros atuais.</span>
@@ -662,6 +664,21 @@ export const ClientSystemView: React.FC = () => {
                   <td>
                     <span className="table-cell-title" title={item.clientId}>{item.clientId}</span>
                     {item.description ? <div className="table-cell-muted">{item.description}</div> : null}
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {item.clientSecret ? (
+                      <button
+                        type="button"
+                        className="btn-table-icon"
+                        title="Copiar secret"
+                        aria-label={`Copiar secret de ${item.clientId}`}
+                        onClick={() => copySecret(item.clientSecret)}
+                      >
+                        <Copy size={15} />
+                      </button>
+                    ) : (
+                      <span className="table-cell-muted">—</span>
+                    )}
                   </td>
                   <td>
                     <span className="badge-role" style={statusStyle(item.status)}>
@@ -737,6 +754,22 @@ export const ClientSystemView: React.FC = () => {
               </div>
             </div>
             <div className="oauth-detail-field">
+              <span className="oauth-detail-label">Secret</span>
+              <span className="oauth-detail-value text-mono" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {detail.clientSecret || '—'}
+                {detail.clientSecret ? (
+                  <button
+                    type="button"
+                    className="btn-table-icon"
+                    title="Copiar secret"
+                    onClick={() => copySecret(detail.clientSecret)}
+                  >
+                    <Copy size={15} />
+                  </button>
+                ) : null}
+              </span>
+            </div>
+            <div className="oauth-detail-field">
               <span className="oauth-detail-label">Company</span>
               <span className="oauth-detail-value text-mono">{detail.companyId}</span>
             </div>
@@ -784,7 +817,7 @@ export const ClientSystemView: React.FC = () => {
         isOpen={createOpen}
         onClose={() => !submitting && setCreateOpen(false)}
         title="Criar OAuth client"
-        subtitle="O secret é exibido apenas uma vez após a criação."
+        subtitle="O secret fica disponível na listagem para ADMIN/SYSTEM."
         maxWidth="560px"
       >
         <form className="oauth-create-form" onSubmit={handleCreate}>
@@ -989,7 +1022,7 @@ export const ClientSystemView: React.FC = () => {
         isOpen={!!createdSecret}
         onClose={() => setCreatedSecret(null)}
         title="Client criado"
-        subtitle="Copie o secret agora. Ele não será mostrado novamente."
+        subtitle="O secret também permanece visível na listagem para ADMIN/SYSTEM."
       >
         {createdSecret ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1005,7 +1038,7 @@ export const ClientSystemView: React.FC = () => {
               <button type="button" className="btn btn-outline" onClick={() => setCreatedSecret(null)}>
                 Fechar
               </button>
-              <button type="button" className="btn btn-primary" onClick={copySecret} disabled={!createdSecret.clientSecret}>
+              <button type="button" className="btn btn-primary" onClick={() => copySecret(createdSecret.clientSecret)} disabled={!createdSecret.clientSecret}>
                 Copiar secret
               </button>
             </div>
