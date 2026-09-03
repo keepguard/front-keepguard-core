@@ -1177,6 +1177,18 @@ body {
   margin-bottom: 1rem;
 }
 
+.client-system-create-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.client-system-create-actions .btn {
+  min-width: 7.0625rem;
+  justify-content: center;
+}
+
 .oauth-create-form .form-group {
   margin-bottom: 1rem;
 }
@@ -2418,6 +2430,28 @@ body {
   margin-left: 0;
 }
 
+.agents-toolbar {
+  margin-bottom: 0.75rem;
+}
+
+.agents-toolbar .agents-filter-row {
+  gap: 0.4rem;
+}
+
+.agents-toolbar .agents-filter-row .audits-pager {
+  margin: 0 0 0 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.agents-toolbar .agents-filter-row .audits-sort-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+
 .guardian-table {
   table-layout: fixed;
 }
@@ -2587,6 +2621,11 @@ body {
   .audits-toolbar .guardian-filter-row-secondary,
   .audits-toolbar .guardian-filter-row-tertiary {
     grid-template-columns: 1fr;
+  }
+
+  .agents-toolbar .agents-filter-row .audits-pager {
+    flex: 1 1 100%;
+    margin-left: 0;
   }
 
   .audits-toolbar .client-system-filter-row .audits-search-field,
@@ -4483,7 +4522,7 @@ textarea.form-input {
 }
 
 .agents-summary {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
 .agents-bulk-bar {

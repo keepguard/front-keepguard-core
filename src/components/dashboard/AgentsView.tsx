@@ -2164,17 +2164,6 @@ export const AgentsView: React.FC = () => {
 
   return (
     <div>
-      <div className="client-system-create-row">
-        <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
-          <Plus size={15} />
-          <span>Criar</span>
-        </button>
-        <CredentialStatusPill
-          state={credential}
-          onOpenClientSystem={goClientSystem}
-        />
-      </div>
-
       <div className="connections-summary agents-summary" role="group" aria-label="Resumo de agents">
         <button
           type="button"
@@ -2199,14 +2188,29 @@ export const AgentsView: React.FC = () => {
           {summary.disabled} desativados
         </button>
         {loading ? <span className="connections-summary-chip is-wait">Carregando</span> : null}
-        <button
-          type="button"
-          className="connections-summary-chip"
-          onClick={() => void selectFiltered()}
-          disabled={bulkLocked || loading}
-        >
-          Selecionar filtrados (máx. 100)
-        </button>
+      </div>
+
+      <div className="client-system-create-row">
+        <div className="client-system-create-actions">
+          <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
+            <Plus size={15} />
+            <span>Criar</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline btn-pill"
+            onClick={() => void selectFiltered()}
+            disabled={bulkLocked || loading}
+            title="Selecionar até 100 agents do filtro atual"
+            aria-label="Selecionar até 100 agents do filtro atual"
+          >
+            <span>Selecionar</span>
+          </button>
+        </div>
+        <CredentialStatusPill
+          state={credential}
+          onOpenClientSystem={goClientSystem}
+        />
       </div>
 
       {bulkLocked && bulkProgress ? (
@@ -2257,7 +2261,7 @@ export const AgentsView: React.FC = () => {
         <p className="agent-test-running">Testando coleta…</p>
       ) : null}
 
-      <form className="audits-toolbar" onSubmit={handleSearch}>
+      <form className="audits-toolbar agents-toolbar" onSubmit={handleSearch}>
         <div className="audits-filter-row client-system-filter-row agents-filter-row">
           <div className="search-input-wrapper audits-search-field">
             <Search size={16} className="search-icon" />
@@ -2266,6 +2270,7 @@ export const AgentsView: React.FC = () => {
               placeholder="Nome do agent"
               value={filters.q}
               onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+              aria-label="Nome do agent"
             />
           </div>
           <select
@@ -2303,8 +2308,6 @@ export const AgentsView: React.FC = () => {
             <option value="true">Ativo</option>
             <option value="false">Inativo</option>
           </select>
-        </div>
-        <div className="audits-filter-row client-system-filter-row-sort">
           <div className="audits-sort-group">
             <select
               className="form-input audits-sort-select"
@@ -2327,14 +2330,14 @@ export const AgentsView: React.FC = () => {
               <option value="asc">Crescente</option>
             </select>
           </div>
+          {pager(true)}
         </div>
-        {pager(true)}
       </form>
 
       {selectedCount > 0 ? (
         <div className="agents-bulk-bar" role="region" aria-label="Ações em massa">
           <span className="agents-bulk-count" aria-live="polite">{selectedCount} selecionados</span>
-          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => requestBulk('run')}>
+          <button type="button" className="btn btn-primary btn-pill" disabled={bulkLocked} onClick={() => requestBulk('run')}>
             <Play size={14} />
             Executar
           </button>
@@ -2346,12 +2349,9 @@ export const AgentsView: React.FC = () => {
             <PowerOff size={14} />
             Desativar
           </button>
-          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => requestBulk('delete')}>
+          <button type="button" className="btn btn-danger btn-pill" disabled={bulkLocked} onClick={() => requestBulk('delete')}>
             <Trash2 size={14} />
             Excluir
-          </button>
-          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => void selectFiltered()}>
-            Selecionar filtrados (máx. 100)
           </button>
           <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => setSelectedIds(new Set())}>
             Limpar
@@ -3015,7 +3015,7 @@ export const AgentsView: React.FC = () => {
         <p>Excluir este agent não altera a credencial OAuth da organização.</p>
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={() => setConfirmDelete(null)}>Cancelar</button>
-          <button type="button" className="btn btn-primary" onClick={handleDelete}>Excluir</button>
+          <button type="button" className="btn btn-danger" onClick={handleDelete}>Excluir</button>
         </div>
       </Modal>
 
@@ -3032,7 +3032,7 @@ export const AgentsView: React.FC = () => {
               <button type="button" className="btn btn-outline" onClick={() => setBulkConfirm(null)}>Cancelar</button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className={bulkConfirm.action === 'delete' ? 'btn btn-danger' : 'btn btn-primary'}
                 disabled={bulkLocked}
                 onClick={() => void executeBulk(bulkConfirm.action, bulkConfirm.ids)}
               >
