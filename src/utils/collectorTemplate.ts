@@ -54,6 +54,175 @@ export function extractUrlFromConfig(cfg: Record<string, unknown> | null | undef
   return '';
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeExtractedKey(name: string, raw: string): { key: string; value: string } | null {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return null;
+  if (name === 'symbol') {
+    return { key: 'ticker', value: trimmed.replace(/\.SA$/i, '').toUpperCase() };
+  }
+  if (name.endsWith('_lower')) {
+    const base = name.slice(0, -'_lower'.length);
+    if (!base) return null;
+    return { key: base, value: base === 'ticker' ? trimmed.toUpperCase() : trimmed };
+  }
+  return {
+    key: name,
+    value: name === 'ticker' ? trimmed.toUpperCase() : trimmed,
+  };
+}
+
+/** Alinha template com string resolvida e devolve capturas de {{placeholders}}. */
+export function extractFromTemplateString(
+  template: string,
+  resolved: string,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!template || !resolved || !template.includes('{{')) return out;
+
+  type Part = { type: 'lit'; value: string } | { type: 'ph'; name: string };
+  const parts: Part[] = [];
+  let last = 0;
+  const re = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(template)) !== null) {
+    if (match.index > last) {
+      parts.push({ type: 'lit', value: template.slice(last, match.index) });
+    }
+    parts.push({ type: 'ph', name: match[1] });
+    last = match.index + match[0].length;
+  }
+  if (last < template.length) {
+    parts.push({ type: 'lit', value: template.slice(last) });
+  }
+
+  let pattern = '^';
+  const captureNames: string[] = [];
+  for (const part of parts) {
+    if (part.type === 'lit') {
+      pattern += escapeRegex(part.value);
+    } else {
+      pattern += '(.+?)';
+      captureNames.push(part.name);
+    }
+  }
+  pattern += '$';
+
+  const hit = new RegExp(pattern).exec(resolved);
+  if (!hit) return out;
+
+  captureNames.forEach((name, index) => {
+    const normalized = normalizeExtractedKey(name, hit[index + 1] || '');
+    if (!normalized) return;
+    if (!out[normalized.key]) out[normalized.key] = normalized.value;
+  });
+  return out;
+}
+
+function mergeExtracted(
+  target: Record<string, string>,
+  partial: Record<string, string>,
+): void {
+  Object.entries(partial).forEach(([key, value]) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed || target[key]) return;
+    target[key] = trimmed;
+  });
+}
+
+export function extractVariableValuesDeep(
+  template: unknown,
+  resolved: unknown,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (typeof template === 'string' && typeof resolved === 'string') {
+    mergeExtracted(out, extractFromTemplateString(template, resolved));
+    return out;
+  }
+  if (Array.isArray(template) && Array.isArray(resolved)) {
+    template.forEach((item, index) => {
+      mergeExtracted(out, extractVariableValuesDeep(item, resolved[index]));
+    });
+    return out;
+  }
+  if (
+    template
+    && resolved
+    && typeof template === 'object'
+    && typeof resolved === 'object'
+    && !Array.isArray(template)
+    && !Array.isArray(resolved)
+  ) {
+    Object.entries(template as Record<string, unknown>).forEach(([key, item]) => {
+      mergeExtracted(
+        out,
+        extractVariableValuesDeep(item, (resolved as Record<string, unknown>)[key]),
+      );
+    });
+  }
+  return out;
+}
+
+export type RehydrateVariableValuesInput = {
+  variableKeys: string[];
+  configTemplate?: Record<string, unknown> | null;
+  collectorConfig?: Record<string, unknown> | null;
+  nameTemplate?: string | null;
+  descriptionTemplate?: string | null;
+  promptTemplate?: string | null;
+  name?: string | null;
+  description?: string | null;
+  prompt?: string | null;
+};
+
+/**
+ * Reidrata variableValues a partir do config/nome/prompt do agent vs templates da fonte.
+ * Cobre variáveis além de ticker (ex.: codigo, serie_nome do BCB SGS).
+ */
+export function rehydrateVariableValues(
+  input: RehydrateVariableValuesInput,
+): Record<string, string> {
+  const collected: Record<string, string> = {};
+  mergeExtracted(
+    collected,
+    extractVariableValuesDeep(input.configTemplate || {}, input.collectorConfig || {}),
+  );
+  if (input.nameTemplate && input.name) {
+    mergeExtracted(collected, extractFromTemplateString(input.nameTemplate, input.name));
+  }
+  if (input.descriptionTemplate && input.description) {
+    mergeExtracted(
+      collected,
+      extractFromTemplateString(input.descriptionTemplate, input.description),
+    );
+  }
+  if (input.promptTemplate && input.prompt) {
+    mergeExtracted(collected, extractFromTemplateString(input.promptTemplate, input.prompt));
+  }
+
+  const hint = tickerFromConfig(input.collectorConfig || {});
+  if (hint) {
+    if (!collected.ticker) collected.ticker = hint;
+    if (!collected.serie_nome) collected.serie_nome = hint;
+  }
+
+  const keys = input.variableKeys
+    .map((key) => String(key || '').trim())
+    .filter(Boolean);
+  const out: Record<string, string> = {};
+  if (keys.length === 0) {
+    if (collected.ticker) out.ticker = collected.ticker;
+    return out;
+  }
+  keys.forEach((key) => {
+    if (collected[key]) out[key] = collected[key];
+  });
+  return out;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value as Record<string, unknown>;

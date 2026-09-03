@@ -36,7 +36,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 import { PATHS } from '../../navigation/routes';
-import { applyPlaceholders, applyPlaceholdersDeep, tickerFromConfig } from '../../utils/collectorTemplate';
+import {
+  applyPlaceholders,
+  applyPlaceholdersDeep,
+  rehydrateVariableValues,
+  tickerFromConfig,
+} from '../../utils/collectorTemplate';
 import {
   buildCollectorOriginCurlBlocksResolved,
   buildKeepGuardTestCurl,
@@ -541,8 +546,13 @@ function linesToList(text: string): string[] {
 }
 
 function attachTickerHint(config: Record<string, unknown>, form: AgentForm): Record<string, unknown> {
-  const ticker = form.ticker.trim().toUpperCase();
-  if (ticker) config.entity_hint = ticker;
+  const hint = (
+    form.ticker
+    || form.variableValues.ticker
+    || form.variableValues.serie_nome
+    || ''
+  ).trim().toUpperCase();
+  if (hint) config.entity_hint = hint;
   return config;
 }
 
@@ -672,7 +682,7 @@ function formFromCollectorConfig(cfg: Record<string, unknown>, base: AgentForm):
 }
 
 function applyDataSource(base: AgentForm, source: CollectorDataSource, values: Record<string, string>): AgentForm {
-  const ticker = (values.ticker || '').trim().toUpperCase();
+  const ticker = (values.ticker || values.serie_nome || '').trim().toUpperCase();
   const resolved = { ...values, ...(ticker ? { ticker } : {}) };
   const filled = applyPlaceholdersDeep(asConfigRecord(source.configTemplate), resolved);
   const next = formFromCollectorConfig(asConfigRecord(filled), {
@@ -697,8 +707,44 @@ function applyDataSource(base: AgentForm, source: CollectorDataSource, values: R
   };
 }
 
-function formFromAgent(agent: CollectorAgent): AgentForm {
+function variableKeysFromSource(source?: CollectorDataSource | null): string[] {
+  return (source?.variables || [])
+    .map((item) => String(item.key || '').trim())
+    .filter(Boolean);
+}
+
+function variableValuesFromAgent(
+  agent: CollectorAgent,
+  cfg: Record<string, unknown>,
+  source?: CollectorDataSource | null,
+): Record<string, string> {
+  const keys = variableKeysFromSource(source);
+  if (source) {
+    return rehydrateVariableValues({
+      variableKeys: keys,
+      configTemplate: source.configTemplate || null,
+      collectorConfig: cfg,
+      nameTemplate: source.nameTemplate,
+      descriptionTemplate: source.descriptionTemplate,
+      promptTemplate: source.promptTemplate,
+      name: agent.name,
+      description: agent.description,
+      prompt: agent.prompt,
+    });
+  }
+  const ticker = tickerFromConfig(cfg);
+  return ticker ? { ticker } : {};
+}
+
+function formFromAgent(agent: CollectorAgent, source?: CollectorDataSource | null): AgentForm {
   const cfg = (agent.collectorConfig || {}) as Record<string, unknown>;
+  const variableValues = variableValuesFromAgent(agent, cfg, source);
+  const ticker = (
+    variableValues.ticker
+    || tickerFromConfig(cfg)
+    || variableValues.serie_nome
+    || ''
+  ).trim().toUpperCase();
   return {
     ...formFromCollectorConfig(cfg, emptyForm()),
     name: agent.name || '',
@@ -706,8 +752,8 @@ function formFromAgent(agent: CollectorAgent): AgentForm {
     context: agent.context || 'geral',
     collectorType: (agent.collectorType as CollectorType) || 'API_REST',
     dataSourceId: agent.dataSourceId || '',
-    ticker: tickerFromConfig(cfg),
-    variableValues: tickerFromConfig(cfg) ? { ticker: tickerFromConfig(cfg) } : {},
+    ticker,
+    variableValues,
     prompt: agent.prompt || '',
     enabled: agent.enabled,
     daysOfWeek: agent.schedule?.daysOfWeek?.length ? agent.schedule.daysOfWeek : [1, 2, 3, 4, 5],
@@ -1228,6 +1274,43 @@ export const AgentsView: React.FC = () => {
       .catch(() => setDataSources([]));
   }, [getAccessToken]);
 
+  // Reidrata variáveis se a fonte chegar depois de abrir o modal de edição.
+  useEffect(() => {
+    if (!formOpen || !editing?.dataSourceId || dataSources.length === 0) return;
+    const source = dataSources.find((entry) => entry.id === editing.dataSourceId);
+    if (!source) return;
+    const keys = variableKeysFromSource(source);
+    if (keys.length === 0) return;
+
+    setForm((current) => {
+      if (current.dataSourceId !== source.id) return current;
+      const missing = keys.some((key) => {
+        const value = key === 'ticker'
+          ? (current.variableValues.ticker || current.ticker)
+          : current.variableValues[key];
+        return !String(value || '').trim();
+      });
+      if (!missing) return current;
+
+      const cfg = (editing.collectorConfig || {}) as Record<string, unknown>;
+      const rehydrated = variableValuesFromAgent(editing, cfg, source);
+      if (!Object.keys(rehydrated).length) return current;
+
+      const filledCurrent = Object.fromEntries(
+        Object.entries(current.variableValues).filter(([, value]) => String(value || '').trim()),
+      );
+      const variableValues = { ...rehydrated, ...filledCurrent };
+      const ticker = (
+        current.ticker
+        || variableValues.ticker
+        || tickerFromConfig(cfg)
+        || variableValues.serie_nome
+        || ''
+      ).trim().toUpperCase();
+      return { ...current, variableValues, ticker };
+    });
+  }, [dataSources, editing, formOpen]);
+
   useEffect(() => {
     loadPage(page, applied);
   }, [applied, loadPage, page]);
@@ -1250,8 +1333,9 @@ export const AgentsView: React.FC = () => {
     if (!token) return;
     try {
       const detail = await getCollectorAgent(item.id, token);
+      const source = dataSources.find((entry) => entry.id === detail.dataSourceId) || null;
       setEditing(detail);
-      setForm(formFromAgent(detail));
+      setForm(formFromAgent(detail, source));
       setFormStep('identity');
       setFormOpen(true);
     } catch (error) {
@@ -1744,13 +1828,15 @@ export const AgentsView: React.FC = () => {
 
   const openAgentCurlFromItem = (agent: CollectorAgent) => {
     const cfg = asConfigRecord(agent.collectorConfig);
+    const source = dataSources.find((entry) => entry.id === agent.dataSourceId) || null;
+    const variableValues = variableValuesFromAgent(agent, cfg, source);
     openAgentCurl(
       `CURL — ${agent.name}`,
       agent.id,
       agent.collectorType,
       cfg,
-      tickerFromConfig(cfg) || agent.name,
-      tickerFromConfig(cfg) ? { ticker: tickerFromConfig(cfg) } : {},
+      variableValues.ticker || tickerFromConfig(cfg) || agent.name,
+      variableValues,
     );
   };
 
