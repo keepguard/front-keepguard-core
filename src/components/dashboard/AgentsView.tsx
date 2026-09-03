@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Activity,
   AlertCircle,
   CheckCircle2,
   ChevronDown,
@@ -50,11 +51,13 @@ import {
 import { CollectorCurlModal } from './CollectorCurlModal';
 import {
   COLLECTOR_SERVICE_CLIENT_ID,
+  bulkCollectorAgents,
   createCollectorAgent,
   deleteCollectorAgent,
   disableCollectorAgent,
   enableCollectorAgent,
   getCollectorAgent,
+  getCollectorBulkOperation,
   getExecutionPayloads,
   listCollectorAgentExecutions,
   listCollectorDataSources,
@@ -63,7 +66,10 @@ import {
   testCollectorAgent,
   updateCollectorAgent,
   type CollectorAgent,
+  type CollectorAgentSummary,
   type CollectorAgentTestResult,
+  type CollectorBulkAction,
+  type CollectorBulkProgress,
   type CollectorDataSource,
   type CollectorExecution,
   type CollectorSchedule,
@@ -1152,6 +1158,12 @@ export const AgentsView: React.FC = () => {
 
   const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
   const [items, setItems] = useState<CollectorAgent[]>([]);
+  const [summary, setSummary] = useState<CollectorAgentSummary>({ total: 0, enabled: 0, disabled: 0 });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkConfirm, setBulkConfirm] = useState<{ action: CollectorBulkAction; ids: string[] } | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<CollectorBulkProgress | null>(null);
+  const [bulkProgressOpen, setBulkProgressOpen] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [credential, setCredential] = useState<CredentialState>({ kind: 'loading' });
@@ -1250,6 +1262,7 @@ export const AgentsView: React.FC = () => {
         dir: nextFilters.dir,
       }, token);
       setItems(result.content || []);
+      setSummary(result.summary || { total: result.totalElements || 0, enabled: 0, disabled: 0 });
       setTotalPages(Math.max(result.totalPages || 1, 1));
     } catch (error) {
       addToast({
@@ -1314,6 +1327,10 @@ export const AgentsView: React.FC = () => {
   useEffect(() => {
     loadPage(page, applied);
   }, [applied, loadPage, page]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [applied, page]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -1594,6 +1611,15 @@ export const AgentsView: React.FC = () => {
     event?.stopPropagation();
     const token = getAccessToken();
     if (!token) return;
+    const bulkBusyNow = !!bulkProgress && bulkProgress.status !== 'completed' && bulkProgress.status !== 'failed';
+    if (bulkBusyNow) {
+      addToast({
+        type: 'error',
+        title: 'Lote em andamento',
+        description: 'Aguarde o lote atual terminar para executar um agent.',
+      });
+      return;
+    }
     setRunningId(item.id);
     try {
       const result = await runCollectorAgent(item.id, token);
@@ -1774,6 +1800,179 @@ export const AgentsView: React.FC = () => {
     }
   };
 
+  const pageIds = useMemo(() => items.map((item) => item.id), [items]);
+  const selectedCount = selectedIds.size;
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const togglePageSelection = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      pageIds.forEach((id) => {
+        if (checked) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  };
+
+  const selectFiltered = async () => {
+    const token = getAccessToken();
+    if (!token) return;
+    try {
+      const result = await searchCollectorAgents({
+        q: applied.q,
+        enabled: applied.enabled || undefined,
+        collectorType: applied.collectorType || undefined,
+        dataSourceId: applied.dataSourceId || undefined,
+        page: 0,
+        size: 100,
+        sort: applied.sort,
+        dir: applied.dir,
+      }, token);
+      const ids = (result.content || []).map((item) => item.id);
+      setSelectedIds(new Set(ids));
+      addToast({
+        type: 'success',
+        title: ids.length === 100 ? 'Selecionados os 100 primeiros do filtro' : `${ids.length} agents selecionados`,
+      });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Falha ao selecionar filtrados',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+      });
+    }
+  };
+
+  const needsConfirm = (action: CollectorBulkAction, count: number) => {
+    if (action === 'delete') return true;
+    if (action === 'run') return count >= 2;
+    return count >= 5;
+  };
+
+  const requestBulk = (action: CollectorBulkAction) => {
+    const bulkBusyNow = !!bulkProgress && bulkProgress.status !== 'completed' && bulkProgress.status !== 'failed';
+    if (bulkBusyNow || bulkBusy) return;
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (needsConfirm(action, ids.length)) {
+      setBulkConfirm({ action, ids });
+      return;
+    }
+    void executeBulk(action, ids);
+  };
+
+  const bulkCopy = (action: CollectorBulkAction, count: number) => {
+    if (action === 'delete') {
+      return {
+        title: 'Excluir agents',
+        body: `Excluir ${count} agents? Isso não remove a credencial OAuth da organização.`,
+        confirm: 'Excluir',
+      };
+    }
+    if (action === 'run') {
+      return {
+        title: 'Executar agents',
+        body: `Enfileirar coleta agora para ${count} agents (fora da agenda)? Acompanhe o progresso do lote; você pode sair desta tela.`,
+        confirm: 'Executar',
+      };
+    }
+    if (action === 'enable') {
+      return {
+        title: 'Ativar agents',
+        body: `Ativar ${count} agents selecionados?`,
+        confirm: 'Ativar',
+      };
+    }
+    return {
+      title: 'Desativar agents',
+      body: `Desativar ${count} agents selecionados?`,
+      confirm: 'Desativar',
+    };
+  };
+
+  const executeBulk = async (action: CollectorBulkAction, ids: string[]) => {
+    const token = getAccessToken();
+    if (!token) return;
+    setBulkBusy(true);
+    setBulkConfirm(null);
+    try {
+      const result = await bulkCollectorAgents(action, ids, token);
+      const failed = result.failed?.length || 0;
+      const ok = result.succeeded?.length || 0;
+      if (action === 'run' && result.bulkId) {
+        addToast({
+          type: failed ? 'error' : 'success',
+          title: 'Lote enfileirado',
+          description: failed ? `${ok} na fila, ${failed} falharam.` : `${ok} agents na fila.`,
+        });
+        setBulkProgress({
+          id: result.bulkId,
+          action: result.action,
+          status: 'running',
+          commands: { total: result.requested, succeeded: ok, failed },
+          collections: { pending: ok, running: 0, succeeded: 0, failed: 0 },
+        });
+        setBulkProgressOpen(true);
+      } else {
+        addToast({
+          type: failed ? 'error' : 'success',
+          title: failed ? 'Lote parcial' : 'Lote concluído',
+          description: failed ? `${ok} ok, ${failed} falharam.` : `${ok} agents atualizados.`,
+        });
+        setSelectedIds(new Set());
+        await loadPage(page, applied);
+      }
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Falha no lote',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkProgressId = bulkProgress?.id;
+  const bulkProgressDone = bulkProgress?.status === 'completed' || bulkProgress?.status === 'failed';
+  const bulkLocked = bulkBusy || (!!bulkProgress && !bulkProgressDone);
+
+  useEffect(() => {
+    if (!bulkProgressId || bulkProgressDone) return;
+    const token = getAccessToken();
+    if (!token) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const next = await getCollectorBulkOperation(bulkProgressId, token);
+        if (cancelled) return;
+        setBulkProgress(next);
+        if (next.status === 'completed' || next.status === 'failed') {
+          setSelectedIds(new Set());
+          await loadPage(page, applied);
+        }
+      } catch {
+        /* poll continua no próximo intervalo */
+      }
+    };
+    const timer = window.setInterval(() => { void tick(); }, 4000);
+    void tick();
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [applied, bulkProgressDone, bulkProgressId, getAccessToken, loadPage, page]);
+
   const filterActions = (
     <div className="audits-filter-actions">
       <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
@@ -1919,7 +2118,7 @@ export const AgentsView: React.FC = () => {
               type="button"
               className="table-actions-menu-item"
               role="menuitem"
-              disabled={runningId === item.id}
+              disabled={runningId === item.id || bulkLocked}
               onClick={(e) => runMenuAction(e, () => { void handleRun(item); })}
             >
               <Play size={15} />
@@ -1938,6 +2137,7 @@ export const AgentsView: React.FC = () => {
               type="button"
               className="table-actions-menu-item"
               role="menuitem"
+              disabled={bulkLocked}
               onClick={(e) => runMenuAction(e, () => { void handleToggle(item); })}
             >
               {item.enabled ? <PowerOff size={15} /> : <Power size={15} />}
@@ -1948,6 +2148,7 @@ export const AgentsView: React.FC = () => {
               type="button"
               className="table-actions-menu-item is-danger"
               role="menuitem"
+              disabled={bulkLocked}
               onClick={(e) => runMenuAction(e, () => setConfirmDelete(item))}
             >
               <Trash2 size={15} />
@@ -1973,6 +2174,49 @@ export const AgentsView: React.FC = () => {
           onOpenClientSystem={goClientSystem}
         />
       </div>
+
+      <div className="connections-summary agents-summary" role="group" aria-label="Resumo de agents">
+        <button
+          type="button"
+          className={`connections-summary-chip ${applied.enabled === '' ? 'is-active' : ''}`}
+          onClick={() => applyFilters({ ...applied, enabled: '' })}
+        >
+          <Activity size={14} />
+          {summary.total} agentes
+        </button>
+        <button
+          type="button"
+          className={`connections-summary-chip is-ok ${applied.enabled === 'true' ? 'is-active' : ''}`}
+          onClick={() => applyFilters({ ...applied, enabled: 'true' })}
+        >
+          {summary.enabled} ativos
+        </button>
+        <button
+          type="button"
+          className={`connections-summary-chip is-off ${applied.enabled === 'false' ? 'is-active' : ''}`}
+          onClick={() => applyFilters({ ...applied, enabled: 'false' })}
+        >
+          {summary.disabled} desativados
+        </button>
+        {loading ? <span className="connections-summary-chip is-wait">Carregando</span> : null}
+        <button
+          type="button"
+          className="connections-summary-chip"
+          onClick={() => void selectFiltered()}
+          disabled={bulkLocked || loading}
+        >
+          Selecionar filtrados (máx. 100)
+        </button>
+      </div>
+
+      {bulkLocked && bulkProgress ? (
+        <div className="agents-bulk-running" role="status">
+          <span>Lote em andamento ({bulkProgress.action}). Outras ações em massa e a execução manual ficam bloqueadas até concluir.</span>
+          <button type="button" className="btn btn-outline btn-pill" onClick={() => setBulkProgressOpen(true)}>
+            Ver progresso
+          </button>
+        </div>
+      ) : null}
 
       {testResult ? (
         <div className={`agent-test-result ${testResult.result.success ? 'is-ok' : 'is-error'}`}>
@@ -2087,10 +2331,47 @@ export const AgentsView: React.FC = () => {
         {pager(true)}
       </form>
 
+      {selectedCount > 0 ? (
+        <div className="agents-bulk-bar" role="region" aria-label="Ações em massa">
+          <span className="agents-bulk-count" aria-live="polite">{selectedCount} selecionados</span>
+          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => requestBulk('run')}>
+            <Play size={14} />
+            Executar
+          </button>
+          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => requestBulk('enable')}>
+            <Power size={14} />
+            Ativar
+          </button>
+          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => requestBulk('disable')}>
+            <PowerOff size={14} />
+            Desativar
+          </button>
+          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => requestBulk('delete')}>
+            <Trash2 size={14} />
+            Excluir
+          </button>
+          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => void selectFiltered()}>
+            Selecionar filtrados (máx. 100)
+          </button>
+          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => setSelectedIds(new Set())}>
+            Limpar
+          </button>
+        </div>
+      ) : null}
+
       <div className="hpanel-table-card desktop-table-view has-row-action-menus">
         <table className="hpanel-table">
           <thead>
             <tr>
+              <th className="agents-select-col">
+                <input
+                  type="checkbox"
+                  checked={allPageSelected}
+                  onChange={(e) => togglePageSelection(e.target.checked)}
+                  aria-label="Selecionar página"
+                  disabled={items.length === 0 || bulkLocked}
+                />
+              </th>
               <th>Fonte</th>
               <th>Nome</th>
               <th>Tipo</th>
@@ -2103,13 +2384,13 @@ export const AgentsView: React.FC = () => {
           <tbody>
             {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   Carregando agents...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <Cpu size={22} />
                     <span>Nenhum agent para os filtros atuais.</span>
@@ -2123,6 +2404,19 @@ export const AgentsView: React.FC = () => {
                   className={`agent-row-clickable${actionsMenuId === item.id ? ' has-open-menu' : ''}`}
                   onClick={() => openHistory(item)}
                 >
+                  <td
+                    className="agents-select-col"
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item.id)}
+                      onChange={(e) => toggleSelected(item.id, e.target.checked)}
+                      aria-label={`Selecionar ${item.name}`}
+                      disabled={bulkLocked}
+                    />
+                  </td>
                   <td>{dataSourceLabel(item.dataSourceName)}</td>
                   <td>
                     <span className="table-cell-title" title={item.name}>{item.name}</span>
@@ -2154,7 +2448,18 @@ export const AgentsView: React.FC = () => {
             className={`mobile-domain-card agent-row-clickable${actionsMenuId === item.id ? ' has-open-menu' : ''}`}
             onClick={() => openHistory(item)}
           >
-            <div className="mobile-card-subinfo">{dataSourceLabel(item.dataSourceName)}</div>
+            <div className="mobile-card-subinfo agents-mobile-select">
+              <label onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(item.id)}
+                  onChange={(e) => toggleSelected(item.id, e.target.checked)}
+                  aria-label={`Selecionar ${item.name}`}
+                  disabled={bulkLocked}
+                />
+              </label>
+              <span>{dataSourceLabel(item.dataSourceName)}</span>
+            </div>
             <div className="mobile-card-top">
               <span className="mobile-domain-name">{item.name}</span>
               <span
@@ -2712,6 +3017,56 @@ export const AgentsView: React.FC = () => {
           <button type="button" className="btn btn-outline" onClick={() => setConfirmDelete(null)}>Cancelar</button>
           <button type="button" className="btn btn-primary" onClick={handleDelete}>Excluir</button>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!bulkConfirm}
+        onClose={() => setBulkConfirm(null)}
+        title={bulkConfirm ? bulkCopy(bulkConfirm.action, bulkConfirm.ids.length).title : ''}
+        maxWidth="480px"
+      >
+        {bulkConfirm ? (
+          <>
+            <p>{bulkCopy(bulkConfirm.action, bulkConfirm.ids.length).body}</p>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setBulkConfirm(null)}>Cancelar</button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={bulkLocked}
+                onClick={() => void executeBulk(bulkConfirm.action, bulkConfirm.ids)}
+              >
+                {bulkCopy(bulkConfirm.action, bulkConfirm.ids.length).confirm}
+              </button>
+            </div>
+          </>
+        ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={bulkProgressOpen && !!bulkProgress}
+        onClose={() => setBulkProgressOpen(false)}
+        title="Progresso do lote"
+        subtitle={bulkProgress ? `${bulkProgress.action} · ${bulkProgress.status}` : undefined}
+        maxWidth="520px"
+      >
+        {bulkProgress ? (
+          <>
+            <p>Comandos: {bulkProgress.commands.succeeded}/{bulkProgress.commands.total} ok{bulkProgress.commands.failed ? ` · ${bulkProgress.commands.failed} falharam` : ''}.</p>
+            {bulkProgress.collections ? (
+              <p>
+                Coletas: {bulkProgress.collections.succeeded} ok
+                {bulkProgress.collections.running ? ` · ${bulkProgress.collections.running} em andamento` : ''}
+                {bulkProgress.collections.pending ? ` · ${bulkProgress.collections.pending} na fila` : ''}
+                {bulkProgress.collections.failed ? ` · ${bulkProgress.collections.failed} falharam` : ''}.
+              </p>
+            ) : null}
+            <p className="table-cell-muted">A coleta continua na fila. Fechar esta janela não cancela o lote nem libera novas ações.</p>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-primary" onClick={() => setBulkProgressOpen(false)}>Fechar</button>
+            </div>
+          </>
+        ) : null}
       </Modal>
 
       <Modal

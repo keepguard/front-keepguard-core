@@ -4482,6 +4482,57 @@ textarea.form-input {
   color: var(--text-muted);
 }
 
+.agents-summary {
+  margin-bottom: 0.75rem;
+}
+
+.agents-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.agents-bulk-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+
+.agents-bulk-running {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #d9c7ff;
+  border-radius: 12px;
+  background: #f6f1ff;
+  font-size: 0.85rem;
+}
+
+.agents-select-col {
+  width: 2.2rem;
+  text-align: center;
+}
+
+.agents-select-col input,
+.agents-mobile-select input {
+  accent-color: #673de6;
+}
+
+.agents-mobile-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .connections-toolbar {
   align-items: center;
 }

@@ -37,6 +37,13 @@ export interface PaginatedCollectorAgents {
   size: number;
   totalElements: number;
   totalPages: number;
+  summary?: CollectorAgentSummary;
+}
+
+export interface CollectorAgentSummary {
+  total: number;
+  enabled: number;
+  disabled: number;
 }
 
 export interface SearchCollectorAgentsParams {
@@ -164,6 +171,44 @@ export function runCollectorAgent(id: string, token: string): Promise<CollectorA
     method: 'POST',
     body: JSON.stringify({}),
   }, token);
+}
+
+export type CollectorBulkAction = 'run' | 'enable' | 'disable' | 'delete';
+
+export interface CollectorBulkFailedItem {
+  id: string;
+  error: string;
+}
+
+export interface CollectorBulkResult {
+  bulkId: string;
+  action: CollectorBulkAction | string;
+  requested: number;
+  succeeded: string[];
+  failed: CollectorBulkFailedItem[];
+}
+
+export interface CollectorBulkProgress {
+  id: string;
+  action: CollectorBulkAction | string;
+  status: string;
+  commands: { total: number; succeeded: number; failed: number };
+  collections?: { pending: number; running: number; succeeded: number; failed: number };
+}
+
+export function bulkCollectorAgents(
+  action: CollectorBulkAction,
+  ids: string[],
+  token: string,
+): Promise<CollectorBulkResult> {
+  return customFetch<CollectorBulkResult>(`${base}/bulk`, {
+    method: 'POST',
+    body: JSON.stringify({ action, ids }),
+  }, token);
+}
+
+export function getCollectorBulkOperation(id: string, token: string): Promise<CollectorBulkProgress> {
+  return customFetch<CollectorBulkProgress>(`${base}/bulk-operations/${id}`, { method: 'GET' }, token);
 }
 
 export interface CollectorExecution {
