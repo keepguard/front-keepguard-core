@@ -211,6 +211,16 @@ export function getCollectorBulkOperation(id: string, token: string): Promise<Co
   return customFetch<CollectorBulkProgress>(`${base}/bulk-operations/${id}`, { method: 'GET' }, token);
 }
 
+export async function getCollectorActiveBulkOperation(token: string): Promise<CollectorBulkProgress | null> {
+  try {
+    return await customFetch<CollectorBulkProgress>(`${base}/bulk-operations/active`, { method: 'GET' }, token);
+  } catch (error: unknown) {
+    const status = (error as { status?: number } | null)?.status;
+    if (status === 404) return null;
+    throw error;
+  }
+}
+
 export interface CollectorExecution {
   id: string;
   agentId: string;

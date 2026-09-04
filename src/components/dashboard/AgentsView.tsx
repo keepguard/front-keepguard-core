@@ -57,6 +57,7 @@ import {
   disableCollectorAgent,
   enableCollectorAgent,
   getCollectorAgent,
+  getCollectorActiveBulkOperation,
   getCollectorBulkOperation,
   getExecutionPayloads,
   listCollectorAgentExecutions,
@@ -1607,6 +1608,26 @@ export const AgentsView: React.FC = () => {
     }
   };
 
+  const attachActiveBulk = useCallback(async (token: string, openModal: boolean) => {
+    try {
+      const active = await getCollectorActiveBulkOperation(token);
+      if (!active || active.status === 'completed' || active.status === 'failed') {
+        return false;
+      }
+      setBulkProgress(active);
+      if (openModal) setBulkProgressOpen(true);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    void attachActiveBulk(token, false);
+  }, [attachActiveBulk, getAccessToken]);
+
   const handleRun = async (item: CollectorAgent, event?: React.MouseEvent) => {
     event?.stopPropagation();
     const token = getAccessToken();
@@ -1631,6 +1652,15 @@ export const AgentsView: React.FC = () => {
           : `${item.name}: ${result.status}`,
       });
     } catch (error) {
+      const status = (error as { status?: number } | null)?.status;
+      if (status === 409 && await attachActiveBulk(token, true)) {
+        addToast({
+          type: 'info',
+          title: 'Lote em andamento',
+          description: 'Já existe um lote nesta organização. Acompanhe o progresso; itens parados são liberados automaticamente.',
+        });
+        return;
+      }
       addToast({
         type: 'error',
         title: 'Falha ao executar agent',
@@ -1933,6 +1963,15 @@ export const AgentsView: React.FC = () => {
         await loadPage(page, applied);
       }
     } catch (error) {
+      const status = (error as { status?: number } | null)?.status;
+      if (status === 409 && await attachActiveBulk(token, true)) {
+        addToast({
+          type: 'info',
+          title: 'Lote em andamento',
+          description: 'Já existe um lote nesta organização. Acompanhe o progresso; itens parados são liberados automaticamente.',
+        });
+        return;
+      }
       addToast({
         type: 'error',
         title: 'Falha no lote',
