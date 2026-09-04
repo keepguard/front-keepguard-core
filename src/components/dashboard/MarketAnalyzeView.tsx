@@ -99,6 +99,7 @@ export const MarketAnalyzeView: React.FC = () => {
         <div className="dash-card" style={{ marginTop: '1.25rem' }}>
           <h2 className="market-analyze-title">{analysis.displayName || analysis.ticker} · {analysis.ticker}</h2>
           <div className="market-signals">
+            {/* Números oficiais: signals[] (código). Não parsear narrative. */}
             {analysis.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>
                 <span className={`market-verdict ${signal.verdict}`}>
@@ -117,6 +118,7 @@ export const MarketAnalyzeView: React.FC = () => {
               Lacunas: {analysis.gaps.map((g) => `${g.metric} (${g.reason})`).join(', ')}
             </p>
           ) : null}
+          {/* Narrativa = prosa; não é fonte de números. */}
           <div className="market-narrative" aria-live="polite">{analysis.narrative}</div>
           {analysis.sources.length > 0 ? (
             <p className="text-muted">

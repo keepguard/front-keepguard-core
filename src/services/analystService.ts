@@ -1,3 +1,10 @@
+/**
+ * Cliente do analista financeiro (bff-invest).
+ *
+ * Contrato de números: a UI DEVE ler valores e vereditos de `signals[]`
+ * (calculados em código no srv-analyst-finance). A `narrative` é só prosa —
+ * nunca fonte de verdade numérica (principalmente quando LLM estiver ligado).
+ */
 import { BFF_INVEST_URL, customFetch } from './api';
 import { getAccessToken } from './tokenStore';
 
@@ -16,8 +23,10 @@ export interface AnalystAnalysis {
   ticker: string;
   displayName: string;
   analysisDate: string;
+  /** Números oficiais — use este array; não parseie a narrativa. */
   signals: AnalystSignal[];
   gaps: { metric: string; reason: string }[];
+  /** Prosa; não use como fonte de números. */
   narrative: string;
   narrativeStatus: string;
   sources: { dataSource: string; collectedAt: string }[];
