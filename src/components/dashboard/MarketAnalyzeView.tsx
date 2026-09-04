@@ -18,6 +18,14 @@ const METRIC_LABEL: Record<string, string> = {
   dy_pct: 'Dividend yield',
   dividaliquida_ebitda: 'Dívida/EBITDA',
   roe_pct: 'ROE',
+  pvp: 'P/VPA',
+  roic_pct: 'ROIC',
+  margem_liquida_pct: 'Margem líquida',
+  liquidezcorrente: 'Liquidez corrente',
+  dividaliquida_patrimonioliquido: 'Dívida líquida/PL',
+  receitas_cagr5_pct: 'CAGR 5a receitas',
+  lucros_cagr5_pct: 'CAGR 5a lucros',
+  ev_ebitda: 'EV/EBITDA',
 };
 
 export const MarketAnalyzeView: React.FC = () => {
