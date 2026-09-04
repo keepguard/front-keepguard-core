@@ -14,6 +14,7 @@ import {
   Users,
   X,
   BookOpen,
+  LineChart,
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react';
@@ -69,8 +70,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeAgents = hasAdminRole(user?.roles);
   const canSeeDataSources = hasAdminRole(user?.roles);
   const canSeeKnowledge = hasAdminRole(user?.roles);
+  const canSeeMarket = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeDataSources || canSeeKnowledge;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeDataSources || canSeeKnowledge || canSeeMarket;
 
   return (
     <>
@@ -206,6 +208,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onCloseMobile={onCloseMobile}
                 />
               )}
+            </nav>
+          )}
+          {canSeeMarket && (
+            <nav className="sidebar-section" aria-label="Mercado">
+              <span className="sidebar-heading">Mercado</span>
+              <SidebarLink
+                to={PATHS.marketAnalyze}
+                label="Analisar ativo"
+                icon={<LineChart size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
             </nav>
           )}
         </div>

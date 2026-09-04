@@ -10,6 +10,7 @@ export type AppTab =
   | 'agents'
   | 'data-sources'
   | 'knowledge'
+  | 'market-analyze'
   | 'audits'
   | 'templates'
   | 'account'
@@ -33,6 +34,7 @@ export const ROUTES: RouteMeta[] = [
   { path: '/agents', tab: 'agents', title: 'Agents' },
   { path: '/fontes', tab: 'data-sources', title: 'Fontes de dados' },
   { path: '/conhecimento', tab: 'knowledge', title: 'Conhecimento' },
+  { path: '/mercado/analisar', tab: 'market-analyze', title: 'Analisar ativo' },
   { path: '/auditoria', tab: 'audits', title: 'Auditoria' },
   { path: '/templates', tab: 'templates', title: 'Galeria de Templates' },
   { path: '/conta', tab: 'account', title: 'Conta' },
@@ -73,6 +75,7 @@ export const PATHS = {
   agents: '/agents',
   dataSources: '/fontes',
   knowledge: '/conhecimento',
+  marketAnalyze: '/mercado/analisar',
   audits: '/auditoria',
   templates: '/templates',
   account: '/conta',

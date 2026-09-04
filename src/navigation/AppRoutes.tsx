@@ -11,6 +11,7 @@ import {
   ConnectionsPage,
   GuardianPage,
   KnowledgePage,
+  MarketAnalyzePage,
   OverviewPage,
   SessionsPage,
   SettingsPage,
@@ -96,6 +97,14 @@ export const AppRoutes: React.FC = () => {
           element={(
             <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM consultam o conhecimento.">
               <KnowledgePage />
+            </RequireAccess>
+          )}
+        />
+        <Route
+          path={PATHS.marketAnalyze}
+          element={(
+            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM analisam ativos.">
+              <MarketAnalyzePage />
             </RequireAccess>
           )}
         />

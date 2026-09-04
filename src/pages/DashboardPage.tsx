@@ -16,6 +16,7 @@ import { ClientSystemView } from '../components/dashboard/ClientSystemView';
 import { AgentsView } from '../components/dashboard/AgentsView';
 import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
+import { MarketAnalyzeView } from '../components/dashboard/MarketAnalyzeView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
@@ -34,6 +35,7 @@ import {
   Database,
   Users,
   BookOpen,
+  LineChart,
 } from 'lucide-react';
 
 const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
@@ -340,6 +342,23 @@ export const KnowledgePage: React.FC = () => (
       </div>
     </div>
     <KnowledgeView />
+  </DashboardShell>
+);
+
+export const MarketAnalyzePage: React.FC = () => (
+  <DashboardShell>
+    <div className="dashboard-header">
+      <div className="dashboard-title-group">
+        <h1 className="dashboard-title">
+          <LineChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          Analisar ativo
+        </h1>
+        <p className="dashboard-subtitle">
+          Sinais determinísticos e narrativa fundamentada. Análise, não recomendação de investimento.
+        </p>
+      </div>
+    </div>
+    <MarketAnalyzeView />
   </DashboardShell>
 );
 

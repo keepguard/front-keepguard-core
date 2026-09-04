@@ -33,6 +33,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/bff-core-proxy/, ''),
       },
+      '/bff-invest-proxy': {
+        target: 'http://localhost:8383',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/bff-invest-proxy/, ''),
+      },
     },
   },
 })

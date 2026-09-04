@@ -4,6 +4,7 @@ import {
   clearTokens,
   ensureFreshToken,
   getAccessToken,
+  parseJwtPayload,
 } from './tokenStore';
 
 // Determina automaticamente a URL do BFF com base no host atual
@@ -21,8 +22,27 @@ export const BFF_CORE_URL = import.meta.env.VITE_BFF_CORE_URL && import.meta.env
   ? import.meta.env.VITE_BFF_CORE_URL
   : defaultCoreUrl;
 
+const defaultInvestUrl = isProductionDomain ? 'https://api.keepguard.com.br' : 'http://localhost:8383';
+
+export const BFF_INVEST_URL = import.meta.env.VITE_BFF_INVEST_URL && import.meta.env.VITE_BFF_INVEST_URL !== 'http://localhost:8383'
+  ? import.meta.env.VITE_BFF_INVEST_URL
+  : defaultInvestUrl;
+
 export const DEFAULT_TENANT_ID = import.meta.env.VITE_DEFAULT_TENANT_ID || 'f7fc7350-b9fc-4e54-9c58-ac9385b23ae3';
 export const DEFAULT_CLIENT_ID = 'keepguard-web';
+
+function tenantIdFromAccessToken(): string | undefined {
+  const token = getAccessToken();
+  if (!token) return undefined;
+  const claims = parseJwtPayload(token);
+  if (typeof claims?.tenant_id === 'string' && claims.tenant_id.trim()) {
+    return claims.tenant_id.trim();
+  }
+  if (typeof claims?.tenantId === 'string' && claims.tenantId.trim()) {
+    return claims.tenantId.trim();
+  }
+  return undefined;
+}
 
 export function generateUUID(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -75,10 +95,11 @@ export async function customFetch<T>(
   prefetchPublicClientIp();
   const publicNetwork = peekPublicClientNetwork();
 
+  const tenantId = tenantIdFromAccessToken() || DEFAULT_TENANT_ID;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'X-Tenant-Id': DEFAULT_TENANT_ID,
+    'X-Tenant-Id': tenantId,
     'X-Client-Id': DEFAULT_CLIENT_ID,
     'X-Correlation-ID': correlationId,
     'X-Device-Id': deviceInfo.deviceId,
@@ -86,6 +107,9 @@ export async function customFetch<T>(
     'X-Device-Type': deviceInfo.deviceType,
     ...(fetchOptions.headers as Record<string, string>),
   };
+  if (url.startsWith(BFF_INVEST_URL) || url.includes('/bff-invest')) {
+    headers['X-Company-Id'] = tenantId;
+  }
 
   if (publicNetwork?.ip) {
     headers['X-Public-IP'] = publicNetwork.ip;

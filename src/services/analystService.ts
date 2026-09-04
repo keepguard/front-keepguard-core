@@ -1,0 +1,34 @@
+import { BFF_INVEST_URL, customFetch } from './api';
+import { getAccessToken } from './tokenStore';
+
+export interface AnalystSignal {
+  metric: string;
+  verdict: string;
+  explanation: string;
+  grounding?: {
+    dataSource?: string;
+    valueNum?: number;
+    observedAt?: string;
+  };
+}
+
+export interface AnalystAnalysis {
+  ticker: string;
+  displayName: string;
+  analysisDate: string;
+  signals: AnalystSignal[];
+  gaps: { metric: string; reason: string }[];
+  narrative: string;
+  narrativeStatus: string;
+  sources: { dataSource: string; collectedAt: string }[];
+  disclaimer: string;
+}
+
+export function analyzeTicker(ticker: string): Promise<AnalystAnalysis> {
+  const token = getAccessToken() ?? undefined;
+  return customFetch<AnalystAnalysis>(
+    `${BFF_INVEST_URL}/api/v1/invest/analyst/assets/${encodeURIComponent(ticker)}/analyze`,
+    { method: 'POST' },
+    token,
+  );
+}
