@@ -84,7 +84,7 @@ type Filters = {
   enabled: '' | 'true' | 'false';
   collectorType: '' | CollectorType;
   dataSourceId: string;
-  sort: 'name' | 'enabled' | 'collectorType';
+  sort: 'name' | 'enabled' | 'lastExecutionStatus';
   dir: 'asc' | 'desc';
 };
 
@@ -98,8 +98,13 @@ const EMPTY_FILTERS: Filters = {
 };
 
 function agentSort(value: string): Filters['sort'] {
-  if (value === 'enabled' || value === 'collectorType' || value === 'name') return value;
+  if (value === 'enabled' || value === 'lastExecutionStatus' || value === 'name') return value;
   return 'name';
+}
+
+function toApiSort(sort: Filters['sort']): string {
+  if (sort === 'lastExecutionStatus') return 'lastExecutionStatus';
+  return sort;
 }
 
 type CredentialState =
@@ -1280,10 +1285,10 @@ export const AgentsView: React.FC = () => {
     }
   }, [getAccessToken]);
 
-  const loadPage = useCallback(async (nextPage: number, nextFilters: Filters) => {
+  const loadPage = useCallback(async (nextPage: number, nextFilters: Filters, opts?: { silent?: boolean }) => {
     const token = getAccessToken();
     if (!token) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     try {
       const result = await searchCollectorAgents({
         q: nextFilters.q,
@@ -1292,22 +1297,58 @@ export const AgentsView: React.FC = () => {
         dataSourceId: nextFilters.dataSourceId || undefined,
         page: nextPage,
         size: 20,
-        sort: agentSort(nextFilters.sort),
+        sort: toApiSort(agentSort(nextFilters.sort)),
         dir: nextFilters.dir,
       }, token);
       setItems(result.content || []);
       setSummary(result.summary || { total: result.totalElements || 0, enabled: 0, disabled: 0 });
       setTotalPages(Math.max(result.totalPages || 1, 1));
     } catch (error) {
-      addToast({
-        type: 'error',
-        title: 'Falha ao listar agents',
-        description: error instanceof Error ? error.message : 'Tente novamente.',
-      });
+      if (!opts?.silent) {
+        addToast({
+          type: 'error',
+          title: 'Falha ao listar agents',
+          description: error instanceof Error ? error.message : 'Tente novamente.',
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [addToast, getAccessToken]);
+
+  /** Atualiza data/status da última execução após enfileirar coleta (assíncrona). */
+  const refreshAgentLastExecution = useCallback(async (agentId: string, token: string, baselineIso: string) => {
+    const baselineMs = Date.parse(baselineIso) || Date.now();
+    const waitsMs = [1200, 2500, 4000, 6000, 8000];
+    for (const wait of waitsMs) {
+      await new Promise((resolve) => window.setTimeout(resolve, wait));
+      try {
+        const executions = await listCollectorAgentExecutions(agentId, token);
+        const latest = executions?.[0];
+        if (!latest?.startedAt) continue;
+        const startedMs = Date.parse(latest.startedAt);
+        // Ignora histórico antigo até aparecer execução desta corrida (ou mais nova).
+        if (Number.isFinite(startedMs) && startedMs < baselineMs - 5000) continue;
+
+        setItems((prev) => prev.map((row) => (
+          row.id === agentId
+            ? {
+              ...row,
+              lastExecution: {
+                id: latest.id,
+                startedAt: latest.startedAt,
+                finishedAt: latest.finishedAt,
+                status: latest.status,
+              },
+            }
+            : row
+        )));
+        if (latest.status !== 'RUNNING') return;
+      } catch {
+        /* próximo intervalo */
+      }
+    }
+  }, []);
 
   useEffect(() => {
     loadCredential();
@@ -1677,6 +1718,19 @@ export const AgentsView: React.FC = () => {
     setRunningId(item.id);
     try {
       const result = await runCollectorAgent(item.id, token);
+      const startedAt = new Date().toISOString();
+      setItems((prev) => prev.map((row) => (
+        row.id === item.id
+          ? {
+            ...row,
+            lastExecution: {
+              id: row.lastExecution?.id || `running-${item.id}`,
+              startedAt,
+              status: 'RUNNING',
+            },
+          }
+          : row
+      )));
       addToast({
         type: 'success',
         title: 'Coleta enfileirada',
@@ -1684,6 +1738,7 @@ export const AgentsView: React.FC = () => {
           ? `${item.name} vai executar agora, fora da agenda. Acompanhe no Histórico.`
           : `${item.name}: ${result.status}`,
       });
+      void refreshAgentLastExecution(item.id, token, startedAt);
     } catch (error) {
       const status = (error as { status?: number } | null)?.status;
       if (status === 409 && await attachActiveBulk(token, true)) {
@@ -1944,6 +1999,20 @@ export const AgentsView: React.FC = () => {
       const failed = result.failed?.length || 0;
       const ok = result.succeeded?.length || 0;
       if (action === 'run' && result.bulkId) {
+        const startedAt = new Date().toISOString();
+        const succeeded = new Set(result.succeeded || []);
+        setItems((prev) => prev.map((row) => (
+          succeeded.has(row.id)
+            ? {
+              ...row,
+              lastExecution: {
+                id: row.lastExecution?.id || `running-${row.id}`,
+                startedAt,
+                status: 'RUNNING',
+              },
+            }
+            : row
+        )));
         addToast({
           type: failed ? 'error' : 'success',
           title: 'Lote enfileirado',
@@ -2000,9 +2069,13 @@ export const AgentsView: React.FC = () => {
         const next = await getCollectorBulkOperation(bulkProgressId, token);
         if (cancelled) return;
         setBulkProgress(next);
+        // Atualiza última execução na tabela enquanto o lote (run) progride.
+        if (next.action === 'run') {
+          await loadPage(page, applied, { silent: true });
+        }
         if (next.status === 'completed' || next.status === 'failed') {
           setSelectedIds(new Set());
-          await loadPage(page, applied);
+          await loadPage(page, applied, { silent: true });
         }
       } catch {
         /* poll continua no próximo intervalo */
@@ -2345,21 +2418,22 @@ export const AgentsView: React.FC = () => {
             <select
               className="form-input audits-sort-select"
               value={agentSort(filters.sort)}
-              onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as Filters['sort'] }))}
+              onChange={(e) => setFilters((f) => ({ ...f, sort: agentSort(e.target.value) }))}
               aria-label="Ordenar por"
             >
               <option value="name">Nome</option>
               <option value="enabled">Status</option>
-              <option value="collectorType">Tipo</option>
+              <option value="lastExecutionStatus">Status último evento</option>
             </select>
             <select
               className="form-input audits-dir-select"
               value={filters.dir}
               onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as Filters['dir'] }))}
-              aria-label="Direção"
+              aria-label="Ordem"
+              title="Ordem da lista"
             >
-              <option value="desc">Decrescente</option>
               <option value="asc">Crescente</option>
+              <option value="desc">Decrescente</option>
             </select>
           </div>
           {pager(true)}
