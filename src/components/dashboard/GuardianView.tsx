@@ -2,13 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bot,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   ChevronsUpDown,
   ChevronUp,
   Mail,
   Search,
 } from 'lucide-react';
+import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
 import { useAuth } from '../../context/AuthContext';
@@ -161,42 +160,6 @@ function prettyJson(raw?: string) {
     return raw;
   }
 }
-
-const GuardianPager: React.FC<{
-  loading: boolean;
-  refreshing: boolean;
-  page: number;
-  totalPages: number;
-  onPrev: () => void;
-  onNext: () => void;
-  leading?: React.ReactNode;
-}> = ({ loading, refreshing, page, totalPages, onPrev, onNext, leading }) => (
-  <div className="audits-pager">
-    <div className="audits-pager-leading">{leading}</div>
-    <div className="audits-pager-actions">
-      <button
-        type="button"
-        className="btn btn-outline btn-pill btn-icon-pager"
-        disabled={loading || refreshing || page <= 0}
-        onClick={onPrev}
-        aria-label="Página anterior"
-        title="Página anterior"
-      >
-        <ChevronLeft size={18} />
-      </button>
-      <button
-        type="button"
-        className="btn btn-outline btn-pill btn-icon-pager"
-        disabled={loading || refreshing || page + 1 >= totalPages}
-        onClick={onNext}
-        aria-label="Próxima página"
-        title="Próxima página"
-      >
-        <ChevronRight size={18} />
-      </button>
-    </div>
-  </div>
-);
 
 export const GuardianView: React.FC = () => {
   const { isAuthenticated, getAccessToken } = useAuth();
@@ -390,7 +353,7 @@ export const GuardianView: React.FC = () => {
   );
 
   const pager = (includeFilter = false) => (
-    <GuardianPager
+    <ListPager
       loading={loading}
       refreshing={refreshing}
       page={page}

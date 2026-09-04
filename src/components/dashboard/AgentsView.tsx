@@ -30,6 +30,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
 import { Link, useNavigate } from 'react-router-dom';
@@ -1159,42 +1160,6 @@ function CredentialChip({
   );
 }
 
-const AgentPager: React.FC<{
-  loading: boolean;
-  refreshing?: boolean;
-  page: number;
-  totalPages: number;
-  onPrev: () => void;
-  onNext: () => void;
-  leading?: React.ReactNode;
-}> = ({ loading, refreshing = false, page, totalPages, onPrev, onNext, leading }) => (
-  <div className="audits-pager">
-    <div className="audits-pager-leading">{leading}</div>
-    <div className="audits-pager-actions">
-      <button
-        type="button"
-        className="btn btn-outline btn-pill btn-icon-pager"
-        disabled={loading || refreshing || page <= 0}
-        onClick={onPrev}
-        aria-label="Página anterior"
-        title="Página anterior"
-      >
-        <ChevronLeft size={18} />
-      </button>
-      <button
-        type="button"
-        className="btn btn-outline btn-pill btn-icon-pager"
-        disabled={loading || refreshing || page >= totalPages - 1}
-        onClick={onNext}
-        aria-label="Próxima página"
-        title="Próxima página"
-      >
-        <ChevronRight size={18} />
-      </button>
-    </div>
-  </div>
-);
-
 export const AgentsView: React.FC = () => {
   const { getAccessToken } = useAuth();
   const { addToast } = useToast();
@@ -1204,6 +1169,7 @@ export const AgentsView: React.FC = () => {
   const [items, setItems] = useState<CollectorAgent[]>([]);
   const [summary, setSummary] = useState<CollectorAgentSummary>({ total: 0, enabled: 0, disabled: 0 });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectPageRef = useRef<HTMLInputElement>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState<{ action: CollectorBulkAction; ids: string[] } | null>(null);
   const [bulkProgress, setBulkProgress] = useState<CollectorBulkProgress | null>(null);
@@ -1412,9 +1378,10 @@ export const AgentsView: React.FC = () => {
     loadPage(page, applied);
   }, [applied, loadPage, page]);
 
+  const appliedKey = JSON.stringify(applied);
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [applied, page]);
+  }, [appliedKey]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -1929,7 +1896,15 @@ export const AgentsView: React.FC = () => {
 
   const pageIds = useMemo(() => items.map((item) => item.id), [items]);
   const selectedCount = selectedIds.size;
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const selectedOnPage = pageIds.filter((id) => selectedIds.has(id)).length;
+  const selectedOffPage = selectedCount - selectedOnPage;
+  const allPageSelected = pageIds.length > 0 && selectedOnPage === pageIds.length;
+  const somePageSelected = selectedOnPage > 0 && selectedOnPage < pageIds.length;
+
+  useEffect(() => {
+    const input = selectPageRef.current;
+    if (input) input.indeterminate = somePageSelected;
+  }, [somePageSelected]);
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -2113,7 +2088,7 @@ export const AgentsView: React.FC = () => {
   );
 
   const pager = (includeFilter = false) => (
-    <AgentPager
+    <ListPager
       loading={loading}
       refreshing={refreshing}
       page={page}
@@ -2474,7 +2449,9 @@ export const AgentsView: React.FC = () => {
 
       {selectedCount > 0 ? (
         <div className="agents-bulk-bar" role="region" aria-label="Ações em massa">
-          <span className="agents-bulk-count" aria-live="polite">{selectedCount} selecionados</span>
+          <span className="agents-bulk-count" aria-live="polite">
+            {selectedCount} selecionados{selectedOffPage > 0 ? ' (incluindo outras páginas)' : ''}
+          </span>
           <button type="button" className="btn btn-primary btn-pill" disabled={bulkLocked} onClick={() => requestBulk('run')}>
             <Play size={14} />
             Executar
@@ -2503,6 +2480,7 @@ export const AgentsView: React.FC = () => {
             <tr>
               <th className="agents-select-col">
                 <input
+                  ref={selectPageRef}
                   type="checkbox"
                   checked={allPageSelected}
                   onChange={(e) => togglePageSelection(e.target.checked)}
