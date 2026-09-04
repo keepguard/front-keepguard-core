@@ -19,7 +19,7 @@ import {
   PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { canReadAudits, canAccessTenantDevices, hasAdminRole } from '../../utils/roles';
+import { canReadAudits, canAccessTenantDevices, hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
 import { PATHS } from '../../navigation/routes';
 
 interface SidebarProps {
@@ -68,11 +68,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeGuardian = hasAdminRole(user?.roles);
   const canSeeClientSystem = hasAdminRole(user?.roles);
   const canSeeAgents = hasAdminRole(user?.roles);
+  const canSeeAgentIncidents = hasAdminOrManagerRole(user?.roles);
   const canSeeDataSources = hasAdminRole(user?.roles);
   const canSeeKnowledge = hasAdminRole(user?.roles);
   const canSeeMarket = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeDataSources || canSeeKnowledge || canSeeMarket;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarket;
 
   return (
     <>
@@ -179,8 +180,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {canSeeAgents && (
                 <SidebarLink
                   to={PATHS.agents}
+                  end
                   label="Agents"
                   icon={<Cpu size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeAgentIncidents && (
+                <SidebarLink
+                  to={PATHS.agentIncidents}
+                  label="Incidentes"
+                  icon={<ShieldAlert size={18} className="sidebar-icon" />}
                   onCloseMobile={onCloseMobile}
                 />
               )}

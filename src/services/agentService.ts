@@ -37,6 +37,13 @@ export interface CollectorAgent {
   createdAt?: string;
   updatedAt?: string;
   lastExecution?: CollectorLastExecution | null;
+  openIncident?: CollectorOpenIncident | null;
+}
+
+export interface CollectorOpenIncident {
+  incidentId: string;
+  classification: string;
+  occurrences: number;
 }
 
 export interface PaginatedCollectorAgents {
@@ -60,6 +67,7 @@ export interface SearchCollectorAgentsParams {
   collectorType?: string;
   dataSourceId?: string;
   lastExecutionStatus?: string;
+  hasOpenIncident?: string;
   page?: number;
   size?: number;
   sort?: string;
@@ -103,14 +111,36 @@ function toQuery(params?: Record<string, string | number | undefined>): string {
   return encoded ? `?${encoded}` : '';
 }
 
-export function searchCollectorAgents(params: SearchCollectorAgentsParams, token: string): Promise<PaginatedCollectorAgents> {
-  return customFetch<PaginatedCollectorAgents>(
+function normalizeOpenIncident(raw: unknown): CollectorOpenIncident | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const item = raw as Record<string, unknown>;
+  const incidentId = String(item.incidentId ?? item.incident_id ?? '');
+  if (!incidentId) return undefined;
+  return {
+    incidentId,
+    classification: String(item.classification ?? ''),
+    occurrences: Number(item.occurrences ?? 0) || 0,
+  };
+}
+
+function normalizeCollectorAgent(raw: CollectorAgent): CollectorAgent {
+  const extra = raw as CollectorAgent & { open_incident?: unknown };
+  return {
+    ...raw,
+    openIncident: normalizeOpenIncident(raw.openIncident ?? extra.open_incident),
+  };
+}
+
+export async function searchCollectorAgents(params: SearchCollectorAgentsParams, token: string): Promise<PaginatedCollectorAgents> {
+  const result = await customFetch<PaginatedCollectorAgents>(
     `${base}${toQuery({
       q: params.q,
       enabled: params.enabled,
       collectorType: params.collectorType,
       dataSourceId: params.dataSourceId,
       lastExecutionStatus: params.lastExecutionStatus,
+      hasOpenIncident: params.hasOpenIncident,
+      has_open_incident: params.hasOpenIncident,
       page: params.page,
       size: params.size,
       sort: params.sort,
@@ -119,6 +149,10 @@ export function searchCollectorAgents(params: SearchCollectorAgentsParams, token
     { method: 'GET' },
     token,
   );
+  return {
+    ...result,
+    content: (result.content || []).map(normalizeCollectorAgent),
+  };
 }
 
 export function getCollectorAgent(id: string, token: string): Promise<CollectorAgent> {
@@ -183,7 +217,7 @@ export function runCollectorAgent(id: string, token: string): Promise<CollectorA
   }, token);
 }
 
-export type CollectorBulkAction = 'run' | 'enable' | 'disable' | 'delete';
+export type CollectorBulkAction = 'run' | 'enable' | 'disable' | 'delete' | 'scan_incidents';
 
 export interface CollectorBulkFailedItem {
   id: string;
@@ -245,6 +279,146 @@ export interface CollectorExecution {
 
 export function listCollectorAgentExecutions(id: string, token: string): Promise<CollectorExecution[]> {
   return customFetch<CollectorExecution[]>(`${base}/${id}/executions?limit=50`, { method: 'GET' }, token);
+}
+
+export type CollectorIncidentStatus = 'open' | 'acknowledged' | 'resolved';
+
+export interface CollectorIncident {
+  id: string;
+  companyId: string;
+  agentId: string;
+  agentName?: string;
+  executionId?: string;
+  dataSourceSlug?: string;
+  entityHint?: string;
+  sourceHost?: string;
+  classification: string;
+  httpStatus?: number;
+  errorExcerpt?: string;
+  fingerprint?: string;
+  occurrences: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  status: CollectorIncidentStatus | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CollectorIncidentSuggestion {
+  incidentId: string;
+  newHint: string;
+  suggestedName?: string;
+  patchConfig?: Record<string, unknown>;
+  reason: string;
+  dataSourceSlug?: string;
+}
+
+export interface PaginatedCollectorIncidents {
+  content: CollectorIncident[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface SearchCollectorIncidentsParams {
+  status?: string;
+  classification?: string;
+  agentId?: string;
+  page?: number;
+  size?: number;
+}
+
+function str(value: unknown): string {
+  return value == null ? '' : String(value);
+}
+
+function normalizeCollectorIncident(raw: CollectorIncident): CollectorIncident {
+  const item = raw as CollectorIncident & Record<string, unknown>;
+  return {
+    ...raw,
+    id: str(item.id),
+    companyId: str(item.companyId ?? item.company_id),
+    agentId: str(item.agentId ?? item.agent_id),
+    agentName: str(item.agentName ?? item.agent_name) || undefined,
+    executionId: str(item.executionId ?? item.execution_id) || undefined,
+    dataSourceSlug: str(item.dataSourceSlug ?? item.data_source_slug) || undefined,
+    entityHint: str(item.entityHint ?? item.entity_hint) || undefined,
+    sourceHost: str(item.sourceHost ?? item.source_host) || undefined,
+    classification: str(item.classification),
+    httpStatus: Number(item.httpStatus ?? item.http_status ?? 0) || undefined,
+    errorExcerpt: str(item.errorExcerpt ?? item.error_excerpt) || undefined,
+    fingerprint: str(item.fingerprint) || undefined,
+    occurrences: Number(item.occurrences ?? 0) || 0,
+    firstSeenAt: str(item.firstSeenAt ?? item.first_seen_at),
+    lastSeenAt: str(item.lastSeenAt ?? item.last_seen_at),
+    status: str(item.status) as CollectorIncident['status'],
+    createdAt: str(item.createdAt ?? item.created_at) || undefined,
+    updatedAt: str(item.updatedAt ?? item.updated_at) || undefined,
+  };
+}
+
+export async function searchCollectorIncidents(
+  params: SearchCollectorIncidentsParams,
+  token: string,
+): Promise<PaginatedCollectorIncidents> {
+  const result = await customFetch<PaginatedCollectorIncidents>(
+    `${BFF_CORE_URL}/api/v1/core/collector/incidents${toQuery({
+      status: params.status,
+      classification: params.classification,
+      agentId: params.agentId,
+      page: params.page,
+      size: params.size,
+    })}`,
+    { method: 'GET' },
+    token,
+  );
+  return {
+    ...result,
+    content: (result.content || []).map(normalizeCollectorIncident),
+  };
+}
+
+export function listCollectorAgentIncidents(id: string, token: string): Promise<CollectorIncident[]> {
+  return customFetch<CollectorIncident[]>(`${base}/${id}/incidents`, { method: 'GET' }, token);
+}
+
+export function acknowledgeCollectorIncident(id: string, token: string): Promise<CollectorIncident> {
+  return customFetch<CollectorIncident>(
+    `${BFF_CORE_URL}/api/v1/core/collector/incidents/${id}/acknowledge`,
+    { method: 'POST' },
+    token,
+  );
+}
+
+export function resolveCollectorIncident(id: string, token: string): Promise<CollectorIncident> {
+  return customFetch<CollectorIncident>(
+    `${BFF_CORE_URL}/api/v1/core/collector/incidents/${id}/resolve`,
+    { method: 'POST' },
+    token,
+  );
+}
+
+export async function getCollectorIncidentSuggestion(id: string, token: string): Promise<CollectorIncidentSuggestion | null> {
+  try {
+    return await customFetch<CollectorIncidentSuggestion>(
+      `${BFF_CORE_URL}/api/v1/core/collector/incidents/${id}/suggestion`,
+      { method: 'GET' },
+      token,
+    );
+  } catch (error: unknown) {
+    const status = (error as { status?: number } | null)?.status;
+    if (status === 204) return null;
+    throw error;
+  }
+}
+
+export function applyCollectorIncidentSuccessor(id: string, token: string): Promise<CollectorIncident> {
+  return customFetch<CollectorIncident>(
+    `${BFF_CORE_URL}/api/v1/core/collector/incidents/${id}/apply-successor`,
+    { method: 'POST', body: JSON.stringify({ confirmed: true }) },
+    token,
+  );
 }
 
 export interface ExecutionPayloadItem {

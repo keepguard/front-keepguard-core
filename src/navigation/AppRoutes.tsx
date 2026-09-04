@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   AccountPage,
   AdminBlacklistPage,
+  AgentIncidentsPage,
   AgentsPage,
   DataSourcesPage,
   AuditsPage,
@@ -19,7 +20,7 @@ import {
   TenantSessionsPage,
   UserBlacklistPage,
 } from '../pages/DashboardPage';
-import { canAccessTenantDevices, canReadAudits, hasAdminRole } from '../utils/roles';
+import { canAccessTenantDevices, canReadAudits, hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
 import { AppLayout } from './AppLayout';
 import { PATHS } from './routes';
 import { RequireAccess } from './RequireAccess';
@@ -28,6 +29,7 @@ export const AppRoutes: React.FC = () => {
   const { user, accessToken } = useAuth();
   const canSeeTenantDevices = canAccessTenantDevices(user?.roles);
   const canSeeAdmin = hasAdminRole(user?.roles);
+  const canSeeAgentIncidents = hasAdminOrManagerRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
 
   return (
@@ -73,6 +75,14 @@ export const AppRoutes: React.FC = () => {
           element={(
             <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM gerenciam OAuth clients.">
               <ClientSystemPage />
+            </RequireAccess>
+          )}
+        />
+        <Route
+          path={PATHS.agentIncidents}
+          element={(
+            <RequireAccess allowed={canSeeAgentIncidents} description="Somente ADMIN ou MANAGER consultam incidentes de coleta.">
+              <AgentIncidentsPage />
             </RequireAccess>
           )}
         />

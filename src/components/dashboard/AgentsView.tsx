@@ -26,6 +26,7 @@ import {
   Power,
   PowerOff,
   Search,
+  ShieldAlert,
   Terminal,
   Trash2,
   X,
@@ -37,6 +38,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
+import { hasAdminOrManagerRole } from '../../utils/roles';
 import { PATHS } from '../../navigation/routes';
 import {
   applyPlaceholders,
@@ -61,8 +63,13 @@ import {
   getCollectorActiveBulkOperation,
   getCollectorBulkOperation,
   getExecutionPayloads,
+  getCollectorIncidentSuggestion,
+  acknowledgeCollectorIncident,
+  applyCollectorIncidentSuccessor,
   listCollectorAgentExecutions,
+  listCollectorAgentIncidents,
   listCollectorDataSources,
+  resolveCollectorIncident,
   runCollectorAgent,
   searchCollectorAgents,
   testCollectorAgent,
@@ -74,6 +81,8 @@ import {
   type CollectorBulkProgress,
   type CollectorDataSource,
   type CollectorExecution,
+  type CollectorIncident,
+  type CollectorIncidentSuggestion,
   type CollectorSchedule,
   type CollectorType,
   type ExecutionPayloadItem,
@@ -86,6 +95,7 @@ type Filters = {
   collectorType: '' | CollectorType;
   dataSourceId: string;
   lastExecutionStatus: '' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'RUNNING' | 'NONE';
+  hasOpenIncident: '' | 'true';
   sort: 'name' | 'enabled' | 'lastExecution';
   dir: 'asc' | 'desc';
 };
@@ -96,6 +106,7 @@ const EMPTY_FILTERS: Filters = {
   collectorType: '',
   dataSourceId: '',
   lastExecutionStatus: '',
+  hasOpenIncident: '',
   sort: 'name',
   dir: 'asc',
 };
@@ -563,6 +574,41 @@ function LastExecutionStatus({ execution }: { execution?: CollectorAgent['lastEx
       {executionStatusLabel(execution.status)}
     </span>
   );
+}
+
+function incidentClassificationLabel(classification?: string): string {
+  switch ((classification || '').toLowerCase()) {
+    case 'source_changed':
+      return 'Fonte mudou';
+    case 'auth':
+      return 'Auth';
+    case 'rate_limited':
+      return 'Rate limit';
+    case 'transient_exhausted':
+      return 'Transiente';
+    case 'not_found':
+      return 'Não encontrado';
+    default:
+      return classification ? classification : 'Incidente';
+  }
+}
+
+function IncidentBadge({ incident }: { incident?: CollectorAgent['openIncident'] }) {
+  if (!incident) return null;
+  const label = incidentClassificationLabel(incident.classification);
+  return (
+    <span
+      className="agent-incident-badge"
+      title={`${label} · ${incident.occurrences} ocorrência(s)`}
+    >
+      {label}
+      {incident.occurrences > 1 ? ` · ${incident.occurrences}` : ''}
+    </span>
+  );
+}
+
+function activeIncident(items: CollectorIncident[]): CollectorIncident | null {
+  return items.find((item) => item.status === 'open' || item.status === 'acknowledged') || null;
 }
 
 function newKeyValueId(): string {
@@ -1161,7 +1207,8 @@ function CredentialChip({
 }
 
 export const AgentsView: React.FC = () => {
-  const { getAccessToken } = useAuth();
+  const { getAccessToken, user } = useAuth();
+  const canSeeAgentIncidents = hasAdminOrManagerRole(user?.roles);
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -1204,6 +1251,11 @@ export const AgentsView: React.FC = () => {
   const [historyPayloadData, setHistoryPayloadData] = useState<ExecutionPayloadItem[]>([]);
   const [historyPayloadLoading, setHistoryPayloadLoading] = useState(false);
   const [historyPayloadError, setHistoryPayloadError] = useState<string | null>(null);
+  const [historyIncidents, setHistoryIncidents] = useState<CollectorIncident[]>([]);
+  const [historyIncidentError, setHistoryIncidentError] = useState<string | null>(null);
+  const [historyIncidentBusy, setHistoryIncidentBusy] = useState<'ack' | 'resolve' | 'apply' | null>(null);
+  const [historyIncidentConfirm, setHistoryIncidentConfirm] = useState<'ack' | 'resolve' | 'apply' | null>(null);
+  const [historySuggestion, setHistorySuggestion] = useState<CollectorIncidentSuggestion | null>(null);
   const [actionsMenuId, setActionsMenuId] = useState<string | null>(null);
   const [curlModal, setCurlModal] = useState<{
     title: string;
@@ -1269,6 +1321,7 @@ export const AgentsView: React.FC = () => {
         collectorType: nextFilters.collectorType || undefined,
         dataSourceId: nextFilters.dataSourceId || undefined,
         lastExecutionStatus: nextFilters.lastExecutionStatus || undefined,
+        hasOpenIncident: nextFilters.hasOpenIncident || undefined,
         page: nextPage,
         size: 20,
         sort: toApiSort(agentSort(nextFilters.sort)),
@@ -1746,6 +1799,21 @@ export const AgentsView: React.FC = () => {
     try {
       const executions = await listCollectorAgentExecutions(agentId, token);
       setHistoryItems(Array.isArray(executions) ? executions : []);
+      try {
+        const incidents = await listCollectorAgentIncidents(agentId, token);
+        const list = Array.isArray(incidents) ? incidents : [];
+        setHistoryIncidents(list);
+        setHistoryIncidentError(null);
+        const current = activeIncident(list);
+        if (current && (current.status === 'open' || current.status === 'acknowledged')) {
+          const suggestion = await getCollectorIncidentSuggestion(current.id, token).catch(() => null);
+          setHistorySuggestion(suggestion && suggestion.incidentId ? suggestion : null);
+        } else {
+          setHistorySuggestion(null);
+        }
+      } catch (incidentError) {
+        setHistoryIncidentError(incidentError instanceof Error ? incidentError.message : 'Falha ao carregar incidente.');
+      }
     } catch (error) {
       if (!silent) {
         setHistoryAgent(null);
@@ -1761,6 +1829,41 @@ export const AgentsView: React.FC = () => {
     }
   }, [addToast, getAccessToken]);
 
+  const runIncidentAction = async (action: 'ack' | 'resolve' | 'apply') => {
+    const token = getAccessToken();
+    const current = activeIncident(historyIncidents);
+    if (!token || !current) return;
+    setHistoryIncidentBusy(action);
+    setHistoryIncidentError(null);
+    try {
+      let updated: CollectorIncident;
+      if (action === 'ack') updated = await acknowledgeCollectorIncident(current.id, token);
+      else if (action === 'resolve') updated = await resolveCollectorIncident(current.id, token);
+      else updated = await applyCollectorIncidentSuccessor(current.id, token);
+      setHistoryIncidents((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setHistoryIncidentConfirm(null);
+      if (action === 'resolve' || action === 'apply') {
+        setHistorySuggestion(null);
+        setItems((prev) => prev.map((row) => (
+          row.id === current.agentId ? { ...row, openIncident: undefined } : row
+        )));
+      }
+      addToast({
+        type: 'success',
+        title: action === 'ack' ? 'Incidente reconhecido' : action === 'resolve' ? 'Incidente resolvido' : 'Sucessor aplicado',
+        description: action === 'ack'
+          ? 'A coleta continua.'
+          : action === 'resolve'
+            ? 'Uma nova falha abre outro incidente.'
+            : 'Configuração atualizada e incidente fechado.',
+      });
+    } catch (error) {
+      setHistoryIncidentError(error instanceof Error ? error.message : 'Falha ao atualizar incidente.');
+    } finally {
+      setHistoryIncidentBusy(null);
+    }
+  };
+
   const closeHistory = () => {
     setHistoryAgent(null);
     setHistoryItems([]);
@@ -1768,6 +1871,11 @@ export const AgentsView: React.FC = () => {
     setHistoryPayloadExecution(null);
     setHistoryPayloadData([]);
     setHistoryPayloadError(null);
+    setHistoryIncidents([]);
+    setHistoryIncidentError(null);
+    setHistoryIncidentBusy(null);
+    setHistoryIncidentConfirm(null);
+    setHistorySuggestion(null);
     setHistoryPage(0);
     setHistoryStatusFilter('');
     setHistorySortKey(null);
@@ -1784,6 +1892,11 @@ export const AgentsView: React.FC = () => {
     setHistoryPayloadExecution(null);
     setHistoryPayloadData([]);
     setHistoryPayloadError(null);
+    setHistoryIncidents([]);
+    setHistoryIncidentError(null);
+    setHistoryIncidentBusy(null);
+    setHistoryIncidentConfirm(null);
+    setHistorySuggestion(null);
     setHistoryPage(0);
     setHistoryStatusFilter('');
     setHistorySortKey(null);
@@ -1927,7 +2040,7 @@ export const AgentsView: React.FC = () => {
   };
 
   const needsConfirm = (action: CollectorBulkAction, count: number) => {
-    if (action === 'delete') return true;
+    if (action === 'delete' || action === 'scan_incidents') return true;
     if (action === 'run') return count >= 2;
     return count >= 5;
   };
@@ -1966,6 +2079,13 @@ export const AgentsView: React.FC = () => {
         confirm: 'Ativar',
       };
     }
+    if (action === 'scan_incidents') {
+      return {
+        title: 'Varrer incidentes',
+        body: `Classificar offline ${count} agents (último log + reprobe)? Não enfileira coleta. Acompanhe o progresso do lote.`,
+        confirm: 'Varrer',
+      };
+    }
     return {
       title: 'Desativar agents',
       body: `Desativar ${count} agents selecionados?`,
@@ -1982,24 +2102,26 @@ export const AgentsView: React.FC = () => {
       const result = await bulkCollectorAgents(action, ids, token);
       const failed = result.failed?.length || 0;
       const ok = result.succeeded?.length || 0;
-      if (action === 'run' && result.bulkId) {
-        const startedAt = new Date().toISOString();
-        const succeeded = new Set(result.succeeded || []);
-        setItems((prev) => prev.map((row) => (
-          succeeded.has(row.id)
-            ? {
-              ...row,
-              lastExecution: {
-                id: row.lastExecution?.id || `running-${row.id}`,
-                startedAt,
-                status: 'RUNNING',
-              },
-            }
-            : row
-        )));
+      if ((action === 'run' || action === 'scan_incidents') && result.bulkId) {
+        if (action === 'run') {
+          const startedAt = new Date().toISOString();
+          const succeeded = new Set(result.succeeded || []);
+          setItems((prev) => prev.map((row) => (
+            succeeded.has(row.id)
+              ? {
+                ...row,
+                lastExecution: {
+                  id: row.lastExecution?.id || `running-${row.id}`,
+                  startedAt,
+                  status: 'RUNNING',
+                },
+              }
+              : row
+          )));
+        }
         addToast({
           type: failed ? 'error' : 'success',
-          title: 'Lote enfileirado',
+          title: action === 'scan_incidents' ? 'Varredura iniciada' : 'Lote enfileirado',
           description: failed ? `${ok} na fila, ${failed} falharam.` : `${ok} agents na fila.`,
         });
         setBulkProgress({
@@ -2302,6 +2424,12 @@ export const AgentsView: React.FC = () => {
             <Plus size={15} />
             <span>Criar</span>
           </button>
+          {canSeeAgentIncidents ? (
+            <button type="button" className="btn btn-outline btn-pill" onClick={() => navigate(PATHS.agentIncidents)}>
+              <ShieldAlert size={15} />
+              <span>Incidentes</span>
+            </button>
+          ) : null}
         </div>
         <CredentialStatusPill
           state={credential}
@@ -2456,6 +2584,10 @@ export const AgentsView: React.FC = () => {
             <Play size={14} />
             Executar
           </button>
+          <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => requestBulk('scan_incidents')}>
+            <ShieldAlert size={14} />
+            Varrer incidentes
+          </button>
           <button type="button" className="btn btn-outline btn-pill" disabled={bulkLocked} onClick={() => requestBulk('enable')}>
             <Power size={14} />
             Ativar
@@ -2537,6 +2669,7 @@ export const AgentsView: React.FC = () => {
                   <td>{dataSourceLabel(item.dataSourceName)}</td>
                   <td>
                     <span className="table-cell-title" title={item.name}>{item.name}</span>
+                    <IncidentBadge incident={item.openIncident} />
                     {item.description ? <div className="table-cell-muted">{item.description}</div> : null}
                   </td>
                   <td>{typeLabel(item.collectorType)}</td>
@@ -2579,7 +2712,10 @@ export const AgentsView: React.FC = () => {
               <span>{dataSourceLabel(item.dataSourceName)}</span>
             </div>
             <div className="mobile-card-top">
-              <span className="mobile-domain-name">{item.name}</span>
+              <span className="mobile-domain-name">
+                {item.name}
+                <IncidentBadge incident={item.openIncident} />
+              </span>
               <span
                 className="badge-role"
                 style={item.enabled
@@ -3248,7 +3384,117 @@ export const AgentsView: React.FC = () => {
             <span className="spinner-small" style={{ borderTopColor: '#673de6', borderColor: '#dcd2f9' }} />
             <span>Carregando execuções…</span>
           </div>
-        ) : historyItems.length === 0 ? (
+        ) : (
+          <>
+            {(() => {
+              const current = activeIncident(historyIncidents);
+              const resolved = !current;
+              return (
+                <section className="agent-incident-panel" aria-label="Incidente de coleta">
+                  <div className="agent-incident-panel-head">
+                    <strong>Incidente</strong>
+                    {current ? (
+                      <span className="agent-incident-badge">{incidentClassificationLabel(current.classification)}</span>
+                    ) : null}
+                  </div>
+                  {historyIncidentError ? (
+                    <p className="agent-incident-error" role="alert">{historyIncidentError}</p>
+                  ) : null}
+                  {resolved ? (
+                    <p className="agent-incident-empty">Nenhum incidente aberto</p>
+                  ) : (
+                    <>
+                      <dl className="agent-incident-meta">
+                        <div>
+                          <dt>Host</dt>
+                          <dd>{current.sourceHost || '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>Ocorrências</dt>
+                          <dd>{current.occurrences}</dd>
+                        </div>
+                        <div>
+                          <dt>Primeira vista</dt>
+                          <dd>{current.firstSeenAt ? formatDate(current.firstSeenAt) : '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>Última vista</dt>
+                          <dd>{current.lastSeenAt ? formatDate(current.lastSeenAt) : '—'}</dd>
+                        </div>
+                      </dl>
+                      {current.errorExcerpt ? (
+                        <p className="agent-incident-excerpt" title={current.errorExcerpt}>{current.errorExcerpt}</p>
+                      ) : null}
+                      {historySuggestion ? (
+                        <p className="agent-incident-suggestion">
+                          Sucessor sugerido: <strong>{historySuggestion.newHint}</strong>
+                          {historySuggestion.reason ? ` — ${historySuggestion.reason}` : ''}
+                        </p>
+                      ) : null}
+                      <div className="agent-incident-actions">
+                        {historyIncidentConfirm ? (
+                          <>
+                            <span className="agent-incident-confirm-copy">
+                              {historyIncidentConfirm === 'ack'
+                                ? 'Marca que alguém viu. A coleta continua.'
+                                : historyIncidentConfirm === 'resolve'
+                                  ? 'Fecha o caso. Nova falha abre outro incidente.'
+                                  : 'Atualiza nome/config e fecha o incidente.'}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-pill"
+                              disabled={!!historyIncidentBusy}
+                              onClick={() => void runIncidentAction(historyIncidentConfirm)}
+                            >
+                              {historyIncidentBusy ? 'Aplicando…' : 'Confirmar'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-pill"
+                              disabled={!!historyIncidentBusy}
+                              onClick={() => setHistoryIncidentConfirm(null)}
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-pill"
+                              disabled={current.status !== 'open' || !!historyIncidentBusy}
+                              onClick={() => setHistoryIncidentConfirm('ack')}
+                            >
+                              Reconhecer
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-pill"
+                              disabled={current.status === 'resolved' || !!historyIncidentBusy}
+                              onClick={() => setHistoryIncidentConfirm('resolve')}
+                            >
+                              Resolver
+                            </button>
+                            {historySuggestion ? (
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-pill"
+                                disabled={!!historyIncidentBusy}
+                                onClick={() => setHistoryIncidentConfirm('apply')}
+                              >
+                                Aplicar sucessor
+                              </button>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </section>
+              );
+            })()}
+            {historyItems.length === 0 ? (
           <div className="agent-history-empty-state">
             <Inbox size={32} strokeWidth={1.5} aria-hidden="true" />
             <p className="agent-history-empty-title">Nenhuma coleta registrada</p>
@@ -3257,7 +3503,7 @@ export const AgentsView: React.FC = () => {
               O <strong>Testar</strong> não grava histórico.
             </p>
           </div>
-        ) : (
+            ) : (
           <div className="agent-history-modal-body">
             {(() => {
               const summary = executionSummary(historyItems);
@@ -3586,6 +3832,8 @@ export const AgentsView: React.FC = () => {
               </>
             )}
           </div>
+            )}
+          </>
         )}
       </Modal>
 

@@ -8,6 +8,7 @@ export type AppTab =
   | 'guardian'
   | 'client-system'
   | 'agents'
+  | 'agent-incidents'
   | 'data-sources'
   | 'knowledge'
   | 'market-analyze'
@@ -32,6 +33,7 @@ export const ROUTES: RouteMeta[] = [
   { path: '/guardian', tab: 'guardian', title: 'Guardian' },
   { path: '/client-system', tab: 'client-system', title: 'Client system' },
   { path: '/agents', tab: 'agents', title: 'Agents' },
+  { path: '/agents/incidentes', tab: 'agent-incidents', title: 'Incidentes' },
   { path: '/fontes', tab: 'data-sources', title: 'Fontes de dados' },
   { path: '/conhecimento', tab: 'knowledge', title: 'Conhecimento' },
   { path: '/mercado/analisar', tab: 'market-analyze', title: 'Analisar ativo' },
@@ -73,6 +75,7 @@ export const PATHS = {
   guardian: '/guardian',
   clientSystem: '/client-system',
   agents: '/agents',
+  agentIncidents: '/agents/incidentes',
   dataSources: '/fontes',
   knowledge: '/conhecimento',
   marketAnalyze: '/mercado/analisar',
