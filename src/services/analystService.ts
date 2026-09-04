@@ -2,7 +2,7 @@
  * Cliente do analista financeiro (bff-invest).
  *
  * Contrato de números: a UI DEVE ler valores e vereditos de `signals[]`
- * (calculados em código no srv-analyst-finance). A `narrative` é só prosa —
+ * (calculados em código no ms-analyst-finance). A `narrative` é só prosa —
  * nunca fonte de verdade numérica (principalmente quando LLM estiver ligado).
  */
 import { BFF_INVEST_URL, customFetch } from './api';
@@ -20,6 +20,7 @@ export interface AnalystSignal {
 }
 
 export interface AnalystAnalysis {
+  runId?: string;
   ticker: string;
   displayName: string;
   analysisDate: string;
