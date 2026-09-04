@@ -2452,6 +2452,25 @@ body {
   flex: 0 0 auto;
 }
 
+.agents-toolbar .agents-filter-row .audits-sort-select {
+  width: 9.5rem;
+  max-width: 9.5rem;
+  flex: 0 0 9.5rem;
+}
+
+.agents-toolbar .agents-filter-row .audits-dir-select {
+  width: 8.75rem;
+  max-width: 8.75rem;
+  flex: 0 0 8.75rem;
+}
+
+.agents-toolbar .agents-filter-row .agents-exec-status-filter {
+  flex: 0 0 10.5rem;
+  width: 10.5rem;
+  min-width: 10.5rem;
+  max-width: 10.5rem;
+}
+
 .guardian-table {
   table-layout: fixed;
 }

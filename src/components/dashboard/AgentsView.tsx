@@ -84,7 +84,8 @@ type Filters = {
   enabled: '' | 'true' | 'false';
   collectorType: '' | CollectorType;
   dataSourceId: string;
-  sort: 'name' | 'enabled' | 'lastExecutionStatus';
+  lastExecutionStatus: '' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'RUNNING' | 'NONE';
+  sort: 'name' | 'enabled' | 'lastExecution';
   dir: 'asc' | 'desc';
 };
 
@@ -93,17 +94,20 @@ const EMPTY_FILTERS: Filters = {
   enabled: '',
   collectorType: '',
   dataSourceId: '',
+  lastExecutionStatus: '',
   sort: 'name',
   dir: 'asc',
 };
 
 function agentSort(value: string): Filters['sort'] {
-  if (value === 'enabled' || value === 'lastExecutionStatus' || value === 'name') return value;
+  if (value === 'enabled' || value === 'lastExecution' || value === 'name') return value;
+  // legado: sort por status da execução → data da última execução
+  if (value === 'lastExecutionStatus') return 'lastExecution';
   return 'name';
 }
 
 function toApiSort(sort: Filters['sort']): string {
-  if (sort === 'lastExecutionStatus') return 'lastExecutionStatus';
+  if (sort === 'lastExecution') return 'lastExecution';
   return sort;
 }
 
@@ -1157,19 +1161,20 @@ function CredentialChip({
 
 const AgentPager: React.FC<{
   loading: boolean;
+  refreshing?: boolean;
   page: number;
   totalPages: number;
   onPrev: () => void;
   onNext: () => void;
   leading?: React.ReactNode;
-}> = ({ loading, page, totalPages, onPrev, onNext, leading }) => (
+}> = ({ loading, refreshing = false, page, totalPages, onPrev, onNext, leading }) => (
   <div className="audits-pager">
     <div className="audits-pager-leading">{leading}</div>
     <div className="audits-pager-actions">
       <button
         type="button"
         className="btn btn-outline btn-pill btn-icon-pager"
-        disabled={loading || page <= 0}
+        disabled={loading || refreshing || page <= 0}
         onClick={onPrev}
         aria-label="Página anterior"
         title="Página anterior"
@@ -1179,7 +1184,7 @@ const AgentPager: React.FC<{
       <button
         type="button"
         className="btn btn-outline btn-pill btn-icon-pager"
-        disabled={loading || page >= totalPages - 1}
+        disabled={loading || refreshing || page >= totalPages - 1}
         onClick={onNext}
         aria-label="Próxima página"
         title="Próxima página"
@@ -1205,6 +1210,7 @@ export const AgentsView: React.FC = () => {
   const [bulkProgressOpen, setBulkProgressOpen] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [credential, setCredential] = useState<CredentialState>({ kind: 'loading' });
   const [formOpen, setFormOpen] = useState(false);
   const [formStep, setFormStep] = useState<FormStep>('identity');
@@ -1288,13 +1294,15 @@ export const AgentsView: React.FC = () => {
   const loadPage = useCallback(async (nextPage: number, nextFilters: Filters, opts?: { silent?: boolean }) => {
     const token = getAccessToken();
     if (!token) return;
-    if (!opts?.silent) setLoading(true);
+    if (opts?.silent) setRefreshing(true);
+    else setLoading(true);
     try {
       const result = await searchCollectorAgents({
         q: nextFilters.q,
         enabled: nextFilters.enabled || undefined,
         collectorType: nextFilters.collectorType || undefined,
         dataSourceId: nextFilters.dataSourceId || undefined,
+        lastExecutionStatus: nextFilters.lastExecutionStatus || undefined,
         page: nextPage,
         size: 20,
         sort: toApiSort(agentSort(nextFilters.sort)),
@@ -1312,7 +1320,8 @@ export const AgentsView: React.FC = () => {
         });
       }
     } finally {
-      if (!opts?.silent) setLoading(false);
+      if (opts?.silent) setRefreshing(false);
+      else setLoading(false);
     }
   }, [addToast, getAccessToken]);
 
@@ -2091,16 +2100,22 @@ export const AgentsView: React.FC = () => {
 
   const filterActions = (
     <div className="audits-filter-actions">
-      <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
+      <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading || refreshing}>
         <Search size={15} />
         <span>Filtrar</span>
       </button>
+      <RefreshCombo
+        onRefresh={() => void loadPage(page, applied, { silent: true })}
+        disabled={loading || refreshing}
+        refreshing={refreshing}
+      />
     </div>
   );
 
   const pager = (includeFilter = false) => (
     <AgentPager
       loading={loading}
+      refreshing={refreshing}
       page={page}
       totalPages={totalPages}
       onPrev={() => goToPage(page - 1)}
@@ -2408,29 +2423,46 @@ export const AgentsView: React.FC = () => {
             className="form-input audits-compact-select"
             value={filters.enabled}
             onChange={(e) => setFilters((f) => ({ ...f, enabled: e.target.value as Filters['enabled'] }))}
-            aria-label="Status"
+            aria-label="Status do agent"
           >
-            <option value="">Todos os status</option>
+            <option value="">Agent: todos</option>
             <option value="true">Ativo</option>
             <option value="false">Inativo</option>
           </select>
-          <div className="audits-sort-group">
+          <select
+            className="form-input audits-compact-select agents-exec-status-filter"
+            value={filters.lastExecutionStatus}
+            onChange={(e) => setFilters((f) => ({
+              ...f,
+              lastExecutionStatus: e.target.value as Filters['lastExecutionStatus'],
+            }))}
+            aria-label="Status da execução"
+          >
+            <option value="">Execução: todas</option>
+            <option value="SUCCESS">Sucesso</option>
+            <option value="FAILED">Falha</option>
+            <option value="PARTIAL">Parcial</option>
+            <option value="RUNNING">Em andamento</option>
+            <option value="NONE">Sem execução</option>
+          </select>
+          <div className="audits-sort-group" role="group" aria-label="Ordenação">
             <select
               className="form-input audits-sort-select"
               value={agentSort(filters.sort)}
               onChange={(e) => setFilters((f) => ({ ...f, sort: agentSort(e.target.value) }))}
               aria-label="Ordenar por"
+              title="Ordenar por"
             >
               <option value="name">Nome</option>
               <option value="enabled">Status</option>
-              <option value="lastExecutionStatus">Status último evento</option>
+              <option value="lastExecution">Última execução</option>
             </select>
             <select
               className="form-input audits-dir-select"
               value={filters.dir}
               onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as Filters['dir'] }))}
               aria-label="Ordem"
-              title="Ordem da lista"
+              title="Ordem (crescente ou decrescente)"
             >
               <option value="asc">Crescente</option>
               <option value="desc">Decrescente</option>
