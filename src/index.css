@@ -1302,18 +1302,6 @@ body {
   margin-bottom: 0;
 }
 
-.oauth-detail-agents {
-  margin-top: 0.25rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.oauth-agent-code {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  word-break: break-all;
-}
-
 .collector-credential-pill-wrap {
   position: relative;
   flex-shrink: 0;

@@ -23,7 +23,6 @@ import {
   searchOAuthClients,
   unblockOAuthClient,
   updateOAuthClient,
-  type CollectorAgent,
   type OAuthClient,
   type OAuthClientDetail,
   type OAuthServiceRole,
@@ -75,84 +74,6 @@ function statusStyle(status?: string): React.CSSProperties {
   return { background: '#e6f7f3', color: '#00b090', borderColor: '#b3ebd9' };
 }
 
-function AgentImpactList({
-  agents,
-  loading,
-  agentsLoadError,
-  impact = false,
-}: {
-  agents: CollectorAgent[];
-  loading: boolean;
-  agentsLoadError?: string;
-  impact?: boolean;
-}) {
-  if (loading) {
-    return (
-      <div className="form-group oauth-authorities-group">
-        <div className="form-label-row">
-          <label>Agents (collector)</label>
-        </div>
-        <div className="oauth-authorities-list">
-          <p className="oauth-authorities-empty">Buscando agents no collector...</p>
-        </div>
-      </div>
-    );
-  }
-  if (agentsLoadError) {
-    return (
-      <div className="form-group oauth-authorities-group">
-        <div className="form-label-row">
-          <label>Agents (collector)</label>
-        </div>
-        <div className="oauth-authorities-list">
-          <p className="oauth-authorities-empty" style={{ color: '#b45309' }}>
-            Não foi possível consultar os agents no collector ({agentsLoadError}).
-            {impact
-              ? ' Verifique se o srv-data-collector está em execução antes de confirmar.'
-              : ''}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const enabledCount = agents.filter((agent) => agent.enabled).length;
-  const title = impact
-    ? `Agents vinculados`
-    : 'Agents (collector)';
-  const countLabel = impact
-    ? `${enabledCount} ativo${enabledCount === 1 ? '' : 's'} serão desabilitados`
-    : agents.length === 1
-      ? '1 agent'
-      : `${agents.length} agents`;
-
-  return (
-    <div className="form-group oauth-authorities-group">
-      <div className="form-label-row">
-        <label>{title}</label>
-        <span className="oauth-authorities-count">{countLabel}</span>
-      </div>
-      <div className="oauth-authorities-list" role="list">
-        {agents.length > 0 ? (
-          agents.map((agent) => (
-            <div key={agent.id} className="oauth-authority-item" role="listitem">
-              <span className="oauth-authority-name">{agent.name}</span>
-              <span className="oauth-authority-desc">
-                {agent.collectorType} · {agent.enabled ? 'ativo' : 'inativo'}
-              </span>
-              <span className="oauth-agent-code text-mono">{agent.code}</span>
-            </div>
-          ))
-        ) : (
-          <p className="oauth-authorities-empty">
-            Nenhum agent encontrado em srv_data_collector.agents para este company.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 const ClientPager: React.FC<{
   loading: boolean;
   page: number;
@@ -201,9 +122,6 @@ export const ClientSystemView: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [createdSecret, setCreatedSecret] = useState<OAuthClient | null>(null);
   const [confirm, setConfirm] = useState<{ kind: ConfirmKind; client: OAuthClient } | null>(null);
-  const [impactAgents, setImpactAgents] = useState<CollectorAgent[]>([]);
-  const [impactAgentsLoadError, setImpactAgentsLoadError] = useState<string | undefined>();
-  const [impactLoading, setImpactLoading] = useState(false);
   const [createForm, setCreateForm] = useState({
     clientId: '',
     description: '',
@@ -263,36 +181,6 @@ export const ClientSystemView: React.FC = () => {
     if (!isAuthenticated) return;
     void loadPage(page, applied);
   }, [applied, isAuthenticated, loadPage, page]);
-
-  useEffect(() => {
-    const token = getAccessToken();
-    if (!confirm || !token) {
-      setImpactAgents([]);
-      setImpactAgentsLoadError(undefined);
-      return;
-    }
-    let cancelled = false;
-    setImpactLoading(true);
-    getOAuthClient(confirm.client.id, token)
-      .then((full) => {
-        if (!cancelled) {
-          setImpactAgents(full.agents || []);
-          setImpactAgentsLoadError(full.agentsLoadError);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setImpactAgents([]);
-          setImpactAgentsLoadError('falha ao carregar detalhe do client');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setImpactLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [addToast, confirm, getAccessToken]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -802,13 +690,6 @@ export const ClientSystemView: React.FC = () => {
               <span className="oauth-detail-label">Descrição</span>
               <span className="oauth-detail-value">{detail.description || '—'}</span>
             </div>
-            <div className="oauth-detail-agents">
-              <AgentImpactList
-                agents={detail.agents || []}
-                loading={false}
-                agentsLoadError={detail.agentsLoadError}
-              />
-            </div>
           </div>
         ) : null}
       </Modal>
@@ -1058,12 +939,6 @@ export const ClientSystemView: React.FC = () => {
             ? 'O client deixa de emitir tokens. Agents ativos do company serão desabilitados.'
             : 'Esta ação remove o client de forma permanente. Agents ativos do company serão desabilitados.'}
         </p>
-        <AgentImpactList
-          agents={impactAgents}
-          loading={impactLoading}
-          agentsLoadError={impactAgentsLoadError}
-          impact
-        />
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={closeConfirm} disabled={submitting}>
             Cancelar
@@ -1072,7 +947,7 @@ export const ClientSystemView: React.FC = () => {
             type="button"
             className={confirm?.kind === 'block' ? 'btn btn-primary' : 'btn btn-danger'}
             onClick={handleConfirmAction}
-            disabled={submitting || impactLoading}
+            disabled={submitting}
           >
             {submitting
               ? (confirm?.kind === 'block' ? 'Bloqueando...' : 'Excluindo...')

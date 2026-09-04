@@ -27,22 +27,7 @@ export interface OAuthServiceRole {
   authorities: OAuthServiceRoleAuthority[];
 }
 
-export interface CollectorAgent {
-  id: string;
-  code: string;
-  companyId: string;
-  name: string;
-  description?: string;
-  collectorType: string;
-  enabled: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface OAuthClientDetail extends OAuthClient {
-  agents: CollectorAgent[];
-  agentsLoadError?: string;
-}
+export interface OAuthClientDetail extends OAuthClient {}
 
 export interface PaginatedOAuthClients {
   content: OAuthClient[];
