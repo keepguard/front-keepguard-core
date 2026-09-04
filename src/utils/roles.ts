@@ -73,6 +73,8 @@ export function isRegularUserRank(roles?: string[] | null): boolean {
 }
 
 export const AUDIT_READ_AUTHORITY = 'audit:read';
+export const LLM_READ_AUTHORITY = 'llm:read';
+export const LLM_WRITE_AUTHORITY = 'llm:write';
 
 export function canReadAudits(
   token: string | null | undefined,
@@ -82,6 +84,26 @@ export function canReadAudits(
     return true;
   }
   return authoritiesFromJwt(token).includes(AUDIT_READ_AUTHORITY);
+}
+
+export function canReadLlm(
+  token: string | null | undefined,
+  roles?: string[] | null
+): boolean {
+  if (hasAdminRole(roles)) {
+    return true;
+  }
+  return authoritiesFromJwt(token).includes(LLM_READ_AUTHORITY);
+}
+
+export function canWriteLlm(
+  token: string | null | undefined,
+  roles?: string[] | null
+): boolean {
+  if (hasAdminRole(roles)) {
+    return true;
+  }
+  return authoritiesFromJwt(token).includes(LLM_WRITE_AUTHORITY);
 }
 
 export type AccountSelfServiceAction = 'block' | 'delete';
@@ -190,6 +212,36 @@ export function assertAuditReadVisibility(): string[] {
     const canRead = canReadAudits(token, testCase.roles);
     if (canRead !== testCase.canRead) {
       failures.push(`${testCase.name}: esperado ${testCase.canRead}, obtido ${canRead}`);
+    }
+  }
+  return failures;
+}
+
+export const LLM_READ_VISIBILITY_CASES: Array<{
+  name: string;
+  tokenPayload: Record<string, unknown>;
+  roles: string[];
+  canRead: boolean;
+  canWrite: boolean;
+}> = [
+  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true, canWrite: true },
+  { name: 'SYSTEM sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_SYSTEM'], canRead: true, canWrite: true },
+  { name: 'MANAGER com llm:read', tokenPayload: { authorities: ['llm:read'] }, roles: ['ROLE_MANAGER'], canRead: true, canWrite: false },
+  { name: 'MANAGER sem llm:read', tokenPayload: { authorities: [] }, roles: ['ROLE_MANAGER'], canRead: false, canWrite: false },
+  { name: 'USER com llm:write', tokenPayload: { authorities: ['llm:write'] }, roles: ['ROLE_USER'], canRead: false, canWrite: true },
+];
+
+export function assertLlmVisibility(): string[] {
+  const failures: string[] = [];
+  for (const testCase of LLM_READ_VISIBILITY_CASES) {
+    const token = encodeTestJwt(testCase.tokenPayload);
+    const canRead = canReadLlm(token, testCase.roles);
+    const canWrite = canWriteLlm(token, testCase.roles);
+    if (canRead !== testCase.canRead) {
+      failures.push(`${testCase.name}: leitura esperada ${testCase.canRead}, obtida ${canRead}`);
+    }
+    if (canWrite !== testCase.canWrite) {
+      failures.push(`${testCase.name}: escrita esperada ${testCase.canWrite}, obtida ${canWrite}`);
     }
   }
   return failures;

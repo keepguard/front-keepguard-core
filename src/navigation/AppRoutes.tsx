@@ -8,6 +8,7 @@ import {
   AgentsPage,
   DataSourcesPage,
   AuditsPage,
+  LlmPage,
   ClientSystemPage,
   ConnectionsPage,
   GuardianPage,
@@ -20,7 +21,7 @@ import {
   TenantSessionsPage,
   UserBlacklistPage,
 } from '../pages/DashboardPage';
-import { canAccessTenantDevices, canReadAudits, hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
+import { canAccessTenantDevices, canReadAudits, canReadLlm, hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
 import { AppLayout } from './AppLayout';
 import { PATHS } from './routes';
 import { RequireAccess } from './RequireAccess';
@@ -31,6 +32,7 @@ export const AppRoutes: React.FC = () => {
   const canSeeAdmin = hasAdminRole(user?.roles);
   const canSeeAgentIncidents = hasAdminOrManagerRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
+  const canSeeLlm = canReadLlm(accessToken, user?.roles);
 
   return (
     <Routes>
@@ -123,6 +125,14 @@ export const AppRoutes: React.FC = () => {
           element={(
             <RequireAccess allowed={canSeeAudits} description="Somente ADMIN, SYSTEM ou quem tiver audit:read consultam a auditoria.">
               <AuditsPage />
+            </RequireAccess>
+          )}
+        />
+        <Route
+          path={PATHS.llm}
+          element={(
+            <RequireAccess allowed={canSeeLlm} description="Somente ADMIN, SYSTEM ou quem tiver llm:read consultam o uso de LLM.">
+              <LlmPage />
             </RequireAccess>
           )}
         />

@@ -11,6 +11,7 @@ import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseVi
 import { assertTenantDevicesVisibility } from '../utils/roles';
 import { AccountView } from '../components/dashboard/AccountView';
 import { AuditsView } from '../components/dashboard/AuditsView';
+import { LlmView } from '../components/dashboard/LlmView';
 import { GuardianView } from '../components/dashboard/GuardianView';
 import { ClientSystemView } from '../components/dashboard/ClientSystemView';
 import { AgentsView } from '../components/dashboard/AgentsView';
@@ -37,6 +38,7 @@ import {
   Users,
   BookOpen,
   LineChart,
+  Sparkles,
 } from 'lucide-react';
 
 const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
@@ -394,6 +396,23 @@ export const AuditsPage: React.FC = () => (
       </div>
     </div>
     <AuditsView />
+  </DashboardShell>
+);
+
+export const LlmPage: React.FC = () => (
+  <DashboardShell>
+    <div className="dashboard-header">
+      <div className="dashboard-title-group">
+        <h1 className="dashboard-title">
+          <Sparkles size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          LLM
+        </h1>
+        <p className="dashboard-subtitle">
+          Uso, provedores e alertas do gateway. Custo na tela é estimado. Visível para ADMIN, SYSTEM ou quem tiver llm:read.
+        </p>
+      </div>
+    </div>
+    <LlmView />
   </DashboardShell>
 );
 

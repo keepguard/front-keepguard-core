@@ -13,6 +13,7 @@ export type AppTab =
   | 'knowledge'
   | 'market-analyze'
   | 'audits'
+  | 'llm'
   | 'templates'
   | 'account'
   | 'settings';
@@ -38,6 +39,7 @@ export const ROUTES: RouteMeta[] = [
   { path: '/conhecimento', tab: 'knowledge', title: 'Conhecimento' },
   { path: '/mercado/analisar', tab: 'market-analyze', title: 'Analisar ativo' },
   { path: '/auditoria', tab: 'audits', title: 'Auditoria' },
+  { path: '/llm', tab: 'llm', title: 'LLM' },
   { path: '/templates', tab: 'templates', title: 'Galeria de Templates' },
   { path: '/conta', tab: 'account', title: 'Conta' },
   { path: '/configuracao', tab: 'settings', title: 'Configuração' },
@@ -80,6 +82,7 @@ export const PATHS = {
   knowledge: '/conhecimento',
   marketAnalyze: '/mercado/analisar',
   audits: '/auditoria',
+  llm: '/llm',
   templates: '/templates',
   account: '/conta',
   settings: '/configuracao',

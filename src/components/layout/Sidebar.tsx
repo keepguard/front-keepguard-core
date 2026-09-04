@@ -15,11 +15,12 @@ import {
   X,
   BookOpen,
   LineChart,
+  Sparkles,
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { canReadAudits, canAccessTenantDevices, hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
+import { canReadAudits, canReadLlm, canAccessTenantDevices, hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
 import { PATHS } from '../../navigation/routes';
 
 interface SidebarProps {
@@ -73,7 +74,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeKnowledge = hasAdminRole(user?.roles);
   const canSeeMarket = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarket;
+  const canSeeLlm = canReadLlm(accessToken, user?.roles);
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarket;
 
   return (
     <>
@@ -215,6 +217,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   to={PATHS.audits}
                   label="Auditoria"
                   icon={<ScrollText size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeLlm && (
+                <SidebarLink
+                  to={PATHS.llm}
+                  label="LLM"
+                  icon={<Sparkles size={18} className="sidebar-icon" />}
                   onCloseMobile={onCloseMobile}
                 />
               )}

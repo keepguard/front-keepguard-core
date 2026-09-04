@@ -970,6 +970,19 @@ body {
   margin-bottom: 1rem;
 }
 
+.llm-panel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.llm-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .audits-filter-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
