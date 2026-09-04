@@ -12,6 +12,13 @@ export interface CollectorSchedule {
   timezone: string;
 }
 
+export interface CollectorLastExecution {
+  id: string;
+  startedAt: string;
+  finishedAt?: string | null;
+  status: string;
+}
+
 export interface CollectorAgent {
   id: string;
   code: string;
@@ -29,6 +36,7 @@ export interface CollectorAgent {
   dataSourceName?: string;
   createdAt?: string;
   updatedAt?: string;
+  lastExecution?: CollectorLastExecution | null;
 }
 
 export interface PaginatedCollectorAgents {

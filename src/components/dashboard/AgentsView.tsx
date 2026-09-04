@@ -84,7 +84,7 @@ type Filters = {
   enabled: '' | 'true' | 'false';
   collectorType: '' | CollectorType;
   dataSourceId: string;
-  sort: 'createdAt' | 'name' | 'enabled' | 'collectorType';
+  sort: 'name' | 'enabled' | 'collectorType';
   dir: 'asc' | 'desc';
 };
 
@@ -93,9 +93,14 @@ const EMPTY_FILTERS: Filters = {
   enabled: '',
   collectorType: '',
   dataSourceId: '',
-  sort: 'createdAt',
-  dir: 'desc',
+  sort: 'name',
+  dir: 'asc',
 };
+
+function agentSort(value: string): Filters['sort'] {
+  if (value === 'enabled' || value === 'collectorType' || value === 'name') return value;
+  return 'name';
+}
 
 type CredentialState =
   | { kind: 'loading' }
@@ -511,15 +516,43 @@ function typeLabel(type?: string): string {
   return type || '—';
 }
 
-function scheduleSummary(schedule?: CollectorSchedule): string {
-  if (!schedule) return '—';
-  const days = (schedule.daysOfWeek || [])
+function scheduleLines(schedule?: CollectorSchedule): { days: string; hours: string } {
+  if (!schedule) return { days: '—', hours: '' };
+  const days = [...(schedule.daysOfWeek || [])]
+    .sort((a, b) => a - b)
     .map((day) => WEEKDAYS.find((item) => item.value === day)?.label)
     .filter(Boolean)
     .join(', ');
   const window = `${schedule.startTime || '—'}–${schedule.endTime || '—'}`;
   const interval = schedule.intervalMinutes ? `${schedule.intervalMinutes} min` : '';
-  return [days || '—', window, interval].filter(Boolean).join(' · ');
+  return {
+    days: days || '—',
+    hours: [window, interval].filter(Boolean).join(' · '),
+  };
+}
+
+function ScheduleCell({ schedule }: { schedule?: CollectorSchedule }) {
+  const { days, hours } = scheduleLines(schedule);
+  return (
+    <div className="agent-schedule" title={hours ? `${days} · ${hours}` : days}>
+      <span className="agent-schedule-days">{days}</span>
+      {hours ? <span className="agent-schedule-hours">{hours}</span> : null}
+    </div>
+  );
+}
+
+function LastExecutionWhen({ execution }: { execution?: CollectorAgent['lastExecution'] }) {
+  if (!execution?.startedAt) return <span className="table-cell-muted">—</span>;
+  return <span>{formatDate(execution.startedAt)}</span>;
+}
+
+function LastExecutionStatus({ execution }: { execution?: CollectorAgent['lastExecution'] }) {
+  if (!execution?.status) return <span className="table-cell-muted">—</span>;
+  return (
+    <span className="badge-role" style={executionStatusStyle(execution.status)}>
+      {executionStatusLabel(execution.status)}
+    </span>
+  );
 }
 
 function newKeyValueId(): string {
@@ -1259,7 +1292,7 @@ export const AgentsView: React.FC = () => {
         dataSourceId: nextFilters.dataSourceId || undefined,
         page: nextPage,
         size: 20,
-        sort: nextFilters.sort,
+        sort: agentSort(nextFilters.sort),
         dir: nextFilters.dir,
       }, token);
       setItems(result.content || []);
@@ -1854,35 +1887,6 @@ export const AgentsView: React.FC = () => {
     });
   };
 
-  const selectFiltered = async () => {
-    const token = getAccessToken();
-    if (!token) return;
-    try {
-      const result = await searchCollectorAgents({
-        q: applied.q,
-        enabled: applied.enabled || undefined,
-        collectorType: applied.collectorType || undefined,
-        dataSourceId: applied.dataSourceId || undefined,
-        page: 0,
-        size: 100,
-        sort: applied.sort,
-        dir: applied.dir,
-      }, token);
-      const ids = (result.content || []).map((item) => item.id);
-      setSelectedIds(new Set(ids));
-      addToast({
-        type: 'success',
-        title: ids.length === 100 ? 'Selecionados os 100 primeiros do filtro' : `${ids.length} agents selecionados`,
-      });
-    } catch (error) {
-      addToast({
-        type: 'error',
-        title: 'Falha ao selecionar filtrados',
-        description: error instanceof Error ? error.message : 'Tente novamente.',
-      });
-    }
-  };
-
   const needsConfirm = (action: CollectorBulkAction, count: number) => {
     if (action === 'delete') return true;
     if (action === 'run') return count >= 2;
@@ -2235,16 +2239,6 @@ export const AgentsView: React.FC = () => {
             <Plus size={15} />
             <span>Criar</span>
           </button>
-          <button
-            type="button"
-            className="btn btn-outline btn-pill"
-            onClick={() => void selectFiltered()}
-            disabled={bulkLocked || loading}
-            title="Selecionar até 100 agents do filtro atual"
-            aria-label="Selecionar até 100 agents do filtro atual"
-          >
-            <span>Selecionar</span>
-          </button>
         </div>
         <CredentialStatusPill
           state={credential}
@@ -2350,11 +2344,10 @@ export const AgentsView: React.FC = () => {
           <div className="audits-sort-group">
             <select
               className="form-input audits-sort-select"
-              value={filters.sort}
+              value={agentSort(filters.sort)}
               onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as Filters['sort'] }))}
               aria-label="Ordenar por"
             >
-              <option value="createdAt">Criado em</option>
               <option value="name">Nome</option>
               <option value="enabled">Status</option>
               <option value="collectorType">Tipo</option>
@@ -2416,20 +2409,21 @@ export const AgentsView: React.FC = () => {
               <th>Tipo</th>
               <th>Status</th>
               <th>Agenda</th>
-              <th>Criado</th>
+              <th>Última execução</th>
+              <th>Status da execução</th>
               <th style={{ textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   Carregando agents...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <Cpu size={22} />
                     <span>Nenhum agent para os filtros atuais.</span>
@@ -2470,8 +2464,9 @@ export const AgentsView: React.FC = () => {
                       {item.enabled ? 'Ativo' : 'Inativo'}
                     </span>
                   </td>
-                  <td><span className="id-compact">{scheduleSummary(item.schedule)}</span></td>
-                  <td>{formatDate(item.createdAt)}</td>
+                  <td><ScheduleCell schedule={item.schedule} /></td>
+                  <td><LastExecutionWhen execution={item.lastExecution} /></td>
+                  <td><LastExecutionStatus execution={item.lastExecution} /></td>
                   <td>{renderActions(item)}</td>
                 </tr>
               ))
@@ -2511,9 +2506,14 @@ export const AgentsView: React.FC = () => {
               </span>
             </div>
             <div className="mobile-card-subinfo">
-              {typeLabel(item.collectorType)} · {formatDate(item.createdAt)}
+              {typeLabel(item.collectorType)}
+              {' · '}
+              <LastExecutionWhen execution={item.lastExecution} />
             </div>
-            <div className="mobile-card-meta">{scheduleSummary(item.schedule)}</div>
+            <div className="mobile-card-subinfo">
+              <LastExecutionStatus execution={item.lastExecution} />
+            </div>
+            <div className="mobile-card-meta"><ScheduleCell schedule={item.schedule} /></div>
             <div className="mobile-card-actions">{renderActions(item)}</div>
           </div>
         ))}

@@ -3257,6 +3257,27 @@ body {
   color: var(--text-body);
 }
 
+.agent-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 11.5rem;
+}
+
+.agent-schedule-days {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text-body);
+  white-space: nowrap;
+}
+
+.agent-schedule-hours {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .table-reason {
   display: -webkit-box;
   -webkit-line-clamp: 2;
