@@ -1,11 +1,9 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronsUpDown,
   ChevronUp,
   FlaskConical,
-  MoreVertical,
   Pencil,
   Power,
   PowerOff,
@@ -15,6 +13,7 @@ import {
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
+import { RowActionsMenu, useRowActionsMenu } from '../common/RowActionsMenu';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
@@ -179,158 +178,6 @@ function compareUsage(a: LlmUsage, b: LlmUsage, key: SortKey): number {
 
 function isForbidden(err: { status?: number } | undefined) {
   return err?.status === 403;
-}
-
-type RowMenuItem = {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  disabled?: boolean;
-  onSelect: () => void;
-};
-
-function useRowActionsMenu() {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!openId) return;
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (menuRef.current?.contains(target) || dropdownRef.current?.contains(target)) return;
-      setOpenId(null);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenId(null);
-    };
-    document.addEventListener('click', handleOutsideClick);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('click', handleOutsideClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [openId]);
-
-  const close = () => setOpenId(null);
-  const run = (event: React.SyntheticEvent, action: () => void) => {
-    event.preventDefault();
-    event.stopPropagation();
-    close();
-    action();
-  };
-
-  return { openId, setOpenId, menuRef, dropdownRef, run };
-}
-
-function RowActionsMenu({
-  id,
-  ariaLabel,
-  openId,
-  setOpenId,
-  menuRef,
-  dropdownRef,
-  run,
-  items,
-}: {
-  id: string;
-  ariaLabel: string;
-  openId: string | null;
-  setOpenId: React.Dispatch<React.SetStateAction<string | null>>;
-  menuRef: React.RefObject<HTMLDivElement | null>;
-  dropdownRef: React.RefObject<HTMLDivElement | null>;
-  run: (event: React.SyntheticEvent, action: () => void) => void;
-  items: RowMenuItem[];
-}) {
-  const isOpen = openId === id;
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
-
-  useLayoutEffect(() => {
-    if (!isOpen || !buttonRef.current) {
-      setCoords(null);
-      return;
-    }
-    const place = () => {
-      const button = buttonRef.current;
-      if (!button) return;
-      const rect = button.getBoundingClientRect();
-      const menuHeight = dropdownRef.current?.offsetHeight ?? 0;
-      const gap = 4;
-      let top = rect.bottom + gap;
-      if (menuHeight && top + menuHeight > window.innerHeight - 8) {
-        top = Math.max(8, rect.top - gap - menuHeight);
-      }
-      setCoords({
-        top,
-        right: Math.max(8, window.innerWidth - rect.right),
-      });
-    };
-    place();
-    window.addEventListener('resize', place);
-    window.addEventListener('scroll', place, true);
-    return () => {
-      window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', place, true);
-    };
-  }, [dropdownRef, isOpen, items]);
-
-  return (
-    <div
-      className="table-actions-menu"
-      ref={isOpen ? menuRef : undefined}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button
-        type="button"
-        ref={buttonRef}
-        className="btn-table-icon"
-        title="Ações"
-        aria-label={ariaLabel}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpenId((prev) => (prev === id ? null : id));
-        }}
-      >
-        <MoreVertical size={15} />
-      </button>
-      {isOpen
-        ? createPortal(
-            <div
-              ref={dropdownRef}
-              className="table-actions-dropdown is-portal"
-              role="menu"
-              style={{
-                top: coords?.top ?? 0,
-                right: coords?.right ?? 8,
-                visibility: coords ? 'visible' : 'hidden',
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="table-actions-menu-item"
-                  role="menuitem"
-                  disabled={item.disabled}
-                  onClick={(e) => run(e, item.onSelect)}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>,
-            document.body,
-          )
-        : null}
-    </div>
-  );
 }
 
 export const LlmView: React.FC = () => {

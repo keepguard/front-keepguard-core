@@ -19,7 +19,6 @@ import {
   History,
   Inbox,
   KeyRound,
-  MoreVertical,
   Pencil,
   Play,
   Plus,
@@ -34,6 +33,7 @@ import {
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
+import { RowActionsMenu, useRowActionsMenu } from '../common/RowActionsMenu';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -1256,39 +1256,14 @@ export const AgentsView: React.FC = () => {
   const [historyIncidentBusy, setHistoryIncidentBusy] = useState<'ack' | 'resolve' | 'apply' | null>(null);
   const [historyIncidentConfirm, setHistoryIncidentConfirm] = useState<'ack' | 'resolve' | 'apply' | null>(null);
   const [historySuggestion, setHistorySuggestion] = useState<CollectorIncidentSuggestion | null>(null);
-  const [actionsMenuId, setActionsMenuId] = useState<string | null>(null);
+  const actionsMenu = useRowActionsMenu();
   const [curlModal, setCurlModal] = useState<{
     title: string;
     subtitle?: string;
     blocks: CollectorCurlBlock[];
   } | null>(null);
-  const actionsMenuRef = useRef<HTMLDivElement>(null);
   const historyItemsRef = useRef(historyItems);
   historyItemsRef.current = historyItems;
-
-  useEffect(() => {
-    if (!actionsMenuId) return;
-
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
-        setActionsMenuId(null);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setActionsMenuId(null);
-      }
-    };
-
-    // click (não mousedown): evita fechar o menu antes do onClick dos itens
-    document.addEventListener('click', handleOutsideClick);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('click', handleOutsideClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [actionsMenuId]);
 
   const loadCredential = useCallback(async () => {
     const token = getAccessToken();
@@ -2279,114 +2254,63 @@ export const AgentsView: React.FC = () => {
     );
   };
 
-  const closeActionsMenu = () => setActionsMenuId(null);
-
-  const runMenuAction = (event: React.SyntheticEvent, action: () => void) => {
-    event.preventDefault();
-    event.stopPropagation();
-    closeActionsMenu();
-    action();
-  };
-
-  const renderActions = (item: CollectorAgent) => {
-    const isOpen = actionsMenuId === item.id;
-    return (
-      <div
-        className="table-actions-menu"
-        ref={isOpen ? actionsMenuRef : undefined}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          className="btn-table-icon"
-          title="Ações"
-          aria-label="Ações do agent"
-          aria-haspopup="menu"
-          aria-expanded={isOpen}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setActionsMenuId((prev) => (prev === item.id ? null : item.id));
-          }}
-        >
-          <MoreVertical size={15} />
-        </button>
-        {isOpen ? (
-          <div className="table-actions-dropdown" role="menu">
-            <button
-              type="button"
-              className="table-actions-menu-item"
-              role="menuitem"
-              onClick={(e) => runMenuAction(e, () => { void openHistory(item); })}
-            >
-              <History size={15} />
-              <span>Histórico</span>
-            </button>
-            <button
-              type="button"
-              className="table-actions-menu-item"
-              role="menuitem"
-              onClick={(e) => runMenuAction(e, () => openAgentCurlFromItem(item))}
-            >
-              <Terminal size={15} />
-              <span>Copiar CURL</span>
-            </button>
-            <button
-              type="button"
-              className="table-actions-menu-item"
-              role="menuitem"
-              disabled={testingId === item.id}
-              onClick={(e) => runMenuAction(e, () => { void handleTest(item); })}
-            >
-              <FlaskConical size={15} />
-              <span>{testingId === item.id ? 'Testando…' : 'Testar coleta'}</span>
-            </button>
-            <button
-              type="button"
-              className="table-actions-menu-item"
-              role="menuitem"
-              disabled={runningId === item.id || bulkLocked}
-              onClick={(e) => runMenuAction(e, () => { void handleRun(item); })}
-            >
-              <Play size={15} />
-              <span>{runningId === item.id ? 'Enfileirando…' : 'Executar'}</span>
-            </button>
-            <button
-              type="button"
-              className="table-actions-menu-item"
-              role="menuitem"
-              onClick={(e) => runMenuAction(e, () => { void openEdit(item); })}
-            >
-              <Pencil size={15} />
-              <span>Editar</span>
-            </button>
-            <button
-              type="button"
-              className="table-actions-menu-item"
-              role="menuitem"
-              disabled={bulkLocked}
-              onClick={(e) => runMenuAction(e, () => { void handleToggle(item); })}
-            >
-              {item.enabled ? <PowerOff size={15} /> : <Power size={15} />}
-              <span>{item.enabled ? 'Desativar' : 'Ativar'}</span>
-            </button>
-            <div className="table-actions-menu-divider" />
-            <button
-              type="button"
-              className="table-actions-menu-item is-danger"
-              role="menuitem"
-              disabled={bulkLocked}
-              onClick={(e) => runMenuAction(e, () => setConfirmDelete(item))}
-            >
-              <Trash2 size={15} />
-              <span>Excluir</span>
-            </button>
-          </div>
-        ) : null}
-      </div>
-    );
-  };
+  const renderActions = (item: CollectorAgent, prefix = 'desktop') => (
+    <RowActionsMenu
+      id={`${prefix}-${item.id}`}
+      ariaLabel={`Ações do agent ${item.name}`}
+      menuState={actionsMenu}
+      items={[
+        {
+          id: 'history',
+          label: 'Histórico',
+          icon: <History size={15} />,
+          onSelect: () => { void openHistory(item); },
+        },
+        {
+          id: 'curl',
+          label: 'Copiar CURL',
+          icon: <Terminal size={15} />,
+          onSelect: () => openAgentCurlFromItem(item),
+        },
+        {
+          id: 'test',
+          label: testingId === item.id ? 'Testando…' : 'Testar coleta',
+          icon: <FlaskConical size={15} />,
+          disabled: testingId === item.id,
+          onSelect: () => { void handleTest(item); },
+        },
+        {
+          id: 'run',
+          label: runningId === item.id ? 'Enfileirando…' : 'Executar',
+          icon: <Play size={15} />,
+          disabled: runningId === item.id || bulkLocked,
+          onSelect: () => { void handleRun(item); },
+        },
+        {
+          id: 'edit',
+          label: 'Editar',
+          icon: <Pencil size={15} />,
+          onSelect: () => { void openEdit(item); },
+        },
+        {
+          id: 'toggle',
+          label: item.enabled ? 'Desativar' : 'Ativar',
+          icon: item.enabled ? <PowerOff size={15} /> : <Power size={15} />,
+          disabled: bulkLocked,
+          onSelect: () => { void handleToggle(item); },
+        },
+        {
+          id: 'delete',
+          label: 'Excluir',
+          icon: <Trash2 size={15} />,
+          isDanger: true,
+          dividerBefore: true,
+          disabled: bulkLocked,
+          onSelect: () => setConfirmDelete(item),
+        },
+      ]}
+    />
+  );
 
   const goClientSystem = () => navigate(PATHS.clientSystem);
 
@@ -2650,7 +2574,7 @@ export const AgentsView: React.FC = () => {
               items.map((item) => (
                 <tr
                   key={item.id}
-                  className={`agent-row-clickable${actionsMenuId === item.id ? ' has-open-menu' : ''}`}
+                  className={`agent-row-clickable${actionsMenu.openId === `desktop-${item.id}` ? ' has-open-menu' : ''}`}
                   onClick={() => openHistory(item)}
                 >
                   <td
@@ -2684,7 +2608,7 @@ export const AgentsView: React.FC = () => {
                   <td><ScheduleCell schedule={item.schedule} /></td>
                   <td><LastExecutionWhen execution={item.lastExecution} /></td>
                   <td><LastExecutionStatus execution={item.lastExecution} /></td>
-                  <td>{renderActions(item)}</td>
+                  <td style={{ textAlign: 'right' }}>{renderActions(item, 'desktop')}</td>
                 </tr>
               ))
             )}
@@ -2696,7 +2620,7 @@ export const AgentsView: React.FC = () => {
         {items.map((item) => (
           <div
             key={item.id}
-            className={`mobile-domain-card agent-row-clickable${actionsMenuId === item.id ? ' has-open-menu' : ''}`}
+            className={`mobile-domain-card agent-row-clickable${actionsMenu.openId === `mobile-${item.id}` ? ' has-open-menu' : ''}`}
             onClick={() => openHistory(item)}
           >
             <div className="mobile-card-subinfo agents-mobile-select">
@@ -2734,7 +2658,7 @@ export const AgentsView: React.FC = () => {
               <LastExecutionStatus execution={item.lastExecution} />
             </div>
             <div className="mobile-card-meta"><ScheduleCell schedule={item.schedule} /></div>
-            <div className="mobile-card-actions">{renderActions(item)}</div>
+            <div className="mobile-card-actions">{renderActions(item, 'mobile')}</div>
           </div>
         ))}
       </div>

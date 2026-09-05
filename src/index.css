@@ -3208,6 +3208,8 @@ body {
 .table-actions-dropdown.is-portal {
   position: fixed;
   z-index: 1200;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
 }
 
 .table-actions-menu-item {
