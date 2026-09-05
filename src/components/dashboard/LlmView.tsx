@@ -178,7 +178,7 @@ function compareUsage(a: LlmUsage, b: LlmUsage, key: SortKey): number {
 }
 
 function isForbidden(err: { status?: number } | undefined) {
-  return err?.status === 401 || err?.status === 403;
+  return err?.status === 403;
 }
 
 type RowMenuItem = {
