@@ -5411,6 +5411,42 @@ textarea.form-input {
   background: var(--bg-muted, #f8f9fa);
 }
 
+.market-chart-plot {
+  position: relative;
+}
+
+.market-chart-svg {
+  display: block;
+  width: 100%;
+  height: 8rem;
+  color: var(--primary, #00b090);
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+
+.market-chart-tooltip {
+  position: absolute;
+  top: 0.15rem;
+  transform: translateX(-50%);
+  z-index: 1;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 6.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.market-chart-tooltip strong {
+  font-weight: 700;
+}
+
 .market-chart figcaption {
   font-size: 0.88rem;
   font-weight: 700;
