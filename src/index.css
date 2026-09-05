@@ -921,6 +921,33 @@ body {
   min-width: 52rem;
 }
 
+.hpanel-table-card.has-sticky-actions {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.hpanel-table-card.has-sticky-actions .hpanel-table th.cell-actions,
+.hpanel-table-card.has-sticky-actions .hpanel-table td.cell-actions {
+  position: sticky;
+  right: 0;
+  width: 4.75rem;
+  min-width: 4.75rem;
+  max-width: 4.75rem;
+  text-align: right;
+  z-index: 3;
+  background: #ffffff;
+  box-shadow: -8px 0 10px -8px rgba(15, 23, 42, 0.18);
+}
+
+.hpanel-table-card.has-sticky-actions .hpanel-table th.cell-actions {
+  background: #fafbfc;
+  z-index: 4;
+}
+
+.hpanel-table-card.has-sticky-actions .hpanel-table tbody tr:hover td.cell-actions {
+  background: #fafbfc;
+}
+
 .hpanel-table td.cell-actions,
 .hpanel-table th.cell-actions {
   width: 12.5rem;
@@ -3176,6 +3203,11 @@ body {
   padding: 0.35rem;
   z-index: 60;
   pointer-events: auto;
+}
+
+.table-actions-dropdown.is-portal {
+  position: fixed;
+  z-index: 1200;
 }
 
 .table-actions-menu-item {

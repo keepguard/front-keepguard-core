@@ -1,5 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronsUpDown, ChevronUp, Search, Sparkles } from 'lucide-react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+  FlaskConical,
+  MoreVertical,
+  Pencil,
+  Power,
+  PowerOff,
+  Search,
+  Sparkles,
+} from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
@@ -167,6 +179,158 @@ function compareUsage(a: LlmUsage, b: LlmUsage, key: SortKey): number {
 
 function isForbidden(err: { status?: number } | undefined) {
   return err?.status === 401 || err?.status === 403;
+}
+
+type RowMenuItem = {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  disabled?: boolean;
+  onSelect: () => void;
+};
+
+function useRowActionsMenu() {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openId) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target) || dropdownRef.current?.contains(target)) return;
+      setOpenId(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenId(null);
+    };
+    document.addEventListener('click', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openId]);
+
+  const close = () => setOpenId(null);
+  const run = (event: React.SyntheticEvent, action: () => void) => {
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+    action();
+  };
+
+  return { openId, setOpenId, menuRef, dropdownRef, run };
+}
+
+function RowActionsMenu({
+  id,
+  ariaLabel,
+  openId,
+  setOpenId,
+  menuRef,
+  dropdownRef,
+  run,
+  items,
+}: {
+  id: string;
+  ariaLabel: string;
+  openId: string | null;
+  setOpenId: React.Dispatch<React.SetStateAction<string | null>>;
+  menuRef: React.RefObject<HTMLDivElement | null>;
+  dropdownRef: React.RefObject<HTMLDivElement | null>;
+  run: (event: React.SyntheticEvent, action: () => void) => void;
+  items: RowMenuItem[];
+}) {
+  const isOpen = openId === id;
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !buttonRef.current) {
+      setCoords(null);
+      return;
+    }
+    const place = () => {
+      const button = buttonRef.current;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const menuHeight = dropdownRef.current?.offsetHeight ?? 0;
+      const gap = 4;
+      let top = rect.bottom + gap;
+      if (menuHeight && top + menuHeight > window.innerHeight - 8) {
+        top = Math.max(8, rect.top - gap - menuHeight);
+      }
+      setCoords({
+        top,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [dropdownRef, isOpen, items]);
+
+  return (
+    <div
+      className="table-actions-menu"
+      ref={isOpen ? menuRef : undefined}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        ref={buttonRef}
+        className="btn-table-icon"
+        title="Ações"
+        aria-label={ariaLabel}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpenId((prev) => (prev === id ? null : id));
+        }}
+      >
+        <MoreVertical size={15} />
+      </button>
+      {isOpen
+        ? createPortal(
+            <div
+              ref={dropdownRef}
+              className="table-actions-dropdown is-portal"
+              role="menu"
+              style={{
+                top: coords?.top ?? 0,
+                right: coords?.right ?? 8,
+                visibility: coords ? 'visible' : 'hidden',
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="table-actions-menu-item"
+                  role="menuitem"
+                  disabled={item.disabled}
+                  onClick={(e) => run(e, item.onSelect)}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
 }
 
 export const LlmView: React.FC = () => {
@@ -501,6 +665,7 @@ function ProvidersPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const { openId, setOpenId, menuRef, dropdownRef, run } = useRowActionsMenu();
 
   const load = useCallback(async () => {
     const token = getAccessToken();
@@ -596,7 +761,7 @@ function ProvidersPanel({
           ) : null}
         </div>
       </div>
-      <div className="hpanel-table-card desktop-table-view">
+      <div className={`hpanel-table-card desktop-table-view${writable ? ' has-sticky-actions' : ''}`}>
         <table className="hpanel-table">
           <thead>
             <tr>
@@ -605,7 +770,7 @@ function ProvidersPanel({
               <th>Modelo padrão</th>
               <th>Env da key</th>
               <th>Status</th>
-              {writable ? <th>Ações</th> : null}
+              {writable ? <th className="cell-actions">Ações</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -625,14 +790,47 @@ function ProvidersPanel({
                 <td><span className="text-mono">{item.apiKeyEnvRef}</span></td>
                 <td><span className="badge-role" style={outcomeStyle(item.enabled ? 'SUCCESS' : 'FAILURE')}>{item.enabled ? 'Ativo' : 'Inativo'}</span></td>
                 {writable ? (
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                      <button type="button" className="btn btn-outline btn-pill" onClick={() => { setEditingId(item.id); setForm({ name: item.name, providerType: item.providerType, baseUrl: item.baseUrl || '', modelDefault: item.modelDefault || '', apiKeyEnvRef: item.apiKeyEnvRef, enabled: item.enabled }); }}>Editar</button>
-                      <button type="button" className="btn btn-outline btn-pill" onClick={() => void toggle(item)}>{item.enabled ? 'Desativar' : 'Ativar'}</button>
-                      <button type="button" className="btn btn-outline btn-pill" disabled={testingId === item.id || !item.enabled} onClick={() => void testComplete(item)}>
-                        {testingId === item.id ? 'Testando…' : 'Testar complete'}
-                      </button>
-                    </div>
+                  <td className="cell-actions">
+                    <RowActionsMenu
+                      id={item.id}
+                      ariaLabel={`Ações do provedor ${item.name}`}
+                      openId={openId}
+                      setOpenId={setOpenId}
+                      menuRef={menuRef}
+                      dropdownRef={dropdownRef}
+                      run={run}
+                      items={[
+                        {
+                          id: 'test',
+                          label: testingId === item.id ? 'Testando…' : 'Testar complete',
+                          icon: <FlaskConical size={15} />,
+                          disabled: testingId === item.id || !item.enabled,
+                          onSelect: () => { void testComplete(item); },
+                        },
+                        {
+                          id: 'edit',
+                          label: 'Editar',
+                          icon: <Pencil size={15} />,
+                          onSelect: () => {
+                            setEditingId(item.id);
+                            setForm({
+                              name: item.name,
+                              providerType: item.providerType,
+                              baseUrl: item.baseUrl || '',
+                              modelDefault: item.modelDefault || '',
+                              apiKeyEnvRef: item.apiKeyEnvRef,
+                              enabled: item.enabled,
+                            });
+                          },
+                        },
+                        {
+                          id: 'toggle',
+                          label: item.enabled ? 'Desativar' : 'Ativar',
+                          icon: item.enabled ? <PowerOff size={15} /> : <Power size={15} />,
+                          onSelect: () => { void toggle(item); },
+                        },
+                      ]}
+                    />
                   </td>
                 ) : null}
               </tr>
@@ -691,6 +889,7 @@ function AlertsPanel({
   const [form, setForm] = useState<UpsertLlmAlertRule | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { openId, setOpenId, menuRef, dropdownRef, run } = useRowActionsMenu();
 
   const load = useCallback(async () => {
     const token = getAccessToken();
@@ -769,7 +968,7 @@ function AlertsPanel({
       </div>
 
       <h2 className="dashboard-subtitle" style={{ margin: '0 0 0.75rem' }}>Regras</h2>
-      <div className="hpanel-table-card desktop-table-view">
+      <div className={`hpanel-table-card desktop-table-view${writable ? ' has-sticky-actions' : ''}`}>
         <table className="hpanel-table">
           <thead>
             <tr>
@@ -779,7 +978,7 @@ function AlertsPanel({
               <th>Limiar</th>
               <th>Agrupar</th>
               <th>Status</th>
-              {writable ? <th>Ações</th> : null}
+              {writable ? <th className="cell-actions">Ações</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -796,11 +995,40 @@ function AlertsPanel({
                 <td>{rule.groupBy}</td>
                 <td><span className="badge-role" style={outcomeStyle(rule.enabled ? 'SUCCESS' : 'FAILURE')}>{rule.enabled ? 'Ativa' : 'Inativa'}</span></td>
                 {writable ? (
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                      <button type="button" className="btn btn-outline btn-pill" onClick={() => { setEditingId(rule.id); setForm({ name: rule.name, metric: rule.metric, window: rule.window, threshold: rule.threshold, groupBy: rule.groupBy, enabled: rule.enabled }); }}>Editar</button>
-                      <button type="button" className="btn btn-outline btn-pill" onClick={() => void toggle(rule)}>{rule.enabled ? 'Desativar' : 'Ativar'}</button>
-                    </div>
+                  <td className="cell-actions">
+                    <RowActionsMenu
+                      id={rule.id}
+                      ariaLabel={`Ações da regra ${rule.name}`}
+                      openId={openId}
+                      setOpenId={setOpenId}
+                      menuRef={menuRef}
+                      dropdownRef={dropdownRef}
+                      run={run}
+                      items={[
+                        {
+                          id: 'edit',
+                          label: 'Editar',
+                          icon: <Pencil size={15} />,
+                          onSelect: () => {
+                            setEditingId(rule.id);
+                            setForm({
+                              name: rule.name,
+                              metric: rule.metric,
+                              window: rule.window,
+                              threshold: rule.threshold,
+                              groupBy: rule.groupBy,
+                              enabled: rule.enabled,
+                            });
+                          },
+                        },
+                        {
+                          id: 'toggle',
+                          label: rule.enabled ? 'Desativar' : 'Ativar',
+                          icon: rule.enabled ? <PowerOff size={15} /> : <Power size={15} />,
+                          onSelect: () => { void toggle(rule); },
+                        },
+                      ]}
+                    />
                   </td>
                 ) : null}
               </tr>
