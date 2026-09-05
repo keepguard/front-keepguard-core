@@ -108,6 +108,39 @@ function formatDate(isoDate?: string) {
   }
 }
 
+function payloadString(payload: Record<string, unknown> | undefined, key: string): string {
+  const value = payload?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function payloadNumber(payload: Record<string, unknown> | undefined, key: string): number | undefined {
+  const value = payload?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/** windowKey = `{ruleId}|{slice}|{iso}` — mostra slice + horário legível. */
+function formatFiringWindow(windowKey: string, payload?: Record<string, unknown>): string {
+  const parts = windowKey.split('|');
+  const slice = payloadString(payload, 'slice') || (parts.length >= 2 ? parts[1] : '');
+  const iso = parts.length >= 3 ? parts[parts.length - 1] : '';
+  const when = iso ? formatDate(iso) : '';
+  if (slice && when) return `${slice} · ${when}`;
+  if (when) return when;
+  if (slice) return slice;
+  return windowKey || '—';
+}
+
+function firingRuleLabel(item: LlmAlertFiring, rules: LlmAlertRule[]): string {
+  const fromPayload = payloadString(item.payload, 'rule_name');
+  if (fromPayload) return fromPayload;
+  const rule = rules.find((r) => r.id === item.ruleId);
+  return rule?.name || item.ruleId;
+}
+
+function formatMetricValue(value: number): string {
+  return Number.isInteger(value) ? value.toLocaleString('pt-BR') : value.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
+}
+
 function toIso(localValue: string): string | undefined {
   if (!localValue) return undefined;
   const d = new Date(localValue);
@@ -894,20 +927,27 @@ function AlertsPanel({
               <th>Janela</th>
               <th>Valor</th>
               <th>Limiar</th>
+              <th>Detalhe</th>
             </tr>
           </thead>
           <tbody>
             {firings.length === 0 ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: '#5f6368' }}>Nenhum disparo registrado.</td></tr>
-            ) : firings.map((item) => (
-              <tr key={item.id}>
-                <td>{formatDate(item.firedAt)}</td>
-                <td><span className="id-compact">{item.ruleId}</span></td>
-                <td><span className="id-compact">{item.windowKey}</span></td>
-                <td>{item.metricValue}</td>
-                <td>{item.threshold}</td>
-              </tr>
-            ))}
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#5f6368' }}>Nenhum disparo registrado.</td></tr>
+            ) : firings.map((item) => {
+              const requests = payloadNumber(item.payload, 'requests');
+              return (
+                <tr key={item.id}>
+                  <td>{formatDate(item.firedAt)}</td>
+                  <td><span className="table-cell-title">{firingRuleLabel(item, rules)}</span></td>
+                  <td>{formatFiringWindow(item.windowKey, item.payload)}</td>
+                  <td>{formatMetricValue(item.metricValue)}</td>
+                  <td>{formatMetricValue(item.threshold)}</td>
+                  <td style={{ color: '#5f6368', fontSize: '0.9rem' }}>
+                    {requests != null ? `${requests.toLocaleString('pt-BR')} req` : '—'}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
