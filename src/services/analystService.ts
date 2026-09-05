@@ -107,3 +107,74 @@ export function listChanges(limit = 20, ticker?: string): Promise<AnalystVerdict
     : `${ANALYST_BASE}/changes${query}`;
   return customFetch<AnalystVerdictChange[]>(path, { method: 'GET' }, token());
 }
+
+export interface AnalystRun {
+  id: string;
+  companyId: string;
+  ticker: string;
+  displayName: string;
+  analyzedAt: string;
+  trigger: string;
+  signals: AnalystSignal[];
+  gaps: { metric: string; reason: string }[];
+  narrative: string;
+  narrativeStatus: string;
+  sources: { dataSource: string; collectedAt: string }[];
+  disclaimer: string;
+  newsCount?: number;
+  outcome: string;
+  staleFacts?: boolean;
+}
+
+export interface AnalystMemory {
+  id: string;
+  ticker: string;
+  derivedAt: string;
+  revision: number;
+  isDerived: boolean;
+  summary: string;
+}
+
+export interface AnalystFavorites {
+  companyId: string;
+  userId: string;
+  tickers: string[];
+  maxTickers: number;
+  updatedAt?: string;
+}
+
+export interface AnalystTickers {
+  tickers: string[];
+}
+
+export function listRuns(ticker: string, limit = 20): Promise<AnalystRun[]> {
+  return customFetch<AnalystRun[]>(
+    `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}/runs?limit=${Math.max(1, limit)}`,
+    { method: 'GET' },
+    token(),
+  );
+}
+
+export function getMemory(ticker: string): Promise<AnalystMemory> {
+  return customFetch<AnalystMemory>(
+    `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}/memory`,
+    { method: 'GET' },
+    token(),
+  );
+}
+
+export function listKnownTickers(): Promise<AnalystTickers> {
+  return customFetch<AnalystTickers>(`${ANALYST_BASE}/tickers`, { method: 'GET' }, token());
+}
+
+export function getFavorites(): Promise<AnalystFavorites> {
+  return customFetch<AnalystFavorites>(`${ANALYST_BASE}/favorites`, { method: 'GET' }, token());
+}
+
+export function saveFavorites(tickers: string[]): Promise<AnalystFavorites> {
+  return customFetch<AnalystFavorites>(
+    `${ANALYST_BASE}/favorites`,
+    { method: 'PUT', body: JSON.stringify({ tickers }) },
+    token(),
+  );
+}

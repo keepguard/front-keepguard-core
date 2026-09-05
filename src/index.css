@@ -5291,6 +5291,98 @@ textarea.form-input {
   width: auto;
 }
 
+.market-ticker-search {
+  position: relative;
+}
+
+.market-ticker-listbox {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 0.35rem 0;
+  list-style: none;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.market-ticker-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+}
+
+.market-ticker-option.is-active,
+.market-ticker-option:hover {
+  background: var(--bg-muted, #f8f9fa);
+}
+
+.market-desk-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.market-fav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.market-fav-btn.is-on,
+.market-fav-btn:hover {
+  color: #b36b00;
+  border-color: #ffe0b2;
+  background: #fff4e5;
+}
+
+.market-desk-meta {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin: 0 0 0.85rem;
+}
+
+.market-desk-meta dt {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 0.2rem;
+}
+
+.market-desk-meta dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.market-stale-badge {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
 .market-desk-tickers {
   display: flex;
   flex-wrap: wrap;
@@ -5433,6 +5525,23 @@ textarea.form-input {
 
 [data-theme="dark"] .market-skeleton {
   background: linear-gradient(90deg, #1c1f27 0%, #292d38 50%, #1c1f27 100%);
+}
+
+[data-theme="dark"] .market-ticker-listbox {
+  background: #1c1f27;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .market-ticker-option.is-active,
+[data-theme="dark"] .market-ticker-option:hover {
+  background: #292d38;
+}
+
+[data-theme="dark"] .market-fav-btn.is-on,
+[data-theme="dark"] .market-fav-btn:hover {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
 [data-theme="dark"] .account-profile-note {

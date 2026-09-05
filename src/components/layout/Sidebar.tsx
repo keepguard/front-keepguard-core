@@ -72,10 +72,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeAgentIncidents = hasAdminOrManagerRole(user?.roles);
   const canSeeDataSources = hasAdminRole(user?.roles);
   const canSeeKnowledge = hasAdminRole(user?.roles);
-  const canSeeMarket = hasAdminRole(user?.roles);
+  const canSeeMarketOps = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarket;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge;
 
   return (
     <>
@@ -230,17 +230,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </nav>
           )}
-          {canSeeMarket && (
-            <nav className="sidebar-section" aria-label="Mercado">
-              <span className="sidebar-heading">Mercado</span>
+          <nav className="sidebar-section" aria-label="Mercado">
+            <span className="sidebar-heading">Mercado</span>
+            <SidebarLink
+              to={PATHS.market}
+              end
+              label="Mercado"
+              icon={<LineChart size={18} className="sidebar-icon" />}
+              onCloseMobile={onCloseMobile}
+            />
+            {canSeeMarketOps && (
               <SidebarLink
                 to={PATHS.marketAnalyze}
                 label="Analisar ativo"
                 icon={<LineChart size={18} className="sidebar-icon" />}
                 onCloseMobile={onCloseMobile}
               />
-            </nav>
-          )}
+            )}
+          </nav>
         </div>
       </aside>
     </>

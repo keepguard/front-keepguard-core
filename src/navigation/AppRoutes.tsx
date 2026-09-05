@@ -14,6 +14,7 @@ import {
   GuardianPage,
   KnowledgePage,
   MarketAnalyzePage,
+  MarketDeskPage,
   OverviewPage,
   SessionsPage,
   SettingsPage,
@@ -30,8 +31,8 @@ function MarketWatchlistRedirect() {
   const [params] = useSearchParams();
   const ticker = params.get('ticker')?.trim();
   const to = ticker
-    ? `${PATHS.marketAnalyze}?ticker=${encodeURIComponent(ticker)}`
-    : PATHS.marketAnalyze;
+    ? `${PATHS.market}?ticker=${encodeURIComponent(ticker)}`
+    : PATHS.market;
   return <Navigate to={to} replace />;
 }
 
@@ -121,6 +122,7 @@ export const AppRoutes: React.FC = () => {
             </RequireAccess>
           )}
         />
+        <Route path={PATHS.market} element={<MarketDeskPage />} />
         <Route
           path={PATHS.marketAnalyze}
           element={(

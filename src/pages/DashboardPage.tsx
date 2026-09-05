@@ -20,6 +20,7 @@ import { AgentIncidentsView } from '../components/dashboard/AgentIncidentsView';
 import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
 import { MarketAnalyzeView } from '../components/dashboard/MarketAnalyzeView';
+import { MarketDeskView } from '../components/dashboard/MarketDeskView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
@@ -364,6 +365,23 @@ export const KnowledgePage: React.FC = () => (
       </div>
     </div>
     <KnowledgeView />
+  </DashboardShell>
+);
+
+export const MarketDeskPage: React.FC = () => (
+  <DashboardShell>
+    <div className="dashboard-header">
+      <div className="dashboard-title-group">
+        <h1 className="dashboard-title">
+          <LineChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          Mercado
+        </h1>
+        <p className="dashboard-subtitle">
+          Consulte o último dossiê gravado. Análise, não recomendação de investimento.
+        </p>
+      </div>
+    </div>
+    <MarketDeskView />
   </DashboardShell>
 );
 
