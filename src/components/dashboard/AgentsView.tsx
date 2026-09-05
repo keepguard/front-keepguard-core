@@ -1095,7 +1095,7 @@ export const AgentsView: React.FC = () => {
 
   const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
   const [items, setItems] = useState<CollectorAgent[]>([]);
-  const [summary, setSummary] = useState<CollectorAgentSummary>({ total: 0, enabled: 0, disabled: 0 });
+  const [, setSummary] = useState<CollectorAgentSummary>({ total: 0, enabled: 0, disabled: 0 });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectPageRef = useRef<HTMLInputElement>(null);
   const [bulkBusy, setBulkBusy] = useState(false);

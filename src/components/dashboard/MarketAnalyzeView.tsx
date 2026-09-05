@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { LineChart, Plus, Search, X } from 'lucide-react';
+import { LineChart, Plus, Search } from 'lucide-react';
 import { RefreshCombo } from '../common/RefreshCombo';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -223,18 +223,6 @@ export const MarketAnalyzeView: React.FC = () => {
     }
   }
 
-  async function onRemove(item: string) {
-    const nextFilter = filterTicker === item ? null : filterTicker;
-    if (nextFilter !== filterTicker) {
-      setFilterTicker(nextFilter);
-      syncQuery(nextFilter);
-    }
-    const ok = await persist(tickers.filter((entry) => entry !== item), enabled, nextFilter);
-    if (ok) {
-      addToast({ type: 'success', title: `${item} removido`, description: 'Sai do lote diário desta organização.' });
-    }
-  }
-
   async function onToggleEnabled(next: boolean) {
     const ok = await persist(tickers, next);
     if (ok) {
@@ -250,6 +238,21 @@ export const MarketAnalyzeView: React.FC = () => {
 
   return (
     <div className="market-desk">
+      <div className="client-system-create-row market-desk-create-row">
+        <div className="client-system-create-actions">
+          <button
+            type="button"
+            className="btn btn-primary btn-pill"
+            onClick={() => { void onAddToWatchlist(); }}
+            disabled={busy || !list || !tickerOk || alreadyWatched || atCap}
+            title={atCap ? `Limite de ${maxTickers} ativos` : 'Inclui o ticker no cron diário'}
+          >
+            <Plus size={15} />
+            <span>Adicionar</span>
+          </button>
+        </div>
+      </div>
+
       <form className="audits-toolbar" onSubmit={onAnalyze}>
         <div className="audits-filter-row audits-filter-row-primary market-desk-toolbar-primary">
           <div className="search-input-wrapper audits-search-field">
@@ -264,7 +267,6 @@ export const MarketAnalyzeView: React.FC = () => {
               autoComplete="off"
               placeholder="Ticker (ex.: PETR4)"
               aria-label="Ticker"
-              aria-describedby="market-ticker-help"
             />
           </div>
           <select
@@ -282,81 +284,22 @@ export const MarketAnalyzeView: React.FC = () => {
             {tickers.length} / {maxTickers} no lote
           </span>
         </div>
-        <div className="audits-filter-row audits-filter-row-sort">
-          <p id="market-ticker-help" className="text-muted market-desk-hint">
-            Analisar consome agora. Adicionar entra no lote da manhã (máx. {maxTickers}). Não é recomendação de investimento.
-          </p>
-          <div className="audits-filter-actions">
-            <button
-              type="submit"
-              className="btn btn-secondary btn-pill audits-filter-submit"
-              disabled={analyzing || !tickerOk}
-            >
-              <Search size={15} />
-              <span>{analyzing ? 'Analisando…' : 'Analisar'}</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-pill"
-              onClick={() => { void onAddToWatchlist(); }}
-              disabled={busy || !list || !tickerOk || alreadyWatched || atCap}
-              title={atCap ? `Limite de ${maxTickers} ativos` : 'Inclui o ticker no cron diário'}
-            >
-              <Plus size={15} />
-              <span>Adicionar</span>
-            </button>
-            <RefreshCombo
-              onRefresh={() => { void refreshDesk(); }}
-              disabled={busy}
-              refreshing={refreshing || changesLoading}
-            />
-          </div>
+        <div className="audits-filter-row audits-filter-row-sort market-desk-filter-actions">
+          <button
+            type="submit"
+            className="btn btn-secondary btn-pill audits-filter-submit"
+            disabled={analyzing || !tickerOk}
+          >
+            <Search size={15} />
+            <span>{analyzing ? 'Analisando…' : 'Analisar'}</span>
+          </button>
+          <RefreshCombo
+            onRefresh={() => { void refreshDesk(); }}
+            disabled={busy}
+            refreshing={refreshing || changesLoading}
+          />
         </div>
       </form>
-
-      <div className="market-desk-tickers" role="list" aria-label="Watchlist da organização">
-        <button
-          type="button"
-          className={`connections-summary-chip ${filterTicker ? '' : 'is-active'}`}
-          onClick={() => selectTicker(null)}
-          disabled={changesLoading}
-        >
-          Todos
-        </button>
-        {watchLoading ? (
-          <span className="connections-summary-chip is-wait">Carregando</span>
-        ) : tickers.length === 0 ? (
-          <span className="text-muted">Nenhum ativo no lote. Adicione até {maxTickers} para o analista rodar de manhã.</span>
-        ) : (
-          tickers.map((item) => (
-            <div
-              key={item}
-              className={`market-ticker-chip connections-summary-chip ${filterTicker === item ? 'is-active' : ''}`}
-              role="listitem"
-            >
-              <button
-                type="button"
-                className="market-ticker-chip-label"
-                onClick={() => selectTicker(item)}
-                aria-pressed={filterTicker === item}
-                title={`Filtrar mudanças de ${item}`}
-                disabled={busy}
-              >
-                {item}
-              </button>
-              <button
-                type="button"
-                className="market-ticker-chip-remove"
-                onClick={() => { void onRemove(item); }}
-                aria-label={`Remover ${item} da watchlist`}
-                disabled={busy}
-              >
-                <X size={14} aria-hidden="true" />
-              </button>
-            </div>
-          ))
-        )}
-      </div>
 
       {error ? (
         <div className="agent-test-result is-error" role="alert" style={{ marginBottom: '1rem' }}>

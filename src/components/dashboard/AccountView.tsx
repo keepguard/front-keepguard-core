@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Ban, KeyRound, Trash2 } from 'lucide-react';
 import { LgpdDocumentsCard } from './LgpdDocumentsCard';
+import { AppearanceControl } from '../common/AppearanceControl';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -282,8 +283,20 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
         <section className="account-card" aria-labelledby="account-prefs-title">
           <header className="account-section-head">
             <h3 id="account-prefs-title">Preferências</h3>
-            <p>Idioma e fuso usados na exibição de datas e comunicações.</p>
+            <p>Tema visual da interface, idioma e fuso usados no seu acesso.</p>
           </header>
+          <div
+            className="account-setting-row"
+            style={{ marginBottom: '1.25rem', paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}
+          >
+            <div>
+              <p className="account-setting-title">Aparência</p>
+              <p className="account-setting-hint">
+                Alterne entre o tema claro, escuro ou sincronizado com o sistema operacional.
+              </p>
+            </div>
+            <AppearanceControl />
+          </div>
           <dl className="account-fields">
             <FieldRow label="Idioma" value={formatLocale(profile?.preferredLocale)} />
             <FieldRow label="Fuso horário" value={profile?.timezone || 'Não informado'} muted={!profile?.timezone} />

@@ -6,6 +6,7 @@ import { MyDeviceBlacklistCard } from '../components/dashboard/MyDeviceBlacklist
 import { AdminDeviceBlacklistCard } from '../components/dashboard/AdminDeviceBlacklistCard';
 import { TenantSessionsCard } from '../components/dashboard/TenantSessionsCard';
 import { SecurityCredentialsView } from '../components/dashboard/SecurityCredentialsView';
+import { PreferencesCard } from '../components/dashboard/PreferencesCard';
 import { ConnectionsView } from '../components/dashboard/ConnectionsView';
 import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
 import { assertTenantDevicesVisibility } from '../utils/roles';
@@ -214,10 +215,11 @@ export const SettingsPage: React.FC = () => (
           Configuração
         </h1>
         <p className="dashboard-subtitle">
-          Monitore o mecanismo proativo de rotação de tokens JWT e as credenciais da sessão.
+          Preferências de aparência da interface e credenciais de segurança da sessão.
         </p>
       </div>
     </div>
+    <PreferencesCard />
     <SecurityCredentialsView />
   </DashboardShell>
 );
