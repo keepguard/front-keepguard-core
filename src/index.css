@@ -5376,6 +5376,11 @@ textarea.form-input {
   font-weight: 600;
 }
 
+.market-desk-sources {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+}
+
 .market-stale-badge {
   margin: 0 0 1rem;
   font-size: 0.82rem;

@@ -21,4 +21,13 @@ export const METRIC_LABEL: Record<string, string> = {
   receitas_cagr5_pct: 'CAGR 5a receitas',
   lucros_cagr5_pct: 'CAGR 5a lucros',
   ev_ebitda: 'EV/EBITDA',
+  price: 'Preço vs 52 semanas',
+};
+
+export const SOURCE_LABEL: Record<string, string> = {
+  'status-invest': 'Status Invest',
+  'yahoo-finance': 'Yahoo Finance',
+  'bcb-sgs': 'Banco Central (SGS)',
+  infomoney: 'InfoMoney',
+  'money-times': 'Money Times',
 };

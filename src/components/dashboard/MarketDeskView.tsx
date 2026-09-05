@@ -16,7 +16,7 @@ import {
   type AnalystRun,
   type AnalystVerdictChange,
 } from '../../services/analystService';
-import { METRIC_LABEL, VERDICT_LABEL } from './marketLabels';
+import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL } from './marketLabels';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -57,6 +57,23 @@ function formatWhen(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function sourceLabel(slug: string): string {
+  return SOURCE_LABEL[slug] || slug;
+}
+
+function uniqueSources(run: AnalystRun | null): string[] {
+  if (!run?.sources?.length) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const source of run.sources) {
+    const slug = source.dataSource?.trim();
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    out.push(slug);
+  }
+  return out;
 }
 
 function freshestCollectedAt(run: AnalystRun | null): string | null {
@@ -131,6 +148,7 @@ export const MarketDeskView: React.FC = () => {
 
   const latest = runs[0] ?? null;
   const collectedAt = freshestCollectedAt(latest);
+  const runSources = uniqueSources(latest);
   const favoriteTickers = favorites?.tickers ?? [];
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const isFavorite = selectedTicker ? favoriteTickers.includes(selectedTicker) : false;
@@ -413,6 +431,11 @@ export const MarketDeskView: React.FC = () => {
               </dd>
             </div>
           </dl>
+          {runSources.length > 0 ? (
+            <p className="text-muted market-desk-sources">
+              Fontes: {runSources.map(sourceLabel).join(' · ')}
+            </p>
+          ) : null}
           {latest.staleFacts ? (
             <p className="market-stale-badge" role="status">
               Fatos de um dia civil anterior à análise (horário de Brasília).
@@ -427,7 +450,7 @@ export const MarketDeskView: React.FC = () => {
                 <h3>{METRIC_LABEL[signal.metric] || signal.metric}</h3>
                 <p>{signal.explanation}</p>
                 {signal.grounding?.dataSource ? (
-                  <p className="text-muted">Fonte: {signal.grounding.dataSource}</p>
+                  <p className="text-muted">Fonte: {sourceLabel(signal.grounding.dataSource)}</p>
                 ) : null}
               </article>
             ))}
