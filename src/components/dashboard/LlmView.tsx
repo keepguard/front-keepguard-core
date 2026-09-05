@@ -1006,6 +1006,13 @@ function AlertsPanel({
 
   return (
     <div>
+      {writable ? (
+        <div className="client-system-create-row">
+          <button type="button" className="btn btn-secondary btn-pill" onClick={() => { setEditingId(null); setForm({ ...EMPTY_RULE }); }}>
+            Nova regra
+          </button>
+        </div>
+      ) : null}
       <form className="audits-toolbar" onSubmit={handleSearch}>
         <div className="audits-filter-row audits-filter-row-primary">
           <input
@@ -1037,16 +1044,11 @@ function AlertsPanel({
             <option value="inactive">Inativa</option>
           </select>
         </div>
-        <div className="audits-filter-row" style={{ gridTemplateColumns: '1fr auto auto', alignItems: 'center' }}>
-          <p className="text-muted" style={{ margin: 0 }}>
-            Histórico de disparos fica na aba Disparos. Sem e-mail ou Telegram neste MVP.
-          </p>
-          <FilterSubmit disabled={loading} />
-          {writable ? (
-            <button type="button" className="btn btn-secondary btn-pill" onClick={() => { setEditingId(null); setForm({ ...EMPTY_RULE }); }}>
-              Nova regra
-            </button>
-          ) : null}
+        <div className="audits-filter-actions audits-filter-actions-start">
+          <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
+            <Search size={15} />
+            <span>Filtrar</span>
+          </button>
         </div>
       </form>
 
@@ -1270,12 +1272,6 @@ function FiringsPanel({
             aria-label="Nome da regra"
           />
         </div>
-        <div className="audits-filter-row" style={{ gridTemplateColumns: '1fr auto', alignItems: 'center' }}>
-          <p className="text-muted" style={{ margin: 0 }}>
-            Ordenação padrão: data do disparo decrescente (mais recentes primeiro).
-          </p>
-          <FilterSubmit disabled={loading || refreshing} />
-        </div>
         <ListPager
           loading={loading}
           refreshing={refreshing}
@@ -1283,6 +1279,7 @@ function FiringsPanel({
           totalPages={totalPages}
           onPrev={() => { void load(page - 1); }}
           onNext={() => { void load(page + 1); }}
+          leading={<FilterSubmit disabled={loading || refreshing} />}
         />
       </form>
 
