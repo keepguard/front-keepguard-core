@@ -21,6 +21,7 @@ import {
 } from '../../services/analystService';
 import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
+import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -513,6 +514,7 @@ export const MarketDeskView: React.FC = () => {
               />
             </div>
           </section>
+          {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
           <div className="market-signals">
             {latest.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>

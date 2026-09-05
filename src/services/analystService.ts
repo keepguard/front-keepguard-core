@@ -24,6 +24,31 @@ export interface AnalystSignal {
   };
 }
 
+export interface AnalystThesisAxis {
+  level: string;
+  score: number;
+  coverage: string;
+  available: number;
+  used: number;
+}
+
+export interface AnalystThesisComponent {
+  metric: string;
+  points: number;
+  weight: number;
+  valueNum?: number;
+  dataSource?: string;
+}
+
+export interface AnalystThesis {
+  code: string;
+  quality: AnalystThesisAxis;
+  price: AnalystThesisAxis;
+  health: AnalystThesisAxis;
+  override?: string;
+  components?: AnalystThesisComponent[];
+}
+
 export interface AnalystAnalysis {
   runId?: string;
   ticker: string;
@@ -37,6 +62,8 @@ export interface AnalystAnalysis {
   narrativeStatus: string;
   sources: { dataSource: string; collectedAt: string }[];
   disclaimer: string;
+  /** Conclusão determinística (código); não extraia números daqui. */
+  thesis?: AnalystThesis;
 }
 
 export interface AnalystWatchlist {
@@ -124,6 +151,7 @@ export interface AnalystRun {
   newsCount?: number;
   outcome: string;
   staleFacts?: boolean;
+  thesis?: AnalystThesis;
 }
 
 export interface AnalystInputPoint {

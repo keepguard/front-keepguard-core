@@ -5209,6 +5209,52 @@ textarea.form-input {
   font-size: 1.15rem;
 }
 
+.market-thesis {
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin: 0 0 1.25rem;
+  border: 1px solid var(--border);
+}
+
+.market-thesis-kicker {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.market-thesis-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.market-thesis-axes {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.market-thesis-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+}
+
+.market-thesis-good {
+  background: var(--success-light, #e6f7f3);
+  border-color: var(--success, #00b090);
+}
+
+.market-thesis-bad {
+  background: var(--danger-light, #fee2e2);
+  border-color: var(--danger, #eb1e3a);
+}
+
+.market-thesis-warn {
+  background: var(--warning-light, #fef3c7);
+  border-color: #d97706;
+}
+
 .market-signals {
   display: grid;
   gap: 0.75rem;

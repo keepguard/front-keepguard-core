@@ -15,6 +15,7 @@ import {
   type AnalystWatchlist,
 } from '../../services/analystService';
 import { METRIC_LABEL, VERDICT_LABEL } from './marketLabels';
+import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -321,6 +322,7 @@ export const MarketAnalyzeView: React.FC = () => {
           <h2 className="market-analyze-title">
             {analysis.displayName || analysis.ticker} · {analysis.ticker}
           </h2>
+          {THESIS_CARD_PUBLISHED && analysis.thesis ? <ThesisCard thesis={analysis.thesis} /> : null}
           <div className="market-signals">
             {analysis.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>
