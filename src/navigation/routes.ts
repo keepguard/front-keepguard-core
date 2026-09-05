@@ -25,50 +25,6 @@ export type RouteMeta = {
   title: string;
 };
 
-export const ROUTES: RouteMeta[] = [
-  { path: '/', tab: 'overview', title: 'Visão Geral' },
-  { path: '/sessoes', tab: 'sessions', title: 'Minhas sessões' },
-  { path: '/bloqueios', tab: 'blacklist', title: 'Meus bloqueios' },
-  { path: '/admin/sessoes', tab: 'tenant-sessions', title: 'Sessões da organização' },
-  { path: '/admin/bloqueios', tab: 'admin-blacklist', title: 'Bloqueios da organização' },
-  { path: '/conexoes', tab: 'connections', title: 'Conexões' },
-  { path: '/guardian', tab: 'guardian', title: 'Guardian' },
-  { path: '/client-system', tab: 'client-system', title: 'Client system' },
-  { path: '/agents', tab: 'agents', title: 'Agents' },
-  { path: '/agents/incidentes', tab: 'agent-incidents', title: 'Incidentes' },
-  { path: '/fontes', tab: 'data-sources', title: 'Fontes de dados' },
-  { path: '/conhecimento', tab: 'knowledge', title: 'Conhecimento' },
-  { path: '/mercado', tab: 'market', title: 'Mercado' },
-  { path: '/mercado/analisar', tab: 'market-analyze', title: 'Analisar ativo' },
-  { path: '/auditoria', tab: 'audits', title: 'Auditoria' },
-  { path: '/llm', tab: 'llm', title: 'LLM' },
-  { path: '/templates', tab: 'templates', title: 'Galeria de Templates' },
-  { path: '/conta', tab: 'account', title: 'Conta' },
-  { path: '/configuracao', tab: 'settings', title: 'Configuração' },
-];
-
-const PATH_BY_TAB = new Map<string, string>(ROUTES.map((route) => [route.tab, route.path]));
-const META_BY_PATH = new Map<string, RouteMeta>(ROUTES.map((route) => [route.path, route]));
-
-const TAB_ALIASES: Record<string, AppTab> = {
-  identity: 'account',
-  security: 'overview',
-};
-
-export function pathFromTab(tab: string | null | undefined): string {
-  if (!tab) return '/';
-  const canonical = TAB_ALIASES[tab] || (tab as AppTab);
-  return PATH_BY_TAB.get(canonical) || '/';
-}
-
-export function tabFromPath(pathname: string): AppTab {
-  return META_BY_PATH.get(pathname)?.tab || 'overview';
-}
-
-export function routeMetaFromPath(pathname: string): RouteMeta | undefined {
-  return META_BY_PATH.get(pathname);
-}
-
 export const PATHS = {
   overview: '/',
   sessions: '/sessoes',
@@ -91,3 +47,47 @@ export const PATHS = {
   account: '/conta',
   settings: '/configuracao',
 } as const;
+
+export const ROUTES: RouteMeta[] = [
+  { path: PATHS.market, tab: 'market', title: 'Mercado' },
+  { path: PATHS.sessions, tab: 'sessions', title: 'Minhas sessões' },
+  { path: PATHS.blacklist, tab: 'blacklist', title: 'Meus bloqueios' },
+  { path: PATHS.tenantSessions, tab: 'tenant-sessions', title: 'Sessões da organização' },
+  { path: PATHS.adminBlacklist, tab: 'admin-blacklist', title: 'Bloqueios da organização' },
+  { path: PATHS.connections, tab: 'connections', title: 'Conexões' },
+  { path: PATHS.guardian, tab: 'guardian', title: 'Guardian' },
+  { path: PATHS.clientSystem, tab: 'client-system', title: 'Client system' },
+  { path: PATHS.agents, tab: 'agents', title: 'Agents' },
+  { path: PATHS.agentIncidents, tab: 'agent-incidents', title: 'Incidentes' },
+  { path: PATHS.dataSources, tab: 'data-sources', title: 'Fontes de dados' },
+  { path: PATHS.knowledge, tab: 'knowledge', title: 'Conhecimento' },
+  { path: PATHS.marketAnalyze, tab: 'market-analyze', title: 'Analisar ativo' },
+  { path: PATHS.audits, tab: 'audits', title: 'Auditoria' },
+  { path: PATHS.llm, tab: 'llm', title: 'LLM' },
+  { path: PATHS.templates, tab: 'templates', title: 'Galeria de Templates' },
+  { path: PATHS.account, tab: 'account', title: 'Conta' },
+  { path: PATHS.settings, tab: 'settings', title: 'Configuração' },
+];
+
+const PATH_BY_TAB = new Map<string, string>(ROUTES.map((route) => [route.tab, route.path]));
+const META_BY_PATH = new Map<string, RouteMeta>(ROUTES.map((route) => [route.path, route]));
+
+const TAB_ALIASES: Record<string, AppTab> = {
+  identity: 'account',
+  security: 'market',
+  overview: 'market',
+};
+
+export function pathFromTab(tab: string | null | undefined): string {
+  if (!tab) return PATHS.market;
+  const canonical = TAB_ALIASES[tab] || (tab as AppTab);
+  return PATH_BY_TAB.get(canonical) || PATHS.market;
+}
+
+export function tabFromPath(pathname: string): AppTab {
+  return META_BY_PATH.get(pathname)?.tab || 'market';
+}
+
+export function routeMetaFromPath(pathname: string): RouteMeta | undefined {
+  return META_BY_PATH.get(pathname);
+}

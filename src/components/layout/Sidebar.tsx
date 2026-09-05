@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Home,
   Smartphone,
   Ban,
   ShieldAlert,
@@ -75,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeMarketOps = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarketOps;
 
   return (
     <>
@@ -114,10 +113,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <SidebarLink
-              to={PATHS.overview}
+              to={PATHS.market}
               end
-              label="Visão Geral"
-              icon={<Home size={18} className="sidebar-icon" />}
+              label="Mercado"
+              icon={<LineChart size={18} className="sidebar-icon" />}
               onCloseMobile={onCloseMobile}
             />
 
@@ -139,6 +138,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {showAdminSection && (
             <nav className="sidebar-section" aria-label="Administração">
               <span className="sidebar-heading">Administração</span>
+              {canSeeMarketOps && (
+                <SidebarLink
+                  to={PATHS.marketAnalyze}
+                  label="Analisar ativo"
+                  icon={<LineChart size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
               {canAccessTenantDevicesTab && (
                 <SidebarLink
                   to={PATHS.tenantSessions}
@@ -230,24 +237,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </nav>
           )}
-          <nav className="sidebar-section" aria-label="Mercado">
-            <span className="sidebar-heading">Mercado</span>
-            <SidebarLink
-              to={PATHS.market}
-              end
-              label="Mercado"
-              icon={<LineChart size={18} className="sidebar-icon" />}
-              onCloseMobile={onCloseMobile}
-            />
-            {canSeeMarketOps && (
-              <SidebarLink
-                to={PATHS.marketAnalyze}
-                label="Analisar ativo"
-                icon={<LineChart size={18} className="sidebar-icon" />}
-                onCloseMobile={onCloseMobile}
-              />
-            )}
-          </nav>
         </div>
       </aside>
     </>

@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         {homeLink ? (
-          <Link to={PATHS.overview} className="header-logo-group" aria-label="Ir para visão geral">
+          <Link to={PATHS.market} className="header-logo-group" aria-label="Ir para Mercado">
             {logo}
           </Link>
         ) : (

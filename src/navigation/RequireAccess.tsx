@@ -20,7 +20,7 @@ export const RequireAccess: React.FC<{
   }, [addToast, allowed, description]);
 
   if (!allowed) {
-    return <Navigate to={PATHS.overview} replace />;
+    return <Navigate to={PATHS.market} replace />;
   }
 
   return <>{children}</>;

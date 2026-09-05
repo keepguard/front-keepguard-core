@@ -15,7 +15,6 @@ import {
   KnowledgePage,
   MarketAnalyzePage,
   MarketDeskPage,
-  OverviewPage,
   SessionsPage,
   SettingsPage,
   TemplatesPage,
@@ -47,7 +46,8 @@ export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path={PATHS.overview} element={<OverviewPage />} />
+        <Route path={PATHS.overview} element={<Navigate to={PATHS.market} replace />} />
+        <Route path={PATHS.market} element={<MarketDeskPage />} />
         <Route path={PATHS.sessions} element={<SessionsPage />} />
         <Route path={PATHS.blacklist} element={<UserBlacklistPage />} />
         <Route
@@ -122,7 +122,6 @@ export const AppRoutes: React.FC = () => {
             </RequireAccess>
           )}
         />
-        <Route path={PATHS.market} element={<MarketDeskPage />} />
         <Route
           path={PATHS.marketAnalyze}
           element={(
@@ -151,7 +150,7 @@ export const AppRoutes: React.FC = () => {
         <Route path={PATHS.templates} element={<TemplatesPage />} />
         <Route path={PATHS.account} element={<AccountPage />} />
         <Route path={PATHS.settings} element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to={PATHS.overview} replace />} />
+        <Route path="*" element={<Navigate to={PATHS.market} replace />} />
       </Route>
     </Routes>
   );

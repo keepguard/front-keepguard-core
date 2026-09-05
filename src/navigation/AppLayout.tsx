@@ -81,7 +81,7 @@ export const AppLayout: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate(PATHS.overview, { replace: true });
+    navigate(PATHS.market, { replace: true });
     addToast({
       type: 'info',
       title: 'Sessão finalizada',
