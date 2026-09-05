@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   AccountPage,
@@ -25,6 +25,15 @@ import { canAccessTenantDevices, canReadAudits, canReadLlm, hasAdminOrManagerRol
 import { AppLayout } from './AppLayout';
 import { PATHS } from './routes';
 import { RequireAccess } from './RequireAccess';
+
+function MarketWatchlistRedirect() {
+  const [params] = useSearchParams();
+  const ticker = params.get('ticker')?.trim();
+  const to = ticker
+    ? `${PATHS.marketAnalyze}?ticker=${encodeURIComponent(ticker)}`
+    : PATHS.marketAnalyze;
+  return <Navigate to={to} replace />;
+}
 
 export const AppRoutes: React.FC = () => {
   const { user, accessToken } = useAuth();
@@ -120,6 +129,7 @@ export const AppRoutes: React.FC = () => {
             </RequireAccess>
           )}
         />
+        <Route path={PATHS.marketWatchlist} element={<MarketWatchlistRedirect />} />
         <Route
           path={PATHS.audits}
           element={(

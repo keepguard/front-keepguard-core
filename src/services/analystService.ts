@@ -8,6 +8,11 @@
 import { BFF_INVEST_URL, customFetch } from './api';
 import { getAccessToken } from './tokenStore';
 
+const ANALYST_BASE = `${BFF_INVEST_URL}/api/v1/invest/analyst`;
+
+export const WATCHLIST_MAX_TICKERS = 50;
+export const TICKER_PATTERN = /^[A-Z0-9]{4,6}$/;
+
 export interface AnalystSignal {
   metric: string;
   verdict: string;
@@ -34,11 +39,71 @@ export interface AnalystAnalysis {
   disclaimer: string;
 }
 
+export interface AnalystWatchlist {
+  companyId: string;
+  tickers: string[];
+  maxTickers: number;
+  enabled: boolean;
+  updatedAt?: string;
+}
+
+export interface AnalystWatchlistWrite {
+  tickers: string[];
+  enabled?: boolean;
+}
+
+export interface AnalystVerdictDelta {
+  metric: string;
+  kind: string;
+  fromVerdict?: string;
+  toVerdict?: string;
+  fromValue?: number;
+  toValue?: number;
+}
+
+export interface AnalystVerdictChange {
+  id: string;
+  companyId: string;
+  ticker: string;
+  runId: string;
+  previousRunId: string;
+  detectedAt: string;
+  isMaterial: boolean;
+  changes: AnalystVerdictDelta[];
+}
+
+function token(): string | undefined {
+  return getAccessToken() ?? undefined;
+}
+
+export function isValidTicker(raw: string): boolean {
+  return TICKER_PATTERN.test(raw.trim().toUpperCase());
+}
+
 export function analyzeTicker(ticker: string): Promise<AnalystAnalysis> {
-  const token = getAccessToken() ?? undefined;
   return customFetch<AnalystAnalysis>(
-    `${BFF_INVEST_URL}/api/v1/invest/analyst/assets/${encodeURIComponent(ticker)}/analyze`,
+    `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}/analyze`,
     { method: 'POST' },
-    token,
+    token(),
   );
+}
+
+export function getWatchlist(): Promise<AnalystWatchlist> {
+  return customFetch<AnalystWatchlist>(`${ANALYST_BASE}/watchlist`, { method: 'GET' }, token());
+}
+
+export function saveWatchlist(write: AnalystWatchlistWrite): Promise<AnalystWatchlist> {
+  return customFetch<AnalystWatchlist>(
+    `${ANALYST_BASE}/watchlist`,
+    { method: 'PUT', body: JSON.stringify(write) },
+    token(),
+  );
+}
+
+export function listChanges(limit = 20, ticker?: string): Promise<AnalystVerdictChange[]> {
+  const query = `?limit=${Math.max(1, limit)}`;
+  const path = ticker
+    ? `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}/changes${query}`
+    : `${ANALYST_BASE}/changes${query}`;
+  return customFetch<AnalystVerdictChange[]>(path, { method: 'GET' }, token());
 }

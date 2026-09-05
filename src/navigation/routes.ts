@@ -81,6 +81,7 @@ export const PATHS = {
   dataSources: '/fontes',
   knowledge: '/conhecimento',
   marketAnalyze: '/mercado/analisar',
+  marketWatchlist: '/mercado/watchlist',
   audits: '/auditoria',
   llm: '/llm',
   templates: '/templates',

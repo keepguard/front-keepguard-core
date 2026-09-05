@@ -189,7 +189,6 @@ export const ClientSystemView: React.FC = () => {
   const closeConfirm = () => {
     if (submitting) return;
     setConfirm(null);
-    setImpactAgents([]);
   };
 
   const handleConfirmAction = async () => {
@@ -216,7 +215,6 @@ export const ClientSystemView: React.FC = () => {
         await loadPage(page, applied);
       }
       setConfirm(null);
-      setImpactAgents([]);
     } catch (err: any) {
       addToast({
         type: 'error',

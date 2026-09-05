@@ -374,7 +374,7 @@ export const MarketAnalyzePage: React.FC = () => (
           Analisar ativo
         </h1>
         <p className="dashboard-subtitle">
-          Sinais determinísticos e narrativa fundamentada. Análise, não recomendação de investimento.
+          Watchlist do lote diário, análise sob demanda e mudanças de veredito. Análise, não recomendação de investimento.
         </p>
       </div>
     </div>

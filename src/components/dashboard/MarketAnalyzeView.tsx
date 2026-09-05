@@ -1,100 +1,370 @@
-import React, { useState } from 'react';
-import { analyzeTicker, type AnalystAnalysis } from '../../services/analystService';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { LineChart, Plus, Search, X } from 'lucide-react';
+import { RefreshCombo } from '../common/RefreshCombo';
+import { useToast } from '../../context/ToastContext';
+import {
+  analyzeTicker,
+  getWatchlist,
+  isValidTicker,
+  listChanges,
+  saveWatchlist,
+  WATCHLIST_MAX_TICKERS,
+  type AnalystAnalysis,
+  type AnalystVerdictChange,
+  type AnalystWatchlist,
+} from '../../services/analystService';
+import { METRIC_LABEL, VERDICT_LABEL } from './marketLabels';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
-const VERDICT_LABEL: Record<string, string> = {
-  CHEAP: 'Barato',
-  FAIR: 'Justo',
-  EXPENSIVE: 'Caro',
-  HEALTHY: 'Saudável',
-  RISKY: 'Arriscado',
-  NEUTRAL: 'Neutro',
-  MISSING: 'Indisponível',
-};
+function tickerFromQuery(raw: string | null): string | null {
+  const value = raw?.trim().toUpperCase() ?? '';
+  return isValidTicker(value) ? value : null;
+}
 
-const METRIC_LABEL: Record<string, string> = {
-  pl: 'P/L',
-  dy_pct: 'Dividend yield',
-  dividaliquida_ebitda: 'Dívida/EBITDA',
-  roe_pct: 'ROE',
-  pvp: 'P/VPA',
-  roic_pct: 'ROIC',
-  margem_liquida_pct: 'Margem líquida',
-  liquidezcorrente: 'Liquidez corrente',
-  dividaliquida_patrimonioliquido: 'Dívida líquida/PL',
-  receitas_cagr5_pct: 'CAGR 5a receitas',
-  lucros_cagr5_pct: 'CAGR 5a lucros',
-  ev_ebitda: 'EV/EBITDA',
-};
+function mapAnalystError(err: unknown, fallback: string): string {
+  const status = (err as { status?: number }).status;
+  const data = (err as { data?: { error?: string; message?: string } }).data;
+  if (data?.error === 'WATCHLIST_TOO_LARGE') {
+    return 'A watchlist aceita no máximo 50 ativos.';
+  }
+  if (data?.error === 'NO_MARKET_DATA' || status === 404) {
+    return 'Ainda não há fatos deste ticker nesta organização. Confira os agents de coleta.';
+  }
+  if (data?.error === 'INVALID_TICKER' || status === 400) {
+    return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).';
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return 'Não foi possível falar com o analista agora. Tente de novo.';
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
+function formatWhen(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function deltaLabel(metric: string, fromVerdict?: string, toVerdict?: string): string {
+  const name = METRIC_LABEL[metric] || metric;
+  const from = fromVerdict ? (VERDICT_LABEL[fromVerdict] || fromVerdict) : '—';
+  const to = toVerdict ? (VERDICT_LABEL[toVerdict] || toVerdict) : '—';
+  return `${name}: ${from} → ${to}`;
+}
+
+function materialStyle(isMaterial: boolean): React.CSSProperties {
+  return isMaterial
+    ? { background: '#fff4e5', color: '#b36b00', borderColor: '#ffe0b2' }
+    : { background: '#eef1f4', color: '#5f6368', borderColor: '#e0e3e7' };
+}
 
 export const MarketAnalyzeView: React.FC = () => {
-  const [ticker, setTicker] = useState('PETR4');
-  const [loading, setLoading] = useState(false);
+  const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromQuery = tickerFromQuery(searchParams.get('ticker'));
+  const [ticker, setTicker] = useState(() => fromQuery || '');
+  const [appliedQuery, setAppliedQuery] = useState(fromQuery);
+
+  const [list, setList] = useState<AnalystWatchlist | null>(null);
+  const [watchLoading, setWatchLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [analysis, setAnalysis] = useState<AnalystAnalysis | null>(null);
+  const [filterTicker, setFilterTicker] = useState<string | null>(fromQuery);
+  const [changes, setChanges] = useState<AnalystVerdictChange[]>([]);
+  const [changesLoading, setChangesLoading] = useState(true);
 
-  async function onSubmit(event: React.FormEvent) {
+  if (fromQuery !== appliedQuery) {
+    setAppliedQuery(fromQuery);
+    if (fromQuery) {
+      setTicker(fromQuery);
+      setFilterTicker(fromQuery);
+    }
+  }
+
+  const tickers = list?.tickers ?? [];
+  const maxTickers = list?.maxTickers || WATCHLIST_MAX_TICKERS;
+  const enabled = list?.enabled ?? true;
+  const atCap = tickers.length >= maxTickers;
+  const busy = watchLoading || saving || analyzing;
+  const normalizedTicker = ticker.trim().toUpperCase();
+  const tickerOk = isValidTicker(normalizedTicker);
+  const alreadyWatched = tickers.includes(normalizedTicker);
+
+  const loadChanges = useCallback(async (nextTicker?: string | null) => {
+    setChangesLoading(true);
+    try {
+      setChanges(await listChanges(20, nextTicker || undefined));
+    } catch (err) {
+      setError(mapAnalystError(err, 'Falha ao carregar mudanças'));
+      setChanges([]);
+    } finally {
+      setChangesLoading(false);
+    }
+  }, []);
+
+  const loadWatchlist = useCallback(async () => {
+    setWatchLoading(true);
+    try {
+      setList(await getWatchlist());
+    } catch (err) {
+      setError(mapAnalystError(err, 'Falha ao carregar a watchlist'));
+    } finally {
+      setWatchLoading(false);
+    }
+  }, []);
+
+  const refreshDesk = useCallback(async () => {
+    setRefreshing(true);
+    setError('');
+    try {
+      await Promise.all([loadWatchlist(), loadChanges(filterTicker)]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [filterTicker, loadChanges, loadWatchlist]);
+
+  const bootstrapped = useRef(false);
+
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    void loadWatchlist();
+    void loadChanges(fromQuery);
+  }, [fromQuery, loadWatchlist, loadChanges]);
+
+  function syncQuery(next: string | null) {
+    if (next) {
+      setSearchParams({ ticker: next }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  }
+
+  function selectTicker(next: string | null) {
+    const value = next?.trim().toUpperCase() || null;
+    if (value && analysis && analysis.ticker !== value) {
+      setAnalysis(null);
+    }
+    if (value) setTicker(value);
+    setFilterTicker(value);
+    syncQuery(value);
+    void loadChanges(value);
+  }
+
+  async function persist(nextTickers: string[], nextEnabled: boolean, changesTicker: string | null = filterTicker): Promise<boolean> {
+    setSaving(true);
+    setError('');
+    try {
+      const saved = await saveWatchlist({ tickers: nextTickers, enabled: nextEnabled });
+      setList(saved);
+      await loadChanges(changesTicker);
+      return true;
+    } catch (err) {
+      setError(mapAnalystError(err, 'Falha ao salvar a watchlist'));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onAnalyze(event: React.FormEvent) {
     event.preventDefault();
+    if (!tickerOk) {
+      setError('Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).');
+      return;
+    }
     setError('');
     setAnalysis(null);
-    setLoading(true);
+    setAnalyzing(true);
     try {
-      setAnalysis(await analyzeTicker(ticker.trim().toUpperCase()));
+      setAnalysis(await analyzeTicker(normalizedTicker));
+      syncQuery(normalizedTicker);
     } catch (err) {
-      const status = (err as { status?: number }).status;
-      if (status === 400) {
-        setError('Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).');
-      } else if (status === 404) {
-        setError('Ainda não há fatos deste ticker nesta organização. Confira os agents de coleta.');
-      } else if (status === 502 || status === 503 || status === 504) {
-        setError('Não foi possível falar com a memória agora. Tente de novo.');
-      } else {
-        setError(err instanceof Error ? err.message : 'Falha ao analisar');
-      }
+      setError(mapAnalystError(err, 'Falha ao analisar'));
     } finally {
-      setLoading(false);
+      setAnalyzing(false);
+    }
+  }
+
+  async function onAddToWatchlist() {
+    if (!list) return;
+    if (!tickerOk) {
+      setError('Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).');
+      return;
+    }
+    if (alreadyWatched) {
+      setError(`${normalizedTicker} já está na watchlist.`);
+      return;
+    }
+    if (atCap) {
+      setError(`A watchlist aceita no máximo ${maxTickers} ativos.`);
+      return;
+    }
+    const ok = await persist([...tickers, normalizedTicker], enabled);
+    if (ok) {
+      addToast({
+        type: 'success',
+        title: `${normalizedTicker} na watchlist`,
+        description: enabled
+          ? 'Entra no lote da manhã. Cada ticker custa uma análise diária.'
+          : 'Salvo. O lote diário está pausado nesta organização.',
+      });
+    }
+  }
+
+  async function onRemove(item: string) {
+    const nextFilter = filterTicker === item ? null : filterTicker;
+    if (nextFilter !== filterTicker) {
+      setFilterTicker(nextFilter);
+      syncQuery(nextFilter);
+    }
+    const ok = await persist(tickers.filter((entry) => entry !== item), enabled, nextFilter);
+    if (ok) {
+      addToast({ type: 'success', title: `${item} removido`, description: 'Sai do lote diário desta organização.' });
+    }
+  }
+
+  async function onToggleEnabled(next: boolean) {
+    const ok = await persist(tickers, next);
+    if (ok) {
+      addToast({
+        type: 'success',
+        title: next ? 'Análise diária ativa' : 'Análise diária pausada',
+        description: next
+          ? `O cron processa até ${tickers.length} ticker(s) de manhã.`
+          : 'O cron ignora esta organização até reativar.',
+      });
     }
   }
 
   return (
-    <div className="market-analyze">
-      <div className="dash-card">
-        <p className="dashboard-subtitle" style={{ marginBottom: '1.25rem' }}>
-          Panorama de um ticker com sinais calculados e narrativa fundamentada. Não é recomendação de investimento.
-        </p>
-        <form className="market-analyze-form" onSubmit={onSubmit}>
-          <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: 160 }}>
-            <label htmlFor="market-ticker">Ticker</label>
+    <div className="market-desk">
+      <form className="audits-toolbar" onSubmit={onAnalyze}>
+        <div className="audits-filter-row audits-filter-row-primary market-desk-toolbar-primary">
+          <div className="search-input-wrapper audits-search-field">
+            <Search size={16} className="search-icon" />
             <input
               id="market-ticker"
+              className="search-input"
               name="ticker"
               value={ticker}
               onChange={(e) => setTicker(e.target.value.toUpperCase())}
               maxLength={6}
-              required
+              autoComplete="off"
+              placeholder="Ticker (ex.: PETR4)"
+              aria-label="Ticker"
               aria-describedby="market-ticker-help"
             />
-            <span id="market-ticker-help" className="sr-only">Informe o código do ativo, por exemplo PETR4</span>
           </div>
-          <button className="btn btn-primary" type="submit" disabled={loading || ticker.trim().length < 4}>
-            {loading ? 'Analisando…' : 'Analisar'}
-          </button>
-        </form>
-        {!loading && !analysis && !error ? (
-          <p className="text-muted" style={{ marginTop: '1rem', marginBottom: 0 }}>
-            Informe um ticker com coleta nesta organização para ver os sinais.
+          <select
+            className="form-input audits-compact-select"
+            value={enabled ? 'true' : 'false'}
+            disabled={busy || !list}
+            onChange={(e) => { void onToggleEnabled(e.target.value === 'true'); }}
+            aria-label="Análise diária automática"
+            title="Pausa o cron sem apagar os tickers. Corta o custo diário desta organização."
+          >
+            <option value="true">Diário ativo</option>
+            <option value="false">Diário pausado</option>
+          </select>
+          <span className="connections-summary-chip is-wait" aria-live="polite">
+            {tickers.length} / {maxTickers} no lote
+          </span>
+        </div>
+        <div className="audits-filter-row audits-filter-row-sort">
+          <p id="market-ticker-help" className="text-muted market-desk-hint">
+            Analisar consome agora. Adicionar entra no lote da manhã (máx. {maxTickers}). Não é recomendação de investimento.
           </p>
-        ) : null}
+          <div className="audits-filter-actions">
+            <button
+              type="submit"
+              className="btn btn-secondary btn-pill audits-filter-submit"
+              disabled={analyzing || !tickerOk}
+            >
+              <Search size={15} />
+              <span>{analyzing ? 'Analisando…' : 'Analisar'}</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-pill"
+              onClick={() => { void onAddToWatchlist(); }}
+              disabled={busy || !list || !tickerOk || alreadyWatched || atCap}
+              title={atCap ? `Limite de ${maxTickers} ativos` : 'Inclui o ticker no cron diário'}
+            >
+              <Plus size={15} />
+              <span>Adicionar</span>
+            </button>
+            <RefreshCombo
+              onRefresh={() => { void refreshDesk(); }}
+              disabled={busy}
+              refreshing={refreshing || changesLoading}
+            />
+          </div>
+        </div>
+      </form>
+
+      <div className="market-desk-tickers" role="list" aria-label="Watchlist da organização">
+        <button
+          type="button"
+          className={`connections-summary-chip ${filterTicker ? '' : 'is-active'}`}
+          onClick={() => selectTicker(null)}
+          disabled={changesLoading}
+        >
+          Todos
+        </button>
+        {watchLoading ? (
+          <span className="connections-summary-chip is-wait">Carregando</span>
+        ) : tickers.length === 0 ? (
+          <span className="text-muted">Nenhum ativo no lote. Adicione até {maxTickers} para o analista rodar de manhã.</span>
+        ) : (
+          tickers.map((item) => (
+            <div
+              key={item}
+              className={`market-ticker-chip connections-summary-chip ${filterTicker === item ? 'is-active' : ''}`}
+              role="listitem"
+            >
+              <button
+                type="button"
+                className="market-ticker-chip-label"
+                onClick={() => selectTicker(item)}
+                aria-pressed={filterTicker === item}
+                title={`Filtrar mudanças de ${item}`}
+                disabled={busy}
+              >
+                {item}
+              </button>
+              <button
+                type="button"
+                className="market-ticker-chip-remove"
+                onClick={() => { void onRemove(item); }}
+                aria-label={`Remover ${item} da watchlist`}
+                disabled={busy}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </div>
+          ))
+        )}
       </div>
 
       {error ? (
-        <div className="agent-test-result is-error" role="alert" style={{ marginTop: '1rem' }}>
+        <div className="agent-test-result is-error" role="alert" style={{ marginBottom: '1rem' }}>
           <p>{error}</p>
         </div>
       ) : null}
 
-      {loading ? (
+      {analyzing ? (
         <div className="market-signals" aria-busy="true" aria-live="polite">
           <div className="market-skeleton" />
           <div className="market-skeleton" />
@@ -104,10 +374,11 @@ export const MarketAnalyzeView: React.FC = () => {
       ) : null}
 
       {analysis ? (
-        <div className="dash-card" style={{ marginTop: '1.25rem' }}>
-          <h2 className="market-analyze-title">{analysis.displayName || analysis.ticker} · {analysis.ticker}</h2>
+        <div className="hpanel-table-card market-analysis-card">
+          <h2 className="market-analyze-title">
+            {analysis.displayName || analysis.ticker} · {analysis.ticker}
+          </h2>
           <div className="market-signals">
-            {/* Números oficiais: signals[] (código). Não parsear narrative. */}
             {analysis.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>
                 <span className={`market-verdict ${signal.verdict}`}>
@@ -126,7 +397,6 @@ export const MarketAnalyzeView: React.FC = () => {
               Lacunas: {analysis.gaps.map((g) => `${g.metric} (${g.reason})`).join(', ')}
             </p>
           ) : null}
-          {/* Narrativa = prosa; não é fonte de números. */}
           <div className="market-narrative" aria-live="polite">{analysis.narrative}</div>
           {analysis.sources.length > 0 ? (
             <p className="text-muted">
@@ -135,9 +405,88 @@ export const MarketAnalyzeView: React.FC = () => {
           ) : null}
           <p className="market-disclaimer">{analysis.disclaimer || DISCLAIMER}</p>
         </div>
-      ) : (
-        <p className="market-disclaimer">{DISCLAIMER}</p>
-      )}
+      ) : null}
+
+      <div className="hpanel-table-card desktop-table-view">
+        <table className="hpanel-table">
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Ticker</th>
+              <th>Intensidade</th>
+              <th>Mudança</th>
+            </tr>
+          </thead>
+          <tbody>
+            {changesLoading && changes.length === 0 ? (
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                  Carregando mudanças de veredito…
+                </td>
+              </tr>
+            ) : changes.length === 0 ? (
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                    <LineChart size={22} />
+                    <span>
+                      {filterTicker
+                        ? `Ainda não há mudança de veredito em ${filterTicker}.`
+                        : 'Ainda não há mudança de veredito. Elas aparecem depois do cron ou de uma análise.'}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              changes.map((item) => (
+                <tr
+                  key={item.id}
+                  onClick={() => selectTicker(item.ticker)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td>
+                    <time dateTime={item.detectedAt}>{formatWhen(item.detectedAt)}</time>
+                  </td>
+                  <td>
+                    <span className="table-cell-title">{item.ticker}</span>
+                  </td>
+                  <td>
+                    <span className="badge-role" style={materialStyle(item.isMaterial)}>
+                      {item.isMaterial ? 'Material' : 'Leve'}
+                    </span>
+                  </td>
+                  <td>
+                    {item.changes.map((delta) => deltaLabel(delta.metric, delta.fromVerdict, delta.toVerdict)).join(' · ') || '—'}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mobile-cards-container">
+        {changes.map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            className="mobile-domain-card"
+            onClick={() => selectTicker(item.ticker)}
+            style={{ textAlign: 'left', width: '100%', border: 'none', background: 'inherit' }}
+          >
+            <div className="mobile-card-top">
+              <span className="mobile-domain-name">{item.ticker}</span>
+              <span className="badge-role" style={materialStyle(item.isMaterial)}>
+                {item.isMaterial ? 'Material' : 'Leve'}
+              </span>
+            </div>
+            <div className="mobile-card-subinfo">{formatWhen(item.detectedAt)}</div>
+            <div className="mobile-card-meta">
+              {item.changes.map((delta) => deltaLabel(delta.metric, delta.fromVerdict, delta.toVerdict)).join(' · ') || '—'}
+            </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
