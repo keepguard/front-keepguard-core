@@ -33,6 +33,7 @@ import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
 import { RowActionsMenu, useRowActionsMenu } from '../common/RowActionsMenu';
+import { Tooltip } from '../common/Tooltip';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -2392,7 +2393,7 @@ export const AgentsView: React.FC = () => {
                 />
               </th>
               <th>Fonte</th>
-              <th>Nome</th>
+              <th className="agents-col-name">Nome</th>
               <th>Tipo</th>
               <th>Status</th>
               <th>Agenda</th>
@@ -2438,10 +2439,18 @@ export const AgentsView: React.FC = () => {
                     />
                   </td>
                   <td>{dataSourceLabel(item.dataSourceName)}</td>
-                  <td>
-                    <span className="table-cell-title" title={item.name}>{item.name}</span>
-                    <IncidentBadge incident={item.openIncident} />
-                    {item.description ? <div className="table-cell-muted">{item.description}</div> : null}
+                  <td className="agents-col-name">
+                    <span className="table-cell-title" title={item.name}>
+                      {item.name}
+                      <IncidentBadge incident={item.openIncident} />
+                    </span>
+                    {item.description ? (
+                      <Tooltip label={item.description} align="start">
+                        <span className="table-cell-muted table-cell-desc" tabIndex={0}>
+                          {item.description}
+                        </span>
+                      </Tooltip>
+                    ) : null}
                   </td>
                   <td>{typeLabel(item.collectorType)}</td>
                   <td>

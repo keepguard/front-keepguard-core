@@ -982,7 +982,11 @@ export const DataSourcesView: React.FC = () => {
                 <tr key={item.id}>
                   <td>
                     <span className="table-cell-title" title={item.name}>{item.name}</span>
-                    {item.description ? <div className="table-cell-muted">{item.description}</div> : null}
+                    {item.description ? (
+                      <div className="table-cell-muted table-cell-desc" title={item.description}>
+                        {item.description}
+                      </div>
+                    ) : null}
                   </td>
                   <td><span className="id-compact">{item.slug}</span></td>
                   <td>{typeLabel(item.collectorType)}</td>

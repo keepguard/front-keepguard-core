@@ -240,8 +240,12 @@ export const ConnectionsView: React.FC = () => {
               return (
                 <tr key={item.id}>
                   <td>
-                    <div className="table-cell-title">{item.name}</div>
-                    <div className="table-cell-muted">{item.description}</div>
+                    <div className="table-cell-title" title={item.name}>{item.name}</div>
+                    {item.description ? (
+                      <div className="table-cell-muted table-cell-desc" title={item.description}>
+                        {item.description}
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <span className="connections-type-chip">{CONNECTION_GROUP_LABELS[group]}</span>

@@ -990,7 +990,7 @@ body {
 }
 
 .hpanel-table-card.has-row-action-menus .hpanel-table {
-  min-width: 52rem;
+  min-width: 58rem;
 }
 
 .hpanel-table-card.has-sticky-actions {
@@ -2970,6 +2970,32 @@ body {
   font-size: 0.82rem;
 }
 
+.hpanel-table .ui-tooltip:has(.table-cell-desc) {
+  display: block;
+  max-width: 14rem;
+  margin-top: 0.2rem;
+}
+
+.hpanel-table td div.table-cell-muted,
+.hpanel-table td span.table-cell-muted,
+.table-cell-desc {
+  max-width: 14rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  line-height: 1.35;
+}
+
+.hpanel-table .ui-tooltip:has(.table-cell-desc) .table-cell-desc {
+  margin-top: 0;
+}
+
+.hpanel-table .ui-tooltip:has(.table-cell-desc) .ui-tooltip-bubble {
+  max-width: 22rem;
+  min-width: 12rem;
+}
+
 .status-badge-hostinger {
   display: inline-flex;
   align-items: center;
@@ -4701,6 +4727,11 @@ textarea.form-input {
 .agents-select-col {
   width: 2.2rem;
   text-align: center;
+}
+
+.agents-col-name {
+  min-width: 13rem;
+  max-width: 20rem;
 }
 
 .agents-select-col input,

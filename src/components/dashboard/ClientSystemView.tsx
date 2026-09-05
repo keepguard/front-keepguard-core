@@ -513,7 +513,11 @@ export const ClientSystemView: React.FC = () => {
                 <tr key={item.id} onClick={() => openDetail(item)} style={{ cursor: 'pointer' }}>
                   <td>
                     <span className="table-cell-title" title={item.clientId}>{item.clientId}</span>
-                    {item.description ? <div className="table-cell-muted">{item.description}</div> : null}
+                    {item.description ? (
+                      <div className="table-cell-muted table-cell-desc" title={item.description}>
+                        {item.description}
+                      </div>
+                    ) : null}
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     {item.clientSecret ? (
