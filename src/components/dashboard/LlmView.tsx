@@ -213,41 +213,85 @@ function isForbidden(err: { status?: number } | undefined) {
   return err?.status === 403;
 }
 
+const LLM_TABS: ReadonlyArray<{ id: Panel; label: string; tabId: string; panelId: string }> = [
+  { id: 'usage', label: 'Uso', tabId: 'llm-tab-usage', panelId: 'llm-panel-usage' },
+  { id: 'providers', label: 'Provedores', tabId: 'llm-tab-providers', panelId: 'llm-panel-providers' },
+  { id: 'alerts', label: 'Alertas', tabId: 'llm-tab-alerts', panelId: 'llm-panel-alerts' },
+];
+
 export const LlmView: React.FC = () => {
   const { isAuthenticated, getAccessToken, user } = useAuth();
   const { addToast } = useToast();
   const writable = canWriteLlm(getAccessToken(), user?.roles);
   const [panel, setPanel] = useState<Panel>('usage');
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const selectPanel = (id: Panel, focus = false) => {
+    setPanel(id);
+    if (!focus) return;
+    const index = LLM_TABS.findIndex((tab) => tab.id === id);
+    if (index >= 0) tabRefs.current[index]?.focus();
+  };
+
+  const handleTabKeyDown = (event: React.KeyboardEvent, index: number) => {
+    let next = -1;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      next = (index + 1) % LLM_TABS.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      next = (index - 1 + LLM_TABS.length) % LLM_TABS.length;
+    } else if (event.key === 'Home') {
+      next = 0;
+    } else if (event.key === 'End') {
+      next = LLM_TABS.length - 1;
+    }
+
+    if (next < 0) return;
+    event.preventDefault();
+    selectPanel(LLM_TABS[next].id, true);
+  };
+
+  const activeTab = LLM_TABS.find((tab) => tab.id === panel) ?? LLM_TABS[0];
 
   return (
     <div>
       <div className="llm-panel-tabs" role="tablist" aria-label="Seções LLM">
-        {([
-          ['usage', 'Uso'],
-          ['providers', 'Provedores'],
-          ['alerts', 'Alertas'],
-        ] as const).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={panel === id}
-            className={`btn btn-pill ${panel === id ? 'btn-secondary' : 'btn-outline'}`}
-            onClick={() => setPanel(id)}
-          >
-            {label}
-          </button>
-        ))}
+        {LLM_TABS.map((tab, index) => {
+          const selected = panel === tab.id;
+          return (
+            <button
+              key={tab.id}
+              ref={(el) => { tabRefs.current[index] = el; }}
+              id={tab.tabId}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={tab.panelId}
+              tabIndex={selected ? 0 : -1}
+              className={`llm-panel-tab${selected ? ' is-active' : ''}`}
+              onClick={() => selectPanel(tab.id)}
+              onKeyDown={(e) => handleTabKeyDown(e, index)}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
-      {panel === 'usage' ? (
-        <UsagePanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
-      ) : null}
-      {panel === 'providers' ? (
-        <ProvidersPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
-      ) : null}
-      {panel === 'alerts' ? (
-        <AlertsPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
-      ) : null}
+      <div
+        id={activeTab.panelId}
+        role="tabpanel"
+        aria-labelledby={activeTab.tabId}
+        className="llm-panel-tabpanel"
+      >
+        {panel === 'usage' ? (
+          <UsagePanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
+        ) : null}
+        {panel === 'providers' ? (
+          <ProvidersPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
+        ) : null}
+        {panel === 'alerts' ? (
+          <AlertsPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
+        ) : null}
+      </div>
     </div>
   );
 };
