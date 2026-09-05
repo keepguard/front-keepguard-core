@@ -428,7 +428,7 @@ export const LlmPage: React.FC = () => (
           LLM
         </h1>
         <p className="dashboard-subtitle">
-          Uso, provedores e alertas do gateway. Custo na tela é estimado. Visível para ADMIN, SYSTEM ou quem tiver llm:read.
+          Uso, provedores, alertas e disparos do gateway. Custo na tela é estimado. Visível para ADMIN, SYSTEM ou quem tiver llm:read.
         </p>
       </div>
     </div>

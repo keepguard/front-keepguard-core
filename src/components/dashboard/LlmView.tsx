@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
-import { RefreshCombo } from '../common/RefreshCombo';
 import { RowActionsMenu, useRowActionsMenu } from '../common/RowActionsMenu';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -44,11 +43,11 @@ if (visibilityFailures.length > 0 && import.meta.env.DEV) {
   console.warn('canReadLlm:', visibilityFailures);
 }
 
-type Panel = 'usage' | 'providers' | 'alerts';
+type Panel = 'usage' | 'providers' | 'alerts' | 'firings';
 type SortKey = 'occurredAt' | 'feature' | 'providerType' | 'model' | 'outcome' | 'totalTokens' | 'sourceService';
 type SortDir = 'asc' | 'desc';
 
-type Filters = {
+type UsageFilters = {
   from: string;
   to: string;
   outcome: string;
@@ -61,7 +60,26 @@ type Filters = {
   dir: '' | SortDir;
 };
 
-const EMPTY_FILTERS: Filters = {
+type ProviderFilters = {
+  name: string;
+  providerType: string;
+  status: '' | 'active' | 'inactive';
+};
+
+type RuleFilters = {
+  name: string;
+  metric: string;
+  status: '' | 'active' | 'inactive';
+};
+
+type FiringFilters = {
+  from: string;
+  to: string;
+  ruleName: string;
+};
+
+/** Entrada em Uso: mais recentes primeiro (occurredAt desc). */
+const DEFAULT_USAGE_FILTERS: UsageFilters = {
   from: '',
   to: '',
   outcome: '',
@@ -70,8 +88,26 @@ const EMPTY_FILTERS: Filters = {
   feature: '',
   sourceService: '',
   companyId: '',
-  sort: '',
-  dir: '',
+  sort: 'occurredAt',
+  dir: 'desc',
+};
+
+const EMPTY_PROVIDER_FILTERS: ProviderFilters = {
+  name: '',
+  providerType: '',
+  status: '',
+};
+
+const EMPTY_RULE_FILTERS: RuleFilters = {
+  name: '',
+  metric: '',
+  status: '',
+};
+
+const EMPTY_FIRING_FILTERS: FiringFilters = {
+  from: '',
+  to: '',
+  ruleName: '',
 };
 
 const EMPTY_PROVIDER: UpsertLlmProvider = {
@@ -213,10 +249,32 @@ function isForbidden(err: { status?: number } | undefined) {
   return err?.status === 403;
 }
 
+function matchesText(haystack: string | undefined, needle: string): boolean {
+  const q = needle.trim().toLowerCase();
+  if (!q) return true;
+  return (haystack || '').toLowerCase().includes(q);
+}
+
+function inLocalRange(iso: string | undefined, fromLocal: string, toLocal: string): boolean {
+  if (!iso) return !fromLocal && !toLocal;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return false;
+  if (fromLocal) {
+    const from = new Date(fromLocal).getTime();
+    if (!Number.isNaN(from) && t < from) return false;
+  }
+  if (toLocal) {
+    const to = new Date(toLocal).getTime();
+    if (!Number.isNaN(to) && t > to) return false;
+  }
+  return true;
+}
+
 const LLM_TABS: ReadonlyArray<{ id: Panel; label: string; tabId: string; panelId: string }> = [
   { id: 'usage', label: 'Uso', tabId: 'llm-tab-usage', panelId: 'llm-panel-usage' },
   { id: 'providers', label: 'Provedores', tabId: 'llm-tab-providers', panelId: 'llm-panel-providers' },
   { id: 'alerts', label: 'Alertas', tabId: 'llm-tab-alerts', panelId: 'llm-panel-alerts' },
+  { id: 'firings', label: 'Disparos', tabId: 'llm-tab-firings', panelId: 'llm-panel-firings' },
 ];
 
 export const LlmView: React.FC = () => {
@@ -283,13 +341,16 @@ export const LlmView: React.FC = () => {
         className="llm-panel-tabpanel"
       >
         {panel === 'usage' ? (
-          <UsagePanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
+          <UsagePanel isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
         ) : null}
         {panel === 'providers' ? (
           <ProvidersPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
         ) : null}
         {panel === 'alerts' ? (
           <AlertsPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
+        ) : null}
+        {panel === 'firings' ? (
+          <FiringsPanel isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
         ) : null}
       </div>
     </div>
@@ -298,17 +359,27 @@ export const LlmView: React.FC = () => {
 
 type ToastFn = ReturnType<typeof useToast>['addToast'];
 
+function FilterSubmit({ disabled }: { disabled: boolean }) {
+  return (
+    <div className="audits-filter-actions">
+      <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={disabled}>
+        <Search size={15} />
+        <span>Filtrar</span>
+      </button>
+    </div>
+  );
+}
+
 function UsagePanel({
   isAuthenticated,
   getAccessToken,
   addToast,
 }: {
-  writable: boolean;
   isAuthenticated: boolean;
   getAccessToken: () => string | null;
   addToast: ToastFn;
 }) {
-  const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
+  const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(DEFAULT_USAGE_FILTERS);
   const [items, setItems] = useState<LlmUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -423,20 +494,6 @@ function UsagePanel({
     }
   };
 
-  const filterActions = (
-    <div className="audits-filter-actions">
-      <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading || refreshing}>
-        <Search size={15} />
-        <span>Filtrar</span>
-      </button>
-      <RefreshCombo
-        onRefresh={() => void loadPage(pageRef.current, appliedRef.current)}
-        disabled={loading || refreshing}
-        refreshing={refreshing}
-      />
-    </div>
-  );
-
   const pager = (includeFilter = false) => (
     <ListPager
       loading={loading}
@@ -445,7 +502,7 @@ function UsagePanel({
       totalPages={totalPages}
       onPrev={() => goToPage(page - 1)}
       onNext={() => goToPage(page + 1)}
-      leading={includeFilter ? filterActions : undefined}
+      leading={includeFilter ? <FilterSubmit disabled={loading || refreshing} /> : undefined}
     />
   );
 
@@ -474,7 +531,7 @@ function UsagePanel({
           <input className="form-input" placeholder="Origem (serviço)" value={filters.sourceService} onChange={(e) => setFilters((f) => ({ ...f, sourceService: e.target.value }))} />
           <input className="form-input" placeholder="Company ID" value={filters.companyId} onChange={(e) => setFilters((f) => ({ ...f, companyId: e.target.value }))} />
           <div className="audits-sort-group">
-            <select className="form-input audits-sort-select" value={filters.sort} onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as Filters['sort'], dir: e.target.value ? f.dir : '' }))} aria-label="Ordenar por">
+            <select className="form-input audits-sort-select" value={filters.sort} onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value as UsageFilters['sort'], dir: e.target.value ? (f.dir || 'desc') : '' }))} aria-label="Ordenar por">
               <option value="">Ordenar por</option>
               <option value="occurredAt">Quando</option>
               <option value="feature">Feature</option>
@@ -484,7 +541,7 @@ function UsagePanel({
               <option value="totalTokens">Tokens</option>
               <option value="sourceService">Origem</option>
             </select>
-            <select className="form-input audits-dir-select" value={filters.dir} onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as Filters['dir'] }))} aria-label="Direção">
+            <select className="form-input audits-dir-select" value={filters.dir} onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value as UsageFilters['dir'] }))} aria-label="Direção">
               <option value="">Direção</option>
               <option value="desc">Mais recentes</option>
               <option value="asc">Mais antigos</option>
@@ -585,6 +642,8 @@ function ProvidersPanel({
   const [items, setItems] = useState<LlmProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
+  const [filters, setFilters] = useState<ProviderFilters>(EMPTY_PROVIDER_FILTERS);
+  const [applied, setApplied] = useState<ProviderFilters>(EMPTY_PROVIDER_FILTERS);
   const [form, setForm] = useState<UpsertLlmProvider | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -616,6 +675,22 @@ function ProvidersPanel({
     if (!isAuthenticated) return;
     void load();
   }, [isAuthenticated, load]);
+
+  const displayed = useMemo(() => {
+    return items.filter((item) => {
+      if (!matchesText(item.name, applied.name)) return false;
+      if (!matchesText(item.providerType, applied.providerType)) return false;
+      if (applied.status === 'active' && !item.enabled) return false;
+      if (applied.status === 'inactive' && item.enabled) return false;
+      return true;
+    });
+  }, [applied, items]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setApplied({ ...filters });
+    void load();
+  };
 
   const save = async () => {
     const token = getAccessToken();
@@ -671,20 +746,54 @@ function ProvidersPanel({
     }
   };
 
+  const emptyMessage = forbidden
+    ? 'Sem permissão llm:read para ver provedores.'
+    : items.length === 0
+      ? 'Nenhum provedor cadastrado.'
+      : 'Nenhum provedor para os filtros atuais.';
+
   return (
     <div>
-      <div className="audits-toolbar">
-        <div className="audits-filter-row" style={{ gridTemplateColumns: '1fr auto' }}>
-          <p style={{ margin: 0, color: '#5f6368', fontSize: '0.9rem' }}>
+      <form className="audits-toolbar" onSubmit={handleSearch}>
+        <div className="audits-filter-row audits-filter-row-primary">
+          <input
+            className="form-input"
+            placeholder="Nome"
+            value={filters.name}
+            onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))}
+            aria-label="Nome"
+          />
+          <input
+            className="form-input"
+            placeholder="Tipo (openai, anthropic…)"
+            value={filters.providerType}
+            onChange={(e) => setFilters((f) => ({ ...f, providerType: e.target.value }))}
+            aria-label="Tipo"
+          />
+          <select
+            className="form-input audits-compact-select"
+            value={filters.status}
+            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as ProviderFilters['status'] }))}
+            aria-label="Status"
+          >
+            <option value="">Todos os status</option>
+            <option value="active">Ativo</option>
+            <option value="inactive">Inativo</option>
+          </select>
+        </div>
+        <div className="audits-filter-row" style={{ gridTemplateColumns: '1fr auto auto', alignItems: 'center' }}>
+          <p className="text-muted" style={{ margin: 0 }}>
             Keys ficam no Secret; a API devolve só o nome do env (`apiKeyEnvRef`), nunca a chave.
           </p>
+          <FilterSubmit disabled={loading} />
           {writable ? (
             <button type="button" className="btn btn-secondary btn-pill" onClick={() => { setEditingId(null); setForm({ ...EMPTY_PROVIDER }); }}>
               Novo provedor
             </button>
           ) : null}
         </div>
-      </div>
+      </form>
+
       <div className={`hpanel-table-card desktop-table-view${writable ? ' has-sticky-actions' : ''}`}>
         <table className="hpanel-table">
           <thead>
@@ -700,13 +809,13 @@ function ProvidersPanel({
           <tbody>
             {loading ? (
               <tr><td colSpan={writable ? 6 : 5} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>Carregando provedores...</td></tr>
-            ) : items.length === 0 ? (
+            ) : displayed.length === 0 ? (
               <tr>
                 <td colSpan={writable ? 6 : 5} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
-                  {forbidden ? 'Sem permissão llm:read para ver provedores.' : 'Nenhum provedor cadastrado.'}
+                  {emptyMessage}
                 </td>
               </tr>
-            ) : items.map((item) => (
+            ) : displayed.map((item) => (
               <tr key={item.id}>
                 <td><span className="table-cell-title">{item.name}</span></td>
                 <td>{item.providerType}</td>
@@ -807,9 +916,10 @@ function AlertsPanel({
   addToast: ToastFn;
 }) {
   const [rules, setRules] = useState<LlmAlertRule[]>([]);
-  const [firings, setFirings] = useState<LlmAlertFiring[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
+  const [filters, setFilters] = useState<RuleFilters>(EMPTY_RULE_FILTERS);
+  const [applied, setApplied] = useState<RuleFilters>(EMPTY_RULE_FILTERS);
   const [form, setForm] = useState<UpsertLlmAlertRule | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -820,18 +930,13 @@ function AlertsPanel({
     if (!token) return;
     setLoading(true);
     try {
-      const [nextRules, nextFirings] = await Promise.all([
-        listLlmAlertRules(token),
-        listLlmAlertFirings({ page: 0, size: 20 }, token),
-      ]);
+      const nextRules = await listLlmAlertRules(token);
       setForbidden(false);
       setRules(Array.isArray(nextRules) ? nextRules : []);
-      setFirings(nextFirings.content || []);
     } catch (err: any) {
       if (isForbidden(err)) {
         setForbidden(true);
         setRules([]);
-        setFirings([]);
         addToast({ type: 'error', title: 'Acesso restrito', description: 'Sem permissão para consultar alertas LLM.' });
         return;
       }
@@ -845,6 +950,22 @@ function AlertsPanel({
     if (!isAuthenticated) return;
     void load();
   }, [isAuthenticated, load]);
+
+  const displayed = useMemo(() => {
+    return rules.filter((rule) => {
+      if (!matchesText(rule.name, applied.name)) return false;
+      if (applied.metric && rule.metric !== applied.metric) return false;
+      if (applied.status === 'active' && !rule.enabled) return false;
+      if (applied.status === 'inactive' && rule.enabled) return false;
+      return true;
+    });
+  }, [applied, rules]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setApplied({ ...filters });
+    void load();
+  };
 
   const save = async () => {
     const token = getAccessToken();
@@ -875,23 +996,58 @@ function AlertsPanel({
     }
   };
 
+  const emptyMessage = forbidden
+    ? 'Sem permissão llm:read para ver alertas.'
+    : rules.length === 0
+      ? 'Nenhuma regra de alerta.'
+      : 'Nenhuma regra para os filtros atuais.';
+
   return (
     <div>
-      <div className="audits-toolbar">
-        <div className="audits-filter-row" style={{ gridTemplateColumns: '1fr auto auto' }}>
-          <p style={{ margin: 0, color: '#5f6368', fontSize: '0.9rem' }}>
-            Disparos ficam só na plataforma. Sem e-mail ou Telegram neste MVP.
+      <form className="audits-toolbar" onSubmit={handleSearch}>
+        <div className="audits-filter-row audits-filter-row-primary">
+          <input
+            className="form-input"
+            placeholder="Nome da regra"
+            value={filters.name}
+            onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))}
+            aria-label="Nome da regra"
+          />
+          <select
+            className="form-input audits-compact-select"
+            value={filters.metric}
+            onChange={(e) => setFilters((f) => ({ ...f, metric: e.target.value }))}
+            aria-label="Métrica"
+          >
+            <option value="">Todas as métricas</option>
+            <option value="tokens_total">Tokens</option>
+            <option value="requests">Requisições</option>
+            <option value="estimated_cost">Custo estimado</option>
+          </select>
+          <select
+            className="form-input audits-compact-select"
+            value={filters.status}
+            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as RuleFilters['status'] }))}
+            aria-label="Status"
+          >
+            <option value="">Todos os status</option>
+            <option value="active">Ativa</option>
+            <option value="inactive">Inativa</option>
+          </select>
+        </div>
+        <div className="audits-filter-row" style={{ gridTemplateColumns: '1fr auto auto', alignItems: 'center' }}>
+          <p className="text-muted" style={{ margin: 0 }}>
+            Histórico de disparos fica na aba Disparos. Sem e-mail ou Telegram neste MVP.
           </p>
-          <RefreshCombo onRefresh={() => void load()} disabled={loading} refreshing={loading} />
+          <FilterSubmit disabled={loading} />
           {writable ? (
             <button type="button" className="btn btn-secondary btn-pill" onClick={() => { setEditingId(null); setForm({ ...EMPTY_RULE }); }}>
               Nova regra
             </button>
           ) : null}
         </div>
-      </div>
+      </form>
 
-      <h2 className="dashboard-subtitle" style={{ margin: '0 0 0.75rem' }}>Regras</h2>
       <div className={`hpanel-table-card desktop-table-view${writable ? ' has-sticky-actions' : ''}`}>
         <table className="hpanel-table">
           <thead>
@@ -908,9 +1064,9 @@ function AlertsPanel({
           <tbody>
             {loading && rules.length === 0 ? (
               <tr><td colSpan={writable ? 7 : 6} style={{ textAlign: 'center', padding: '2rem', color: '#5f6368' }}>Carregando regras...</td></tr>
-            ) : rules.length === 0 ? (
-              <tr><td colSpan={writable ? 7 : 6} style={{ textAlign: 'center', padding: '2rem', color: '#5f6368' }}>{forbidden ? 'Sem permissão llm:read para ver alertas.' : 'Nenhuma regra de alerta.'}</td></tr>
-            ) : rules.map((rule) => (
+            ) : displayed.length === 0 ? (
+              <tr><td colSpan={writable ? 7 : 6} style={{ textAlign: 'center', padding: '2rem', color: '#5f6368' }}>{emptyMessage}</td></tr>
+            ) : displayed.map((rule) => (
               <tr key={rule.id}>
                 <td><span className="table-cell-title">{rule.name}</span></td>
                 <td>{metricLabel(rule.metric)}</td>
@@ -961,41 +1117,6 @@ function AlertsPanel({
         </table>
       </div>
 
-      <h2 className="dashboard-subtitle" style={{ margin: '1.25rem 0 0.75rem' }}>Disparos</h2>
-      <div className="hpanel-table-card desktop-table-view">
-        <table className="hpanel-table">
-          <thead>
-            <tr>
-              <th>Quando</th>
-              <th>Regra</th>
-              <th>Janela</th>
-              <th>Valor</th>
-              <th>Limiar</th>
-              <th>Detalhe</th>
-            </tr>
-          </thead>
-          <tbody>
-            {firings.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#5f6368' }}>Nenhum disparo registrado.</td></tr>
-            ) : firings.map((item) => {
-              const requests = payloadNumber(item.payload, 'requests');
-              return (
-                <tr key={item.id}>
-                  <td>{formatDate(item.firedAt)}</td>
-                  <td><span className="table-cell-title">{firingRuleLabel(item, rules)}</span></td>
-                  <td>{formatFiringWindow(item.windowKey, item.payload)}</td>
-                  <td>{formatMetricValue(item.metricValue)}</td>
-                  <td>{formatMetricValue(item.threshold)}</td>
-                  <td style={{ color: '#5f6368', fontSize: '0.9rem' }}>
-                    {requests != null ? `${requests.toLocaleString('pt-BR')} req` : '—'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
       <Modal
         isOpen={!!form}
         onClose={() => { setForm(null); setEditingId(null); }}
@@ -1036,6 +1157,177 @@ function AlertsPanel({
           </div>
         ) : null}
       </Modal>
+    </div>
+  );
+}
+
+function FiringsPanel({
+  isAuthenticated,
+  getAccessToken,
+  addToast,
+}: {
+  isAuthenticated: boolean;
+  getAccessToken: () => string | null;
+  addToast: ToastFn;
+}) {
+  const [rules, setRules] = useState<LlmAlertRule[]>([]);
+  const [items, setItems] = useState<LlmAlertFiring[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [forbidden, setForbidden] = useState(false);
+  const [filters, setFilters] = useState<FiringFilters>(EMPTY_FIRING_FILTERS);
+  const [applied, setApplied] = useState<FiringFilters>(EMPTY_FIRING_FILTERS);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  const load = useCallback(async (nextPage: number) => {
+    const token = getAccessToken();
+    if (!token) return;
+    const hasRows = itemsRef.current.length > 0;
+    if (hasRows) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const [nextRules, nextFirings] = await Promise.all([
+        listLlmAlertRules(token),
+        listLlmAlertFirings({ page: nextPage, size: 20 }, token),
+      ]);
+      setForbidden(false);
+      setRules(Array.isArray(nextRules) ? nextRules : []);
+      // API já ordena por fired_at DESC (mais recentes primeiro).
+      setItems(nextFirings.content || []);
+      setTotalPages(Math.max(nextFirings.totalPages || 1, 1));
+      setPage(nextFirings.page ?? nextPage);
+    } catch (err: any) {
+      if (isForbidden(err)) {
+        setForbidden(true);
+        setRules([]);
+        setItems([]);
+        addToast({ type: 'error', title: 'Acesso restrito', description: 'Sem permissão para consultar disparos LLM.' });
+        return;
+      }
+      addToast({ type: 'error', title: 'Falha ao carregar disparos', description: err?.message || 'Tente novamente.' });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [addToast, getAccessToken]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void load(0);
+  }, [isAuthenticated, load]);
+
+  const displayed = useMemo(() => {
+    return items.filter((item) => {
+      const label = firingRuleLabel(item, rules);
+      if (!matchesText(label, applied.ruleName) && !matchesText(item.ruleId, applied.ruleName)) return false;
+      if (!inLocalRange(item.firedAt, applied.from, applied.to)) return false;
+      return true;
+    });
+  }, [applied, items, rules]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setApplied({ ...filters });
+    void load(0);
+  };
+
+  const emptyMessage = forbidden
+    ? 'Sem permissão llm:read para ver disparos.'
+    : items.length === 0
+      ? 'Nenhum disparo registrado.'
+      : 'Nenhum disparo para os filtros atuais.';
+
+  return (
+    <div>
+      <form className="audits-toolbar" onSubmit={handleSearch}>
+        <div className="audits-filter-row audits-filter-row-primary">
+          <input
+            className="form-input"
+            type="datetime-local"
+            value={filters.from}
+            onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+            aria-label="De (opcional)"
+            title="De (opcional)"
+          />
+          <input
+            className="form-input"
+            type="datetime-local"
+            value={filters.to}
+            onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+            aria-label="Até (opcional)"
+            title="Até (opcional)"
+          />
+          <input
+            className="form-input"
+            placeholder="Nome da regra"
+            value={filters.ruleName}
+            onChange={(e) => setFilters((f) => ({ ...f, ruleName: e.target.value }))}
+            aria-label="Nome da regra"
+          />
+        </div>
+        <div className="audits-filter-row" style={{ gridTemplateColumns: '1fr auto', alignItems: 'center' }}>
+          <p className="text-muted" style={{ margin: 0 }}>
+            Ordenação padrão: data do disparo decrescente (mais recentes primeiro).
+          </p>
+          <FilterSubmit disabled={loading || refreshing} />
+        </div>
+        <ListPager
+          loading={loading}
+          refreshing={refreshing}
+          page={page}
+          totalPages={totalPages}
+          onPrev={() => { void load(page - 1); }}
+          onNext={() => { void load(page + 1); }}
+        />
+      </form>
+
+      <div className="hpanel-table-card desktop-table-view">
+        <table className="hpanel-table">
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Regra</th>
+              <th>Janela</th>
+              <th>Valor</th>
+              <th>Limiar</th>
+              <th>Detalhe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && items.length === 0 ? (
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#5f6368' }}>Carregando disparos...</td></tr>
+            ) : displayed.length === 0 ? (
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#5f6368' }}>{emptyMessage}</td></tr>
+            ) : displayed.map((item) => {
+              const requests = payloadNumber(item.payload, 'requests');
+              return (
+                <tr key={item.id}>
+                  <td>{formatDate(item.firedAt)}</td>
+                  <td><span className="table-cell-title">{firingRuleLabel(item, rules)}</span></td>
+                  <td>{formatFiringWindow(item.windowKey, item.payload)}</td>
+                  <td>{formatMetricValue(item.metricValue)}</td>
+                  <td>{formatMetricValue(item.threshold)}</td>
+                  <td style={{ color: '#5f6368', fontSize: '0.9rem' }}>
+                    {requests != null ? `${requests.toLocaleString('pt-BR')} req` : '—'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <ListPager
+        loading={loading}
+        refreshing={refreshing}
+        page={page}
+        totalPages={totalPages}
+        onPrev={() => { void load(page - 1); }}
+        onNext={() => { void load(page + 1); }}
+      />
     </div>
   );
 }
