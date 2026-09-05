@@ -100,9 +100,11 @@ export const SeriesChart: React.FC<Props> = ({
     return { coords, current, path };
   }, [sorted, currentValue]);
 
-  const pickFromPointer = useCallback((event: React.PointerEvent<SVGSVGElement>) => {
+  const pickFromPointer = useCallback((event: React.PointerEvent<SVGPathElement>) => {
     if (!layout) return;
-    const rect = event.currentTarget.getBoundingClientRect();
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
     if (rect.width <= 0) return;
     const viewX = ((event.clientX - rect.left) / rect.width) * VIEW_W;
     setActiveIndex(nearestIndex(layout.coords, viewX));
@@ -120,7 +122,8 @@ export const SeriesChart: React.FC<Props> = ({
   }
 
   const { coords, current, path } = layout;
-  const shown = activeIndex == null ? current : coords[activeIndex];
+  const hovering = activeIndex != null;
+  const shown = hovering ? coords[activeIndex] : current;
   const shownPoint = shown.point;
   const when = formatAxis(pointTime(shownPoint), shownPoint.periodType);
   const value = formatValue(shownPoint.valueNum);
@@ -138,32 +141,49 @@ export const SeriesChart: React.FC<Props> = ({
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           role="img"
           aria-labelledby={tableId}
-          onPointerMove={pickFromPointer}
-          onPointerDown={pickFromPointer}
-          onPointerLeave={() => setActiveIndex(null)}
         >
           <title id={tableId}>{`${title}: ${formatValue(sorted[0].valueNum)} a ${formatValue(sorted[sorted.length - 1].valueNum)}`}</title>
-          <path d={path} fill="none" stroke="currentColor" strokeWidth="2" />
-          <line
-            x1={shown.x}
-            x2={shown.x}
-            y1={PAD_Y}
-            y2={VIEW_H - PAD_Y}
-            stroke="currentColor"
-            strokeOpacity="0.25"
-            strokeWidth="1"
+          <path d={path} fill="none" stroke="currentColor" strokeWidth="2" pointerEvents="none" />
+          {hovering ? (
+            <>
+              <line
+                x1={shown.x}
+                x2={shown.x}
+                y1={PAD_Y}
+                y2={VIEW_H - PAD_Y}
+                stroke="currentColor"
+                strokeOpacity="0.25"
+                strokeWidth="1"
+                pointerEvents="none"
+              />
+              <circle cx={shown.x} cy={shown.y} r="4.5" fill="currentColor" pointerEvents="none" />
+            </>
+          ) : null}
+          <path
+            className="market-chart-hit"
+            d={path}
+            fill="none"
+            stroke="transparent"
+            strokeWidth="16"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            pointerEvents="stroke"
+            onPointerMove={pickFromPointer}
+            onPointerDown={pickFromPointer}
+            onPointerLeave={() => setActiveIndex(null)}
           />
-          <circle cx={shown.x} cy={shown.y} r="4.5" fill="currentColor" />
         </svg>
-        <div
-          className="market-chart-tooltip"
-          style={{ left: `${tooltipLeft}%` }}
-          role="status"
-        >
-          <strong>{when}</strong>
-          <span>{value}</span>
-          {source ? <span className="text-muted">{source}</span> : null}
-        </div>
+        {hovering ? (
+          <div
+            className="market-chart-tooltip"
+            style={{ left: `${tooltipLeft}%` }}
+            role="status"
+          >
+            <strong>{when}</strong>
+            <span>{value}</span>
+            {source ? <span>{source}</span> : null}
+          </div>
+        ) : null}
       </div>
       <p className="text-muted market-chart-meta">
         {formatAxis(pointTime(sorted[0]), sorted[0].periodType)} → {formatAxis(pointTime(sorted[sorted.length - 1]), sorted[sorted.length - 1].periodType)}
