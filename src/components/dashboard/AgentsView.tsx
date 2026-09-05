@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity,
   AlertCircle,
   CheckCircle2,
   ChevronDown,
@@ -38,7 +37,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
-import { hasAdminOrManagerRole } from '../../utils/roles';
 import { PATHS } from '../../navigation/routes';
 import {
   applyPlaceholders,
@@ -998,122 +996,6 @@ function KeyValueEditor({
   );
 }
 
-function credentialTone(state: CredentialState): 'ok' | 'blocked' | 'warn' | 'loading' {
-  if (state.kind === 'loading') return 'loading';
-  if (state.kind === 'error' || state.kind === 'missing') return 'warn';
-  return (state.client.status || '').toUpperCase() === 'ACTIVE' ? 'ok' : 'blocked';
-}
-
-function credentialPillLabel(state: CredentialState): string {
-  if (state.kind === 'loading') return 'Verificando…';
-  if (state.kind === 'missing') return 'Sem client';
-  if (state.kind === 'error') return 'Falha na credencial';
-  return (state.client.status || '').toUpperCase() === 'ACTIVE' ? 'Credencial OK' : 'Credencial bloqueada';
-}
-
-/** Pílula compacta no topo da lista; detalhes só no clique. */
-function CredentialStatusPill({
-  state,
-  onOpenClientSystem,
-}: {
-  state: CredentialState;
-  onOpenClientSystem?: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const tone = credentialTone(state);
-  const label = credentialPillLabel(state);
-  const canOpen = state.kind !== 'loading';
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open]);
-
-  return (
-    <div className="collector-credential-pill-wrap" ref={rootRef}>
-      <button
-        type="button"
-        className={`collector-credential-pill is-${tone}`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        disabled={!canOpen}
-        title="Detalhes da credencial de coleta"
-        onClick={() => {
-          if (canOpen) setOpen((v) => !v);
-        }}
-      >
-        <KeyRound size={13} />
-        <span>{label}</span>
-        {canOpen ? <ChevronDown size={14} className={open ? 'is-open' : undefined} /> : null}
-      </button>
-
-      {open ? (
-        <div className="collector-credential-popover" role="dialog" aria-label="Detalhes da credencial">
-          {state.kind === 'error' ? (
-            <>
-              <strong>Não foi possível verificar</strong>
-              <p>{state.message}</p>
-            </>
-          ) : null}
-          {state.kind === 'missing' ? (
-            <>
-              <strong>Client ausente</strong>
-              <p>Não há `srv-data-collector` nesta organização. O agent pode ser salvo, mas a coleta não autentica até o client existir.</p>
-            </>
-          ) : null}
-          {state.kind === 'found' ? (
-            <>
-              <strong>
-                {(state.client.status || '').toUpperCase() === 'ACTIVE'
-                  ? 'Credencial de coleta ativa'
-                  : 'Credencial de coleta bloqueada'}
-              </strong>
-              <p>
-                {(state.client.status || '').toUpperCase() === 'ACTIVE'
-                  ? 'Usa a credencial de serviço da organização, não uma chave por agent.'
-                  : 'A execução não autentica no knowledge até desbloquear em Client system.'}
-              </p>
-              <div className="collector-credential-popover-meta">
-                <span className="text-mono">{state.client.clientId}</span>
-                <span>{state.client.serviceRoleName || '—'}</span>
-                <span>TTL {state.client.tokenTtlSeconds}s</span>
-              </div>
-            </>
-          ) : null}
-          {onOpenClientSystem ? (
-            <button
-              type="button"
-              className="collector-credential-popover-link"
-              onClick={() => {
-                setOpen(false);
-                onOpenClientSystem();
-              }}
-            >
-              Abrir Client system
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function CredentialChip({
   state,
   onOpenClientSystem,
@@ -1207,8 +1089,7 @@ function CredentialChip({
 }
 
 export const AgentsView: React.FC = () => {
-  const { getAccessToken, user } = useAuth();
-  const canSeeAgentIncidents = hasAdminOrManagerRole(user?.roles);
+  const { getAccessToken } = useAuth();
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -2316,49 +2197,13 @@ export const AgentsView: React.FC = () => {
 
   return (
     <div>
-      <div className="connections-summary agents-summary" role="group" aria-label="Resumo de agents">
-        <button
-          type="button"
-          className={`connections-summary-chip ${applied.enabled === '' ? 'is-active' : ''}`}
-          onClick={() => applyFilters({ ...applied, enabled: '' })}
-        >
-          <Activity size={14} />
-          {summary.total} agentes
-        </button>
-        <button
-          type="button"
-          className={`connections-summary-chip is-ok ${applied.enabled === 'true' ? 'is-active' : ''}`}
-          onClick={() => applyFilters({ ...applied, enabled: 'true' })}
-        >
-          {summary.enabled} ativos
-        </button>
-        <button
-          type="button"
-          className={`connections-summary-chip is-off ${applied.enabled === 'false' ? 'is-active' : ''}`}
-          onClick={() => applyFilters({ ...applied, enabled: 'false' })}
-        >
-          {summary.disabled} desativados
-        </button>
-        {loading ? <span className="connections-summary-chip is-wait">Carregando</span> : null}
-      </div>
-
       <div className="client-system-create-row">
         <div className="client-system-create-actions">
           <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
             <Plus size={15} />
             <span>Criar</span>
           </button>
-          {canSeeAgentIncidents ? (
-            <button type="button" className="btn btn-outline btn-pill" onClick={() => navigate(PATHS.agentIncidents)}>
-              <ShieldAlert size={15} />
-              <span>Incidentes</span>
-            </button>
-          ) : null}
         </div>
-        <CredentialStatusPill
-          state={credential}
-          onOpenClientSystem={goClientSystem}
-        />
       </div>
 
       {bulkLocked && bulkProgress ? (
@@ -2472,6 +2317,8 @@ export const AgentsView: React.FC = () => {
             <option value="RUNNING">Em andamento</option>
             <option value="NONE">Sem execução</option>
           </select>
+        </div>
+        <div className="audits-filter-row client-system-filter-row-sort">
           <div className="audits-sort-group" role="group" aria-label="Ordenação">
             <select
               className="form-input audits-sort-select"
@@ -2495,8 +2342,8 @@ export const AgentsView: React.FC = () => {
               <option value="desc">Decrescente</option>
             </select>
           </div>
-          {pager(true)}
         </div>
+        {pager(true)}
       </form>
 
       {selectedCount > 0 ? (
