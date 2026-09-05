@@ -754,6 +754,13 @@ function ProvidersPanel({
 
   return (
     <div>
+      {writable ? (
+        <div className="client-system-create-row">
+          <button type="button" className="btn btn-secondary btn-pill" onClick={() => { setEditingId(null); setForm({ ...EMPTY_PROVIDER }); }}>
+            Novo provedor
+          </button>
+        </div>
+      ) : null}
       <form className="audits-toolbar" onSubmit={handleSearch}>
         <div className="audits-filter-row audits-filter-row-primary">
           <input
@@ -781,16 +788,11 @@ function ProvidersPanel({
             <option value="inactive">Inativo</option>
           </select>
         </div>
-        <div className="audits-filter-row" style={{ gridTemplateColumns: '1fr auto auto', alignItems: 'center' }}>
-          <p className="text-muted" style={{ margin: 0 }}>
-            Keys ficam no Secret; a API devolve só o nome do env (`apiKeyEnvRef`), nunca a chave.
-          </p>
-          <FilterSubmit disabled={loading} />
-          {writable ? (
-            <button type="button" className="btn btn-secondary btn-pill" onClick={() => { setEditingId(null); setForm({ ...EMPTY_PROVIDER }); }}>
-              Novo provedor
-            </button>
-          ) : null}
+        <div className="audits-filter-actions audits-filter-actions-start">
+          <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
+            <Search size={15} />
+            <span>Filtrar</span>
+          </button>
         </div>
       </form>
 
