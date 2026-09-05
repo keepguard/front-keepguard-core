@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import {
   getFavorites,
   getMemory,
+  getRun,
   isValidTicker,
   listChanges,
   listKnownTickers,
@@ -12,11 +13,14 @@ import {
   saveFavorites,
   WATCHLIST_MAX_TICKERS,
   type AnalystFavorites,
+  type AnalystInputPoint,
   type AnalystMemory,
   type AnalystRun,
+  type AnalystRunDetail,
   type AnalystVerdictChange,
 } from '../../services/analystService';
 import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL } from './marketLabels';
+import { SeriesChart } from './SeriesChart';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -106,6 +110,25 @@ function triggerLabel(trigger: string): string {
   return trigger || '—';
 }
 
+const MACRO_METRICS = ['cdi_pct', 'selic_meta_pct', 'ipca_mensal_pct'] as const;
+
+function formatNum(value: number): string {
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+}
+
+function signalValue(run: AnalystRun | null, metric: string): number | undefined {
+  const value = run?.signals.find((s) => s.metric === metric)?.grounding?.valueNum;
+  return typeof value === 'number' ? value : undefined;
+}
+
+function runVerdict(run: AnalystRun, metric: string): string | undefined {
+  return run.signals.find((s) => s.metric === metric)?.verdict;
+}
+
+function macroPoint(detail: AnalystRunDetail | null, metric: string): AnalystInputPoint | undefined {
+  return detail?.inputs?.macro?.[metric];
+}
+
 export const MarketDeskView: React.FC = () => {
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -122,6 +145,7 @@ export const MarketDeskView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [runs, setRuns] = useState<AnalystRun[]>([]);
+  const [detail, setDetail] = useState<AnalystRunDetail | null>(null);
   const [memory, setMemory] = useState<AnalystMemory | null>(null);
   const [changes, setChanges] = useState<AnalystVerdictChange[]>([]);
   const [changesLoading, setChangesLoading] = useState(false);
@@ -149,6 +173,13 @@ export const MarketDeskView: React.FC = () => {
   const latest = runs[0] ?? null;
   const collectedAt = freshestCollectedAt(latest);
   const runSources = uniqueSources(latest);
+  const series = detail?.inputs?.series;
+  const news = detail?.news ?? [];
+  const macroItems = MACRO_METRICS.flatMap((metric) => {
+    const point = macroPoint(detail, metric);
+    if (!point || !Number.isFinite(point.valueNum)) return [];
+    return [{ metric, point }];
+  });
   const favoriteTickers = favorites?.tickers ?? [];
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const isFavorite = selectedTicker ? favoriteTickers.includes(selectedTicker) : false;
@@ -187,6 +218,19 @@ export const MarketDeskView: React.FC = () => {
       ]);
       setRuns(nextRuns);
       setChanges(nextChanges);
+      if (nextRuns[0]?.id) {
+        try {
+          setDetail(await getRun(nextRuns[0].id));
+        } catch (err) {
+          if (isNotFound(err)) {
+            setDetail(null);
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        setDetail(null);
+      }
       try {
         setMemory(await getMemory(ticker));
       } catch (err) {
@@ -199,6 +243,7 @@ export const MarketDeskView: React.FC = () => {
     } catch (err) {
       setError(mapAnalystError(err, 'Falha ao carregar o dossiê'));
       setRuns([]);
+      setDetail(null);
       setChanges([]);
       setMemory(null);
     } finally {
@@ -214,6 +259,7 @@ export const MarketDeskView: React.FC = () => {
   useEffect(() => {
     if (!selectedTicker) {
       setRuns([]);
+      setDetail(null);
       setMemory(null);
       setChanges([]);
       return;
@@ -441,6 +487,32 @@ export const MarketDeskView: React.FC = () => {
               Fatos de um dia civil anterior à análise (horário de Brasília).
             </p>
           ) : null}
+          <section className="market-trajectory" aria-labelledby={`${instanceId}-traj`}>
+            <h3 id={`${instanceId}-traj`} className="market-section-title">Trajetória</h3>
+            <div className="market-charts">
+              <SeriesChart
+                title="Preço"
+                periodHint="dia"
+                points={series?.price}
+                currentValue={signalValue(latest, 'price')}
+                emptyMessage="Sem série de preço neste run. Rode uma análise nova se o Yahoo já coletou cotações."
+              />
+              <SeriesChart
+                title="P/L"
+                periodHint="ano"
+                points={series?.pl}
+                currentValue={signalValue(latest, 'pl')}
+                emptyMessage="Sem histórico anual de P/L neste run."
+              />
+              <SeriesChart
+                title="EV/EBITDA"
+                periodHint="ano"
+                points={series?.ev_ebitda}
+                currentValue={signalValue(latest, 'ev_ebitda')}
+                emptyMessage="Sem histórico anual de EV/EBITDA neste run."
+              />
+            </div>
+          </section>
           <div className="market-signals">
             {latest.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>
@@ -455,11 +527,57 @@ export const MarketDeskView: React.FC = () => {
               </article>
             ))}
           </div>
+          <section className="market-macro" aria-labelledby={`${instanceId}-macro`}>
+            <h3 id={`${instanceId}-macro`} className="market-section-title">Contexto macro</h3>
+            {macroItems.length > 0 ? (
+              <dl className="market-macro-grid">
+                {macroItems.map(({ metric, point }) => (
+                  <div key={metric}>
+                    <dt>{METRIC_LABEL[metric] || metric}</dt>
+                    <dd>
+                      {formatNum(point.valueNum)}%
+                      {point.dataSource ? (
+                        <span className="text-muted"> · {sourceLabel(point.dataSource)}</span>
+                      ) : null}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-muted">Macro indisponível neste run (CDI, Selic ou IPCA).</p>
+            )}
+          </section>
           {latest.gaps.length > 0 ? (
             <p className="text-muted">
               Lacunas: {latest.gaps.map((g) => `${g.metric} (${g.reason})`).join(', ')}
             </p>
           ) : null}
+          <section className="market-news" aria-labelledby={`${instanceId}-news`}>
+            <h3 id={`${instanceId}-news`} className="market-section-title">Notícias</h3>
+            {news.length > 0 ? (
+              <ul className="market-news-list">
+                {news.map((hit, index) => (
+                  <li key={`${hit.collectedAt}-${index}`}>
+                    <p>
+                      {hit.collectedAt ? (
+                        <time dateTime={hit.collectedAt}>{formatWhen(hit.collectedAt)}</time>
+                      ) : null}
+                      {hit.dataSource ? (
+                        <span className="text-muted"> · {sourceLabel(hit.dataSource)}</span>
+                      ) : null}
+                    </p>
+                    <p>{hit.content}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted">
+                {latest.newsCount && latest.newsCount > 0
+                  ? 'Não há trechos gravados neste run. Analise de novo (admin) para listar as notícias.'
+                  : 'Não há notícias indexadas para este ativo neste run.'}
+              </p>
+            )}
+          </section>
           <div className="market-narrative" aria-live="polite">{latest.narrative}</div>
           {memory?.summary ? (
             <p className="text-muted">Memória derivada (rev. {memory.revision}): {memory.summary}</p>
@@ -476,6 +594,8 @@ export const MarketDeskView: React.FC = () => {
               <tr>
                 <th>Quando</th>
                 <th>Origem</th>
+                <th>Preço</th>
+                <th>P/L</th>
                 <th>Resultado</th>
               </tr>
             </thead>
@@ -484,6 +604,16 @@ export const MarketDeskView: React.FC = () => {
                 <tr key={run.id}>
                   <td><time dateTime={run.analyzedAt}>{formatWhen(run.analyzedAt)}</time></td>
                   <td>{triggerLabel(run.trigger)}</td>
+                  <td>
+                    {runVerdict(run, 'price')
+                      ? (VERDICT_LABEL[runVerdict(run, 'price')!] || runVerdict(run, 'price'))
+                      : '—'}
+                  </td>
+                  <td>
+                    {runVerdict(run, 'pl')
+                      ? (VERDICT_LABEL[runVerdict(run, 'pl')!] || runVerdict(run, 'pl'))
+                      : '—'}
+                  </td>
                   <td>{run.outcome || '—'}</td>
                 </tr>
               ))}

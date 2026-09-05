@@ -126,6 +126,32 @@ export interface AnalystRun {
   staleFacts?: boolean;
 }
 
+export interface AnalystInputPoint {
+  metric?: string;
+  valueNum: number;
+  dataSource?: string;
+  observedAt?: string;
+  periodType?: string;
+  periodStart?: string;
+  displayName?: string;
+  kind?: string;
+}
+
+export interface AnalystNewsHit {
+  content: string;
+  dataSource: string;
+  collectedAt: string;
+}
+
+export interface AnalystRunDetail extends AnalystRun {
+  inputs?: {
+    current?: Record<string, AnalystInputPoint>;
+    macro?: Record<string, AnalystInputPoint>;
+    series?: Record<string, AnalystInputPoint[]>;
+  };
+  news?: AnalystNewsHit[];
+}
+
 export interface AnalystMemory {
   id: string;
   ticker: string;
@@ -150,6 +176,14 @@ export interface AnalystTickers {
 export function listRuns(ticker: string, limit = 20): Promise<AnalystRun[]> {
   return customFetch<AnalystRun[]>(
     `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}/runs?limit=${Math.max(1, limit)}`,
+    { method: 'GET' },
+    token(),
+  );
+}
+
+export function getRun(runId: string): Promise<AnalystRunDetail> {
+  return customFetch<AnalystRunDetail>(
+    `${ANALYST_BASE}/runs/${encodeURIComponent(runId)}`,
     { method: 'GET' },
     token(),
   );

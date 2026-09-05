@@ -22,6 +22,9 @@ export const METRIC_LABEL: Record<string, string> = {
   lucros_cagr5_pct: 'CAGR 5a lucros',
   ev_ebitda: 'EV/EBITDA',
   price: 'Preço vs 52 semanas',
+  cdi_pct: 'CDI',
+  selic_meta_pct: 'Selic meta',
+  ipca_mensal_pct: 'IPCA mensal',
 };
 
 export const SOURCE_LABEL: Record<string, string> = {
