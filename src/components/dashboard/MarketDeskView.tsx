@@ -106,9 +106,46 @@ function triggerLabel(trigger: string): string {
 }
 
 const MACRO_METRICS = ['cdi_pct', 'selic_meta_pct', 'ipca_mensal_pct'] as const;
+const HISTORY_LIMIT = 7;
+const NEWS_LIMIT = 5;
+
+const MACRO_PERIOD: Record<(typeof MACRO_METRICS)[number], string> = {
+  cdi_pct: 'dia',
+  selic_meta_pct: 'a.a.',
+  ipca_mensal_pct: 'mês',
+};
 
 function formatNum(value: number): string {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+}
+
+function macroMetricLabel(metric: string): string {
+  const name = METRIC_LABEL[metric] || metric;
+  const period = MACRO_PERIOD[metric as keyof typeof MACRO_PERIOD];
+  return period ? `${name} (${period})` : name;
+}
+
+function outcomeLabel(outcome: string): string {
+  if (outcome === 'SUCCESS') return 'Sucesso';
+  return outcome || '—';
+}
+
+function newsPlainText(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\b(?:data|src|srcset|href|alt|class|id|style|width|height|sizes)-?[a-z0-9-]*="[^"]*"/gi, ' ')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function signalValue(run: AnalystRun | null, metric: string): number | undefined {
@@ -170,11 +207,21 @@ export const MarketDeskView: React.FC = () => {
   const runSources = uniqueSources(latest);
   const series = detail?.inputs?.series;
   const news = detail?.news ?? [];
+  const visibleNews = [...news]
+    .sort((a, b) => (b.collectedAt || '').localeCompare(a.collectedAt || ''))
+    .slice(0, NEWS_LIMIT)
+    .map((hit) => ({ ...hit, text: newsPlainText(hit.content) }))
+    .filter((hit) => hit.text.length > 0);
   const macroItems = MACRO_METRICS.flatMap((metric) => {
     const point = macroPoint(detail, metric);
     if (!point || !Number.isFinite(point.valueNum)) return [];
     return [{ metric, point }];
   });
+  const macroSources = [...new Set(
+    macroItems
+      .map(({ point }) => point.dataSource)
+      .filter((slug): slug is string => Boolean(slug)),
+  )];
   const favoriteTickers = favorites?.tickers ?? [];
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const isFavorite = selectedTicker ? favoriteTickers.includes(selectedTicker) : false;
@@ -208,10 +255,14 @@ export const MarketDeskView: React.FC = () => {
     setError('');
     try {
       const [nextRuns, nextChanges] = await Promise.all([
-        listRuns(ticker, 20),
+        listRuns(ticker, HISTORY_LIMIT),
         listChanges(20, ticker),
       ]);
-      setRuns(nextRuns);
+      setRuns(
+        [...nextRuns]
+          .sort((a, b) => (b.analyzedAt || '').localeCompare(a.analyzedAt || ''))
+          .slice(0, HISTORY_LIMIT),
+      );
       setChanges(nextChanges);
       if (nextRuns[0]?.id) {
         try {
@@ -328,18 +379,21 @@ export const MarketDeskView: React.FC = () => {
   return (
     <div className="market-desk">
       {favoriteTickers.length > 0 ? (
-        <div className="market-desk-tickers" aria-label="Favoritos">
-          {favoriteTickers.map((ticker) => (
-            <span className="badge-role market-ticker-chip" key={ticker}>
-              <button
-                type="button"
-                className="market-ticker-chip-label"
-                onClick={() => applyTicker(ticker)}
-              >
-                {ticker}
-              </button>
-            </span>
-          ))}
+        <div className="market-desk-tickers">
+          <span className="market-desk-tickers-label" id={`${instanceId}-favs`}>Favoritos</span>
+          <div className="market-desk-tickers-list" role="group" aria-labelledby={`${instanceId}-favs`}>
+            {favoriteTickers.map((ticker) => (
+              <span className="badge-role market-ticker-chip" key={ticker}>
+                <button
+                  type="button"
+                  className="market-ticker-chip-label"
+                  onClick={() => applyTicker(ticker)}
+                >
+                  {ticker}
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -412,11 +466,13 @@ export const MarketDeskView: React.FC = () => {
       ) : null}
 
       {loading ? (
-        <div className="market-signals" aria-busy="true" aria-live="polite">
-          <div className="market-skeleton" />
-          <div className="market-skeleton" />
-          <div className="market-skeleton" />
-          <div className="market-skeleton" />
+        <div className="hpanel-table-card market-analysis-card" aria-busy="true" aria-live="polite">
+          <div className="market-skeleton market-skeleton-title" />
+          <div className="market-charts">
+            <div className="market-skeleton" />
+            <div className="market-skeleton" />
+            <div className="market-skeleton" />
+          </div>
         </div>
       ) : null}
 
@@ -482,6 +538,8 @@ export const MarketDeskView: React.FC = () => {
               Fatos de um dia civil anterior à análise (horário de Brasília).
             </p>
           ) : null}
+          {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
+          {latest.formulas ? <FormulasCard formulas={latest.formulas} /> : null}
           <section className="market-trajectory" aria-labelledby={`${instanceId}-traj`}>
             <h3 id={`${instanceId}-traj`} className="market-section-title">Trajetória</h3>
             <div className="market-charts">
@@ -508,125 +566,166 @@ export const MarketDeskView: React.FC = () => {
               />
             </div>
           </section>
-          {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
-          {latest.formulas ? <FormulasCard formulas={latest.formulas} /> : null}
-          <div className="market-signals">
-            {latest.signals.map((signal) => (
-              <article className="market-signal" key={signal.metric}>
-                <span className={`market-verdict ${signal.verdict}`}>
-                  {VERDICT_LABEL[signal.verdict] || signal.verdict}
-                </span>
-                <h3>{METRIC_LABEL[signal.metric] || signal.metric}</h3>
-                <p>{signal.explanation}</p>
-                {signal.grounding?.dataSource ? (
-                  <p className="text-muted">Fonte: {sourceLabel(signal.grounding.dataSource)}</p>
-                ) : null}
-              </article>
-            ))}
-          </div>
+          <section className="market-signals-section" aria-labelledby={`${instanceId}-signals`}>
+            <h3 id={`${instanceId}-signals`} className="market-section-title">Sinais</h3>
+            <div className="market-signals">
+              {latest.signals.map((signal) => (
+                <article className="market-signal" key={signal.metric}>
+                  <span className={`market-verdict ${signal.verdict}`}>
+                    {VERDICT_LABEL[signal.verdict] || signal.verdict}
+                  </span>
+                  <h3>{METRIC_LABEL[signal.metric] || signal.metric}</h3>
+                  <p>{signal.explanation}</p>
+                  {signal.grounding?.dataSource ? (
+                    <p className="text-muted">Fonte: {sourceLabel(signal.grounding.dataSource)}</p>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+            {latest.gaps.length > 0 ? (
+              <ul className="market-gaps">
+                {latest.gaps.map((gap) => (
+                  <li key={`${gap.metric}-${gap.reason}`}>
+                    {METRIC_LABEL[gap.metric] || gap.metric}: {GAP_REASON_LABEL[gap.reason] || gap.reason}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
           <section className="market-macro" aria-labelledby={`${instanceId}-macro`}>
             <h3 id={`${instanceId}-macro`} className="market-section-title">Contexto macro</h3>
             {macroItems.length > 0 ? (
-              <dl className="market-macro-grid">
-                {macroItems.map(({ metric, point }) => (
-                  <div key={metric}>
-                    <dt>{METRIC_LABEL[metric] || metric}</dt>
-                    <dd>
-                      {formatNum(point.valueNum)}%
-                      {point.dataSource ? (
-                        <span className="text-muted"> · {sourceLabel(point.dataSource)}</span>
-                      ) : null}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              <>
+                <dl className="market-macro-grid">
+                  {macroItems.map(({ metric, point }) => (
+                    <div className="market-macro-tile" key={metric}>
+                      <dt>{macroMetricLabel(metric)}</dt>
+                      <dd>{formatNum(point.valueNum)}%</dd>
+                    </div>
+                  ))}
+                </dl>
+                {macroSources.length > 0 ? (
+                  <p className="text-muted market-macro-source">
+                    Fonte: {macroSources.map(sourceLabel).join(' · ')}
+                  </p>
+                ) : null}
+              </>
             ) : (
               <p className="text-muted">Macro indisponível neste run (CDI, Selic ou IPCA).</p>
             )}
           </section>
-          {latest.gaps.length > 0 ? (
-            <p className="text-muted">
-              Lacunas: {latest.gaps.map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${GAP_REASON_LABEL[g.reason] || g.reason})`).join(', ')}
-            </p>
+          {latest.narrative ? (
+            <section className="market-narrative-section" aria-labelledby={`${instanceId}-narrative`}>
+              <h3 id={`${instanceId}-narrative`} className="market-section-title">Narrativa</h3>
+              <div className="market-narrative" aria-live="polite">{latest.narrative}</div>
+            </section>
           ) : null}
           <section className="market-news" aria-labelledby={`${instanceId}-news`}>
             <h3 id={`${instanceId}-news`} className="market-section-title">Notícias</h3>
-            {news.length > 0 ? (
+            {visibleNews.length > 0 ? (
               <ul className="market-news-list">
-                {news.map((hit, index) => (
+                {visibleNews.map((hit, index) => (
                   <li key={`${hit.collectedAt}-${index}`}>
-                    <p>
+                    <p className="market-news-kicker">
                       {hit.collectedAt ? (
                         <time dateTime={hit.collectedAt}>{formatWhen(hit.collectedAt)}</time>
                       ) : null}
                       {hit.dataSource ? (
-                        <span className="text-muted"> · {sourceLabel(hit.dataSource)}</span>
+                        <span> · {sourceLabel(hit.dataSource)}</span>
                       ) : null}
                     </p>
-                    <p>{hit.content}</p>
+                    <p className="market-news-body">{hit.text}</p>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="text-muted">
-                {latest.newsCount && latest.newsCount > 0
-                  ? 'Não há trechos gravados neste run. Analise de novo (admin) para listar as notícias.'
-                  : 'Não há notícias indexadas para este ativo neste run.'}
+                {news.length > 0
+                  ? 'Os trechos deste run não têm texto legível.'
+                  : latest.newsCount && latest.newsCount > 0
+                    ? 'Não há trechos gravados neste run. Analise de novo (admin) para listar as notícias.'
+                    : 'Não há notícias indexadas para este ativo neste run.'}
               </p>
             )}
           </section>
-          <div className="market-narrative" aria-live="polite">{latest.narrative}</div>
           {memory?.summary ? (
-            <p className="text-muted">Memória derivada (rev. {memory.revision}): {memory.summary}</p>
+            <p className="text-muted market-memory">Memória derivada (rev. {memory.revision}): {memory.summary}</p>
           ) : null}
           <p className="market-disclaimer">{latest.disclaimer || DISCLAIMER}</p>
         </div>
       ) : null}
 
       {selectedTicker && runs.length > 0 ? (
-        <div className="hpanel-table-card desktop-table-view" style={{ marginBottom: '1rem' }}>
-          <h3 className="market-analyze-title">Histórico</h3>
-          <table className="hpanel-table">
-            <thead>
-              <tr>
-                <th>Quando</th>
-                <th>Origem</th>
-                <th>Preço</th>
-                <th>P/L</th>
-                <th>Resultado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => (
-                <tr key={run.id}>
-                  <td><time dateTime={run.analyzedAt}>{formatWhen(run.analyzedAt)}</time></td>
-                  <td>{triggerLabel(run.trigger)}</td>
-                  <td>
-                    {runVerdict(run, 'price')
-                      ? (VERDICT_LABEL[runVerdict(run, 'price')!] || runVerdict(run, 'price'))
-                      : '—'}
-                  </td>
-                  <td>
-                    {runVerdict(run, 'pl')
-                      ? (VERDICT_LABEL[runVerdict(run, 'pl')!] || runVerdict(run, 'pl'))
-                      : '—'}
-                  </td>
-                  <td>{run.outcome || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      {selectedTicker ? (
-        <>
-          <div className="hpanel-table-card desktop-table-view">
+          <section className="market-history" aria-label="Histórico">
+          <div className="hpanel-table-card desktop-table-view market-table-card">
+            <header className="market-table-header">
+              <h3 className="market-table-title">Histórico</h3>
+              <p className="text-muted market-table-subtitle">7 análises mais recentes</p>
+            </header>
             <table className="hpanel-table">
               <thead>
                 <tr>
                   <th>Quando</th>
-                  <th>Ticker</th>
+                  <th>Origem</th>
+                  <th>Preço</th>
+                  <th>P/L</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runs.map((run) => (
+                  <tr key={run.id}>
+                    <td><time dateTime={run.analyzedAt}>{formatWhen(run.analyzedAt)}</time></td>
+                    <td>{triggerLabel(run.trigger)}</td>
+                    <td>
+                      {runVerdict(run, 'price')
+                        ? (VERDICT_LABEL[runVerdict(run, 'price')!] || runVerdict(run, 'price'))
+                        : '—'}
+                    </td>
+                    <td>
+                      {runVerdict(run, 'pl')
+                        ? (VERDICT_LABEL[runVerdict(run, 'pl')!] || runVerdict(run, 'pl'))
+                        : '—'}
+                    </td>
+                    <td>{outcomeLabel(run.outcome)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mobile-cards-container">
+            <header className="market-mobile-header">
+              <h3 className="market-section-title">Histórico</h3>
+              <p className="text-muted market-table-subtitle">7 análises mais recentes</p>
+            </header>
+            {runs.map((run) => (
+              <div className="mobile-domain-card" key={run.id}>
+                <div className="mobile-card-top">
+                  <span className="mobile-domain-name">{formatWhen(run.analyzedAt)}</span>
+                  <span className="badge-role">{outcomeLabel(run.outcome)}</span>
+                </div>
+                <div className="mobile-card-subinfo">{triggerLabel(run.trigger)}</div>
+                <div className="mobile-card-meta">
+                  Preço {runVerdict(run, 'price') ? (VERDICT_LABEL[runVerdict(run, 'price')!] || runVerdict(run, 'price')) : '—'}
+                  {' · '}
+                  P/L {runVerdict(run, 'pl') ? (VERDICT_LABEL[runVerdict(run, 'pl')!] || runVerdict(run, 'pl')) : '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {selectedTicker ? (
+        <section className="market-changes" aria-label="Mudanças de veredito">
+          <div className="hpanel-table-card desktop-table-view market-table-card">
+            <header className="market-table-header">
+              <h3 className="market-table-title">Mudanças de veredito</h3>
+            </header>
+            <table className="hpanel-table">
+              <thead>
+                <tr>
+                  <th>Quando</th>
                   <th>Intensidade</th>
                   <th>Mudança</th>
                 </tr>
@@ -634,13 +733,13 @@ export const MarketDeskView: React.FC = () => {
               <tbody>
                 {changesLoading && changes.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                    <td colSpan={3} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                       Carregando mudanças de veredito…
                     </td>
                   </tr>
                 ) : changes.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                    <td colSpan={3} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                         <LineChart size={22} />
                         <span>Ainda não há mudança de veredito em {selectedTicker}.</span>
@@ -652,9 +751,6 @@ export const MarketDeskView: React.FC = () => {
                     <tr key={item.id}>
                       <td>
                         <time dateTime={item.detectedAt}>{formatWhen(item.detectedAt)}</time>
-                      </td>
-                      <td>
-                        <span className="table-cell-title">{item.ticker}</span>
                       </td>
                       <td>
                         <span className="badge-role" style={materialStyle(displayIsMaterial(item))}>
@@ -672,22 +768,35 @@ export const MarketDeskView: React.FC = () => {
           </div>
 
           <div className="mobile-cards-container">
-            {changes.map((item) => (
-              <div className="mobile-domain-card" key={item.id}>
+            <header className="market-mobile-header">
+              <h3 className="market-section-title">Mudanças de veredito</h3>
+            </header>
+            {changesLoading && changes.length === 0 ? (
+              <p className="text-muted">Carregando mudanças de veredito…</p>
+            ) : changes.length === 0 ? (
+              <div className="mobile-domain-card">
                 <div className="mobile-card-top">
-                  <span className="mobile-domain-name">{item.ticker}</span>
-                  <span className="badge-role" style={materialStyle(displayIsMaterial(item))}>
-                    {displayIsMaterial(item) ? 'Material' : 'Leve'}
-                  </span>
+                  <span className="mobile-domain-name">{selectedTicker}</span>
                 </div>
-                <div className="mobile-card-subinfo">{formatWhen(item.detectedAt)}</div>
-                <div className="mobile-card-meta">
-                  {item.changes.map((delta) => deltaLabel(delta.metric, delta.fromVerdict, delta.toVerdict)).join(' · ') || '—'}
-                </div>
+                <div className="mobile-card-meta">Ainda não há mudança de veredito neste ativo.</div>
               </div>
-            ))}
+            ) : (
+              changes.map((item) => (
+                <div className="mobile-domain-card" key={item.id}>
+                  <div className="mobile-card-top">
+                    <span className="mobile-domain-name">{formatWhen(item.detectedAt)}</span>
+                    <span className="badge-role" style={materialStyle(displayIsMaterial(item))}>
+                      {displayIsMaterial(item) ? 'Material' : 'Leve'}
+                    </span>
+                  </div>
+                  <div className="mobile-card-meta">
+                    {item.changes.map((delta) => deltaLabel(delta.metric, delta.fromVerdict, delta.toVerdict)).join(' · ') || '—'}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-        </>
+        </section>
       ) : null}
     </div>
   );
