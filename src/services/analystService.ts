@@ -10,7 +10,7 @@ import { getAccessToken } from './tokenStore';
 
 const ANALYST_BASE = `${BFF_INVEST_URL}/api/v1/invest/analyst`;
 
-export const WATCHLIST_MAX_TICKERS = 50;
+export const WATCHLIST_MAX_TICKERS = 100;
 export const TICKER_PATTERN = /^[A-Z0-9]{4,6}$/;
 
 export interface AnalystSignal {
@@ -64,6 +64,33 @@ export interface AnalystAnalysis {
   disclaimer: string;
   /** Conclusão determinística (código); não extraia números daqui. */
   thesis?: AnalystThesis;
+  formulas?: AnalystFormulas;
+}
+
+export interface AnalystGrahamFormula {
+  fairPrice?: number;
+  price?: number;
+  marginOfSafety?: number;
+  gaps?: string[];
+}
+
+export interface AnalystEarningsYieldFormula {
+  eyPct: number;
+  cdiPct: number;
+  spreadPp: number;
+}
+
+export interface AnalystMagicFormulaPosition {
+  asOfDate: string;
+  rank: number;
+  combined: number;
+  universeSize: number;
+}
+
+export interface AnalystFormulas {
+  graham?: AnalystGrahamFormula;
+  earningsYield?: AnalystEarningsYieldFormula;
+  magicFormula?: AnalystMagicFormulaPosition;
 }
 
 export interface AnalystWatchlist {
@@ -152,6 +179,7 @@ export interface AnalystRun {
   outcome: string;
   staleFacts?: boolean;
   thesis?: AnalystThesis;
+  formulas?: AnalystFormulas;
 }
 
 export interface AnalystInputPoint {
@@ -237,6 +265,47 @@ export function saveFavorites(tickers: string[]): Promise<AnalystFavorites> {
   return customFetch<AnalystFavorites>(
     `${ANALYST_BASE}/favorites`,
     { method: 'PUT', body: JSON.stringify({ tickers }) },
+    token(),
+  );
+}
+
+export interface AnalystMagicRanked {
+  rank: number;
+  ticker: string;
+  combined: number;
+  eyRank: number;
+  roicRank: number;
+  eyPct: number;
+  roicPct: number;
+}
+
+export interface AnalystMagicExcluded {
+  ticker: string;
+  reason: string;
+}
+
+export interface AnalystMagicOmitted {
+  ticker: string;
+  reason: string;
+  metrics?: string[];
+}
+
+export interface AnalystMagicFormulaRanking {
+  methodology: string;
+  asOfDate: string;
+  rulesVersion: string;
+  universeSize: number;
+  ranked: AnalystMagicRanked[];
+  excluded: AnalystMagicExcluded[];
+  omitted: AnalystMagicOmitted[];
+  disclaimer: string;
+}
+
+export function getMagicFormulaRanking(date?: string): Promise<AnalystMagicFormulaRanking> {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return customFetch<AnalystMagicFormulaRanking>(
+    `${ANALYST_BASE}/rankings/magic-formula${query}`,
+    { method: 'GET' },
     token(),
   );
 }

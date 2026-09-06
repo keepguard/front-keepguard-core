@@ -5255,6 +5255,28 @@ textarea.form-input {
   border-color: #d97706;
 }
 
+.market-formulas {
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin: 0 0 1.25rem;
+  border: 1px solid var(--border);
+  background: var(--bg-muted, #f8f9fa);
+}
+
+.market-formulas-line {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+
+.market-magic-panel {
+  margin: 0 0 1.25rem;
+}
+
+.market-magic-meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+}
+
 .market-signals {
   display: grid;
   gap: 0.75rem;

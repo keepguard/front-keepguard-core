@@ -5,17 +5,21 @@ import { RefreshCombo } from '../common/RefreshCombo';
 import { useToast } from '../../context/ToastContext';
 import {
   analyzeTicker,
+  getMagicFormulaRanking,
   getWatchlist,
   isValidTicker,
   listChanges,
   saveWatchlist,
   WATCHLIST_MAX_TICKERS,
   type AnalystAnalysis,
+  type AnalystMagicFormulaRanking,
   type AnalystVerdictChange,
   type AnalystWatchlist,
 } from '../../services/analystService';
 import { METRIC_LABEL, VERDICT_LABEL } from './marketLabels';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
+import { FormulasCard } from './FormulasCard';
+import { MagicFormulaPanel } from './MagicFormulaPanel';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -28,7 +32,7 @@ function mapAnalystError(err: unknown, fallback: string): string {
   const status = (err as { status?: number }).status;
   const data = (err as { data?: { error?: string; message?: string } }).data;
   if (data?.error === 'WATCHLIST_TOO_LARGE') {
-    return 'A watchlist aceita no máximo 50 ativos.';
+    return `A watchlist aceita no máximo ${WATCHLIST_MAX_TICKERS} ativos.`;
   }
   if (data?.error === 'NO_MARKET_DATA' || status === 404) {
     return 'Ainda não há fatos deste ticker nesta organização. Confira os agents de coleta.';
@@ -84,6 +88,7 @@ export const MarketAnalyzeView: React.FC = () => {
   const [filterTicker, setFilterTicker] = useState<string | null>(fromQuery);
   const [changes, setChanges] = useState<AnalystVerdictChange[]>([]);
   const [changesLoading, setChangesLoading] = useState(true);
+  const [ranking, setRanking] = useState<AnalystMagicFormulaRanking | null>(null);
 
   if (fromQuery !== appliedQuery) {
     setAppliedQuery(fromQuery);
@@ -117,7 +122,15 @@ export const MarketAnalyzeView: React.FC = () => {
   const loadWatchlist = useCallback(async () => {
     setWatchLoading(true);
     try {
-      setList(await getWatchlist());
+      const [wl, magic] = await Promise.all([
+        getWatchlist(),
+        getMagicFormulaRanking().catch((err) => {
+          if ((err as { status?: number }).status === 404) return null;
+          throw err;
+        }),
+      ]);
+      setList(wl);
+      setRanking(magic);
     } catch (err) {
       setError(mapAnalystError(err, 'Falha ao carregar a watchlist'));
     } finally {
@@ -308,6 +321,8 @@ export const MarketAnalyzeView: React.FC = () => {
         </div>
       ) : null}
 
+      {ranking ? <MagicFormulaPanel ranking={ranking} /> : null}
+
       {analyzing ? (
         <div className="market-signals" aria-busy="true" aria-live="polite">
           <div className="market-skeleton" />
@@ -323,6 +338,7 @@ export const MarketAnalyzeView: React.FC = () => {
             {analysis.displayName || analysis.ticker} · {analysis.ticker}
           </h2>
           {THESIS_CARD_PUBLISHED && analysis.thesis ? <ThesisCard thesis={analysis.thesis} /> : null}
+          {analysis.formulas ? <FormulasCard formulas={analysis.formulas} /> : null}
           <div className="market-signals">
             {analysis.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>

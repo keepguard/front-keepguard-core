@@ -22,6 +22,7 @@ import {
 import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
+import { FormulasCard } from './FormulasCard';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -34,7 +35,7 @@ function mapAnalystError(err: unknown, fallback: string): string {
   const status = (err as { status?: number }).status;
   const data = (err as { data?: { error?: string; message?: string } }).data;
   if (data?.error === 'WATCHLIST_TOO_LARGE') {
-    return 'A lista de favoritos aceita no máximo 50 ativos.';
+    return `A lista de favoritos aceita no máximo ${WATCHLIST_MAX_TICKERS} ativos.`;
   }
   if (data?.error === 'INVALID_TICKER' || status === 400) {
     return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).';
@@ -312,7 +313,7 @@ export const MarketDeskView: React.FC = () => {
       ? favoriteTickers.filter((ticker) => ticker !== selectedTicker)
       : [...favoriteTickers, selectedTicker];
     if (!isFavorite && atFavCap) {
-      addToast({ type: 'error', title: 'Limite de favoritos', description: 'A lista aceita no máximo 50 ativos.' });
+      addToast({ type: 'error', title: 'Limite de favoritos', description: `A lista aceita no máximo ${maxFavorites} ativos.` });
       return;
     }
     setSavingFav(true);
@@ -515,6 +516,7 @@ export const MarketDeskView: React.FC = () => {
             </div>
           </section>
           {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
+          {latest.formulas ? <FormulasCard formulas={latest.formulas} /> : null}
           <div className="market-signals">
             {latest.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>

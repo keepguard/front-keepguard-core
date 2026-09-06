@@ -28,6 +28,11 @@ export const METRIC_LABEL: Record<string, string> = {
   consistencia_roic: 'Consistência do ROIC',
   consistencia_margem: 'Consistência da margem',
   roic_spread_selic: 'ROIC vs SELIC',
+  graham_number: 'Número de Graham',
+  earnings_yield: 'Earnings yield',
+  lpa: 'LPA',
+  vpa: 'VPA',
+  ev_ebit: 'EV/EBIT',
 };
 
 export const THESIS_LABEL: Record<string, string> = {
