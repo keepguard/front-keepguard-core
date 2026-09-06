@@ -102,10 +102,14 @@ export const RegisterTokenModal: React.FC<RegisterTokenModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Erro na validação do token de registro:', err);
+      const description = err.message || 'Código de confirmação incorreto ou expirado.';
+      const sessionMissing = /sess[aã]o de registro/i.test(description);
       addToast({
         type: 'error',
-        title: 'Código Inválido',
-        description: err.message || 'Código de confirmação incorreto ou expirado.',
+        title: sessionMissing ? 'Sessão expirada' : 'Código Inválido',
+        description: sessionMissing
+          ? `${description} Se o cadastro já foi concluído, tente entrar com e-mail e senha.`
+          : description,
       });
     } finally {
       setIsLoading(false);
