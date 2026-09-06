@@ -101,11 +101,27 @@ export interface AnalystPiotroskiFormula {
   bits?: AnalystPiotroskiBit[];
 }
 
+export interface AnalystFormulaConcentration {
+  sector?: string;
+  label: string;
+  count: number;
+  of: number;
+}
+
+export interface AnalystFormulaContext {
+  sector?: string;
+  sectorLabel?: string;
+  bank?: boolean;
+  cyclical?: boolean;
+  concentration?: AnalystFormulaConcentration;
+}
+
 export interface AnalystFormulas {
   graham?: AnalystGrahamFormula;
   earningsYield?: AnalystEarningsYieldFormula;
   magicFormula?: AnalystMagicFormulaPosition;
   piotroski?: AnalystPiotroskiFormula;
+  context?: AnalystFormulaContext;
 }
 
 export interface AnalystWatchlist {

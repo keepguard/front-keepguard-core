@@ -13,7 +13,9 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
   const ey = formulas.earningsYield;
   const magic = formulas.magicFormula;
   const piotroski = formulas.piotroski;
-  if (!graham && !ey && !magic && !piotroski) return null;
+  const ctx = formulas.context;
+  if (!graham && !ey && !magic && !piotroski && !ctx) return null;
+  const sectorName = ctx?.sectorLabel || ctx?.sector || '';
   return (
     <article className="market-formulas" aria-label="Fórmulas">
       <span className="market-thesis-kicker">Fórmulas</span>
@@ -45,6 +47,22 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
         <p className="market-formulas-line">
           Piotroski F-Score {piotroski.score}/{piotroski.possible} (de {piotroski.of})
           {piotroski.partial ? ' · parcial, sem fluxo de caixa — rentabilidade/eficiência, não qualidade do lucro' : ''}
+        </p>
+      ) : null}
+      {ctx?.concentration ? (
+        <p className="market-formulas-line">
+          {ctx.concentration.label} {ctx.concentration.count} de {ctx.concentration.of}
+          <span className="text-muted"> no topo da Fórmula Mágica</span>
+        </p>
+      ) : null}
+      {ctx?.bank ? (
+        <p className="market-formulas-line text-muted">
+          Banco: liquidez e Graham/VPA não se leem como indústria.
+        </p>
+      ) : null}
+      {ctx?.cyclical ? (
+        <p className="market-formulas-line text-muted">
+          Setor cíclico{sectorName ? ` (${sectorName})` : ''}: contração de receita/lucro não é, por si só, deterioração estrutural.
         </p>
       ) : null}
     </article>
