@@ -30,6 +30,7 @@ export const METRIC_LABEL: Record<string, string> = {
   roic_spread_selic: 'ROIC vs SELIC',
   graham_number: 'Número de Graham',
   earnings_yield: 'Earnings yield',
+  piotroski_f_score: 'Piotroski F-Score',
   lpa: 'LPA',
   vpa: 'VPA',
   ev_ebit: 'EV/EBIT',

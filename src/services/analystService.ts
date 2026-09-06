@@ -87,10 +87,25 @@ export interface AnalystMagicFormulaPosition {
   universeSize: number;
 }
 
+export interface AnalystPiotroskiBit {
+  id: string;
+  hit?: boolean;
+  gap?: string;
+}
+
+export interface AnalystPiotroskiFormula {
+  score: number;
+  possible: number;
+  of: number;
+  partial: boolean;
+  bits?: AnalystPiotroskiBit[];
+}
+
 export interface AnalystFormulas {
   graham?: AnalystGrahamFormula;
   earningsYield?: AnalystEarningsYieldFormula;
   magicFormula?: AnalystMagicFormulaPosition;
+  piotroski?: AnalystPiotroskiFormula;
 }
 
 export interface AnalystWatchlist {

@@ -12,7 +12,8 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
   const graham = formulas.graham;
   const ey = formulas.earningsYield;
   const magic = formulas.magicFormula;
-  if (!graham && !ey && !magic) return null;
+  const piotroski = formulas.piotroski;
+  if (!graham && !ey && !magic && !piotroski) return null;
   return (
     <article className="market-formulas" aria-label="Fórmulas">
       <span className="market-thesis-kicker">Fórmulas</span>
@@ -34,6 +35,12 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
       {magic ? (
         <p className="market-formulas-line">
           Fórmula Mágica: posição {magic.rank} de {magic.universeSize}
+        </p>
+      ) : null}
+      {piotroski ? (
+        <p className="market-formulas-line">
+          Piotroski F-Score {piotroski.score}/{piotroski.possible} (de {piotroski.of})
+          {piotroski.partial ? ' · parcial' : ''}
         </p>
       ) : null}
     </article>
