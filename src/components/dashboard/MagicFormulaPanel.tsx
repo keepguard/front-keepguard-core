@@ -22,6 +22,11 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
   return (
     <section className="hpanel-table-card market-magic-panel" aria-label="Fórmula Mágica">
       <h2 className="market-analyze-title">Fórmula Mágica</h2>
+      <p className="market-magic-blurb">
+        Ranking do dia inspirado em Joel Greenblatt: entre os papéis elegíveis da carteira, quem combina
+        preço atrativo com retorno sobre o capital. Bancos e utilities ficam de fora. Não é recomendação
+        de compra.
+      </p>
       <p className="text-muted market-magic-meta">
         {ranking.asOfDate} · {ranking.universeSize} no ranking · {excluded} excluída(s) · {omitted} omitida(s)
       </p>

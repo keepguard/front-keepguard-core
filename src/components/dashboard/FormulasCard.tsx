@@ -35,6 +35,10 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
       {magic ? (
         <p className="market-formulas-line">
           Fórmula Mágica: posição {magic.rank} de {magic.universeSize}
+          <span className="text-muted">
+            {' '}
+            · ranking do dia (Greenblatt) · bancos e utilities ficam de fora · não é recomendação
+          </span>
         </p>
       ) : null}
       {piotroski ? (
