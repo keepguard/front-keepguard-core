@@ -34,6 +34,24 @@ export const METRIC_LABEL: Record<string, string> = {
   lpa: 'LPA',
   vpa: 'VPA',
   ev_ebit: 'EV/EBIT',
+  fco: 'Fluxo de caixa operacional',
+  fco_vs_lucro: 'FCO vs lucro',
+  divida_lp: 'Dívida de longo prazo',
+  n_acoes: 'Número de ações',
+  thesis: 'Tese',
+  roa_pct: 'ROA',
+  margem_bruta_pct: 'Margem bruta',
+  giro_ativos: 'Giro de ativos',
+};
+
+export const GAP_REASON_LABEL: Record<string, string> = {
+  FACT_MISSING: 'Dado ausente',
+  SERIES_TOO_SHORT: 'Série curta demais',
+  MACRO_MISSING: 'Macro ausente',
+  NO_EARNINGS: 'Sem lucro/base',
+  FINANCIAL: 'Não se aplica a banco',
+  LPA_NOT_POSITIVE: 'LPA não positivo',
+  VPA_NOT_POSITIVE: 'VPA não positivo',
 };
 
 export const THESIS_LABEL: Record<string, string> = {
@@ -94,3 +112,35 @@ export const SOURCE_LABEL: Record<string, string> = {
   infomoney: 'InfoMoney',
   'money-times': 'Money Times',
 };
+
+function metricName(metric: string): string {
+  return METRIC_LABEL[metric] || metric;
+}
+
+function changeValueLabel(raw: string | undefined, metric: string): string {
+  if (!raw) return '—';
+  if (metric === 'thesis') return thesisDisplayLabel(raw);
+  return VERDICT_LABEL[raw] || GAP_REASON_LABEL[raw] || thesisDisplayLabel(raw);
+}
+
+export function deltaLabel(metric: string, fromVerdict?: string, toVerdict?: string): string {
+  const name = metricName(metric);
+  if (!fromVerdict && toVerdict && GAP_REASON_LABEL[toVerdict]) {
+    if (toVerdict === 'FACT_MISSING') {
+      return `${name}: passou a constar como dado ausente`;
+    }
+    return `${name}: passou a constar como ${GAP_REASON_LABEL[toVerdict]}`;
+  }
+  return `${name}: ${changeValueLabel(fromVerdict, metric)} → ${changeValueLabel(toVerdict, metric)}`;
+}
+
+export function displayIsMaterial(item: {
+  isMaterial: boolean;
+  changes: { kind?: string; fromVerdict?: string }[];
+}): boolean {
+  const deltas = item.changes ?? [];
+  if (deltas.length > 0 && deltas.every((d) => d.kind === 'GAP' && !d.fromVerdict)) {
+    return false;
+  }
+  return item.isMaterial;
+}

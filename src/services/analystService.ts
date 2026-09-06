@@ -87,6 +87,9 @@ export interface AnalystMagicFormulaPosition {
   universeSize: number;
 }
 
+/** Below this ranked universe, UI omits position/concentration (misleading). */
+export const MAGIC_FORMULA_MIN_UNIVERSE = 20;
+
 export interface AnalystPiotroskiBit {
   id: string;
   hit?: boolean;

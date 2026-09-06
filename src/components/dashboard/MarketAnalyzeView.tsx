@@ -16,7 +16,7 @@ import {
   type AnalystVerdictChange,
   type AnalystWatchlist,
 } from '../../services/analystService';
-import { METRIC_LABEL, VERDICT_LABEL } from './marketLabels';
+import { METRIC_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial } from './marketLabels';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { FormulasCard } from './FormulasCard';
 import { MagicFormulaPanel } from './MagicFormulaPanel';
@@ -56,13 +56,6 @@ function formatWhen(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function deltaLabel(metric: string, fromVerdict?: string, toVerdict?: string): string {
-  const name = METRIC_LABEL[metric] || metric;
-  const from = fromVerdict ? (VERDICT_LABEL[fromVerdict] || fromVerdict) : '—';
-  const to = toVerdict ? (VERDICT_LABEL[toVerdict] || toVerdict) : '—';
-  return `${name}: ${from} → ${to}`;
 }
 
 function materialStyle(isMaterial: boolean): React.CSSProperties {
@@ -355,7 +348,7 @@ export const MarketAnalyzeView: React.FC = () => {
           </div>
           {analysis.gaps.length > 0 ? (
             <p className="text-muted">
-              Lacunas: {analysis.gaps.map((g) => `${g.metric} (${g.reason})`).join(', ')}
+              Lacunas: {analysis.gaps.map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${GAP_REASON_LABEL[g.reason] || g.reason})`).join(', ')}
             </p>
           ) : null}
           <div className="market-narrative" aria-live="polite">{analysis.narrative}</div>
@@ -412,8 +405,8 @@ export const MarketAnalyzeView: React.FC = () => {
                     <span className="table-cell-title">{item.ticker}</span>
                   </td>
                   <td>
-                    <span className="badge-role" style={materialStyle(item.isMaterial)}>
-                      {item.isMaterial ? 'Material' : 'Leve'}
+                    <span className="badge-role" style={materialStyle(displayIsMaterial(item))}>
+                      {displayIsMaterial(item) ? 'Material' : 'Leve'}
                     </span>
                   </td>
                   <td>
@@ -437,8 +430,8 @@ export const MarketAnalyzeView: React.FC = () => {
           >
             <div className="mobile-card-top">
               <span className="mobile-domain-name">{item.ticker}</span>
-              <span className="badge-role" style={materialStyle(item.isMaterial)}>
-                {item.isMaterial ? 'Material' : 'Leve'}
+              <span className="badge-role" style={materialStyle(displayIsMaterial(item))}>
+                {displayIsMaterial(item) ? 'Material' : 'Leve'}
               </span>
             </div>
             <div className="mobile-card-subinfo">{formatWhen(item.detectedAt)}</div>

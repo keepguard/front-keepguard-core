@@ -1,4 +1,5 @@
 import type { AnalystMagicFormulaRanking, AnalystMagicRanked } from '../../services/analystService';
+import { MAGIC_FORMULA_MIN_UNIVERSE } from '../../services/analystService';
 
 function num(value: number): string {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
@@ -15,10 +16,14 @@ function shortSector(row: AnalystMagicRanked): string {
 }
 
 export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRanking }) {
-  const top = (ranking.ranked ?? []).slice(0, 10);
+  const universe = ranking.universeSize ?? 0;
+  const significant = universe >= MAGIC_FORMULA_MIN_UNIVERSE;
+  const top = significant ? (ranking.ranked ?? []).slice(0, 10) : [];
   const excluded = ranking.excluded?.length ?? 0;
   const omitted = ranking.omitted?.length ?? 0;
-  const concentration = (ranking.concentration ?? []).filter((row) => row.count >= 2).slice(0, 2);
+  const concentration = significant
+    ? (ranking.concentration ?? []).filter((row) => row.count >= 2).slice(0, 2)
+    : [];
   return (
     <section className="hpanel-table-card market-magic-panel" aria-label="Fórmula Mágica">
       <h2 className="market-analyze-title">Fórmula Mágica</h2>
@@ -28,9 +33,16 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
         de compra.
       </p>
       <p className="text-muted market-magic-meta">
-        {ranking.asOfDate} · {ranking.universeSize} no ranking · {excluded} excluída(s) · {omitted} omitida(s)
+        {ranking.asOfDate} · {universe} no ranking · {excluded} excluída(s) · {omitted} omitida(s)
       </p>
-      {concentration.length > 0 ? (
+      {!significant ? (
+        <p className="market-magic-insufficient" role="status">
+          Universo insuficiente para ranking significativo: {universe} ativo
+          {universe === 1 ? '' : 's'} (mínimo {MAGIC_FORMULA_MIN_UNIVERSE}). Concentração setorial também
+          fica oculta — amplie a watchlist para interpretar posição e concentração.
+        </p>
+      ) : null}
+      {significant && concentration.length > 0 ? (
         <ul className="market-magic-concentration">
           {concentration.map((row) => (
             <li key={row.sector}>
@@ -39,7 +51,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
           ))}
         </ul>
       ) : null}
-      {top.length === 0 ? (
+      {!significant ? null : top.length === 0 ? (
         <p className="text-muted">Ainda não há ativos elegíveis neste dia.</p>
       ) : (
         <table className="hpanel-table">

@@ -19,7 +19,7 @@ import {
   type AnalystRunDetail,
   type AnalystVerdictChange,
 } from '../../services/analystService';
-import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL } from './marketLabels';
+import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { FormulasCard } from './FormulasCard';
@@ -91,13 +91,6 @@ function freshestCollectedAt(run: AnalystRun | null): string | null {
     }
   }
   return best || null;
-}
-
-function deltaLabel(metric: string, fromVerdict?: string, toVerdict?: string): string {
-  const name = METRIC_LABEL[metric] || metric;
-  const from = fromVerdict ? (VERDICT_LABEL[fromVerdict] || fromVerdict) : '—';
-  const to = toVerdict ? (VERDICT_LABEL[toVerdict] || toVerdict) : '—';
-  return `${name}: ${from} → ${to}`;
 }
 
 function materialStyle(isMaterial: boolean): React.CSSProperties {
@@ -553,7 +546,7 @@ export const MarketDeskView: React.FC = () => {
           </section>
           {latest.gaps.length > 0 ? (
             <p className="text-muted">
-              Lacunas: {latest.gaps.map((g) => `${g.metric} (${g.reason})`).join(', ')}
+              Lacunas: {latest.gaps.map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${GAP_REASON_LABEL[g.reason] || g.reason})`).join(', ')}
             </p>
           ) : null}
           <section className="market-news" aria-labelledby={`${instanceId}-news`}>
@@ -664,8 +657,8 @@ export const MarketDeskView: React.FC = () => {
                         <span className="table-cell-title">{item.ticker}</span>
                       </td>
                       <td>
-                        <span className="badge-role" style={materialStyle(item.isMaterial)}>
-                          {item.isMaterial ? 'Material' : 'Leve'}
+                        <span className="badge-role" style={materialStyle(displayIsMaterial(item))}>
+                          {displayIsMaterial(item) ? 'Material' : 'Leve'}
                         </span>
                       </td>
                       <td>
@@ -683,8 +676,8 @@ export const MarketDeskView: React.FC = () => {
               <div className="mobile-domain-card" key={item.id}>
                 <div className="mobile-card-top">
                   <span className="mobile-domain-name">{item.ticker}</span>
-                  <span className="badge-role" style={materialStyle(item.isMaterial)}>
-                    {item.isMaterial ? 'Material' : 'Leve'}
+                  <span className="badge-role" style={materialStyle(displayIsMaterial(item))}>
+                    {displayIsMaterial(item) ? 'Material' : 'Leve'}
                   </span>
                 </div>
                 <div className="mobile-card-subinfo">{formatWhen(item.detectedAt)}</div>

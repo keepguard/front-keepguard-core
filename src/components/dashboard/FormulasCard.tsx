@@ -1,4 +1,5 @@
 import type { AnalystFormulas } from '../../services/analystService';
+import { MAGIC_FORMULA_MIN_UNIVERSE } from '../../services/analystService';
 
 function pct(value: number): string {
   return `${(value * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
@@ -16,6 +17,9 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
   const ctx = formulas.context;
   if (!graham && !ey && !magic && !piotroski && !ctx) return null;
   const sectorName = ctx?.sectorLabel || ctx?.sector || '';
+  const magicSignificant =
+    magic != null && (magic.universeSize ?? 0) >= MAGIC_FORMULA_MIN_UNIVERSE;
+  const showConcentration = magicSignificant && ctx?.concentration != null;
   return (
     <article className="market-formulas" aria-label="Fórmulas">
       <span className="market-thesis-kicker">Fórmulas</span>
@@ -34,13 +38,18 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
           Earnings yield {num(ey.eyPct)}% vs CDI {num(ey.cdiPct)}% (spread {num(ey.spreadPp)} pp)
         </p>
       ) : null}
-      {magic ? (
+      {magicSignificant && magic ? (
         <p className="market-formulas-line">
           Fórmula Mágica: posição {magic.rank} de {magic.universeSize}
           <span className="text-muted">
             {' '}
             · ranking do dia (Greenblatt) · bancos e utilities ficam de fora · não é recomendação
           </span>
+        </p>
+      ) : magic ? (
+        <p className="market-formulas-line text-muted">
+          Fórmula Mágica: universo insuficiente para posição significativa ({magic.universeSize}{' '}
+          ativo{magic.universeSize === 1 ? '' : 's'}; mínimo {MAGIC_FORMULA_MIN_UNIVERSE})
         </p>
       ) : null}
       {piotroski ? (
@@ -49,7 +58,7 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
           {piotroski.partial ? ' · parcial, sem fluxo de caixa — rentabilidade/eficiência, não qualidade do lucro' : ''}
         </p>
       ) : null}
-      {ctx?.concentration ? (
+      {showConcentration && ctx?.concentration ? (
         <p className="market-formulas-line">
           {ctx.concentration.label} {ctx.concentration.count} de {ctx.concentration.of}
           <span className="text-muted"> no topo da Fórmula Mágica</span>
