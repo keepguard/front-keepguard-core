@@ -189,13 +189,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {canSeeAgents && (
                 <SidebarLink
                   to={PATHS.agents}
-                  end
                   label="Agents"
                   icon={<Cpu size={18} className="sidebar-icon" />}
                   onCloseMobile={onCloseMobile}
                 />
               )}
-              {canSeeAgentIncidents && (
+              {canSeeAgentIncidents && !canSeeAgents && (
                 <SidebarLink
                   to={PATHS.agentIncidents}
                   label="Incidentes"

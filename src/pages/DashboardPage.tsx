@@ -15,8 +15,7 @@ import { AuditsView } from '../components/dashboard/AuditsView';
 import { LlmView } from '../components/dashboard/LlmView';
 import { GuardianView } from '../components/dashboard/GuardianView';
 import { ClientSystemView } from '../components/dashboard/ClientSystemView';
-import { AgentsView } from '../components/dashboard/AgentsView';
-import { AgentIncidentsView } from '../components/dashboard/AgentIncidentsView';
+import { AgentsHubView } from '../components/dashboard/AgentsHubView';
 import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
 import { MarketAnalyzeView } from '../components/dashboard/MarketAnalyzeView';
@@ -300,7 +299,7 @@ export const ClientSystemPage: React.FC = () => (
   </DashboardShell>
 );
 
-export const AgentsPage: React.FC = () => (
+const AgentsHubPage: React.FC = () => (
   <DashboardShell>
     <div className="dashboard-header">
       <div className="dashboard-title-group">
@@ -309,30 +308,19 @@ export const AgentsPage: React.FC = () => (
           Agents
         </h1>
         <p className="dashboard-subtitle">
-          Jobs de coleta do srv-data-collector. Visível para ADMIN e SYSTEM.
+          Jobs de coleta e incidentes do srv-data-collector. Agents para ADMIN/SYSTEM; Incidentes também para MANAGER.
         </p>
       </div>
     </div>
-    <AgentsView />
+    <AgentsHubView />
   </DashboardShell>
 );
 
-export const AgentIncidentsPage: React.FC = () => (
-  <DashboardShell>
-    <div className="dashboard-header">
-      <div className="dashboard-title-group">
-        <h1 className="dashboard-title">
-          <ShieldAlert size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Incidentes
-        </h1>
-        <p className="dashboard-subtitle">
-          Casos abertos da coleta do srv-data-collector. Visível para ADMIN e MANAGER.
-        </p>
-      </div>
-    </div>
-    <AgentIncidentsView />
-  </DashboardShell>
-);
+export const AgentsPage = AgentsHubPage;
+
+/** Mesmo hub que Agents; deep link `/agents/incidentes` abre a aba Incidentes. */
+export const AgentIncidentsPage = AgentsHubPage;
+
 
 export const DataSourcesPage: React.FC = () => (
   <DashboardShell>
