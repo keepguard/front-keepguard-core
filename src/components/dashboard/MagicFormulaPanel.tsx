@@ -8,12 +8,22 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
   const top = (ranking.ranked ?? []).slice(0, 10);
   const excluded = ranking.excluded?.length ?? 0;
   const omitted = ranking.omitted?.length ?? 0;
+  const concentration = (ranking.concentration ?? []).filter((row) => row.count >= 2).slice(0, 2);
   return (
     <section className="hpanel-table-card market-magic-panel" aria-label="Fórmula Mágica">
       <h2 className="market-analyze-title">Fórmula Mágica</h2>
       <p className="text-muted market-magic-meta">
         {ranking.asOfDate} · {ranking.universeSize} no ranking · {excluded} excluída(s) · {omitted} omitida(s)
       </p>
+      {concentration.length > 0 ? (
+        <ul className="market-magic-concentration">
+          {concentration.map((row) => (
+            <li key={row.sector}>
+              {row.label} {row.count} de {row.of}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {top.length === 0 ? (
         <p className="text-muted">Ainda não há ativos elegíveis neste dia.</p>
       ) : (

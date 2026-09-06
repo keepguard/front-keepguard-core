@@ -277,6 +277,8 @@ export interface AnalystMagicRanked {
   roicRank: number;
   eyPct: number;
   roicPct: number;
+  sector?: string;
+  sectorLabel?: string;
 }
 
 export interface AnalystMagicExcluded {
@@ -290,6 +292,13 @@ export interface AnalystMagicOmitted {
   metrics?: string[];
 }
 
+export interface AnalystMagicConcentration {
+  sector: string;
+  label: string;
+  count: number;
+  of: number;
+}
+
 export interface AnalystMagicFormulaRanking {
   methodology: string;
   asOfDate: string;
@@ -298,6 +307,7 @@ export interface AnalystMagicFormulaRanking {
   ranked: AnalystMagicRanked[];
   excluded: AnalystMagicExcluded[];
   omitted: AnalystMagicOmitted[];
+  concentration?: AnalystMagicConcentration[];
   disclaimer: string;
 }
 

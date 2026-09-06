@@ -5277,6 +5277,12 @@ textarea.form-input {
   font-size: 0.85rem;
 }
 
+.market-magic-concentration {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+
 .market-signals {
   display: grid;
   gap: 0.75rem;
