@@ -1073,7 +1073,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0;
-  margin: 0 0 1.25rem;
+  margin: 0 0 2rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1112,6 +1112,29 @@ body {
 
 .llm-panel-tabpanel {
   min-width: 0;
+}
+
+.llm-panel-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  background: #fdecea;
+  color: #c0392b;
+  border: 1px solid #f5c6cb;
+  vertical-align: middle;
+}
+
+.llm-panel-tab.is-active .llm-panel-tab-count {
+  background: #fdecea;
+  color: #c0392b;
+  border-color: #f5c6cb;
 }
 
 .llm-form-field {

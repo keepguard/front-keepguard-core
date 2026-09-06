@@ -100,7 +100,10 @@ function confirmCopy(action: IncidentConfirmAction): { title: string; body: stri
   }
 }
 
-export const AgentIncidentsView: React.FC = () => {
+export const AgentIncidentsView: React.FC<{
+  onOpenCountChange?: (count: number) => void;
+  onIncidentsMutated?: () => void;
+}> = ({ onOpenCountChange, onIncidentsMutated }) => {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
@@ -118,6 +121,10 @@ export const AgentIncidentsView: React.FC = () => {
   const pageRef = useRef(page);
   const appliedRef = useRef(applied);
   const itemsRef = useRef(items);
+  const onOpenCountChangeRef = useRef(onOpenCountChange);
+  const onIncidentsMutatedRef = useRef(onIncidentsMutated);
+  onOpenCountChangeRef.current = onOpenCountChange;
+  onIncidentsMutatedRef.current = onIncidentsMutated;
   pageRef.current = page;
   appliedRef.current = applied;
   itemsRef.current = items;
@@ -139,7 +146,9 @@ export const AgentIncidentsView: React.FC = () => {
       setTotalPages(Math.max(result.totalPages || 1, 1));
       setSortKey(null);
       setSortDir('asc');
-    } catch (err: unknown) {
+      if ((nextFilters.status || '') === 'open') {
+        onOpenCountChangeRef.current?.(Math.max(0, result.totalElements || 0));
+      }    } catch (err: unknown) {
       const error = err as { status?: number; message?: string };
       if (error?.status === 401 || error?.status === 403) {
         addToast({
@@ -232,6 +241,7 @@ export const AgentIncidentsView: React.FC = () => {
             ? 'Uma nova falha abre outro incidente.'
             : 'Configuração atualizada e incidente fechado.',
       });
+      onIncidentsMutatedRef.current?.();
     } catch (error) {
       addToast({
         type: 'error',
