@@ -38,6 +38,7 @@ export const METRIC_LABEL: Record<string, string> = {
   fco_vs_lucro: 'FCO vs lucro',
   divida_lp: 'Dívida de longo prazo',
   n_acoes: 'Número de ações',
+  lucro_liquido: 'Lucro líquido',
   thesis: 'Tese',
   roa_pct: 'ROA',
   margem_bruta_pct: 'Margem bruta',
@@ -111,6 +112,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   'bcb-sgs': 'Banco Central (SGS)',
   infomoney: 'InfoMoney',
   'money-times': 'Money Times',
+  'cvm-dfp': 'CVM DFP',
 };
 
 function metricName(metric: string): string {

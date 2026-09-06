@@ -9,7 +9,7 @@ import { SecurityCredentialsView } from '../components/dashboard/SecurityCredent
 import { PreferencesCard } from '../components/dashboard/PreferencesCard';
 import { ConnectionsView } from '../components/dashboard/ConnectionsView';
 import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseView';
-import { assertTenantDevicesVisibility } from '../utils/roles';
+import { assertCollectorVisibility, assertTenantDevicesVisibility } from '../utils/roles';
 import { AccountView } from '../components/dashboard/AccountView';
 import { AuditsView } from '../components/dashboard/AuditsView';
 import { LlmView } from '../components/dashboard/LlmView';
@@ -44,7 +44,11 @@ import {
 
 const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
 if (tenantDevicesVisibilityFailures.length > 0 && import.meta.env.DEV) {
-  console.warn('canAccessTenantDevices:', tenantDevicesVisibilityFailures);
+  console.warn('canReadSession:', tenantDevicesVisibilityFailures);
+}
+const collectorVisibilityFailures = assertCollectorVisibility();
+if (collectorVisibilityFailures.length > 0 && import.meta.env.DEV) {
+  console.warn('canReadCollector:', collectorVisibilityFailures);
 }
 
 function formatRefreshTime(date: Date | null) {

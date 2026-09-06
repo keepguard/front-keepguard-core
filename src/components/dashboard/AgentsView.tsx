@@ -87,6 +87,7 @@ import {
   type ExecutionPayloadItem,
 } from '../../services/agentService';
 import { searchOAuthClients, type OAuthClient } from '../../services/oauthClientService';
+import { canWriteCollector } from '../../utils/roles';
 
 type Filters = {
   q: string;
@@ -1090,7 +1091,8 @@ function CredentialChip({
 }
 
 export const AgentsView: React.FC = () => {
-  const { getAccessToken } = useAuth();
+  const { getAccessToken, user } = useAuth();
+  const writable = canWriteCollector(getAccessToken(), user?.roles);
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -2136,75 +2138,82 @@ export const AgentsView: React.FC = () => {
     );
   };
 
-  const renderActions = (item: CollectorAgent, prefix = 'desktop') => (
+  const renderActions = (item: CollectorAgent, prefix = 'desktop') => {
+    const readItems = [
+      {
+        id: 'history',
+        label: 'Histórico',
+        icon: <History size={15} />,
+        onSelect: () => { void openHistory(item); },
+      },
+      {
+        id: 'curl',
+        label: 'Copiar CURL',
+        icon: <Terminal size={15} />,
+        onSelect: () => openAgentCurlFromItem(item),
+      },
+    ];
+    const writeItems = [
+      {
+        id: 'test',
+        label: testingId === item.id ? 'Testando…' : 'Testar coleta',
+        icon: <FlaskConical size={15} />,
+        disabled: testingId === item.id,
+        onSelect: () => { void handleTest(item); },
+      },
+      {
+        id: 'run',
+        label: runningId === item.id ? 'Enfileirando…' : 'Executar',
+        icon: <Play size={15} />,
+        disabled: runningId === item.id || bulkLocked,
+        onSelect: () => { void handleRun(item); },
+      },
+      {
+        id: 'edit',
+        label: 'Editar',
+        icon: <Pencil size={15} />,
+        onSelect: () => { void openEdit(item); },
+      },
+      {
+        id: 'toggle',
+        label: item.enabled ? 'Desativar' : 'Ativar',
+        icon: item.enabled ? <PowerOff size={15} /> : <Power size={15} />,
+        disabled: bulkLocked,
+        onSelect: () => { void handleToggle(item); },
+      },
+      {
+        id: 'delete',
+        label: 'Excluir',
+        icon: <Trash2 size={15} />,
+        isDanger: true,
+        dividerBefore: true,
+        disabled: bulkLocked,
+        onSelect: () => setConfirmDelete(item),
+      },
+    ];
+    return (
     <RowActionsMenu
       id={`${prefix}-${item.id}`}
       ariaLabel={`Ações do agent ${item.name}`}
       menuState={actionsMenu}
-      items={[
-        {
-          id: 'history',
-          label: 'Histórico',
-          icon: <History size={15} />,
-          onSelect: () => { void openHistory(item); },
-        },
-        {
-          id: 'curl',
-          label: 'Copiar CURL',
-          icon: <Terminal size={15} />,
-          onSelect: () => openAgentCurlFromItem(item),
-        },
-        {
-          id: 'test',
-          label: testingId === item.id ? 'Testando…' : 'Testar coleta',
-          icon: <FlaskConical size={15} />,
-          disabled: testingId === item.id,
-          onSelect: () => { void handleTest(item); },
-        },
-        {
-          id: 'run',
-          label: runningId === item.id ? 'Enfileirando…' : 'Executar',
-          icon: <Play size={15} />,
-          disabled: runningId === item.id || bulkLocked,
-          onSelect: () => { void handleRun(item); },
-        },
-        {
-          id: 'edit',
-          label: 'Editar',
-          icon: <Pencil size={15} />,
-          onSelect: () => { void openEdit(item); },
-        },
-        {
-          id: 'toggle',
-          label: item.enabled ? 'Desativar' : 'Ativar',
-          icon: item.enabled ? <PowerOff size={15} /> : <Power size={15} />,
-          disabled: bulkLocked,
-          onSelect: () => { void handleToggle(item); },
-        },
-        {
-          id: 'delete',
-          label: 'Excluir',
-          icon: <Trash2 size={15} />,
-          isDanger: true,
-          dividerBefore: true,
-          disabled: bulkLocked,
-          onSelect: () => setConfirmDelete(item),
-        },
-      ]}
+      items={writable ? [...readItems, ...writeItems] : readItems}
     />
-  );
+    );
+  };
 
   const goClientSystem = () => navigate(PATHS.clientSystem);
 
   return (
     <div>
       <div className="client-system-create-row">
+        {writable ? (
         <div className="client-system-create-actions">
           <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
             <Plus size={15} />
             <span>Criar</span>
           </button>
         </div>
+        ) : null}
       </div>
 
       {bulkLocked && bulkProgress ? (
@@ -2347,7 +2356,7 @@ export const AgentsView: React.FC = () => {
         {pager(true)}
       </form>
 
-      {selectedCount > 0 ? (
+      {writable && selectedCount > 0 ? (
         <div className="agents-bulk-bar" role="region" aria-label="Ações em massa">
           <span className="agents-bulk-count" aria-live="polite">
             {selectedCount} selecionados{selectedOffPage > 0 ? ' (incluindo outras páginas)' : ''}
@@ -2389,7 +2398,7 @@ export const AgentsView: React.FC = () => {
                   checked={allPageSelected}
                   onChange={(e) => togglePageSelection(e.target.checked)}
                   aria-label="Selecionar página"
-                  disabled={items.length === 0 || bulkLocked}
+                  disabled={items.length === 0 || bulkLocked || !writable}
                 />
               </th>
               <th>Fonte</th>
@@ -2435,7 +2444,7 @@ export const AgentsView: React.FC = () => {
                       checked={selectedIds.has(item.id)}
                       onChange={(e) => toggleSelected(item.id, e.target.checked)}
                       aria-label={`Selecionar ${item.name}`}
-                      disabled={bulkLocked}
+                      disabled={bulkLocked || !writable}
                     />
                   </td>
                   <td>{dataSourceLabel(item.dataSourceName)}</td>
@@ -2486,7 +2495,7 @@ export const AgentsView: React.FC = () => {
                   checked={selectedIds.has(item.id)}
                   onChange={(e) => toggleSelected(item.id, e.target.checked)}
                   aria-label={`Selecionar ${item.name}`}
-                  disabled={bulkLocked}
+                  disabled={bulkLocked || !writable}
                 />
               </label>
               <span>{dataSourceLabel(item.dataSourceName)}</span>
@@ -3211,6 +3220,7 @@ export const AgentsView: React.FC = () => {
                           {historySuggestion.reason ? ` — ${historySuggestion.reason}` : ''}
                         </p>
                       ) : null}
+                      {writable ? (
                       <div className="agent-incident-actions">
                         {historyIncidentConfirm ? (
                           <>
@@ -3269,6 +3279,7 @@ export const AgentsView: React.FC = () => {
                           </>
                         )}
                       </div>
+                      ) : null}
                     </>
                   )}
                 </section>

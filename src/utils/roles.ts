@@ -80,30 +80,83 @@ export function canReadAudits(
   token: string | null | undefined,
   roles?: string[] | null
 ): boolean {
-  if (hasAdminRole(roles)) {
-    return true;
-  }
-  return authoritiesFromJwt(token).includes(AUDIT_READ_AUTHORITY);
+  return hasJwtAuthority(token, roles, AUDIT_READ_AUTHORITY);
 }
 
 export function canReadLlm(
   token: string | null | undefined,
   roles?: string[] | null
 ): boolean {
-  if (hasAdminRole(roles)) {
-    return true;
-  }
-  return authoritiesFromJwt(token).includes(LLM_READ_AUTHORITY);
+  return hasJwtAuthority(token, roles, LLM_READ_AUTHORITY);
 }
 
 export function canWriteLlm(
   token: string | null | undefined,
   roles?: string[] | null
 ): boolean {
+  return hasJwtAuthority(token, roles, LLM_WRITE_AUTHORITY);
+}
+
+function hasJwtAuthority(
+  token: string | null | undefined,
+  roles: string[] | null | undefined,
+  authority: string
+): boolean {
   if (hasAdminRole(roles)) {
     return true;
   }
-  return authoritiesFromJwt(token).includes(LLM_WRITE_AUTHORITY);
+  return authoritiesFromJwt(token).includes(authority);
+}
+
+export const COLLECTOR_READ_AUTHORITY = 'collector:read';
+export const COLLECTOR_WRITE_AUTHORITY = 'collector:write';
+export const GUARDIAN_READ_AUTHORITY = 'guardian:read';
+export const GUARDIAN_WRITE_AUTHORITY = 'guardian:write';
+export const OAUTH_READ_AUTHORITY = 'oauth:read';
+export const OAUTH_WRITE_AUTHORITY = 'oauth:write';
+export const SESSION_READ_AUTHORITY = 'session:read';
+export const SESSION_WRITE_AUTHORITY = 'session:write';
+export const OPS_READ_AUTHORITY = 'ops:read';
+export const KNOWLEDGE_READ_AUTHORITY = 'knowledge:read';
+
+export function canReadCollector(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, COLLECTOR_READ_AUTHORITY);
+}
+
+export function canWriteCollector(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, COLLECTOR_WRITE_AUTHORITY);
+}
+
+export function canReadGuardian(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, GUARDIAN_READ_AUTHORITY);
+}
+
+export function canWriteGuardian(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, GUARDIAN_WRITE_AUTHORITY);
+}
+
+export function canReadOAuth(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, OAUTH_READ_AUTHORITY);
+}
+
+export function canWriteOAuth(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, OAUTH_WRITE_AUTHORITY);
+}
+
+export function canReadSession(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, SESSION_READ_AUTHORITY);
+}
+
+export function canWriteSession(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, SESSION_WRITE_AUTHORITY);
+}
+
+export function canReadOps(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, OPS_READ_AUTHORITY);
+}
+
+export function canReadKnowledge(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, KNOWLEDGE_READ_AUTHORITY);
 }
 
 export type AccountSelfServiceAction = 'block' | 'delete';
@@ -249,19 +302,22 @@ export function assertLlmVisibility(): string[] {
 
 export const TENANT_DEVICES_VISIBILITY_CASES: Array<{
   name: string;
+  tokenPayload: Record<string, unknown>;
   roles: string[];
   canAccess: boolean;
 }> = [
-  { name: 'ADMIN acessa tenant', roles: ['ROLE_ADMIN'], canAccess: true },
-  { name: 'SYSTEM acessa tenant', roles: ['ROLE_SYSTEM'], canAccess: true },
-  { name: 'MANAGER acessa tenant', roles: ['ROLE_MANAGER'], canAccess: true },
-  { name: 'USER não acessa tenant', roles: ['ROLE_USER'], canAccess: false },
+  { name: 'ADMIN acessa tenant', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canAccess: true },
+  { name: 'SYSTEM acessa tenant', tokenPayload: { authorities: [] }, roles: ['ROLE_SYSTEM'], canAccess: true },
+  { name: 'MANAGER com session:read', tokenPayload: { authorities: ['session:read'] }, roles: ['ROLE_MANAGER'], canAccess: true },
+  { name: 'MANAGER sem session:read', tokenPayload: { authorities: [] }, roles: ['ROLE_MANAGER'], canAccess: false },
+  { name: 'USER não acessa tenant', tokenPayload: { authorities: [] }, roles: ['ROLE_USER'], canAccess: false },
 ];
 
 export function assertTenantDevicesVisibility(): string[] {
   const failures: string[] = [];
   for (const testCase of TENANT_DEVICES_VISIBILITY_CASES) {
-    const canAccess = canAccessTenantDevices(testCase.roles);
+    const token = encodeTestJwt(testCase.tokenPayload);
+    const canAccess = canReadSession(token, testCase.roles);
     if (canAccess !== testCase.canAccess) {
       failures.push(`${testCase.name}: esperado ${testCase.canAccess}, obtido ${canAccess}`);
     }
@@ -274,6 +330,58 @@ export function assertTenantDevicesVisibility(): string[] {
   }
   if (canWriteTenantDevice(undefined) !== false) {
     failures.push('writable omitido deve bloquear ação');
+  }
+  return failures;
+}
+
+export const COLLECTOR_VISIBILITY_CASES: Array<{
+  name: string;
+  tokenPayload: Record<string, unknown>;
+  roles: string[];
+  canRead: boolean;
+  canWrite: boolean;
+}> = [
+  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true, canWrite: true },
+  { name: 'MANAGER com collector:read', tokenPayload: { authorities: ['collector:read'] }, roles: ['ROLE_MANAGER'], canRead: true, canWrite: false },
+  { name: 'MANAGER sem collector:read', tokenPayload: { authorities: [] }, roles: ['ROLE_MANAGER'], canRead: false, canWrite: false },
+  { name: 'USER com collector:read', tokenPayload: { authorities: ['collector:read'] }, roles: ['ROLE_USER'], canRead: true, canWrite: false },
+];
+
+export function assertCollectorVisibility(): string[] {
+  const failures: string[] = [];
+  for (const testCase of COLLECTOR_VISIBILITY_CASES) {
+    const token = encodeTestJwt(testCase.tokenPayload);
+    const canRead = canReadCollector(token, testCase.roles);
+    const canWrite = canWriteCollector(token, testCase.roles);
+    if (canRead !== testCase.canRead) {
+      failures.push(`${testCase.name}: leitura esperada ${testCase.canRead}, obtida ${canRead}`);
+    }
+    if (canWrite !== testCase.canWrite) {
+      failures.push(`${testCase.name}: escrita esperada ${testCase.canWrite}, obtida ${canWrite}`);
+    }
+  }
+  return failures;
+}
+
+export const KNOWLEDGE_READ_VISIBILITY_CASES: Array<{
+  name: string;
+  tokenPayload: Record<string, unknown>;
+  roles: string[];
+  canRead: boolean;
+}> = [
+  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true },
+  { name: 'USER com knowledge:read', tokenPayload: { authorities: ['knowledge:read'] }, roles: ['ROLE_USER'], canRead: true },
+  { name: 'MANAGER sem knowledge:read', tokenPayload: { authorities: ['collector:read'] }, roles: ['ROLE_MANAGER'], canRead: false },
+];
+
+export function assertKnowledgeReadVisibility(): string[] {
+  const failures: string[] = [];
+  for (const testCase of KNOWLEDGE_READ_VISIBILITY_CASES) {
+    const token = encodeTestJwt(testCase.tokenPayload);
+    const canRead = canReadKnowledge(token, testCase.roles);
+    if (canRead !== testCase.canRead) {
+      failures.push(`${testCase.name}: esperado ${testCase.canRead}, obtido ${canRead}`);
+    }
   }
   return failures;
 }

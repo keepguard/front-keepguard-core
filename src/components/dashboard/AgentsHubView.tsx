@@ -3,9 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PATHS } from '../../navigation/routes';
 import { searchCollectorIncidents } from '../../services/agentService';
-import { hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
+import { assertCollectorVisibility, canReadCollector } from '../../utils/roles';
 import { AgentIncidentsView } from './AgentIncidentsView';
 import { AgentsView } from './AgentsView';
+
+const visibilityFailures = assertCollectorVisibility();
+if (visibilityFailures.length > 0 && import.meta.env.DEV) {
+  console.warn('canReadCollector:', visibilityFailures);
+}
 
 type Panel = 'agentes' | 'incidentes';
 
@@ -35,13 +40,13 @@ function formatOpenCount(count: number): string {
  * Rotas `/agents` e `/agents/incidentes` compartilham este shell; a aba ativa segue o path.
  */
 export const AgentsHubView: React.FC = () => {
-  const { user, getAccessToken } = useAuth();
+  const { user, getAccessToken, accessToken } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const canSeeAgents = hasAdminRole(user?.roles);
-  const canSeeIncidents = hasAdminOrManagerRole(user?.roles);
+  const canSeeAgents = canReadCollector(accessToken, user?.roles);
+  const canSeeIncidents = canSeeAgents;
 
   const tabs = useMemo(
     () => ALL_TABS.filter((tab) => (tab.id === 'agentes' ? canSeeAgents : canSeeIncidents)),

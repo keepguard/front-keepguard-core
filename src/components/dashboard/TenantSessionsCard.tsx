@@ -4,7 +4,7 @@ import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import type { DeviceSession } from '../../types/auth';
-import { canWriteTenantDevice } from '../../utils/roles';
+import { canWriteSession, canWriteTenantDevice } from '../../utils/roles';
 
 function formatDate(isoDate?: string) {
   if (!isoDate) return '—';
@@ -29,7 +29,8 @@ function compactId(value?: string): string {
 }
 
 export const TenantSessionsCard: React.FC = () => {
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated, getAccessToken, user } = useAuth();
+  const canMutateSessions = canWriteSession(getAccessToken(), user?.roles);
   const { addToast } = useToast();
   const [items, setItems] = useState<DeviceSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +99,7 @@ export const TenantSessionsCard: React.FC = () => {
       });
       return;
     }
-    if (!canWriteTenantDevice(session.writable)) {
+    if (!canMutateSessions || !canWriteTenantDevice(session.writable)) {
       addToast({
         type: 'error',
         title: 'Acesso restrito',
@@ -230,7 +231,7 @@ export const TenantSessionsCard: React.FC = () => {
                           }
                           aria-label="Encerrar sessão"
                           onClick={() => handleRevoke(session)}
-                          disabled={revokingKey === key || !canWriteTenantDevice(session.writable)}
+                          disabled={revokingKey === key || !canMutateSessions || !canWriteTenantDevice(session.writable)}
                         >
                           <LogOut size={15} />
                         </button>

@@ -38,6 +38,7 @@ import {
 } from '../../services/agentService';
 import { PropagateDataSourceModal } from './PropagateDataSourceModal';
 import { CollectorCurlModal } from './CollectorCurlModal';
+import { canWriteCollector } from '../../utils/roles';
 import { changedFieldGroups } from '../../utils/collectorTemplate';
 import {
   buildCollectorOriginCurlBlocksResolved,
@@ -507,7 +508,8 @@ function KeyValueEditor({
 }
 
 export const DataSourcesView: React.FC = () => {
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated, getAccessToken, user } = useAuth();
+  const writable = canWriteCollector(getAccessToken(), user?.roles);
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -838,11 +840,13 @@ export const DataSourcesView: React.FC = () => {
 
   const renderRowActions = (item: CollectorDataSource) => (
     <div className="table-actions-group" style={{ justifyContent: 'flex-end' }}>
+      {writable ? (
       <Tooltip label="Editar" description="Altera URL, variáveis, agenda e limite de requisições da fonte.">
         <button type="button" className="btn-table-icon" aria-label={`Editar ${item.name}`} onClick={() => openEdit(item)}>
           <Pencil size={15} />
         </button>
       </Tooltip>
+      ) : null}
       <Tooltip label="Copiar CURL" description="Gera o comando para testar a origem (API/HTML/documento) no terminal.">
         <button
           type="button"
@@ -853,6 +857,7 @@ export const DataSourcesView: React.FC = () => {
           <Terminal size={15} />
         </button>
       </Tooltip>
+      {writable ? (
       <Tooltip label="Propagar" description="Aplica alterações da fonte nos agents vinculados.">
         <button
           type="button"
@@ -863,6 +868,7 @@ export const DataSourcesView: React.FC = () => {
           <Share2 size={15} />
         </button>
       </Tooltip>
+      ) : null}
       <Tooltip label="Usar em agent" description="Abre Agents com esta fonte pré-selecionada.">
         <button
           type="button"
@@ -873,6 +879,8 @@ export const DataSourcesView: React.FC = () => {
           <Cpu size={15} />
         </button>
       </Tooltip>
+      {writable ? (
+      <>
       <Tooltip
         label={item.enabled === false ? 'Ativar' : 'Desativar'}
         description={
@@ -895,16 +903,20 @@ export const DataSourcesView: React.FC = () => {
           <Trash2 size={15} />
         </button>
       </Tooltip>
+      </>
+      ) : null}
     </div>
   );
 
   return (
     <>
       <div className="client-system-create-row">
+        {writable ? (
         <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
           <Plus size={15} />
           <span>Nova fonte</span>
         </button>
+        ) : null}
       </div>
 
       <form

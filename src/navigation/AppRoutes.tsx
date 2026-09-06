@@ -21,7 +21,7 @@ import {
   TenantSessionsPage,
   UserBlacklistPage,
 } from '../pages/DashboardPage';
-import { canAccessTenantDevices, canReadAudits, canReadLlm, hasAdminOrManagerRole, hasAdminRole } from '../utils/roles';
+import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, hasAdminRole } from '../utils/roles';
 import { AppLayout } from './AppLayout';
 import { PATHS } from './routes';
 import { RequireAccess } from './RequireAccess';
@@ -37,9 +37,13 @@ function MarketWatchlistRedirect() {
 
 export const AppRoutes: React.FC = () => {
   const { user, accessToken } = useAuth();
-  const canSeeTenantDevices = canAccessTenantDevices(user?.roles);
+  const canSeeTenantDevices = canReadSession(accessToken, user?.roles);
   const canSeeAdmin = hasAdminRole(user?.roles);
-  const canSeeAgentIncidents = hasAdminOrManagerRole(user?.roles);
+  const canSeeCollector = canReadCollector(accessToken, user?.roles);
+  const canSeeGuardian = canReadGuardian(accessToken, user?.roles);
+  const canSeeOAuth = canReadOAuth(accessToken, user?.roles);
+  const canSeeOps = canReadOps(accessToken, user?.roles);
+  const canSeeKnowledge = canReadKnowledge(accessToken, user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);
 
@@ -53,7 +57,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.tenantSessions}
           element={(
-            <RequireAccess allowed={canSeeTenantDevices} description="Somente ADMIN, SYSTEM ou MANAGER veem as sessões da organização.">
+            <RequireAccess allowed={canSeeTenantDevices} description="Somente ADMIN, SYSTEM ou quem tiver session:read veem as sessões da organização.">
               <TenantSessionsPage />
             </RequireAccess>
           )}
@@ -61,7 +65,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.adminBlacklist}
           element={(
-            <RequireAccess allowed={canSeeTenantDevices} description="Somente ADMIN, SYSTEM ou MANAGER veem os bloqueios da organização.">
+            <RequireAccess allowed={canSeeTenantDevices} description="Somente ADMIN, SYSTEM ou quem tiver session:read veem os bloqueios da organização.">
               <AdminBlacklistPage />
             </RequireAccess>
           )}
@@ -69,7 +73,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.connections}
           element={(
-            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM consultam as conexões.">
+            <RequireAccess allowed={canSeeOps} description="Somente ADMIN, SYSTEM ou quem tiver ops:read consultam as conexões.">
               <ConnectionsPage />
             </RequireAccess>
           )}
@@ -77,7 +81,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.guardian}
           element={(
-            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM acessam o Guardian.">
+            <RequireAccess allowed={canSeeGuardian} description="Somente ADMIN, SYSTEM ou quem tiver guardian:read acessam o Guardian.">
               <GuardianPage />
             </RequireAccess>
           )}
@@ -85,7 +89,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.clientSystem}
           element={(
-            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM gerenciam OAuth clients.">
+            <RequireAccess allowed={canSeeOAuth} description="Somente ADMIN, SYSTEM ou quem tiver oauth:read gerenciam OAuth clients.">
               <ClientSystemPage />
             </RequireAccess>
           )}
@@ -93,7 +97,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.agentIncidents}
           element={(
-            <RequireAccess allowed={canSeeAgentIncidents} description="Somente ADMIN ou MANAGER consultam incidentes de coleta.">
+            <RequireAccess allowed={canSeeCollector} description="Somente ADMIN, SYSTEM ou quem tiver collector:read consultam incidentes de coleta.">
               <AgentIncidentsPage />
             </RequireAccess>
           )}
@@ -101,7 +105,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.agents}
           element={(
-            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM gerenciam agents.">
+            <RequireAccess allowed={canSeeCollector} description="Somente ADMIN, SYSTEM ou quem tiver collector:read gerenciam agents.">
               <AgentsPage />
             </RequireAccess>
           )}
@@ -109,7 +113,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.dataSources}
           element={(
-            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM gerenciam fontes de dados.">
+            <RequireAccess allowed={canSeeCollector} description="Somente ADMIN, SYSTEM ou quem tiver collector:read gerenciam fontes de dados.">
               <DataSourcesPage />
             </RequireAccess>
           )}
@@ -117,7 +121,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.knowledge}
           element={(
-            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM consultam o conhecimento.">
+            <RequireAccess allowed={canSeeKnowledge} description="Somente ADMIN, SYSTEM ou quem tiver knowledge:read consultam o conhecimento.">
               <KnowledgePage />
             </RequireAccess>
           )}

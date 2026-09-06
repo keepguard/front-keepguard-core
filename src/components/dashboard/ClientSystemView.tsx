@@ -26,6 +26,7 @@ import {
   type OAuthClientDetail,
   type OAuthServiceRole,
 } from '../../services/oauthClientService';
+import { canWriteOAuth } from '../../utils/roles';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 
 type Filters = {
@@ -74,7 +75,8 @@ function statusStyle(status?: string): React.CSSProperties {
 }
 
 export const ClientSystemView: React.FC = () => {
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated, getAccessToken, user } = useAuth();
+  const writable = canWriteOAuth(getAccessToken(), user?.roles);
   const { addToast } = useToast();
 
   const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
@@ -372,7 +374,7 @@ export const ClientSystemView: React.FC = () => {
     />
   );
 
-  const renderActions = (item: OAuthClient) => (
+  const renderActions = (item: OAuthClient) => writable ? (
     <div className="table-actions-group" style={{ justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
@@ -420,15 +422,17 @@ export const ClientSystemView: React.FC = () => {
         <Trash2 size={15} />
       </button>
     </div>
-  );
+  ) : null;
 
   return (
     <div>
       <div className="client-system-create-row">
+        {writable ? (
         <button type="button" className="btn btn-primary btn-pill" onClick={openCreate}>
           <Plus size={15} />
           <span>Criar</span>
         </button>
+        ) : null}
       </div>
 
       <form className="audits-toolbar" onSubmit={handleSearch}>

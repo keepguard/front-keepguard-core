@@ -17,6 +17,7 @@ import {
   type CollectorIncident,
   type CollectorIncidentSuggestion,
 } from '../../services/agentService';
+import { canWriteCollector } from '../../utils/roles';
 import {
   formatIncidentDate,
   incidentClassificationLabel,
@@ -104,7 +105,8 @@ export const AgentIncidentsView: React.FC<{
   onOpenCountChange?: (count: number) => void;
   onIncidentsMutated?: () => void;
 }> = ({ onOpenCountChange, onIncidentsMutated }) => {
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated, getAccessToken, user } = useAuth();
+  const writable = canWriteCollector(getAccessToken(), user?.roles);
   const { addToast } = useToast();
   const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
   const [items, setItems] = useState<CollectorIncident[]>([]);
@@ -279,7 +281,7 @@ export const AgentIncidentsView: React.FC<{
     />
   );
 
-  const canAct = detail && (detail.status === 'open' || detail.status === 'acknowledged');
+  const canAct = writable && detail && (detail.status === 'open' || detail.status === 'acknowledged');
 
   return (
     <div>

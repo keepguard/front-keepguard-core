@@ -19,7 +19,7 @@ import {
   PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { canReadAudits, canReadLlm, canAccessTenantDevices, hasAdminOrManagerRole, hasAdminRole } from '../../utils/roles';
+import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, hasAdminRole } from '../../utils/roles';
 import { PATHS } from '../../navigation/routes';
 
 interface SidebarProps {
@@ -63,14 +63,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
 }) => {
   const { user, accessToken } = useAuth();
-  const canAccessTenantDevicesTab = canAccessTenantDevices(user?.roles);
-  const canSeeConnections = hasAdminRole(user?.roles);
-  const canSeeGuardian = hasAdminRole(user?.roles);
-  const canSeeClientSystem = hasAdminRole(user?.roles);
-  const canSeeAgents = hasAdminRole(user?.roles);
-  const canSeeAgentIncidents = hasAdminOrManagerRole(user?.roles);
-  const canSeeDataSources = hasAdminRole(user?.roles);
-  const canSeeKnowledge = hasAdminRole(user?.roles);
+  const canAccessTenantDevicesTab = canReadSession(accessToken, user?.roles);
+  const canSeeConnections = canReadOps(accessToken, user?.roles);
+  const canSeeGuardian = canReadGuardian(accessToken, user?.roles);
+  const canSeeClientSystem = canReadOAuth(accessToken, user?.roles);
+  const canSeeAgents = canReadCollector(accessToken, user?.roles);
+  const canSeeAgentIncidents = canSeeAgents;
+  const canSeeDataSources = canSeeAgents;
+  const canSeeKnowledge = canReadKnowledge(accessToken, user?.roles);
   const canSeeMarketOps = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);

@@ -5,7 +5,7 @@ import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import type { DeviceBlacklistEntry } from '../../types/auth';
-import { canWriteTenantDevice } from '../../utils/roles';
+import { canWriteSession, canWriteTenantDevice } from '../../utils/roles';
 
 function formatDate(isoDate?: string) {
   if (!isoDate) return '—';
@@ -37,7 +37,8 @@ function toApiDate(localValue: string): string | undefined {
 }
 
 export const AdminDeviceBlacklistCard: React.FC = () => {
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated, getAccessToken, user } = useAuth();
+  const canMutateSessions = canWriteSession(getAccessToken(), user?.roles);
   const { addToast } = useToast();
   const [items, setItems] = useState<DeviceBlacklistEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +110,7 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
   };
 
   const handleUnblock = async (entry: DeviceBlacklistEntry) => {
-    if (!canWriteTenantDevice(entry.writable)) {
+    if (!canMutateSessions || !canWriteTenantDevice(entry.writable)) {
       addToast({
         type: 'error',
         title: 'Acesso restrito',
@@ -250,10 +251,12 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
           >
             <RefreshCw size={15} className={loading ? 'spin' : ''} />
           </button>
+          {canMutateSessions ? (
           <button type="button" className="btn btn-primary btn-pill table-toolbar-push-end" onClick={() => setIsAddOpen(true)}>
             <Plus size={15} />
             <span>Bloquear dispositivo</span>
           </button>
+          ) : null}
         </div>
       </form>
 
@@ -329,7 +332,7 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
                           title={entry.writable === false ? 'Sem permissão para desbloquear este alvo' : 'Desbloquear dispositivo'}
                           aria-label="Desbloquear dispositivo"
                           onClick={() => handleUnblock(entry)}
-                          disabled={removingKey === key || !canWriteTenantDevice(entry.writable)}
+                          disabled={removingKey === key || !canMutateSessions || !canWriteTenantDevice(entry.writable)}
                         >
                           <LockOpen size={15} />
                         </button>
@@ -358,7 +361,7 @@ export const AdminDeviceBlacklistCard: React.FC = () => {
                 title={entry.writable === false ? 'Sem permissão para desbloquear este alvo' : 'Desbloquear dispositivo'}
                 aria-label="Desbloquear dispositivo"
                 onClick={() => handleUnblock(entry)}
-                disabled={!canWriteTenantDevice(entry.writable)}
+                disabled={!canMutateSessions || !canWriteTenantDevice(entry.writable)}
               >
                 <LockOpen size={15} />
               </button>

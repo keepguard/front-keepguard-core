@@ -25,6 +25,7 @@ import {
   type SuggestionDTO,
 } from '../../services/guardianService';
 import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
+import { canWriteGuardian } from '../../utils/roles';
 
 type SortKey = 'lastSeenAt' | 'createdAt' | 'severity' | 'status' | 'serviceName';
 type SortDir = 'asc' | 'desc';
@@ -162,7 +163,8 @@ function prettyJson(raw?: string) {
 }
 
 export const GuardianView: React.FC = () => {
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated, getAccessToken, user } = useAuth();
+  const writable = canWriteGuardian(getAccessToken(), user?.roles);
   const { addToast } = useToast();
   const { filters, setFilters, applied, page, applyFilters, goToPage } = useAppliedListUrl(EMPTY_FILTERS);
   const [items, setItems] = useState<GuardianIncidentListItem[]>([]);
@@ -590,6 +592,7 @@ export const GuardianView: React.FC = () => {
           <h3>Destinatários de alerta</h3>
           <span className="table-cell-muted">{recipients.length} cadastrado{recipients.length === 1 ? '' : 's'}</span>
         </summary>
+        {writable ? (
         <form onSubmit={addRecipient} className="guardian-recipients-form">
           <input
             className="form-input"
@@ -601,6 +604,7 @@ export const GuardianView: React.FC = () => {
             Adicionar
           </button>
         </form>
+        ) : null}
         <ul className="guardian-recipient-list">
           {recipients.length === 0 ? (
             <li className="guardian-recipient-row">
@@ -613,6 +617,7 @@ export const GuardianView: React.FC = () => {
                   <div className="guardian-recipient-email">{recipient.email}</div>
                   <div className="guardian-recipient-meta">{recipient.enabled ? 'Ativo' : 'Inativo'}</div>
                 </div>
+                {writable ? (
                 <button
                   type="button"
                   className="btn btn-secondary btn-pill"
@@ -623,6 +628,7 @@ export const GuardianView: React.FC = () => {
                 >
                   {recipient.enabled ? 'Desativar' : 'Ativar'}
                 </button>
+                ) : null}
               </li>
             ))
           )}
@@ -763,10 +769,11 @@ export const GuardianView: React.FC = () => {
               </div>
             ) : null}
 
+            {writable ? (
             <div className="guardian-actions">
               <strong style={{ fontSize: '0.85rem' }}>Ações no cluster</strong>
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#5f6368' }}>
-                Só ADMIN ou SYSTEM. Ações destrutivas pedem o nome do serviço.
+                Requer guardian:write. Ações destrutivas pedem o nome do serviço.
               </p>
               {(detail.suggestions || []).length === 0 ? (
                 <span className="table-cell-muted">Nenhuma ação catalogada neste incidente.</span>
@@ -809,6 +816,7 @@ export const GuardianView: React.FC = () => {
                 </div>
               ) : null}
             </div>
+            ) : null}
           </div>
         ) : null}
       </Modal>
