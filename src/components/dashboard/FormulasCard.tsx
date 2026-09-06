@@ -44,7 +44,7 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
       {piotroski ? (
         <p className="market-formulas-line">
           Piotroski F-Score {piotroski.score}/{piotroski.possible} (de {piotroski.of})
-          {piotroski.partial ? ' · parcial' : ''}
+          {piotroski.partial ? ' · parcial, sem fluxo de caixa — rentabilidade/eficiência, não qualidade do lucro' : ''}
         </p>
       ) : null}
     </article>
