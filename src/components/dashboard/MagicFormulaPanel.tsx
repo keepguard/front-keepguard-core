@@ -1,7 +1,17 @@
-import type { AnalystMagicFormulaRanking } from '../../services/analystService';
+import type { AnalystMagicFormulaRanking, AnalystMagicRanked } from '../../services/analystService';
 
 function num(value: number): string {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+}
+
+function shortSector(row: AnalystMagicRanked): string {
+  const label = row.sectorLabel ?? '';
+  if (!label) {
+    return '—';
+  }
+  const sep = ' — ';
+  const i = label.indexOf(sep);
+  return i >= 0 ? label.slice(i + sep.length) : label;
 }
 
 export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRanking }) {
@@ -32,6 +42,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
             <tr>
               <th>#</th>
               <th>Ticker</th>
+              <th>Setor</th>
               <th>Soma</th>
               <th>EY %</th>
               <th>ROIC %</th>
@@ -42,6 +53,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
               <tr key={row.ticker}>
                 <td>{row.rank}</td>
                 <td>{row.ticker}</td>
+                <td>{shortSector(row)}</td>
                 <td>{row.combined}</td>
                 <td>{num(row.eyPct)}</td>
                 <td>{num(row.roicPct)}</td>

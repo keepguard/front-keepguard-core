@@ -279,6 +279,8 @@ export interface AnalystMagicRanked {
   roicPct: number;
   sector?: string;
   sectorLabel?: string;
+  sectorRank?: number;
+  sectorSize?: number;
 }
 
 export interface AnalystMagicExcluded {
