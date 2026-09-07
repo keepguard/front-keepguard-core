@@ -23,6 +23,7 @@ import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { FormulasCard } from './FormulasCard';
+import { PATHS } from '../../navigation/routes';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -99,14 +100,9 @@ function materialStyle(isMaterial: boolean): React.CSSProperties {
     : { background: '#eef1f4', color: '#5f6368', borderColor: '#e0e3e7' };
 }
 
-function triggerLabel(trigger: string): string {
-  if (trigger === 'SCHEDULED') return 'Lote diário';
-  if (trigger === 'ON_DEMAND') return 'Sob demanda';
-  return trigger || '—';
-}
-
 const MACRO_METRICS = ['cdi_pct', 'selic_meta_pct', 'ipca_mensal_pct'] as const;
-const HISTORY_LIMIT = 7;
+/** Só a análise mais recente alimenta o dossiê; histórico de runs não é exibido. */
+const LATEST_RUNS_LIMIT = 1;
 const NEWS_LIMIT = 5;
 
 const MACRO_PERIOD: Record<(typeof MACRO_METRICS)[number], string> = {
@@ -123,11 +119,6 @@ function macroMetricLabel(metric: string): string {
   const name = METRIC_LABEL[metric] || metric;
   const period = MACRO_PERIOD[metric as keyof typeof MACRO_PERIOD];
   return period ? `${name} (${period})` : name;
-}
-
-function outcomeLabel(outcome: string): string {
-  if (outcome === 'SUCCESS') return 'Sucesso';
-  return outcome || '—';
 }
 
 function newsPlainText(raw: string): string {
@@ -151,10 +142,6 @@ function newsPlainText(raw: string): string {
 function signalValue(run: AnalystRun | null, metric: string): number | undefined {
   const value = run?.signals.find((s) => s.metric === metric)?.grounding?.valueNum;
   return typeof value === 'number' ? value : undefined;
-}
-
-function runVerdict(run: AnalystRun, metric: string): string | undefined {
-  return run.signals.find((s) => s.metric === metric)?.verdict;
 }
 
 function macroPoint(detail: AnalystRunDetail | null, metric: string): AnalystInputPoint | undefined {
@@ -255,13 +242,13 @@ export const MarketDeskView: React.FC = () => {
     setError('');
     try {
       const [nextRuns, nextChanges] = await Promise.all([
-        listRuns(ticker, HISTORY_LIMIT),
+        listRuns(ticker, LATEST_RUNS_LIMIT),
         listChanges(20, ticker),
       ]);
       setRuns(
         [...nextRuns]
           .sort((a, b) => (b.analyzedAt || '').localeCompare(a.analyzedAt || ''))
-          .slice(0, HISTORY_LIMIT),
+          .slice(0, LATEST_RUNS_LIMIT),
       );
       setChanges(nextChanges);
       if (nextRuns[0]?.id) {
@@ -539,7 +526,9 @@ export const MarketDeskView: React.FC = () => {
             </p>
           ) : null}
           {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
-          {latest.formulas ? <FormulasCard formulas={latest.formulas} /> : null}
+          {latest.formulas ? (
+            <FormulasCard formulas={latest.formulas} rankingLinkTo={PATHS.marketAnalyze} />
+          ) : null}
           <section className="market-trajectory" aria-labelledby={`${instanceId}-traj`}>
             <h3 id={`${instanceId}-traj`} className="market-section-title">Trajetória</h3>
             <div className="market-charts">
@@ -653,67 +642,6 @@ export const MarketDeskView: React.FC = () => {
           ) : null}
           <p className="market-disclaimer">{latest.disclaimer || DISCLAIMER}</p>
         </div>
-      ) : null}
-
-      {selectedTicker && runs.length > 0 ? (
-          <section className="market-history" aria-label="Histórico">
-          <div className="hpanel-table-card desktop-table-view market-table-card">
-            <header className="market-table-header">
-              <h3 className="market-table-title">Histórico</h3>
-              <p className="text-muted market-table-subtitle">7 análises mais recentes</p>
-            </header>
-            <table className="hpanel-table">
-              <thead>
-                <tr>
-                  <th>Quando</th>
-                  <th>Origem</th>
-                  <th>Preço</th>
-                  <th>P/L</th>
-                  <th>Resultado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map((run) => (
-                  <tr key={run.id}>
-                    <td><time dateTime={run.analyzedAt}>{formatWhen(run.analyzedAt)}</time></td>
-                    <td>{triggerLabel(run.trigger)}</td>
-                    <td>
-                      {runVerdict(run, 'price')
-                        ? (VERDICT_LABEL[runVerdict(run, 'price')!] || runVerdict(run, 'price'))
-                        : '—'}
-                    </td>
-                    <td>
-                      {runVerdict(run, 'pl')
-                        ? (VERDICT_LABEL[runVerdict(run, 'pl')!] || runVerdict(run, 'pl'))
-                        : '—'}
-                    </td>
-                    <td>{outcomeLabel(run.outcome)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mobile-cards-container">
-            <header className="market-mobile-header">
-              <h3 className="market-section-title">Histórico</h3>
-              <p className="text-muted market-table-subtitle">7 análises mais recentes</p>
-            </header>
-            {runs.map((run) => (
-              <div className="mobile-domain-card" key={run.id}>
-                <div className="mobile-card-top">
-                  <span className="mobile-domain-name">{formatWhen(run.analyzedAt)}</span>
-                  <span className="badge-role">{outcomeLabel(run.outcome)}</span>
-                </div>
-                <div className="mobile-card-subinfo">{triggerLabel(run.trigger)}</div>
-                <div className="mobile-card-meta">
-                  Preço {runVerdict(run, 'price') ? (VERDICT_LABEL[runVerdict(run, 'price')!] || runVerdict(run, 'price')) : '—'}
-                  {' · '}
-                  P/L {runVerdict(run, 'pl') ? (VERDICT_LABEL[runVerdict(run, 'pl')!] || runVerdict(run, 'pl')) : '—'}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
       ) : null}
 
       {selectedTicker ? (

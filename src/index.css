@@ -5286,9 +5286,68 @@ textarea.form-input {
   background: var(--bg-muted, #f8f9fa);
 }
 
+.market-formulas-group {
+  margin-top: 0.55rem;
+}
+
+.market-formulas-group + .market-formulas-group {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
 .market-formulas-line {
   margin: 0.25rem 0 0;
   font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.market-formulas-label {
+  font-weight: 600;
+}
+
+.market-formulas-emphasis {
+  font-weight: 700;
+}
+
+.market-formulas-magic {
+  margin: 0;
+}
+
+.market-formulas-magic-rank {
+  margin-top: 0;
+}
+
+.market-formulas-rank {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.market-formulas-rank-of {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.market-formulas-reading {
+  margin: 0.15rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.market-formulas-disclaimer {
+  font-size: 0.8rem;
+}
+
+.market-formulas-link {
+  color: var(--primary, #1a73e8);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.market-formulas-link:hover {
+  text-decoration-thickness: 2px;
 }
 
 .market-magic-panel {
