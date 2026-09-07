@@ -5352,12 +5352,17 @@ textarea.form-input {
   margin: 0 0 1.25rem;
 }
 
+.market-magic-intro {
+  padding: 1rem 1.25rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
 .market-magic-blurb {
-  margin: 0.35rem 0 0.65rem;
+  margin: 0;
   font-size: 0.88rem;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--text-muted);
-  max-width: 42rem;
+  max-width: 48rem;
 }
 
 .market-magic-meta {
@@ -5366,21 +5371,84 @@ textarea.form-input {
 }
 
 .market-magic-insufficient {
-  margin: 0 0 0.75rem;
-  padding: 0.65rem 0.75rem;
+  margin: 0.75rem 0 0;
+  padding: 0.7rem 0.85rem;
   font-size: 0.88rem;
   line-height: 1.45;
   color: var(--text-muted);
-  background: var(--surface-2, transparent);
-  border: 1px solid var(--border-subtle, currentColor);
-  border-radius: 4px;
-  max-width: 42rem;
+  background: var(--bg-muted, #f8f9fa);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 48rem;
 }
 
 .market-magic-concentration {
-  margin: 0 0 0.75rem;
-  padding-left: 1.1rem;
+  margin: 0.75rem 0 0;
+  padding-left: 1.15rem;
   font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-main);
+}
+
+.market-magic-empty {
+  margin: 0;
+  padding: 1.5rem 1.25rem;
+}
+
+.market-magic-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.market-magic-table {
+  table-layout: fixed;
+  min-width: 36rem;
+}
+
+.market-magic-col-rank {
+  width: 3.5rem;
+  white-space: nowrap;
+}
+
+.market-magic-col-ticker {
+  width: 6.5rem;
+  white-space: nowrap;
+}
+
+.market-magic-col-sector {
+  width: auto;
+}
+
+.market-magic-col-num {
+  width: 5.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.market-magic-table th.market-magic-col-num,
+.market-magic-table td.market-magic-col-num {
+  text-align: right;
+}
+
+.market-magic-footer {
+  margin: 0;
+  padding: 0.85rem 1.25rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.market-magic-mobile {
+  margin-bottom: 1.25rem;
+}
+
+.market-magic-mobile .market-magic-blurb {
+  margin: 0.65rem 0 0.85rem;
+}
+
+.market-magic-mobile .market-magic-concentration,
+.market-magic-mobile .market-magic-insufficient {
+  margin-bottom: 0.85rem;
 }
 
 .market-signals {
