@@ -19,7 +19,7 @@ import { AgentsHubView } from '../components/dashboard/AgentsHubView';
 import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
 import { MarketAnalyzeView } from '../components/dashboard/MarketAnalyzeView';
-import { MarketDeskView } from '../components/dashboard/MarketDeskView';
+import { MarketHubView } from '../components/dashboard/MarketHubView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
@@ -369,11 +369,11 @@ export const MarketDeskPage: React.FC = () => (
           Mercado
         </h1>
         <p className="dashboard-subtitle">
-          Consulte o último dossiê gravado. Análise, não recomendação de investimento.
+          Dossiê do ativo e ranking da Fórmula Mágica. Análise, não recomendação de investimento.
         </p>
       </div>
     </div>
-    <MarketDeskView />
+    <MarketHubView />
   </DashboardShell>
 );
 

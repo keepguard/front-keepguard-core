@@ -23,7 +23,6 @@ import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { FormulasCard } from './FormulasCard';
-import { PATHS } from '../../navigation/routes';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -526,9 +525,7 @@ export const MarketDeskView: React.FC = () => {
             </p>
           ) : null}
           {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
-          {latest.formulas ? (
-            <FormulasCard formulas={latest.formulas} rankingLinkTo={PATHS.marketAnalyze} />
-          ) : null}
+          {latest.formulas ? <FormulasCard formulas={latest.formulas} /> : null}
           <section className="market-trajectory" aria-labelledby={`${instanceId}-traj`}>
             <h3 id={`${instanceId}-traj`} className="market-section-title">Trajetória</h3>
             <div className="market-charts">

@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import type { AnalystFormulas } from '../../services/analystService';
 import { MAGIC_FORMULA_MIN_UNIVERSE } from '../../services/analystService';
 
@@ -18,13 +17,7 @@ function magicReading(rank: number, universeSize: number): string {
   return 'no meio do ranking do dia';
 }
 
-type FormulasCardProps = {
-  formulas: AnalystFormulas;
-  /** Quando definido, oferece atalho para o ranking completo (página Analisar). */
-  rankingLinkTo?: string;
-};
-
-export function FormulasCard({ formulas, rankingLinkTo }: FormulasCardProps) {
+export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
   const graham = formulas.graham;
   const ey = formulas.earningsYield;
   const magic = formulas.magicFormula;
@@ -84,14 +77,6 @@ export function FormulasCard({ formulas, rankingLinkTo }: FormulasCardProps) {
               ) : null}
               <p className="market-formulas-line text-muted market-formulas-disclaimer">
                 Ranking do dia (Greenblatt) · bancos e utilities ficam de fora · não é recomendação
-                {rankingLinkTo ? (
-                  <>
-                    {' · '}
-                    <Link to={rankingLinkTo} className="market-formulas-link">
-                      Ver ranking do dia
-                    </Link>
-                  </>
-                ) : null}
               </p>
             </div>
           ) : magic ? (
