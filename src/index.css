@@ -5434,6 +5434,43 @@ textarea.form-input {
   white-space: nowrap;
 }
 
+.market-magic-th-tip {
+  cursor: help;
+  border-bottom: 1px dotted currentColor;
+  outline: none;
+}
+
+.market-magic-th-tip:focus-visible {
+  border-bottom-style: solid;
+  color: var(--text-strong, #111827);
+}
+
+.market-magic-table th .ui-tooltip {
+  max-width: 100%;
+}
+
+.market-magic-table th .ui-tooltip-bubble {
+  min-width: 12rem;
+  max-width: 16rem;
+}
+
+.market-magic-legend {
+  margin: 0 0 0.85rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-muted, #6b7280);
+}
+
+.market-magic-legend strong {
+  color: var(--text-body, #374151);
+  font-weight: 600;
+}
+
 .market-magic-table th.market-magic-col-num,
 .market-magic-table td.market-magic-col-num,
 .market-magic-table th.market-magic-col-fscore,

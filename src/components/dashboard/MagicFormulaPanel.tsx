@@ -1,5 +1,46 @@
 import type { AnalystMagicFormulaRanking, AnalystMagicRanked } from '../../services/analystService';
 import { MAGIC_FORMULA_MIN_UNIVERSE } from '../../services/analystService';
+import { Tooltip } from '../common/Tooltip';
+
+const COLUMN_HELP = {
+  setor: {
+    label: 'Setor',
+    description: 'Setor usado no ranking. Bancos e utilities ficam de fora da Magia.',
+  },
+  soma: {
+    label: 'Soma',
+    description: 'Posição em EY + posição em ROIC. Menor soma = melhor na Magia.',
+  },
+  ey: {
+    label: 'EY %',
+    description: 'Earnings Yield: EBIT em relação ao valor da empresa (EV). Proxy de “está barata?”.',
+  },
+  roic: {
+    label: 'ROIC %',
+    description: 'Retorno sobre o capital investido. Proxy de “usa bem o capital?”.',
+  },
+  fscore: {
+    label: 'F-Score',
+    description:
+      'Piotroski: checklist de qualidade dos números (X de Y critérios calculáveis). Só contexto — não ordena o ranking.',
+  },
+} as const;
+
+function ColumnHint({
+  help,
+  align = 'center',
+}: {
+  help: (typeof COLUMN_HELP)[keyof typeof COLUMN_HELP];
+  align?: 'start' | 'center' | 'end';
+}) {
+  return (
+    <Tooltip label={help.label} description={help.description} align={align}>
+      <span tabIndex={0} className="market-magic-th-tip">
+        {help.label}
+      </span>
+    </Tooltip>
+  );
+}
 
 function num(value: number): string {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
@@ -74,11 +115,21 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
                 <tr>
                   <th className="market-magic-col-rank" scope="col">#</th>
                   <th className="market-magic-col-ticker" scope="col">Ticker</th>
-                  <th className="market-magic-col-sector" scope="col">Setor</th>
-                  <th className="market-magic-col-num" scope="col">Soma</th>
-                  <th className="market-magic-col-num" scope="col">EY %</th>
-                  <th className="market-magic-col-num" scope="col">ROIC %</th>
-                  <th className="market-magic-col-fscore" scope="col">F-Score</th>
+                  <th className="market-magic-col-sector" scope="col">
+                    <ColumnHint help={COLUMN_HELP.setor} align="start" />
+                  </th>
+                  <th className="market-magic-col-num" scope="col">
+                    <ColumnHint help={COLUMN_HELP.soma} align="end" />
+                  </th>
+                  <th className="market-magic-col-num" scope="col">
+                    <ColumnHint help={COLUMN_HELP.ey} align="end" />
+                  </th>
+                  <th className="market-magic-col-num" scope="col">
+                    <ColumnHint help={COLUMN_HELP.roic} align="end" />
+                  </th>
+                  <th className="market-magic-col-fscore" scope="col">
+                    <ColumnHint help={COLUMN_HELP.fscore} align="end" />
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -115,6 +166,19 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
         <p className="market-magic-blurb">
           Ranking do dia (Greenblatt). Bancos e utilities ficam de fora. Não é recomendação de compra.
         </p>
+        {significant ? (
+          <ul className="market-magic-legend">
+            <li>
+              <strong>Soma</strong> — EY-rank + ROIC-rank (menor = melhor)
+            </li>
+            <li>
+              <strong>EY %</strong> — barato? · <strong>ROIC %</strong> — eficiente?
+            </li>
+            <li>
+              <strong>F-Score</strong> — qualidade (contexto; não ordena)
+            </li>
+          </ul>
+        ) : null}
         {!significant ? (
           <p className="market-magic-insufficient" role="status">
             Universo insuficiente: {universe} ativo{universe === 1 ? '' : 's'} (mínimo{' '}
