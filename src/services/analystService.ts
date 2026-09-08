@@ -10,7 +10,7 @@ import { getAccessToken } from './tokenStore';
 
 const ANALYST_BASE = `${BFF_INVEST_URL}/api/v1/invest/analyst`;
 
-export const WATCHLIST_MAX_TICKERS = 100;
+export const WATCHLIST_MAX_TICKERS = 150;
 export const TICKER_PATTERN = /^[A-Z0-9]{4,6}$/;
 
 export interface AnalystSignal {

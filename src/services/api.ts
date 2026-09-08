@@ -125,6 +125,7 @@ export async function customFetch<T>(
   }
 
   const response = await fetch(url, {
+    credentials: 'include',
     ...fetchOptions,
     headers,
   });

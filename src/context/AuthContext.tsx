@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import type { User, AuthLoginResponse } from '../types/auth';
 import { authService } from '../services/authService';
+import { DEFAULT_TENANT_ID } from '../services/api';
 import {
   clearProactiveRefresh,
   clearTokens,
@@ -84,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hydrated = useMemo(() => hydrateFromStorage(), []);
   const [user, setUser] = useState<User | null>(() => readStoredUser(hydrated.accessToken));
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!hydrated.accessToken);
-  const [isInitializing, setIsInitializing] = useState<boolean>(() => !!hydrated.accessToken);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
   // Epoch só muda em login/logout — mantém accessToken estável no Context entre refreshes
   const [sessionEpoch, setSessionEpoch] = useState(0);
 
@@ -129,9 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     try {
       const token = getAccessToken();
-      if (token) {
-        await authService.logout(token);
-      }
+      await authService.logout(token || undefined);
     } catch (e) {
       console.warn('Erro ao efetuar logout no servidor:', e);
     } finally {
@@ -185,6 +184,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const bootstrap = async () => {
       const token = getAccessToken();
       if (!token) {
+        // Tenta bootstrap silencioso via Cookie HttpOnly persistente
+        const refreshed = await ensureFreshToken({ force: true });
+        if (cancelled) return;
+        if (refreshed) {
+          const freshToken = getAccessToken();
+          if (freshToken) {
+            const claims = parseJwtPayload(freshToken);
+            const jwtRoles = rolesFromJwt(freshToken);
+            const stored = localStorage.getItem(USER_STORAGE_KEY);
+            const parsed = stored ? (JSON.parse(stored) as Partial<User>) : null;
+            const restoredUser: User = {
+              codeUser: parsed?.codeUser || (typeof claims?.sub === 'string' ? claims.sub : '') || '',
+              username: parsed?.username || (typeof claims?.username === 'string' ? claims.username : 'user'),
+              name: parsed?.name || (typeof claims?.name === 'string' ? claims.name : ''),
+              email: parsed?.email || (typeof claims?.email === 'string' ? claims.email : ''),
+              roles: (parsed?.roles && parsed.roles.length > 0) ? parsed.roles : (jwtRoles.length > 0 ? jwtRoles : ['USER']),
+              tenantId: parsed?.tenantId
+                || (typeof claims?.tenant_id === 'string' ? claims.tenant_id : undefined)
+                || DEFAULT_TENANT_ID,
+            };
+            setUser(restoredUser);
+            setIsAuthenticated(true);
+            scheduleProactiveRefresh();
+          }
+        } else {
+          endSessionLocally();
+        }
         setIsInitializing(false);
         return;
       }

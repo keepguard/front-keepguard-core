@@ -115,21 +115,30 @@ export function hydrateFromStorage(): { accessToken: string | null; refreshToken
   if (typeof window === 'undefined') {
     return { accessToken: null, refreshToken: null };
   }
+  // Limpeza preventiva de refresh tokens legados do localStorage
+  localStorage.removeItem(REFRESH_STORAGE_KEY);
+
   accessToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-  refreshToken = localStorage.getItem(REFRESH_STORAGE_KEY);
+  if (accessToken) {
+    const exp = getTokenExpiresAtMs(accessToken);
+    if (exp != null && exp <= Date.now()) {
+      accessToken = null;
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  }
+
+  refreshToken = null;
   const savedRefresh = localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
   lastRefreshTime = savedRefresh ? new Date(savedRefresh) : null;
   const savedCount = localStorage.getItem(REFRESH_COUNT_STORAGE_KEY);
   refreshCount = savedCount ? parseInt(savedCount, 10) || 0 : 0;
   notify();
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken: null };
 }
 
 export function setTokens(nextAccess: string, nextRefresh?: string | null): void {
   accessToken = nextAccess || null;
-  if (nextRefresh !== undefined) {
-    refreshToken = nextRefresh || null;
-  }
+  refreshToken = nextRefresh || null;
 
   if (typeof window !== 'undefined') {
     if (accessToken) {
@@ -137,11 +146,8 @@ export function setTokens(nextAccess: string, nextRefresh?: string | null): void
     } else {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
     }
-    if (refreshToken) {
-      localStorage.setItem(REFRESH_STORAGE_KEY, refreshToken);
-    } else {
-      localStorage.removeItem(REFRESH_STORAGE_KEY);
-    }
+    // Refresh token nunca é salvo no localStorage (mantido exclusivamente no Cookie HttpOnly)
+    localStorage.removeItem(REFRESH_STORAGE_KEY);
   }
 
   notify();
@@ -244,10 +250,7 @@ export async function ensureFreshToken(options?: { force?: boolean }): Promise<b
   }
 
   const currentAccess = accessToken;
-  const tokenToUse = refreshToken || currentAccess;
-  if (!tokenToUse) {
-    return false;
-  }
+  const tokenToUse = refreshToken || currentAccess || '';
 
   if (!options?.force && currentAccess) {
     const expiresAt = getTokenExpiresAtMs(currentAccess);

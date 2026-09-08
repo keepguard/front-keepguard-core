@@ -39,10 +39,10 @@ export const authService = {
     });
   },
 
-  async refresh(payload: RefreshTokenRequest): Promise<RefreshTokenResponse> {
+  async refresh(payload?: RefreshTokenRequest): Promise<RefreshTokenResponse> {
     return customFetch<RefreshTokenResponse>(`${BFF_AUTH_URL}/api/v1/auth/refresh`, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload ?? { token: '' }),
       skipAuthRefresh: true,
     });
   },

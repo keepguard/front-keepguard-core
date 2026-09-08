@@ -135,7 +135,7 @@ export interface PaginatedDeviceSessions {
 }
 
 export interface RefreshTokenRequest {
-  token: string;
+  token?: string;
 }
 
 export interface RefreshTokenResponse {
