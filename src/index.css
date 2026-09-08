@@ -6006,10 +6006,37 @@ textarea.form-input {
   margin: 0 0 1rem;
 }
 
+.market-favs-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .market-desk-tickers-label {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+.market-favs-reorder-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.market-favs-reorder-trigger:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-light);
 }
 
 .market-desk-tickers-list {
@@ -6021,6 +6048,29 @@ textarea.form-input {
 
 .market-ticker-chip {
   padding-right: 0.35rem;
+  cursor: grab;
+  user-select: none;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.market-ticker-chip:active {
+  cursor: grabbing;
+}
+
+.market-ticker-chip.is-dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+.market-ticker-chip.is-drag-over {
+  border-color: var(--primary);
+  box-shadow: -3px 0 0 0 var(--primary);
+}
+
+.market-ticker-chip--active {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 1px var(--primary);
+  background: var(--primary-light);
 }
 
 .market-ticker-chip-label,
@@ -6063,6 +6113,116 @@ textarea.form-input {
 .market-ticker-chip-label:disabled,
 .market-ticker-chip-remove:disabled {
   opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Modal de Reorganizar Favoritos */
+.reorder-favs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.reorder-favs-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.reorder-favs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.reorder-favs-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.reorder-favs-item.is-dragging {
+  opacity: 0.4;
+}
+
+.reorder-favs-item.is-over {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.reorder-favs-handle {
+  color: var(--text-muted);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+}
+
+.reorder-favs-item:active .reorder-favs-handle {
+  cursor: grabbing;
+}
+
+.reorder-favs-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.reorder-favs-position {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 1.25rem;
+}
+
+.reorder-favs-ticker {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  letter-spacing: 0.02em;
+}
+
+.reorder-favs-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.reorder-favs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reorder-favs-btn:hover:not(:disabled) {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.reorder-favs-btn:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 

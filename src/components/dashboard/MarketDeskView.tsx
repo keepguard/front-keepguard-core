@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { LineChart, Search, Star } from 'lucide-react';
+import { ArrowUpDown, LineChart, Search, Star } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import {
   getFavorites,
@@ -23,6 +23,7 @@ import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { FormulasCard } from './FormulasCard';
+import { ReorderFavoritesModal } from './ReorderFavoritesModal';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -169,6 +170,11 @@ export const MarketDeskView: React.FC = () => {
   const [changesLoading, setChangesLoading] = useState(false);
   const [savingFav, setSavingFav] = useState(false);
 
+  const initialAutoSelectedRef = useRef(Boolean(fromQuery));
+  const [reorderOpen, setReorderOpen] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const instanceId = useId();
@@ -230,10 +236,17 @@ export const MarketDeskView: React.FC = () => {
       const [known, fav] = await Promise.all([listKnownTickers(), getFavorites()]);
       setCatalog(known.tickers ?? []);
       setFavorites(fav);
+      if (!initialAutoSelectedRef.current) {
+        initialAutoSelectedRef.current = true;
+        const currentParam = tickerFromQuery(new URLSearchParams(window.location.search).get('ticker'));
+        if (!currentParam && fav?.tickers && fav.tickers.length > 0) {
+          applyTicker(fav.tickers[0]);
+        }
+      }
     } catch (err) {
       setError(mapAnalystError(err, 'Falha ao carregar tickers conhecidos'));
     }
-  }, []);
+  }, [applyTicker]);
 
   const loadDossier = useCallback(async (ticker: string) => {
     setLoading(true);
@@ -362,23 +375,97 @@ export const MarketDeskView: React.FC = () => {
     }
   };
 
+  const handleReorderSave = async (nextTickers: string[]) => {
+    try {
+      const saved = await saveFavorites(nextTickers);
+      setFavorites(saved);
+      setCatalog((prev) => {
+        const merged = new Set(prev);
+        for (const ticker of saved.tickers) merged.add(ticker);
+        return Array.from(merged).sort();
+      });
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Favoritos',
+        description: mapAnalystError(err, 'Não foi possível atualizar a ordem dos favoritos.'),
+      });
+    }
+  };
+
+  const onChipDragStart = (e: React.DragEvent, index: number) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const onChipDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dropIndex !== index) {
+      setDropIndex(index);
+    }
+  };
+
+  const onChipDrop = (targetIndex: number) => {
+    if (dragIndex !== null && dragIndex !== targetIndex) {
+      const next = [...favoriteTickers];
+      const [moved] = next.splice(dragIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      void handleReorderSave(next);
+    }
+    setDragIndex(null);
+    setDropIndex(null);
+  };
+
+  const onChipDragEnd = () => {
+    setDragIndex(null);
+    setDropIndex(null);
+  };
+
   return (
     <div className="market-desk">
       {favoriteTickers.length > 0 ? (
         <div className="market-desk-tickers">
-          <span className="market-desk-tickers-label" id={`${instanceId}-favs`}>Favoritos</span>
+          <div className="market-favs-header">
+            <span className="market-desk-tickers-label" id={`${instanceId}-favs`}>Favoritos</span>
+            <button
+              type="button"
+              className="market-favs-reorder-trigger"
+              onClick={() => setReorderOpen(true)}
+              title="Organizar favoritos"
+              aria-label="Organizar favoritos"
+            >
+              <ArrowUpDown size={13} />
+            </button>
+          </div>
           <div className="market-desk-tickers-list" role="group" aria-labelledby={`${instanceId}-favs`}>
-            {favoriteTickers.map((ticker) => (
-              <span className="badge-role market-ticker-chip" key={ticker}>
-                <button
-                  type="button"
-                  className="market-ticker-chip-label"
-                  onClick={() => applyTicker(ticker)}
+            {favoriteTickers.map((ticker, index) => {
+              const isChipActive = ticker === selectedTicker;
+              const isDragging = dragIndex === index;
+              const isOver = dropIndex === index;
+
+              return (
+                <span
+                  className={`badge-role market-ticker-chip${isChipActive ? ' market-ticker-chip--active' : ''}${isDragging ? ' is-dragging' : ''}${isOver ? ' is-drag-over' : ''}`}
+                  key={ticker}
+                  draggable
+                  onDragStart={(e) => onChipDragStart(e, index)}
+                  onDragOver={(e) => onChipDragOver(e, index)}
+                  onDrop={() => onChipDrop(index)}
+                  onDragEnd={onChipDragEnd}
+                  title="Clique para abrir ou arraste para reorganizar"
                 >
-                  {ticker}
-                </button>
-              </span>
-            ))}
+                  <button
+                    type="button"
+                    className="market-ticker-chip-label"
+                    onClick={() => applyTicker(ticker)}
+                  >
+                    {ticker}
+                  </button>
+                </span>
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -723,6 +810,13 @@ export const MarketDeskView: React.FC = () => {
           </div>
         </section>
       ) : null}
+
+      <ReorderFavoritesModal
+        isOpen={reorderOpen}
+        onClose={() => setReorderOpen(false)}
+        tickers={favoriteTickers}
+        onSave={handleReorderSave}
+      />
     </div>
   );
 };
