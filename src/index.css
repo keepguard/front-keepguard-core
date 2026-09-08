@@ -5403,7 +5403,7 @@ textarea.form-input {
 
 .market-magic-table {
   table-layout: fixed;
-  min-width: 36rem;
+  min-width: 42rem;
 }
 
 .market-magic-col-rank {
@@ -5427,8 +5427,17 @@ textarea.form-input {
   white-space: nowrap;
 }
 
+.market-magic-col-fscore {
+  width: 5.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .market-magic-table th.market-magic-col-num,
-.market-magic-table td.market-magic-col-num {
+.market-magic-table td.market-magic-col-num,
+.market-magic-table th.market-magic-col-fscore,
+.market-magic-table td.market-magic-col-fscore {
   text-align: right;
 }
 

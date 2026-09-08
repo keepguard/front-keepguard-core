@@ -315,6 +315,8 @@ export interface AnalystMagicRanked {
   sectorLabel?: string;
   sectorRank?: number;
   sectorSize?: number;
+  piotroskiScore?: number;
+  piotroskiPossible?: number;
 }
 
 export interface AnalystMagicExcluded {

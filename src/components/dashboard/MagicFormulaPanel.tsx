@@ -5,6 +5,13 @@ function num(value: number): string {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 }
 
+function fScoreLabel(row: AnalystMagicRanked): string {
+  if (row.piotroskiPossible == null || row.piotroskiPossible <= 0 || row.piotroskiScore == null) {
+    return '—';
+  }
+  return `${row.piotroskiScore}/${row.piotroskiPossible}`;
+}
+
 function shortSector(row: AnalystMagicRanked): string {
   const label = row.sectorLabel ?? '';
   if (!label) {
@@ -71,6 +78,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
                   <th className="market-magic-col-num" scope="col">Soma</th>
                   <th className="market-magic-col-num" scope="col">EY %</th>
                   <th className="market-magic-col-num" scope="col">ROIC %</th>
+                  <th className="market-magic-col-fscore" scope="col">F-Score</th>
                 </tr>
               </thead>
               <tbody>
@@ -86,6 +94,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
                     <td className="market-magic-col-num">{row.combined}</td>
                     <td className="market-magic-col-num">{num(row.eyPct)}</td>
                     <td className="market-magic-col-num">{num(row.roicPct)}</td>
+                    <td className="market-magic-col-fscore">{fScoreLabel(row)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -130,7 +139,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
                 <span className="mobile-domain-name">
                   #{row.rank} · {row.ticker}
                 </span>
-                <span className="badge-role">Soma {row.combined}</span>
+                <span className="badge-role">Soma {row.combined} · F-Score {fScoreLabel(row)}</span>
               </div>
               <div className="mobile-card-subinfo">{shortSector(row)}</div>
               <div className="mobile-card-meta">
