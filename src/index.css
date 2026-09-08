@@ -5350,6 +5350,7 @@ textarea.form-input {
 
 .market-magic-panel {
   margin: 0 0 1.25rem;
+  overflow: visible;
 }
 
 .market-magic-intro {
@@ -5436,22 +5437,64 @@ textarea.form-input {
 
 .market-magic-th-tip {
   cursor: help;
-  border-bottom: 1px dotted currentColor;
   outline: none;
 }
 
+.market-magic-th-tip:hover,
 .market-magic-th-tip:focus-visible {
-  border-bottom-style: solid;
   color: var(--text-strong, #111827);
+}
+
+.market-magic-th-tip:focus-visible {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  border-radius: 3px;
 }
 
 .market-magic-table th .ui-tooltip {
   max-width: 100%;
 }
 
+/* Abaixo do cabeçalho: o card tem overflow:hidden e o balão acima ficava cortado */
 .market-magic-table th .ui-tooltip-bubble {
+  top: calc(100% + 8px);
+  bottom: auto;
   min-width: 12rem;
   max-width: 16rem;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.market-magic-table th .ui-tooltip-bubble::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: #1f2937;
+}
+
+.market-magic-table th .ui-tooltip:hover .ui-tooltip-bubble,
+.market-magic-table th .ui-tooltip:focus-within .ui-tooltip-bubble {
+  transform: translateX(-50%) translateY(0);
+}
+
+.market-magic-table th .ui-tooltip-align-start .ui-tooltip-bubble,
+.market-magic-table th .ui-tooltip-align-end .ui-tooltip-bubble {
+  transform: translateY(-4px);
+}
+
+.market-magic-table th .ui-tooltip-align-start:hover .ui-tooltip-bubble,
+.market-magic-table th .ui-tooltip-align-start:focus-within .ui-tooltip-bubble,
+.market-magic-table th .ui-tooltip-align-end:hover .ui-tooltip-bubble,
+.market-magic-table th .ui-tooltip-align-end:focus-within .ui-tooltip-bubble {
+  transform: translateY(0);
+}
+
+.market-magic-table th .ui-tooltip-align-start .ui-tooltip-bubble::after {
+  left: 12px;
+  right: auto;
+}
+
+.market-magic-table th .ui-tooltip-align-end .ui-tooltip-bubble::after {
+  left: auto;
+  right: 10px;
 }
 
 .market-magic-legend {
