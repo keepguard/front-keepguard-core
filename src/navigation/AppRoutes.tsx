@@ -9,6 +9,7 @@ import {
   DataSourcesPage,
   AuditsPage,
   LlmPage,
+  BillingPage,
   ClientSystemPage,
   ConnectionsPage,
   GuardianPage,
@@ -21,7 +22,7 @@ import {
   TenantSessionsPage,
   UserBlacklistPage,
 } from '../pages/DashboardPage';
-import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, hasAdminRole } from '../utils/roles';
+import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canReadBilling, hasAdminRole } from '../utils/roles';
 import { AppLayout } from './AppLayout';
 import { PATHS } from './routes';
 import { RequireAccess } from './RequireAccess';
@@ -46,6 +47,7 @@ export const AppRoutes: React.FC = () => {
   const canSeeKnowledge = canReadKnowledge(accessToken, user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);
+  const canSeeBilling = canReadBilling(accessToken, user?.roles);
 
   return (
     <Routes>
@@ -148,6 +150,14 @@ export const AppRoutes: React.FC = () => {
           element={(
             <RequireAccess allowed={canSeeLlm} description="Somente ADMIN, SYSTEM ou quem tiver llm:read consultam o uso de LLM.">
               <LlmPage />
+            </RequireAccess>
+          )}
+        />
+        <Route
+          path={PATHS.billing}
+          element={(
+            <RequireAccess allowed={canSeeBilling} description="Somente ADMIN, SYSTEM ou quem tiver billing:read acessam a assinatura.">
+              <BillingPage />
             </RequireAccess>
           )}
         />

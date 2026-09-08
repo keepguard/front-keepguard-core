@@ -11,6 +11,7 @@ import {
   Cpu,
   Database,
   Users,
+  CreditCard,
   X,
   BookOpen,
   LineChart,
@@ -19,7 +20,7 @@ import {
   PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, hasAdminRole } from '../../utils/roles';
+import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canReadBilling, hasAdminRole } from '../../utils/roles';
 import { PATHS } from '../../navigation/routes';
 
 interface SidebarProps {
@@ -74,6 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeMarketOps = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);
+  const canSeeBilling = canReadBilling(accessToken, user?.roles);
   const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarketOps;
 
   return (
@@ -133,6 +135,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               icon={<Ban size={18} className="sidebar-icon" />}
               onCloseMobile={onCloseMobile}
             />
+            {canSeeBilling && (
+              <SidebarLink
+                to={PATHS.billing}
+                label="Assinatura"
+                icon={<CreditCard size={18} className="sidebar-icon" />}
+                onCloseMobile={onCloseMobile}
+              />
+            )}
           </nav>
 
           {showAdminSection && (

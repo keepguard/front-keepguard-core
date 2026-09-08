@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { DEFAULT_TENANT_ID } from '../services/api';
 import { termsSyncService, type CheckTermsResult } from '../services/termsSyncService';
+import { BillingEntitlementBanner } from '../components/dashboard/BillingView';
 import { PATHS, pathFromTab, routeMetaFromPath } from './routes';
 
 const LegacyTabRedirect: React.FC = () => {
@@ -129,6 +130,7 @@ export const AppLayout: React.FC = () => {
             onToggleCollapse={toggleSidebarCollapse}
           />
           <main className="app-content">
+            <BillingEntitlementBanner />
             <Outlet />
           </main>
         </div>

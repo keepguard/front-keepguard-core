@@ -118,6 +118,8 @@ export const SESSION_READ_AUTHORITY = 'session:read';
 export const SESSION_WRITE_AUTHORITY = 'session:write';
 export const OPS_READ_AUTHORITY = 'ops:read';
 export const KNOWLEDGE_READ_AUTHORITY = 'knowledge:read';
+export const BILLING_READ_AUTHORITY = 'billing:read';
+export const BILLING_WRITE_AUTHORITY = 'billing:write';
 
 export function canReadCollector(token: string | null | undefined, roles?: string[] | null): boolean {
   return hasJwtAuthority(token, roles, COLLECTOR_READ_AUTHORITY);
@@ -157,6 +159,14 @@ export function canReadOps(token: string | null | undefined, roles?: string[] | 
 
 export function canReadKnowledge(token: string | null | undefined, roles?: string[] | null): boolean {
   return hasJwtAuthority(token, roles, KNOWLEDGE_READ_AUTHORITY);
+}
+
+export function canReadBilling(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, BILLING_READ_AUTHORITY);
+}
+
+export function canWriteBilling(token: string | null | undefined, roles?: string[] | null): boolean {
+  return hasJwtAuthority(token, roles, BILLING_WRITE_AUTHORITY);
 }
 
 export type AccountSelfServiceAction = 'block' | 'delete';
@@ -381,6 +391,36 @@ export function assertKnowledgeReadVisibility(): string[] {
     const canRead = canReadKnowledge(token, testCase.roles);
     if (canRead !== testCase.canRead) {
       failures.push(`${testCase.name}: esperado ${testCase.canRead}, obtido ${canRead}`);
+    }
+  }
+  return failures;
+}
+
+export const BILLING_VISIBILITY_CASES: Array<{
+  name: string;
+  tokenPayload: Record<string, unknown>;
+  roles: string[];
+  canRead: boolean;
+  canWrite: boolean;
+}> = [
+  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true, canWrite: true },
+  { name: 'SYSTEM sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_SYSTEM'], canRead: true, canWrite: true },
+  { name: 'USER com billing:read', tokenPayload: { authorities: ['billing:read'] }, roles: ['ROLE_USER'], canRead: true, canWrite: false },
+  { name: 'USER sem billing:read', tokenPayload: { authorities: [] }, roles: ['ROLE_USER'], canRead: false, canWrite: false },
+  { name: 'MANAGER com billing:read', tokenPayload: { authorities: ['billing:read'] }, roles: ['ROLE_MANAGER'], canRead: true, canWrite: false },
+];
+
+export function assertBillingVisibility(): string[] {
+  const failures: string[] = [];
+  for (const testCase of BILLING_VISIBILITY_CASES) {
+    const token = encodeTestJwt(testCase.tokenPayload);
+    const canRead = canReadBilling(token, testCase.roles);
+    const canWrite = canWriteBilling(token, testCase.roles);
+    if (canRead !== testCase.canRead) {
+      failures.push(`${testCase.name}: leitura esperada ${testCase.canRead}, obtida ${canRead}`);
+    }
+    if (canWrite !== testCase.canWrite) {
+      failures.push(`${testCase.name}: escrita esperada ${testCase.canWrite}, obtida ${canWrite}`);
     }
   }
   return failures;

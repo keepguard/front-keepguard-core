@@ -12,6 +12,7 @@ import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseVi
 import { assertCollectorVisibility, assertTenantDevicesVisibility } from '../utils/roles';
 import { AccountView } from '../components/dashboard/AccountView';
 import { AuditsView } from '../components/dashboard/AuditsView';
+import { BillingView } from '../components/dashboard/BillingView';
 import { LlmView } from '../components/dashboard/LlmView';
 import { GuardianView } from '../components/dashboard/GuardianView';
 import { ClientSystemView } from '../components/dashboard/ClientSystemView';
@@ -40,6 +41,7 @@ import {
   BookOpen,
   LineChart,
   Sparkles,
+  CreditCard,
 } from 'lucide-react';
 
 const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
@@ -425,6 +427,23 @@ export const LlmPage: React.FC = () => (
       </div>
     </div>
     <LlmView />
+  </DashboardShell>
+);
+
+export const BillingPage: React.FC = () => (
+  <DashboardShell>
+    <div className="dashboard-header">
+      <div className="dashboard-title-group">
+        <h1 className="dashboard-title">
+          <CreditCard size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          Assinatura
+        </h1>
+        <p className="dashboard-subtitle">
+          Planos da organização, PIX/boleto e faturas. Uma fatura pendente não é pagamento confirmado.
+        </p>
+      </div>
+    </div>
+    <BillingView />
   </DashboardShell>
 );
 
