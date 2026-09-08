@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '../../context/ToastContext';
 import {
-  getMagicFormulaRanking,
+  getLatestMagicFormulaRanking,
   type AnalystMagicFormulaRanking,
 } from '../../services/analystService';
 import { MagicFormulaPanel } from './MagicFormulaPanel';
@@ -19,11 +19,11 @@ const MARKET_TABS: ReadonlyArray<{ id: Panel; label: string; tabId: string; pane
   },
 ];
 
+const RANKING_EMPTY =
+  'Ainda não há ranking da Fórmula Mágica. O lote diário roda às 21:30 em dias úteis.';
+
 function mapRankingError(err: unknown): string {
   const status = (err as { status?: number }).status;
-  if (status === 404) {
-    return 'Ainda não há ranking da Fórmula Mágica para hoje.';
-  }
   if (status === 502 || status === 503 || status === 504) {
     return 'Não foi possível carregar o ranking agora. Tente de novo.';
   }
@@ -48,16 +48,14 @@ export const MarketHubView: React.FC = () => {
     setRankingLoading(true);
     setRankingError('');
     try {
-      const magic = await getMagicFormulaRanking();
+      const magic = await getLatestMagicFormulaRanking();
       setRanking(magic);
       rankingLoaded.current = true;
-    } catch (err) {
-      if ((err as { status?: number }).status === 404) {
-        setRanking(null);
-        setRankingError(mapRankingError(err));
-        rankingLoaded.current = true;
-        return;
+      if (!magic) {
+        setRankingError(RANKING_EMPTY);
       }
+    } catch (err) {
+      rankingLoaded.current = true;
       const message = mapRankingError(err);
       setRankingError(message);
       addToast({ type: 'error', title: 'Fórmula Mágica', description: message });
@@ -133,16 +131,29 @@ export const MarketHubView: React.FC = () => {
           <div className="market-magic-tab">
             {rankingLoading && !ranking ? (
               <p className="text-muted" role="status" aria-live="polite">
-                Carregando ranking do dia…
+                Carregando ranking…
               </p>
             ) : null}
             {!rankingLoading && rankingError && !ranking ? (
-              <div className="agent-test-result is-error" role="alert">
-                <p>{rankingError}</p>
-                <button type="button" className="btn btn-secondary btn-pill" onClick={() => { rankingLoaded.current = false; void loadRanking(); }}>
-                  Tentar de novo
-                </button>
-              </div>
+              rankingError === RANKING_EMPTY ? (
+                <p className="market-magic-pending" role="status">
+                  {rankingError}
+                </p>
+              ) : (
+                <div className="agent-test-result is-error" role="alert">
+                  <p>{rankingError}</p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-pill"
+                    onClick={() => {
+                      rankingLoaded.current = false;
+                      void loadRanking();
+                    }}
+                  >
+                    Tentar de novo
+                  </button>
+                </div>
+              )
             ) : null}
             {ranking ? <MagicFormulaPanel ranking={ranking} /> : null}
           </div>

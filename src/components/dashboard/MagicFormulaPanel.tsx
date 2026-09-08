@@ -1,5 +1,9 @@
 import type { AnalystMagicFormulaRanking, AnalystMagicRanked } from '../../services/analystService';
-import { MAGIC_FORMULA_MIN_UNIVERSE } from '../../services/analystService';
+import {
+  MAGIC_FORMULA_MIN_UNIVERSE,
+  businessDateBRT,
+  formatIsoDatePt,
+} from '../../services/analystService';
 import { Tooltip } from '../common/Tooltip';
 
 const COLUMN_HELP = {
@@ -63,20 +67,33 @@ function shortSector(row: AnalystMagicRanked): string {
   return i >= 0 ? label.slice(i + sep.length) : label;
 }
 
+function PendingTodayNotice({ asOfDate }: { asOfDate: string }) {
+  return (
+    <p className="market-magic-pending" role="status">
+      Ranking de {formatIsoDatePt(asOfDate)}. O de hoje ainda não foi processado — o lote diário
+      roda às 21:30 (dias úteis).
+    </p>
+  );
+}
+
 export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRanking }) {
   const universe = ranking.universeSize ?? 0;
   const significant = universe >= MAGIC_FORMULA_MIN_UNIVERSE;
   const top = significant ? (ranking.ranked ?? []).slice(0, 10) : [];
   const excluded = ranking.excluded?.length ?? 0;
   const omitted = ranking.omitted?.length ?? 0;
+  const pendingToday = ranking.asOfDate !== businessDateBRT();
+  const asOfLabel = formatIsoDatePt(ranking.asOfDate);
   const concentration = significant
     ? (ranking.concentration ?? []).filter((row) => row.count >= 2).slice(0, 2)
     : [];
-  const meta = `${ranking.asOfDate} · ${universe} no ranking · ${excluded} excluída(s) · ${omitted} omitida(s)`;
+  const meta = `${asOfLabel} · ${universe} no ranking · ${excluded} excluída(s) · ${omitted} omitida(s)`;
+  const blurbDate = pendingToday ? `Ranking de ${asOfLabel}` : 'Ranking do dia';
 
   return (
     <section className="market-magic" aria-label="Fórmula Mágica">
       <div className="hpanel-table-card desktop-table-view market-table-card market-magic-panel">
+        {pendingToday ? <PendingTodayNotice asOfDate={ranking.asOfDate} /> : null}
         <header className="market-table-header">
           <h2 className="market-table-title">Fórmula Mágica</h2>
           <p className="text-muted market-table-subtitle">{meta}</p>
@@ -84,7 +101,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
 
         <div className="market-magic-intro">
           <p className="market-magic-blurb">
-            Ranking do dia inspirado em Joel Greenblatt: entre os papéis elegíveis da carteira, quem
+            {blurbDate} inspirado em Joel Greenblatt: entre os papéis elegíveis da carteira, quem
             combina preço atrativo com retorno sobre o capital. Bancos e utilities ficam de fora. Não é
             recomendação de compra.
           </p>
@@ -159,12 +176,13 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
       </div>
 
       <div className="mobile-cards-container market-magic-mobile">
+        {pendingToday ? <PendingTodayNotice asOfDate={ranking.asOfDate} /> : null}
         <header className="market-mobile-header">
           <h2 className="market-section-title">Fórmula Mágica</h2>
           <p className="text-muted market-table-subtitle">{meta}</p>
         </header>
         <p className="market-magic-blurb">
-          Ranking do dia (Greenblatt). Bancos e utilities ficam de fora. Não é recomendação de compra.
+          {blurbDate} (Greenblatt). Bancos e utilities ficam de fora. Não é recomendação de compra.
         </p>
         {significant ? (
           <ul className="market-magic-legend">

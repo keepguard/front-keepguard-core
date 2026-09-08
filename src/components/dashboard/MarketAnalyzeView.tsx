@@ -5,7 +5,7 @@ import { RefreshCombo } from '../common/RefreshCombo';
 import { useToast } from '../../context/ToastContext';
 import {
   analyzeTicker,
-  getMagicFormulaRanking,
+  getLatestMagicFormulaRanking,
   getWatchlist,
   isValidTicker,
   listChanges,
@@ -117,10 +117,7 @@ export const MarketAnalyzeView: React.FC = () => {
     try {
       const [wl, magic] = await Promise.all([
         getWatchlist(),
-        getMagicFormulaRanking().catch((err) => {
-          if ((err as { status?: number }).status === 404) return null;
-          throw err;
-        }),
+        getLatestMagicFormulaRanking(),
       ]);
       setList(wl);
       setRanking(magic);

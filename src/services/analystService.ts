@@ -90,6 +90,36 @@ export interface AnalystMagicFormulaPosition {
 /** Below this ranked universe, UI omits position/concentration (misleading). */
 export const MAGIC_FORMULA_MIN_UNIVERSE = 20;
 
+/** Calendar days before today (BRT) to look for a ranking when today's snapshot is missing. */
+export const MAGIC_FORMULA_LOOKBACK_DAYS = 7;
+
+const BUSINESS_TZ = 'America/Sao_Paulo';
+
+export function businessDateBRT(now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+export function shiftIsoDate(iso: string, days: number): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  if (!year || !month || !day) return iso;
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+export function formatIsoDatePt(iso: string): string {
+  const [year, month, day] = iso.split('-');
+  if (!year || !month || !day) return iso;
+  return `${day}/${month}/${year}`;
+}
+
+function isHttpStatus(err: unknown, status: number): boolean {
+  return (err as { status?: number }).status === status;
+}
+
 export interface AnalystPiotroskiBit {
   id: string;
   hit?: boolean;
@@ -356,4 +386,17 @@ export function getMagicFormulaRanking(date?: string): Promise<AnalystMagicFormu
     { method: 'GET' },
     token(),
   );
+}
+
+export async function getLatestMagicFormulaRanking(): Promise<AnalystMagicFormulaRanking | null> {
+  const today = businessDateBRT();
+  for (let offset = 0; offset <= MAGIC_FORMULA_LOOKBACK_DAYS; offset += 1) {
+    try {
+      return await getMagicFormulaRanking(shiftIsoDate(today, -offset));
+    } catch (err) {
+      if (isHttpStatus(err, 404)) continue;
+      throw err;
+    }
+  }
+  return null;
 }
