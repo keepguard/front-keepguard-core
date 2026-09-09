@@ -6464,8 +6464,33 @@ textarea.form-input {
   color: var(--text-sub);
 }
 
+.billing-org .billing-gateway-list {
+  display: grid;
+  gap: 1rem;
+  max-width: 36rem;
+}
+
 .billing-org .billing-gateway-card {
   max-width: 36rem;
+}
+
+.billing-gateway-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.billing-gateway-connect {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.billing-gateway-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
 }
 
 .billing-gateway-head {
@@ -6570,6 +6595,12 @@ textarea.form-input {
   color: var(--warning);
   background: var(--warning-light);
   border: 1px solid var(--warning-border);
+}
+
+.billing-status-pill.is-standby {
+  color: var(--text-sub);
+  background: var(--surface-2, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
 }
 
 .billing-status-pill.is-overdue {

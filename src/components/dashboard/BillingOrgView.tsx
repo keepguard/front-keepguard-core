@@ -5,13 +5,14 @@ import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
-  getBillingGatewayAccount,
+  listBillingGatewayAccounts,
   listBillingPlans,
   patchBillingPlan,
-  putBillingGatewayAccount,
+  putBillingGatewayAccountByGateway,
   saveBillingPlan,
   searchBillingEntitlements,
   searchBillingInvoices,
+  setPrimaryBillingGateway,
   type BillingEntitlement,
   type BillingGatewayAccount,
   type BillingInvoice,
@@ -316,30 +317,88 @@ function SubscribersPanel() {
   return <EntitlementTable hasPlan qPlaceholder="Usuário, e-mail ou UUID" emptyLabel="Nenhum assinante." />;
 }
 
+const LINKED_GATEWAYS = [{ slug: 'asaas', label: 'Asaas' }] as const;
+
 function gatewayLabel(gateway?: string | null): string {
-  switch ((gateway || '').toLowerCase()) {
-    case 'asaas':
-      return 'Asaas';
-    default:
-      return gateway || 'Gateway';
-  }
+  const linked = LINKED_GATEWAYS.find((item) => item.slug === (gateway || '').toLowerCase());
+  return linked?.label || gateway || 'Gateway';
+}
+
+function AsaasCredentialForm({
+  idPrefix,
+  apiKey,
+  webhookToken,
+  onApiKey,
+  onWebhookToken,
+  submitLabel,
+  busy,
+  hint,
+  onSubmit,
+}: {
+  idPrefix: string;
+  apiKey: string;
+  webhookToken: string;
+  onApiKey: (value: string) => void;
+  onWebhookToken: (value: string) => void;
+  submitLabel: string;
+  busy: boolean;
+  hint: string;
+  onSubmit: (event: React.FormEvent) => void;
+}) {
+  return (
+    <form className="billing-form" onSubmit={onSubmit}>
+      <p className="table-cell-muted">{hint}</p>
+      <label htmlFor={`${idPrefix}-api-key`}>
+        API key
+        <input
+          id={`${idPrefix}-api-key`}
+          className="form-input"
+          type="password"
+          autoComplete="off"
+          value={apiKey}
+          onChange={(event) => onApiKey(event.target.value)}
+          required
+        />
+      </label>
+      <label htmlFor={`${idPrefix}-webhook-token`}>
+        Webhook token (asaas-access-token)
+        <input
+          id={`${idPrefix}-webhook-token`}
+          className="form-input"
+          type="password"
+          autoComplete="off"
+          value={webhookToken}
+          onChange={(event) => onWebhookToken(event.target.value)}
+          required
+        />
+      </label>
+      <button className="btn btn-primary btn-pill" type="submit" disabled={busy}>
+        {submitLabel}
+      </button>
+    </form>
+  );
 }
 
 function GatewaysPanel({ writable }: { writable: boolean }) {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [account, setAccount] = useState<BillingGatewayAccount | null>(null);
-  const [apiKey, setApiKey] = useState('');
-  const [webhookToken, setWebhookToken] = useState('');
+  const [items, setItems] = useState<BillingGatewayAccount[]>([]);
+  const [connecting, setConnecting] = useState(false);
+  const [selectedType, setSelectedType] = useState('');
+  const [newApiKey, setNewApiKey] = useState('');
+  const [newWebhookToken, setNewWebhookToken] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, { apiKey: string; webhookToken: string }>>({});
+  const [promoteGateway, setPromoteGateway] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const loadAccount = useCallback(async () => {
+  const loadAccounts = useCallback(async () => {
     const access = getAccessToken();
     if (!access) return;
     setLoading(true);
     try {
-      setAccount(await getBillingGatewayAccount(access));
+      const result = await listBillingGatewayAccounts(access);
+      setItems(result.items || []);
     } catch (error) {
       addToast({ type: 'error', title: 'Billing', description: errorMessage(error) });
     } finally {
@@ -348,24 +407,52 @@ function GatewaysPanel({ writable }: { writable: boolean }) {
   }, [addToast, getAccessToken]);
 
   useEffect(() => {
-    if (isAuthenticated) void loadAccount();
-  }, [isAuthenticated, loadAccount]);
+    if (isAuthenticated) void loadAccounts();
+  }, [isAuthenticated, loadAccounts]);
 
-  const saveCredential = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const connectedSlugs = new Set(items.map((item) => (item.gateway || '').toLowerCase()));
+  const unusedLinked = LINKED_GATEWAYS.filter((item) => !connectedSlugs.has(item.slug));
+
+  const saveGateway = async (gateway: string, apiKey: string, webhookToken: string, connected: boolean) => {
     const access = getAccessToken();
     if (!access || !writable) return;
     setBusy(true);
     try {
-      const saved = await putBillingGatewayAccount(apiKey.trim(), webhookToken.trim(), access);
-      setAccount(saved);
-      setApiKey('');
-      setWebhookToken('');
+      const saved = await putBillingGatewayAccountByGateway(gateway, apiKey.trim(), webhookToken.trim(), access);
+      setItems((current) => {
+        const next = current.filter((item) => item.gateway !== saved.gateway);
+        next.push(saved);
+        return next;
+      });
+      setNewApiKey('');
+      setNewWebhookToken('');
+      setDrafts((current) => ({ ...current, [gateway]: { apiKey: '', webhookToken: '' } }));
+      setConnecting(false);
+      setSelectedType('');
       addToast({
         type: 'success',
         title: 'Meio de cobrança',
-        description: account ? 'Credencial Asaas atualizada.' : 'Asaas conectado.',
+        description: connected ? `Credencial ${gatewayLabel(gateway)} atualizada.` : `${gatewayLabel(gateway)} conectado.`,
       });
+    } catch (error) {
+      addToast({ type: 'error', title: 'Meio de cobrança', description: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmPromote = async () => {
+    const access = getAccessToken();
+    if (!access || !writable || !promoteGateway) return;
+    setBusy(true);
+    try {
+      const saved = await setPrimaryBillingGateway(promoteGateway, access);
+      setItems((current) => current.map((item) => ({
+        ...item,
+        primary: item.gateway === saved.gateway,
+      })));
+      setPromoteGateway(null);
+      addToast({ type: 'success', title: 'Meio de cobrança', description: `${gatewayLabel(saved.gateway)} agora é o principal.` });
     } catch (error) {
       addToast({ type: 'error', title: 'Meio de cobrança', description: errorMessage(error) });
     } finally {
@@ -381,80 +468,150 @@ function GatewaysPanel({ writable }: { writable: boolean }) {
     );
   }
 
-  const connected = Boolean(account?.apiKeyMasked);
+  const connectForm = writable && (items.length === 0 || unusedLinked.length > 0) ? (
+    connecting ? (
+      <div className="billing-gateway-connect">
+        <label htmlFor="billing-gateway-type">
+          Tipo
+          <select
+            id="billing-gateway-type"
+            className="form-input"
+            value={selectedType}
+            onChange={(event) => setSelectedType(event.target.value)}
+          >
+            <option value="">Selecione o gateway</option>
+            {(items.length === 0 ? LINKED_GATEWAYS : unusedLinked).map((item) => (
+              <option key={item.slug} value={item.slug}>{item.label}</option>
+            ))}
+          </select>
+        </label>
+        {selectedType === 'asaas' ? (
+          <AsaasCredentialForm
+            idPrefix="billing-gateway-new"
+            apiKey={newApiKey}
+            webhookToken={newWebhookToken}
+            onApiKey={setNewApiKey}
+            onWebhookToken={setNewWebhookToken}
+            submitLabel="Conectar Asaas"
+            busy={busy}
+            hint="A chave completa não volta a ser exibida depois de salvar."
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveGateway('asaas', newApiKey, newWebhookToken, false);
+            }}
+          />
+        ) : null}
+      </div>
+    ) : (
+      <button className="btn btn-primary btn-pill" type="button" onClick={() => setConnecting(true)}>
+        Conectar gateway
+      </button>
+    )
+  ) : null;
 
   return (
-    <section className="hpanel-table-card billing-card billing-gateway-card">
-      {connected ? (
-        <>
-          <div className="billing-gateway-head">
-            <div>
-              <p className="billing-kicker">Meio de cobrança</p>
-              <h2>{gatewayLabel(account?.gateway)}</h2>
-            </div>
-            <span className={`billing-status-pill ${account?.webhookConfigured ? 'is-ok' : 'is-pending'}`}>
-              {account?.webhookConfigured ? 'Webhook configurado' : 'Webhook pendente'}
-            </span>
+    <div className="billing-gateway-list">
+      {items.length === 0 ? (
+        <section className="hpanel-table-card billing-card billing-gateway-card">
+          <div className="billing-gateway-empty">
+            <h2>Nenhum meio de cobrança.</h2>
+            <p>Conecte um gateway da organização. O tipo vem antes do formulário.</p>
           </div>
-          <dl className="billing-gateway-meta">
-            <div>
-              <dt>API key</dt>
-              <dd>{account?.apiKeyMasked}</dd>
-            </div>
-            {account?.rotatedAt ? (
-              <div>
-                <dt>Última rotação</dt>
-                <dd>{formatDate(account.rotatedAt)}</dd>
-              </div>
-            ) : null}
-          </dl>
-        </>
+          {connectForm}
+        </section>
       ) : (
-        <div className="billing-gateway-empty">
-          <h2>Nenhum meio de cobrança</h2>
-          <p>Conecte o Asaas da organização.</p>
-        </div>
+        <>
+          {items.map((account) => {
+            const slug = (account.gateway || '').toLowerCase();
+            const draft = drafts[slug] || { apiKey: '', webhookToken: '' };
+            return (
+              <section key={slug || account.companyId} className="hpanel-table-card billing-card billing-gateway-card">
+                <div className="billing-gateway-head">
+                  <div>
+                    <p className="billing-kicker">Meio de cobrança</p>
+                    <h2>{gatewayLabel(account.gateway)}</h2>
+                  </div>
+                  <div className="billing-gateway-pills">
+                    <span className={`billing-status-pill ${account.primary ? 'is-ok' : 'is-standby'}`}>
+                      {account.primary ? 'Principal' : 'Em espera — não cobra assinaturas novas'}
+                    </span>
+                    <span className={`billing-status-pill ${account.webhookConfigured ? 'is-ok' : 'is-pending'}`}>
+                      {account.webhookConfigured ? 'Webhook configurado' : 'Webhook pendente'}
+                    </span>
+                  </div>
+                </div>
+                <dl className="billing-gateway-meta">
+                  <div>
+                    <dt>API key</dt>
+                    <dd>{account.apiKeyMasked}</dd>
+                  </div>
+                  {account.rotatedAt ? (
+                    <div>
+                      <dt>Última rotação</dt>
+                      <dd>{formatDate(account.rotatedAt)}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {writable ? (
+                  <>
+                    {slug === 'asaas' ? (
+                      <AsaasCredentialForm
+                        idPrefix={`billing-gateway-${slug}`}
+                        apiKey={draft.apiKey}
+                        webhookToken={draft.webhookToken}
+                        onApiKey={(value) => setDrafts((current) => ({ ...current, [slug]: { ...draft, apiKey: value } }))}
+                        onWebhookToken={(value) => setDrafts((current) => ({ ...current, [slug]: { ...draft, webhookToken: value } }))}
+                        submitLabel="Salvar credencial"
+                        busy={busy}
+                        hint="Para rotacionar, informe a nova API key e o token de webhook. A chave completa não volta a ser exibida."
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void saveGateway(slug, draft.apiKey, draft.webhookToken, true);
+                        }}
+                      />
+                    ) : null}
+                    {!account.primary ? (
+                      <div className="billing-gateway-actions">
+                        <button className="btn btn-pill" type="button" disabled={busy} onClick={() => setPromoteGateway(slug)}>
+                          Tornar principal
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="table-cell-muted">Somente leitura. É preciso billing:write para alterar.</p>
+                )}
+              </section>
+            );
+          })}
+          {unusedLinked.length > 0 ? (
+            <section className="hpanel-table-card billing-card billing-gateway-card">
+              {connectForm}
+            </section>
+          ) : null}
+        </>
       )}
 
-      {writable ? (
-        <form className="billing-form" onSubmit={saveCredential}>
-          <p className="table-cell-muted">
-            {connected
-              ? 'Para rotacionar, informe a nova API key e o token de webhook. A chave completa não volta a ser exibida.'
-              : 'A chave completa não volta a ser exibida depois de salvar.'}
-          </p>
-          <label htmlFor="billing-gateway-api-key">
-            API key
-            <input
-              id="billing-gateway-api-key"
-              className="form-input"
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              required
-            />
-          </label>
-          <label htmlFor="billing-gateway-webhook-token">
-            Webhook token (asaas-access-token)
-            <input
-              id="billing-gateway-webhook-token"
-              className="form-input"
-              type="password"
-              autoComplete="off"
-              value={webhookToken}
-              onChange={(event) => setWebhookToken(event.target.value)}
-              required
-            />
-          </label>
-          <button className="btn btn-primary btn-pill" type="submit" disabled={busy}>
-            {connected ? 'Salvar credencial' : 'Conectar Asaas'}
-          </button>
-        </form>
-      ) : connected ? (
-        <p className="table-cell-muted">Somente leitura. É preciso billing:write para alterar.</p>
-      ) : null}
-    </section>
+      <Modal
+        isOpen={promoteGateway !== null}
+        onClose={() => setPromoteGateway(null)}
+        title="Tornar principal"
+        footer={(
+          <>
+            <button className="btn btn-pill" type="button" onClick={() => setPromoteGateway(null)} disabled={busy}>
+              Cancelar
+            </button>
+            <button className="btn btn-primary btn-pill" type="button" onClick={() => void confirmPromote()} disabled={busy}>
+              Confirmar
+            </button>
+          </>
+        )}
+      >
+        <p>
+          Assinaturas já ativas neste outro meio continuam lá. Só as novas usam este.
+        </p>
+      </Modal>
+    </div>
   );
 }
 

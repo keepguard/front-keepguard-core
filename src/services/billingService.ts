@@ -46,10 +46,15 @@ export interface SaveBillingPlan {
 export interface BillingGatewayAccount {
   companyId: string;
   gateway: string;
+  primary?: boolean;
   apiKeyMasked: string;
   webhookConfigured: boolean;
   createdAt?: string;
   rotatedAt?: string;
+}
+
+export interface BillingGatewayAccountList {
+  items: BillingGatewayAccount[];
 }
 
 export interface BillingSubscription {
@@ -137,6 +142,10 @@ export function patchBillingPlan(code: string, body: SaveBillingPlan, token: str
   }, token);
 }
 
+export async function listBillingGatewayAccounts(token: string): Promise<BillingGatewayAccountList> {
+  return customFetch<BillingGatewayAccountList>(`${BILLING_BASE}/gateway-accounts`, { method: 'GET' }, token);
+}
+
 export async function getBillingGatewayAccount(token: string): Promise<BillingGatewayAccount | null> {
   try {
     return await customFetch<BillingGatewayAccount>(`${BILLING_BASE}/gateway-account`, { method: 'GET' }, token);
@@ -147,9 +156,24 @@ export async function getBillingGatewayAccount(token: string): Promise<BillingGa
 }
 
 export function putBillingGatewayAccount(apiKey: string, webhookToken: string, token: string): Promise<BillingGatewayAccount> {
-  return customFetch<BillingGatewayAccount>(`${BILLING_BASE}/gateway-account`, {
+  return putBillingGatewayAccountByGateway('asaas', apiKey, webhookToken, token);
+}
+
+export function putBillingGatewayAccountByGateway(
+  gateway: string,
+  apiKey: string,
+  webhookToken: string,
+  token: string,
+): Promise<BillingGatewayAccount> {
+  return customFetch<BillingGatewayAccount>(`${BILLING_BASE}/gateway-accounts/${encodeURIComponent(gateway)}`, {
     method: 'PUT',
     body: JSON.stringify({ apiKey, webhookToken }),
+  }, token);
+}
+
+export function setPrimaryBillingGateway(gateway: string, token: string): Promise<BillingGatewayAccount> {
+  return customFetch<BillingGatewayAccount>(`${BILLING_BASE}/gateway-accounts/${encodeURIComponent(gateway)}/primary`, {
+    method: 'POST',
   }, token);
 }
 
