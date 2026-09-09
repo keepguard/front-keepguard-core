@@ -191,10 +191,10 @@ export const MarketDeskView: React.FC = () => {
   const favoriteTickers = favorites?.tickers ?? [];
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const suggestions = useMemo(() => {
-    const pool = maxFavorites < WATCHLIST_MAX_TICKERS ? favoriteTickers : catalog;
+    const pool = Array.from(new Set([...favoriteTickers, ...catalog]));
     if (!normalizedQuery) return pool.slice(0, 12);
     return pool.filter((ticker) => ticker.includes(normalizedQuery)).slice(0, 12);
-  }, [catalog, favoriteTickers, maxFavorites, normalizedQuery]);
+  }, [catalog, favoriteTickers, normalizedQuery]);
 
   const latest = runs[0] ?? null;
   const collectedAt = freshestCollectedAt(latest);
