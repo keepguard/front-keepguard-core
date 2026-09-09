@@ -248,7 +248,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {canSeeBillingOrgNav && (
                 <SidebarLink
                   to={PATHS.billingOrg}
-                  label="Assinaturas"
+                  label="Billing"
                   icon={<CreditCard size={18} className="sidebar-icon" />}
                   onCloseMobile={onCloseMobile}
                 />

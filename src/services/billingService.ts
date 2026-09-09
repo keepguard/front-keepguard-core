@@ -11,7 +11,10 @@ export interface BillingEntitlement {
   quotasJson?: string | null;
   graceEndsAt?: string | null;
   currentPeriodEnd?: string | null;
+  updatedAt?: string | null;
   allowsProduct: boolean;
+  payerName?: string | null;
+  payerEmail?: string | null;
 }
 
 export interface BillingPlanPrice {
@@ -65,6 +68,8 @@ export interface BillingInvoice {
   id: string;
   companyId: string;
   payerUserId: string;
+  payerName?: string | null;
+  payerEmail?: string | null;
   subscriptionId?: string | null;
   amountCents: number;
   currency: string;
@@ -77,6 +82,34 @@ export interface BillingInvoice {
   paidAt?: string | null;
   graceEndsAt?: string | null;
 }
+
+export interface BillingPage<T> {
+  items: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export type BillingInvoiceSearch = {
+  page?: number;
+  size?: number;
+  status?: string;
+  paymentMethod?: string;
+  payerUserId?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+};
+
+export type BillingEntitlementSearch = {
+  page?: number;
+  size?: number;
+  status?: string;
+  planCode?: string;
+  q?: string;
+  hasPlan?: boolean;
+};
 
 function isNotFound(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { status?: number }).status === 404;
@@ -145,6 +178,55 @@ export function cancelBillingSubscription(id: string, token: string): Promise<Bi
   }, token);
 }
 
-export function listBillingInvoices(token: string): Promise<BillingInvoice[]> {
-  return customFetch<BillingInvoice[]>(`${BILLING_BASE}/invoices`, { method: 'GET' }, token);
+function toQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === '') return;
+    query.set(key, String(value));
+  });
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : '';
+}
+
+export async function searchBillingInvoices(
+  params: BillingInvoiceSearch,
+  token: string,
+): Promise<BillingPage<BillingInvoice>> {
+  return customFetch<BillingPage<BillingInvoice>>(
+    `${BILLING_BASE}/invoices${toQuery({
+      page: params.page ?? 0,
+      size: params.size ?? 20,
+      status: params.status,
+      paymentMethod: params.paymentMethod,
+      payerUserId: params.payerUserId,
+      q: params.q,
+      from: params.from,
+      to: params.to,
+    })}`,
+    { method: 'GET' },
+    token,
+  );
+}
+
+export async function listBillingInvoices(token: string): Promise<BillingInvoice[]> {
+  const page = await searchBillingInvoices({ page: 0, size: 20 }, token);
+  return page.items || [];
+}
+
+export function searchBillingEntitlements(
+  params: BillingEntitlementSearch,
+  token: string,
+): Promise<BillingPage<BillingEntitlement>> {
+  return customFetch<BillingPage<BillingEntitlement>>(
+    `${BILLING_BASE}/entitlements${toQuery({
+      page: params.page ?? 0,
+      size: params.size ?? 20,
+      status: params.status,
+      planCode: params.planCode,
+      q: params.q,
+      hasPlan: params.hasPlan,
+    })}`,
+    { method: 'GET' },
+    token,
+  );
 }

@@ -177,11 +177,12 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.billingOrg}
           element={(
-            <RequireAccess allowed={canSeeBillingOrgNav} description="Somente ADMIN, SYSTEM ou MANAGER com billing:read acessam as assinaturas da organização.">
+            <RequireAccess allowed={canSeeBillingOrgNav} description="Somente ADMIN, SYSTEM ou MANAGER com billing:read acessam o Billing da organização.">
               <BillingOrgPage />
             </RequireAccess>
           )}
         />
+        <Route path={PATHS.billingOrgLegacy} element={<Navigate to={PATHS.billingOrg} replace />} />
         <Route path={PATHS.billingLegacy} element={<BillingLegacyRedirect />} />
         <Route path={PATHS.templates} element={<TemplatesPage />} />
         <Route path={PATHS.account} element={<AccountPage />} />

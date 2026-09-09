@@ -113,7 +113,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onLogout }) => {
             onClick={() => handleNavigate(PATHS.billingOrg)}
           >
             <CreditCard size={16} />
-            <span>Assinaturas</span>
+            <span>Billing</span>
           </button>
           )}
           <div className="user-menu-divider" />

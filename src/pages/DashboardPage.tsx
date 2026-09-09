@@ -12,7 +12,8 @@ import { TemplateShowcaseView } from '../components/templates/TemplateShowcaseVi
 import { assertCollectorVisibility, assertTenantDevicesVisibility } from '../utils/roles';
 import { AccountView } from '../components/dashboard/AccountView';
 import { AuditsView } from '../components/dashboard/AuditsView';
-import { BillingOrgView, BillingPlansView } from '../components/dashboard/BillingView';
+import { BillingOrgView } from '../components/dashboard/BillingOrgView';
+import { BillingPlansView } from '../components/dashboard/BillingView';
 import { LlmView } from '../components/dashboard/LlmView';
 import { GuardianView } from '../components/dashboard/GuardianView';
 import { ClientSystemView } from '../components/dashboard/ClientSystemView';
@@ -449,17 +450,6 @@ export const BillingPage: React.FC = () => (
 
 export const BillingOrgPage: React.FC = () => (
   <DashboardShell>
-    <div className="dashboard-header">
-      <div className="dashboard-title-group">
-        <h1 className="dashboard-title">
-          <CreditCard size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Assinaturas
-        </h1>
-        <p className="dashboard-subtitle">
-          Credencial Asaas, catálogo de planos e todas as transações da organização. Quem opera não assina.
-        </p>
-      </div>
-    </div>
     <BillingOrgView />
   </DashboardShell>
 );
