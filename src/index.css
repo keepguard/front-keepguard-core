@@ -6414,3 +6414,39 @@ textarea.form-input {
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
 }
+
+.billing-checkout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.65rem;
+  max-width: 28rem;
+}
+
+.billing-checkout-amount {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.billing-checkout-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-sub);
+}
+
+.billing-pix-qr {
+  display: block;
+  width: 240px;
+  height: 240px;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.billing-pix-code {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  resize: none;
+}

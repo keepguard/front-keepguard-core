@@ -439,7 +439,7 @@ export const BillingPage: React.FC = () => (
           Planos
         </h1>
         <p className="dashboard-subtitle">
-          Escolha um plano, pague com PIX ou boleto e acompanhe as suas faturas. Uma fatura pendente não é pagamento confirmado.
+          Escolha um plano e pague com PIX ou boleto. O QR e o código aparecem na hora; o acesso só libera depois da confirmação.
         </p>
       </div>
     </div>
@@ -456,7 +456,7 @@ export const BillingOrgPage: React.FC = () => (
           Assinaturas
         </h1>
         <p className="dashboard-subtitle">
-          Credencial Asaas, catálogo de planos e faturas da organização. Quem opera não assina.
+          Credencial Asaas, catálogo de planos e todas as transações da organização. Quem opera não assina.
         </p>
       </div>
     </div>

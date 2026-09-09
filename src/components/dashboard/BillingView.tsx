@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Copy, CreditCard, Pencil, Plus } from 'lucide-react';
+import { AlertTriangle, Copy, CreditCard, ExternalLink, Pencil, Plus } from 'lucide-react';
+import { PixQr } from './PixQr';
 import { Link } from 'react-router-dom';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
@@ -415,7 +416,7 @@ export const BillingOrgView: React.FC = () => {
       </section>
 
       <section className="hpanel-table-card billing-card">
-        <h2>Faturas da organização</h2>
+        <h2>Todas as transações</h2>
         <InvoiceTable invoices={invoices} onCopyPix={(payload) => void copyPix(payload)} />
       </section>
 
@@ -514,6 +515,86 @@ export const BillingOrgView: React.FC = () => {
   );
 };
 
+function situationCopy(
+  entitlement: BillingEntitlement | null,
+  subscription: BillingSubscription | null,
+  pending: BillingInvoice | null,
+): { title: string; detail: string } {
+  if (pending) {
+    return {
+      title: 'Aguardando pagamento',
+      detail: 'O QR e o código PIX geram a cobrança. O acesso só libera quando o Asaas confirmar o pagamento.',
+    };
+  }
+  const status = (entitlement?.status || '').toLowerCase();
+  if (status && status !== 'none') {
+    return {
+      title: `${entitlementLabel(entitlement?.status)}${entitlement?.planCode ? ` · ${entitlement.planCode}` : ''}${entitlement?.interval ? ` · ${intervalLabel(entitlement.interval)}` : ''}`,
+      detail: `Produto ${entitlement?.allowsProduct ? 'liberado' : 'não liberado'}.`,
+    };
+  }
+  if (subscription && subscription.status !== 'canceled') {
+    return {
+      title: 'Assinatura criada',
+      detail: 'Pagamento ainda não confirmado. O produto libera depois do PIX ou boleto liquidado.',
+    };
+  }
+  return {
+    title: 'Sem assinatura',
+    detail: 'Escolha um plano para gerar o PIX ou o boleto.',
+  };
+}
+
+const SubscriberCheckout: React.FC<{
+  invoice: BillingInvoice | null;
+  waiting: boolean;
+  onCopyPix: (payload: string) => void;
+}> = ({ invoice, waiting, onCopyPix }) => {
+  if (waiting && !invoice?.pixPayload && !invoice?.bankSlipUrl) {
+    return (
+      <section className="hpanel-table-card billing-card billing-checkout">
+        <h2>Pague agora</h2>
+        <p className="table-cell-muted">Preparando o PIX… isso costuma levar poucos segundos.</p>
+      </section>
+    );
+  }
+  if (!invoice || (invoice.status !== 'pending' && invoice.status !== 'overdue')) {
+    return null;
+  }
+  const pix = invoice.paymentMethod === 'pix';
+  return (
+    <section className="hpanel-table-card billing-card billing-checkout">
+      <h2>{pix ? 'Pague com PIX' : 'Pague o boleto'}</h2>
+      <p className="billing-checkout-amount">{formatMoney(invoice.amountCents, invoice.currency)}</p>
+      <p className="table-cell-muted">Vencimento {formatDate(invoice.dueAt)}</p>
+      {pix && invoice.pixPayload ? (
+        <>
+          <PixQr payload={invoice.pixPayload} />
+          <p className="billing-checkout-hint">Aponte a câmera do banco ou copie o código.</p>
+          <textarea
+            className="form-input billing-pix-code"
+            readOnly
+            rows={4}
+            value={invoice.pixPayload}
+            aria-label="Código PIX copia e cola"
+          />
+          <button type="button" className="btn btn-primary btn-pill" onClick={() => onCopyPix(invoice.pixPayload!)}>
+            <Copy size={15} />
+            Copiar código PIX
+          </button>
+        </>
+      ) : null}
+      {invoice.bankSlipUrl ? (
+        <a className="btn btn-primary btn-pill" href={invoice.bankSlipUrl} target="_blank" rel="noreferrer">
+          <ExternalLink size={15} />
+          Abrir boleto
+        </a>
+      ) : null}
+      <p className="table-cell-muted">Esta tela atualiza sozinha quando o pagamento for confirmado.</p>
+    </section>
+  );
+};
+
 export const BillingPlansView: React.FC = () => {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
@@ -526,13 +607,14 @@ export const BillingPlansView: React.FC = () => {
   const [interval, setInterval] = useState('month');
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>('pix');
   const [busy, setBusy] = useState(false);
+  const [justSubscribed, setJustSubscribed] = useState(false);
 
   const token = getAccessToken();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     const access = getAccessToken();
     if (!access) return;
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     try {
       const [nextEntitlement, nextPlans, nextSubscription, nextInvoices] = await Promise.all([
         getBillingEntitlement(access),
@@ -547,7 +629,7 @@ export const BillingPlansView: React.FC = () => {
     } catch (error) {
       addToast({ type: 'error', title: 'Billing', description: errorMessage(error) });
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [addToast, getAccessToken]);
 
@@ -568,7 +650,39 @@ export const BillingPlansView: React.FC = () => {
     }
   }, [planCode, selectedPlan]);
 
+  const pendingInvoice = useMemo(() => {
+    const open = invoices.filter((item) => item.status === 'pending' || item.status === 'overdue');
+    return open.sort((a, b) => Date.parse(b.issuedAt || '') - Date.parse(a.issuedAt || ''))[0] ?? null;
+  }, [invoices]);
+
+  const hasInstrument = Boolean(pendingInvoice?.pixPayload || pendingInvoice?.bankSlipUrl);
+
+  useEffect(() => {
+    if (hasInstrument) setJustSubscribed(false);
+  }, [hasInstrument]);
+
+  useEffect(() => {
+    const waitingForInvoice = justSubscribed && !pendingInvoice;
+    const waitingForInstrument = Boolean(pendingInvoice && !hasInstrument);
+    const waitingForPaid = Boolean(pendingInvoice && hasInstrument && pendingInvoice.status === 'pending');
+    if (!waitingForInvoice && !waitingForInstrument && !waitingForPaid) return;
+    const ms = waitingForPaid ? 10_000 : 2_000;
+    const max = waitingForPaid ? 180_000 : 30_000;
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      if (Date.now() - started > max) {
+        window.clearInterval(id);
+        setJustSubscribed(false);
+        return;
+      }
+      void load({ silent: true });
+    }, ms);
+    return () => window.clearInterval(id);
+  }, [justSubscribed, pendingInvoice?.id, pendingInvoice?.status, hasInstrument, load]);
+
   const selectedPrice = selectedPlan?.prices.find((price) => price.interval === interval);
+  const situation = situationCopy(entitlement, subscription, pendingInvoice);
+  const waitingCheckout = justSubscribed || Boolean(pendingInvoice && !hasInstrument);
 
   const subscribe = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -578,15 +692,16 @@ export const BillingPlansView: React.FC = () => {
     try {
       const created = await createBillingSubscription({ planCode, interval, paymentMethod }, access);
       setSubscription(created);
+      setJustSubscribed(true);
       const pendingGateway = created.status === 'pending_gateway';
       addToast({
         type: pendingGateway ? 'info' : 'success',
         title: pendingGateway ? 'Gateway pendente' : 'Assinatura criada',
         description: pendingGateway
-          ? 'A assinatura será reenviada ao Asaas. O produto só libera após PAYMENT_CONFIRMED ou PAYMENT_RECEIVED.'
-          : 'Aguardando pagamento. CREATED no Asaas não conta como pago.',
+          ? 'A assinatura será reenviada ao Asaas. O produto só libera após o pagamento confirmado.'
+          : 'Abra o QR ou copie o código PIX. Gerar a cobrança não confirma o pagamento.',
       });
-      await load();
+      await load({ silent: true });
     } catch (error) {
       addToast({ type: 'error', title: 'Assinatura', description: errorMessage(error) });
     } finally {
@@ -624,15 +739,16 @@ export const BillingPlansView: React.FC = () => {
 
   return (
     <div className="billing-page">
+      <SubscriberCheckout
+        invoice={pendingInvoice}
+        waiting={waitingCheckout}
+        onCopyPix={(payload) => void copyPix(payload)}
+      />
+
       <section className="hpanel-table-card billing-card">
         <h2>Situação</h2>
-        <p>
-          {entitlementLabel(entitlement?.status)} {entitlement?.planCode ? `· ${entitlement.planCode}` : ''}
-          {entitlement?.interval ? ` · ${intervalLabel(entitlement.interval)}` : ''}
-        </p>
-        <p className="table-cell-muted">
-          Produto {entitlement?.allowsProduct ? 'liberado' : 'não liberado'}. Fatura pendente não libera acesso.
-        </p>
+        <p>{situation.title}</p>
+        <p className="table-cell-muted">{situation.detail}</p>
       </section>
 
       <section className="hpanel-table-card billing-card">
@@ -689,11 +805,6 @@ export const BillingPlansView: React.FC = () => {
             </button>
           </form>
         )}
-      </section>
-
-      <section className="hpanel-table-card billing-card">
-        <h2>Minhas faturas</h2>
-        <InvoiceTable invoices={invoices} onCopyPix={(payload) => void copyPix(payload)} />
       </section>
     </div>
   );
