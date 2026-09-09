@@ -439,7 +439,7 @@ export const BillingPage: React.FC = () => (
           Planos
         </h1>
         <p className="dashboard-subtitle">
-          Escolha um plano e pague com PIX ou boleto. O QR e o código aparecem na hora; o acesso só libera depois da confirmação.
+          Assine com PIX ou boleto. O acesso libera quando o pagamento for confirmado.
         </p>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Copy, CreditCard, ExternalLink, Pencil, Plus } from 'lucide-react';
+import { AlertTriangle, Check, Copy, CreditCard, ExternalLink, LoaderCircle, Pencil, Plus } from 'lucide-react';
 import { PixQr } from './PixQr';
 import { Link } from 'react-router-dom';
 import { Modal } from '../common/Modal';
@@ -523,7 +523,7 @@ function situationCopy(
   if (pending) {
     return {
       title: 'Aguardando pagamento',
-      detail: 'O QR e o código PIX geram a cobrança. O acesso só libera quando o Asaas confirmar o pagamento.',
+      detail: 'O acesso só libera quando o pagamento for confirmado.',
     };
   }
   const status = (entitlement?.status || '').toLowerCase();
@@ -545,16 +545,52 @@ function situationCopy(
   };
 }
 
+function maskPixCode(payload: string): string {
+  if (payload.length <= 28) return payload;
+  return `${payload.slice(0, 18)}…${payload.slice(-6)}`;
+}
+
 const SubscriberCheckout: React.FC<{
   invoice: BillingInvoice | null;
   waiting: boolean;
-  onCopyPix: (payload: string) => void;
-}> = ({ invoice, waiting, onCopyPix }) => {
+  planName?: string;
+  onCopyPix: (payload: string) => Promise<void> | void;
+}> = ({ invoice, waiting, planName, onCopyPix }) => {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const id = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(id);
+  }, [copied]);
+
+  const copy = async (payload: string) => {
+    try {
+      await onCopyPix(payload);
+      setCopied(true);
+    } catch {
+      /* erro já tratado pelo pai */
+    }
+  };
+
   if (waiting && !invoice?.pixPayload && !invoice?.bankSlipUrl) {
     return (
-      <section className="hpanel-table-card billing-card billing-checkout">
-        <h2>Pague agora</h2>
-        <p className="table-cell-muted">Preparando o PIX… isso costuma levar poucos segundos.</p>
+      <section className="hpanel-table-card billing-card billing-checkout" aria-busy="true" aria-live="polite">
+        <header className="billing-checkout-head">
+          <div>
+            <p className="billing-kicker">Pagamento</p>
+            <h2>Preparando o PIX</h2>
+          </div>
+          <span className="billing-status-pill is-pending">Gerando cobrança</span>
+        </header>
+        <div className="billing-checkout-body">
+          <div className="billing-qr-frame is-loading">
+            <LoaderCircle className="billing-qr-spinner" size={28} aria-hidden />
+          </div>
+          <div className="billing-checkout-actions">
+            <p className="billing-checkout-hint">Isso costuma levar poucos segundos.</p>
+          </div>
+        </div>
       </section>
     );
   }
@@ -562,35 +598,60 @@ const SubscriberCheckout: React.FC<{
     return null;
   }
   const pix = invoice.paymentMethod === 'pix';
+  const overdue = invoice.status === 'overdue';
+
   return (
     <section className="hpanel-table-card billing-card billing-checkout">
-      <h2>{pix ? 'Pague com PIX' : 'Pague o boleto'}</h2>
+      <header className="billing-checkout-head">
+        <div>
+          <p className="billing-kicker">{pix ? 'PIX' : 'Boleto'}{planName ? ` · ${planName}` : ''}</p>
+          <h2>{pix ? 'Pague com PIX' : 'Pague o boleto'}</h2>
+        </div>
+        <span className={`billing-status-pill ${overdue ? 'is-overdue' : 'is-pending'}`}>
+          {invoiceStatusLabel(invoice.status)}
+        </span>
+      </header>
+
       <p className="billing-checkout-amount">{formatMoney(invoice.amountCents, invoice.currency)}</p>
-      <p className="table-cell-muted">Vencimento {formatDate(invoice.dueAt)}</p>
-      {pix && invoice.pixPayload ? (
-        <>
-          <PixQr payload={invoice.pixPayload} />
-          <p className="billing-checkout-hint">Aponte a câmera do banco ou copie o código.</p>
-          <textarea
-            className="form-input billing-pix-code"
-            readOnly
-            rows={4}
-            value={invoice.pixPayload}
-            aria-label="Código PIX copia e cola"
-          />
-          <button type="button" className="btn btn-primary btn-pill" onClick={() => onCopyPix(invoice.pixPayload!)}>
-            <Copy size={15} />
-            Copiar código PIX
-          </button>
-        </>
-      ) : null}
-      {invoice.bankSlipUrl ? (
-        <a className="btn btn-primary btn-pill" href={invoice.bankSlipUrl} target="_blank" rel="noreferrer">
-          <ExternalLink size={15} />
-          Abrir boleto
-        </a>
-      ) : null}
-      <p className="table-cell-muted">Esta tela atualiza sozinha quando o pagamento for confirmado.</p>
+      <p className="billing-checkout-due">Vencimento {formatDate(invoice.dueAt)}</p>
+
+      <div className="billing-checkout-body">
+        {pix && invoice.pixPayload ? (
+          <div className="billing-qr-frame">
+            <PixQr payload={invoice.pixPayload} />
+          </div>
+        ) : null}
+
+        <div className="billing-checkout-actions">
+          {pix && invoice.pixPayload ? (
+            <>
+              <p className="billing-checkout-hint">Abra o app do banco, leia o QR ou copie o código.</p>
+              <p className="billing-pix-preview" title="Use o botão para copiar o código completo">
+                {maskPixCode(invoice.pixPayload)}
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary btn-pill billing-checkout-cta"
+                onClick={() => void copy(invoice.pixPayload!)}
+              >
+                {copied ? <Check size={16} /> : <Copy size={16} />}
+                {copied ? 'Código copiado' : 'Copiar código PIX'}
+              </button>
+              <details className="billing-pix-details">
+                <summary>Ver código copia e cola</summary>
+                <p className="billing-pix-full">{invoice.pixPayload}</p>
+              </details>
+            </>
+          ) : null}
+          {invoice.bankSlipUrl ? (
+            <a className="btn btn-primary btn-pill billing-checkout-cta" href={invoice.bankSlipUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={16} />
+              Abrir boleto
+            </a>
+          ) : null}
+          <p className="billing-checkout-footnote">Esta tela atualiza sozinha quando o pagamento for confirmado.</p>
+        </div>
+      </div>
     </section>
   );
 };
@@ -683,6 +744,9 @@ export const BillingPlansView: React.FC = () => {
   const selectedPrice = selectedPlan?.prices.find((price) => price.interval === interval);
   const situation = situationCopy(entitlement, subscription, pendingInvoice);
   const waitingCheckout = justSubscribed || Boolean(pendingInvoice && !hasInstrument);
+  const checkoutPlanName = plans.find((plan) => plan.code === subscription?.planCode)?.name
+    || subscription?.planCode
+    || selectedPlan?.name;
 
   const subscribe = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -727,9 +791,13 @@ export const BillingPlansView: React.FC = () => {
   const copyPix = async (payload: string) => {
     try {
       await navigator.clipboard.writeText(payload);
-      addToast({ type: 'success', title: 'PIX', description: 'Código copiado.' });
-    } catch {
-      addToast({ type: 'error', title: 'PIX', description: 'Não foi possível copiar.' });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'PIX',
+        description: 'Não foi possível copiar. Abra o código copia e cola e copie manualmente.',
+      });
+      throw error;
     }
   };
 
@@ -742,23 +810,31 @@ export const BillingPlansView: React.FC = () => {
       <SubscriberCheckout
         invoice={pendingInvoice}
         waiting={waitingCheckout}
-        onCopyPix={(payload) => void copyPix(payload)}
+        planName={checkoutPlanName}
+        onCopyPix={copyPix}
       />
 
-      <section className="hpanel-table-card billing-card">
-        <h2>Situação</h2>
-        <p>{situation.title}</p>
-        <p className="table-cell-muted">{situation.detail}</p>
-      </section>
+      {!pendingInvoice && (
+        <section className="hpanel-table-card billing-card">
+          <h2>Situação</h2>
+          <p>{situation.title}</p>
+          <p className="table-cell-muted">{situation.detail}</p>
+        </section>
+      )}
 
-      <section className="hpanel-table-card billing-card">
+      <section className="hpanel-table-card billing-card billing-sub">
         <h2>Minha assinatura</h2>
         {subscription ? (
-          <div>
-            <p>
-              {subscription.planCode} · {intervalLabel(subscription.interval)} · {subscription.paymentMethod} · {subscription.status}
-            </p>
-            <p className="table-cell-muted">Vigência até {formatDate(subscription.currentPeriodEnd)}</p>
+          <div className="billing-sub-row">
+            <div>
+              <p className="billing-sub-title">
+                {checkoutPlanName || subscription.planCode}
+                <span className="billing-sub-meta">
+                  {' '}· {intervalLabel(subscription.interval)} · {subscription.paymentMethod.toUpperCase()}
+                </span>
+              </p>
+              <p className="table-cell-muted">Vigência até {formatDate(subscription.currentPeriodEnd)}</p>
+            </div>
             {subscription.status !== 'canceled' && (
               <button type="button" className="btn btn-outline btn-pill" disabled={busy} onClick={() => void cancelMine()}>
                 Cancelar

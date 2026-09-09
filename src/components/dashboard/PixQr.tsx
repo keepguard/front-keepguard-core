@@ -8,8 +8,8 @@ export const PixQr: React.FC<{ payload: string }> = ({ payload }) => {
     const canvas = canvasRef.current;
     if (!canvas || !payload) return;
     void QRCode.toCanvas(canvas, payload, {
-      width: 240,
-      margin: 2,
+      width: 220,
+      margin: 1,
       errorCorrectionLevel: 'M',
       color: { dark: '#111111', light: '#ffffff' },
     });
