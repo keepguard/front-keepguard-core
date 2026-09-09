@@ -373,7 +373,8 @@ export const BillingPlansView: React.FC = () => {
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [planCode, setPlanCode] = useState('');
   const [interval, setInterval] = useState('month');
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>('pix');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto' | 'credit_card'>('pix');
+  const [creditCardToken, setCreditCardToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [justSubscribed, setJustSubscribed] = useState(false);
   const [hasCpf, setHasCpf] = useState(false);
@@ -480,13 +481,28 @@ export const BillingPlansView: React.FC = () => {
     setBusy(true);
     setCpfError('');
     try {
-      const payload: { planCode: string; interval: string; paymentMethod: string; payerCpfCnpj?: string } = {
+      const payload: {
+        planCode: string;
+        interval: string;
+        paymentMethod: string;
+        payerCpfCnpj?: string;
+        creditCardToken?: string;
+      } = {
         planCode,
         interval,
         paymentMethod,
       };
       if (!hasCpf) {
         payload.payerCpfCnpj = cpfDigitsOf(cpfDigits);
+      }
+      if (paymentMethod === 'credit_card') {
+        const tokenCard = creditCardToken.trim();
+        if (!tokenCard) {
+          addToast({ type: 'error', title: 'Cartão', description: 'Informe o token do cartão gerado no Asaas.' });
+          setBusy(false);
+          return;
+        }
+        payload.creditCardToken = tokenCard;
       }
       const created = await createBillingSubscription(payload, access);
       setSubscription(created);
@@ -612,12 +628,31 @@ export const BillingPlansView: React.FC = () => {
                 className="form-input"
                 value={paymentMethod}
                 disabled={busy}
-                onChange={(event) => setPaymentMethod(event.target.value as 'pix' | 'boleto')}
+                onChange={(event) => setPaymentMethod(event.target.value as 'pix' | 'boleto' | 'credit_card')}
               >
                 <option value="pix">PIX</option>
                 <option value="boleto">Boleto</option>
+                <option value="credit_card">Cartão</option>
               </select>
             </label>
+            {paymentMethod === 'credit_card' ? (
+              <label>
+                Token do cartão
+                <input
+                  className="form-input"
+                  value={creditCardToken}
+                  onChange={(event) => setCreditCardToken(event.target.value)}
+                  required
+                  disabled={busy}
+                  autoComplete="off"
+                  placeholder="Token Asaas (sem PAN)"
+                  aria-describedby="billing-card-token-hint"
+                />
+                <span id="billing-card-token-hint" className="billing-cpf-hint">
+                  Use o SDK/hosted fields Asaas no browser. O KeepGuard não aceita número do cartão.
+                </span>
+              </label>
+            ) : null}
             <label>
               CPF
               <input
@@ -655,12 +690,70 @@ export const BillingPlansView: React.FC = () => {
             <button
               className="btn btn-primary btn-pill"
               type="submit"
-              disabled={busy || !planCode || (!hasCpf && cpfDigits.length !== 11)}
+              disabled={
+                busy
+                || !planCode
+                || (!hasCpf && cpfDigits.length !== 11)
+                || (paymentMethod === 'credit_card' && !creditCardToken.trim())
+              }
             >
               <CreditCard size={15} />
               Assinar
             </button>
           </form>
+        )}
+      </section>
+
+      <section className="hpanel-table-card billing-card">
+        <h2>Minhas faturas</h2>
+        {invoices.length === 0 ? (
+          <p className="table-cell-muted">Nenhuma fatura ainda.</p>
+        ) : (
+          <div className="table-responsive">
+            <table className="hpanel-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th>Meio</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((invoice) => (
+                  <tr key={invoice.id}>
+                    <td>{formatDate(invoice.issuedAt || invoice.dueAt)}</td>
+                    <td>{formatMoney(invoice.amountCents, invoice.currency)}</td>
+                    <td>{invoice.status}</td>
+                    <td>{(invoice.paymentMethod || '—').toUpperCase()}</td>
+                    <td>
+                      {invoice.bankSlipUrl ? (
+                        <a href={invoice.bankSlipUrl} target="_blank" rel="noreferrer">
+                          Boleto
+                        </a>
+                      ) : null}
+                      {invoice.pixPayload && (invoice.status === 'pending' || invoice.status === 'overdue') ? (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-pill"
+                          onClick={() => void copyPix(invoice.pixPayload || '')}
+                        >
+                          Copiar PIX
+                        </button>
+                      ) : null}
+                      {invoice.nfUrl ? (
+                        <a href={invoice.nfUrl} target="_blank" rel="noreferrer">
+                          Nota fiscal
+                        </a>
+                      ) : null}
+                      {!invoice.bankSlipUrl && !invoice.pixPayload && !invoice.nfUrl ? '—' : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </div>

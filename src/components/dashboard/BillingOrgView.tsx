@@ -297,14 +297,15 @@ function TransactionsPanel() {
               <th>Pagador</th>
               <th>Vencimento</th>
               <th>Pagamento</th>
+              <th>NF</th>
               <th>Id</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="table-cell-muted">Carregando…</td></tr>
+              <tr><td colSpan={8} className="table-cell-muted">Carregando…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={7} className="table-cell-muted">Nenhuma transação.</td></tr>
+              <tr><td colSpan={8} className="table-cell-muted">Nenhuma transação.</td></tr>
             ) : items.map((invoice) => (
               <tr key={invoice.id}>
                 <td>{invoiceStatusLabel(invoice.status)}</td>
@@ -313,6 +314,11 @@ function TransactionsPanel() {
                 <td>{payerLabel(invoice.payerName, invoice.payerEmail, invoice.payerUserId)}</td>
                 <td>{formatDate(invoice.dueAt)}</td>
                 <td>{invoice.status === 'paid' ? formatDate(invoice.paidAt) : '—'}</td>
+                <td>
+                  {invoice.nfUrl ? (
+                    <a href={invoice.nfUrl} target="_blank" rel="noreferrer">Nota</a>
+                  ) : '—'}
+                </td>
                 <td title={invoice.id}>{compactId(invoice.id)}</td>
               </tr>
             ))}

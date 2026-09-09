@@ -84,6 +84,8 @@ export interface BillingInvoice {
   paymentMethod?: string | null;
   bankSlipUrl?: string | null;
   pixPayload?: string | null;
+  nfId?: string | null;
+  nfUrl?: string | null;
   issuedAt?: string | null;
   dueAt?: string | null;
   paidAt?: string | null;
@@ -189,7 +191,13 @@ export async function getBillingSubscription(token: string): Promise<BillingSubs
 }
 
 export function createBillingSubscription(
-  body: { planCode: string; interval: string; paymentMethod: string; payerCpfCnpj?: string },
+  body: {
+    planCode: string;
+    interval: string;
+    paymentMethod: string;
+    payerCpfCnpj?: string;
+    creditCardToken?: string;
+  },
   token: string,
 ): Promise<BillingSubscription> {
   return customFetch<BillingSubscription>(`${BILLING_BASE}/subscriptions`, {
