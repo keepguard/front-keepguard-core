@@ -9,6 +9,7 @@ import {
   DataSourcesPage,
   AuditsPage,
   LlmPage,
+  BillingOrgPage,
   BillingPage,
   ClientSystemPage,
   ConnectionsPage,
@@ -22,10 +23,21 @@ import {
   TenantSessionsPage,
   UserBlacklistPage,
 } from '../pages/DashboardPage';
-import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canReadBilling, hasAdminRole } from '../utils/roles';
+import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canSeeBillingOrg, canSeeBillingStorefront, hasAdminRole } from '../utils/roles';
 import { AppLayout } from './AppLayout';
 import { PATHS } from './routes';
 import { RequireAccess } from './RequireAccess';
+
+function BillingLegacyRedirect() {
+  const { user, accessToken } = useAuth();
+  if (canSeeBillingOrg(accessToken, user?.roles)) {
+    return <Navigate to={PATHS.billingOrg} replace />;
+  }
+  if (canSeeBillingStorefront(accessToken, user?.roles)) {
+    return <Navigate to={PATHS.billing} replace />;
+  }
+  return <Navigate to={PATHS.market} replace />;
+}
 
 function MarketWatchlistRedirect() {
   const [params] = useSearchParams();
@@ -47,7 +59,8 @@ export const AppRoutes: React.FC = () => {
   const canSeeKnowledge = canReadKnowledge(accessToken, user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);
-  const canSeeBilling = canReadBilling(accessToken, user?.roles);
+  const canSeeBillingStorefrontNav = canSeeBillingStorefront(accessToken, user?.roles);
+  const canSeeBillingOrgNav = canSeeBillingOrg(accessToken, user?.roles);
 
   return (
     <Routes>
@@ -156,11 +169,20 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.billing}
           element={(
-            <RequireAccess allowed={canSeeBilling} description="Somente ADMIN, SYSTEM ou quem tiver billing:read acessam a assinatura.">
+            <RequireAccess allowed={canSeeBillingStorefrontNav} description="Somente o usuário com billing:read acessa os planos e a própria assinatura.">
               <BillingPage />
             </RequireAccess>
           )}
         />
+        <Route
+          path={PATHS.billingOrg}
+          element={(
+            <RequireAccess allowed={canSeeBillingOrgNav} description="Somente ADMIN, SYSTEM ou MANAGER com billing:read acessam as assinaturas da organização.">
+              <BillingOrgPage />
+            </RequireAccess>
+          )}
+        />
+        <Route path={PATHS.billingLegacy} element={<BillingLegacyRedirect />} />
         <Route path={PATHS.templates} element={<TemplatesPage />} />
         <Route path={PATHS.account} element={<AccountPage />} />
         <Route path={PATHS.settings} element={<SettingsPage />} />

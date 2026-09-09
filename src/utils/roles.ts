@@ -12,6 +12,13 @@ export function hasAdminRole(roles?: string[] | null): boolean {
   });
 }
 
+export function hasManagerRole(roles?: string[] | null): boolean {
+  if (!roles || roles.length === 0) {
+    return false;
+  }
+  return roles.some((role) => normalizeRole(role) === 'MANAGER');
+}
+
 export function hasAdminOrManagerRole(roles?: string[] | null): boolean {
   if (!roles || roles.length === 0) {
     return false;
@@ -167,6 +174,26 @@ export function canReadBilling(token: string | null | undefined, roles?: string[
 
 export function canWriteBilling(token: string | null | undefined, roles?: string[] | null): boolean {
   return hasJwtAuthority(token, roles, BILLING_WRITE_AUTHORITY);
+}
+
+/** Loja do pagador: USER com billing:read. ADMIN/SYSTEM/MANAGER não assinam. */
+export function canSeeBillingStorefront(token: string | null | undefined, roles?: string[] | null): boolean {
+  if (hasAdminRole(roles) || hasManagerRole(roles)) {
+    return false;
+  }
+  return authoritiesFromJwt(token).includes(BILLING_READ_AUTHORITY);
+}
+
+/** Operação da org: ADMIN/SYSTEM ou MANAGER com billing:read. */
+export function canSeeBillingOrg(token: string | null | undefined, roles?: string[] | null): boolean {
+  if (hasAdminRole(roles)) {
+    return true;
+  }
+  if (!hasManagerRole(roles)) {
+    return false;
+  }
+  const authorities = authoritiesFromJwt(token);
+  return authorities.includes(BILLING_READ_AUTHORITY) || authorities.includes(BILLING_WRITE_AUTHORITY);
 }
 
 export type AccountSelfServiceAction = 'block' | 'delete';
@@ -402,12 +429,16 @@ export const BILLING_VISIBILITY_CASES: Array<{
   roles: string[];
   canRead: boolean;
   canWrite: boolean;
+  canStorefront: boolean;
+  canOrg: boolean;
 }> = [
-  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true, canWrite: true },
-  { name: 'SYSTEM sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_SYSTEM'], canRead: true, canWrite: true },
-  { name: 'USER com billing:read', tokenPayload: { authorities: ['billing:read'] }, roles: ['ROLE_USER'], canRead: true, canWrite: false },
-  { name: 'USER sem billing:read', tokenPayload: { authorities: [] }, roles: ['ROLE_USER'], canRead: false, canWrite: false },
-  { name: 'MANAGER com billing:read', tokenPayload: { authorities: ['billing:read'] }, roles: ['ROLE_MANAGER'], canRead: true, canWrite: false },
+  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true, canWrite: true, canStorefront: false, canOrg: true },
+  { name: 'SYSTEM sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_SYSTEM'], canRead: true, canWrite: true, canStorefront: false, canOrg: true },
+  { name: 'USER com billing:read', tokenPayload: { authorities: ['billing:read'] }, roles: ['ROLE_USER'], canRead: true, canWrite: false, canStorefront: true, canOrg: false },
+  { name: 'USER sem billing:read', tokenPayload: { authorities: [] }, roles: ['ROLE_USER'], canRead: false, canWrite: false, canStorefront: false, canOrg: false },
+  { name: 'MANAGER com billing:read', tokenPayload: { authorities: ['billing:read'] }, roles: ['ROLE_MANAGER'], canRead: true, canWrite: false, canStorefront: false, canOrg: true },
+  { name: 'MANAGER com billing:write', tokenPayload: { authorities: ['billing:write'] }, roles: ['ROLE_MANAGER'], canRead: false, canWrite: true, canStorefront: false, canOrg: true },
+  { name: 'MANAGER sem billing', tokenPayload: { authorities: [] }, roles: ['ROLE_MANAGER'], canRead: false, canWrite: false, canStorefront: false, canOrg: false },
 ];
 
 export function assertBillingVisibility(): string[] {
@@ -416,11 +447,19 @@ export function assertBillingVisibility(): string[] {
     const token = encodeTestJwt(testCase.tokenPayload);
     const canRead = canReadBilling(token, testCase.roles);
     const canWrite = canWriteBilling(token, testCase.roles);
+    const canStorefront = canSeeBillingStorefront(token, testCase.roles);
+    const canOrg = canSeeBillingOrg(token, testCase.roles);
     if (canRead !== testCase.canRead) {
       failures.push(`${testCase.name}: leitura esperada ${testCase.canRead}, obtida ${canRead}`);
     }
     if (canWrite !== testCase.canWrite) {
       failures.push(`${testCase.name}: escrita esperada ${testCase.canWrite}, obtida ${canWrite}`);
+    }
+    if (canStorefront !== testCase.canStorefront) {
+      failures.push(`${testCase.name}: loja esperada ${testCase.canStorefront}, obtida ${canStorefront}`);
+    }
+    if (canOrg !== testCase.canOrg) {
+      failures.push(`${testCase.name}: org esperada ${testCase.canOrg}, obtida ${canOrg}`);
     }
   }
   return failures;

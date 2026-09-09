@@ -16,6 +16,7 @@ export type AppTab =
   | 'audits'
   | 'llm'
   | 'billing'
+  | 'billing-org'
   | 'templates'
   | 'account'
   | 'settings';
@@ -44,7 +45,9 @@ export const PATHS = {
   marketWatchlist: '/mercado/watchlist',
   audits: '/auditoria',
   llm: '/llm',
-  billing: '/assinatura',
+  billing: '/planos',
+  billingOrg: '/admin/assinaturas',
+  billingLegacy: '/assinatura',
   templates: '/templates',
   account: '/conta',
   settings: '/configuracao',
@@ -66,7 +69,8 @@ export const ROUTES: RouteMeta[] = [
   { path: PATHS.marketAnalyze, tab: 'market-analyze', title: 'Analisar ativo' },
   { path: PATHS.audits, tab: 'audits', title: 'Auditoria' },
   { path: PATHS.llm, tab: 'llm', title: 'LLM' },
-  { path: PATHS.billing, tab: 'billing', title: 'Assinatura' },
+  { path: PATHS.billing, tab: 'billing', title: 'Planos' },
+  { path: PATHS.billingOrg, tab: 'billing-org', title: 'Assinaturas' },
   { path: PATHS.templates, tab: 'templates', title: 'Galeria de Templates' },
   { path: PATHS.account, tab: 'account', title: 'Conta' },
   { path: PATHS.settings, tab: 'settings', title: 'Configuração' },

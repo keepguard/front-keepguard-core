@@ -26,12 +26,13 @@ import {
 import { PATHS } from '../../navigation/routes';
 import {
   assertBillingVisibility,
+  canSeeBillingStorefront,
   canWriteBilling,
 } from '../../utils/roles';
 
 const visibilityFailures = assertBillingVisibility();
 if (visibilityFailures.length > 0 && import.meta.env.DEV) {
-  console.warn('canReadBilling:', visibilityFailures);
+  console.warn('billing visibility:', visibilityFailures);
 }
 
 const INTERVALS = [
@@ -110,13 +111,63 @@ const EMPTY_PLAN: SaveBillingPlan = {
   prices: [{ interval: 'month', amountCents: 0, currency: 'BRL' }],
 };
 
+function InvoiceTable({
+  invoices,
+  onCopyPix,
+}: {
+  invoices: BillingInvoice[];
+  onCopyPix: (payload: string) => void;
+}) {
+  return (
+    <div className="hpanel-table-card desktop-table-view">
+      <table className="hpanel-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Valor</th>
+            <th>Método</th>
+            <th>Vencimento</th>
+            <th>Pagamento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoices.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="table-cell-muted">Nenhuma fatura.</td>
+            </tr>
+          ) : invoices.map((invoice) => (
+            <tr key={invoice.id}>
+              <td>{invoiceStatusLabel(invoice.status)}</td>
+              <td>{formatMoney(invoice.amountCents, invoice.currency)}</td>
+              <td>{(invoice.paymentMethod || '—').toUpperCase()}</td>
+              <td>{formatDate(invoice.dueAt)}</td>
+              <td>
+                {invoice.status === 'pending' && invoice.pixPayload && (
+                  <button type="button" className="btn btn-outline btn-pill" onClick={() => onCopyPix(invoice.pixPayload!)}>
+                    <Copy size={14} /> PIX
+                  </button>
+                )}
+                {invoice.status === 'pending' && invoice.bankSlipUrl && (
+                  <a className="link-btn" href={invoice.bankSlipUrl} target="_blank" rel="noreferrer">Boleto</a>
+                )}
+                {invoice.status === 'paid' ? formatDate(invoice.paidAt) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export const BillingEntitlementBanner: React.FC = () => {
   const { isAuthenticated, getAccessToken, user } = useAuth();
   const [entitlement, setEntitlement] = useState<BillingEntitlement | null>(null);
+  const token = getAccessToken();
+  const showStorefront = canSeeBillingStorefront(token, user?.roles);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!isAuthenticated || !token) {
+    if (!isAuthenticated || !token || !showStorefront) {
       setEntitlement(null);
       return;
     }
@@ -131,43 +182,39 @@ export const BillingEntitlementBanner: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, getAccessToken, user?.id]);
+  }, [isAuthenticated, token, showStorefront, user?.id]);
 
-  if (!entitlement) return null;
+  if (!showStorefront || !entitlement) return null;
+  if (entitlement.allowsProduct) return null;
   const status = (entitlement.status || '').toLowerCase();
   if (status === 'active' || status === 'trial') return null;
 
   const grace = status === 'grace';
   const message = grace
     ? `Assinatura em carência até ${formatDate(entitlement.graceEndsAt)}. Regularize o pagamento para manter o produto.`
-    : 'Produto bloqueado neste tenant. Assine um plano para continuar. O collector segue rodando.';
+    : 'Assine um plano para continuar. O collector da organização segue rodando.';
 
   return (
     <div className={`billing-banner ${grace ? 'is-grace' : 'is-restricted'}`} role="status">
       <AlertTriangle size={16} />
       <span>{message}</span>
       <Link className="link-btn" to={PATHS.billing}>
-        Ir para assinatura
+        Ir para planos
       </Link>
     </div>
   );
 };
 
-export const BillingView: React.FC = () => {
+export const BillingOrgView: React.FC = () => {
   const { isAuthenticated, getAccessToken, user } = useAuth();
   const writable = canWriteBilling(getAccessToken(), user?.roles);
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [entitlement, setEntitlement] = useState<BillingEntitlement | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [account, setAccount] = useState<BillingGatewayAccount | null>(null);
-  const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [apiKey, setApiKey] = useState('');
   const [webhookToken, setWebhookToken] = useState('');
-  const [planCode, setPlanCode] = useState('');
-  const [interval, setInterval] = useState('month');
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>('pix');
   const [planModal, setPlanModal] = useState<SaveBillingPlan | null>(null);
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -179,44 +226,26 @@ export const BillingView: React.FC = () => {
     if (!access) return;
     setLoading(true);
     try {
-      const [nextEntitlement, nextPlans, nextSubscription, nextInvoices] = await Promise.all([
-        getBillingEntitlement(access),
+      const [nextPlans, nextInvoices, nextAccount] = await Promise.all([
         listBillingPlans(access),
-        getBillingSubscription(access),
         listBillingInvoices(access),
+        getBillingGatewayAccount(access),
       ]);
-      setEntitlement(nextEntitlement);
       setPlans(nextPlans);
-      setSubscription(nextSubscription);
       setInvoices(nextInvoices);
-      if (writable) {
-        setAccount(await getBillingGatewayAccount(access));
-      }
+      setAccount(nextAccount);
     } catch (error) {
       addToast({ type: 'error', title: 'Billing', description: errorMessage(error) });
     } finally {
       setLoading(false);
     }
-  }, [addToast, getAccessToken, writable]);
+  }, [addToast, getAccessToken]);
 
   useEffect(() => {
     if (isAuthenticated && token) {
       void load();
     }
   }, [isAuthenticated, token, load]);
-
-  const selectedPlan = useMemo(
-    () => plans.find((item) => item.code === planCode && item.enabled) || plans.find((item) => item.enabled),
-    [plans, planCode],
-  );
-
-  useEffect(() => {
-    if (!planCode && selectedPlan) {
-      setPlanCode(selectedPlan.code);
-    }
-  }, [planCode, selectedPlan]);
-
-  const selectedPrice = selectedPlan?.prices.find((price) => price.interval === interval);
 
   const saveCredential = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -259,45 +288,6 @@ export const BillingView: React.FC = () => {
     }
   };
 
-  const subscribe = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const access = getAccessToken();
-    if (!access || !planCode) return;
-    setBusy(true);
-    try {
-      const created = await createBillingSubscription({ planCode, interval, paymentMethod }, access);
-      setSubscription(created);
-      const pendingGateway = created.status === 'pending_gateway';
-      addToast({
-        type: pendingGateway ? 'info' : 'success',
-        title: pendingGateway ? 'Gateway pendente' : 'Assinatura criada',
-        description: pendingGateway
-          ? 'A assinatura será reenviada ao Asaas. O produto só libera após PAYMENT_CONFIRMED ou PAYMENT_RECEIVED.'
-          : 'Aguardando pagamento. CREATED no Asaas não conta como pago.',
-      });
-      await load();
-    } catch (error) {
-      addToast({ type: 'error', title: 'Assinatura', description: errorMessage(error) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const cancelMine = async () => {
-    const access = getAccessToken();
-    if (!access || !subscription?.id) return;
-    setBusy(true);
-    try {
-      await cancelBillingSubscription(subscription.id, access);
-      addToast({ type: 'success', title: 'Assinatura', description: 'Cancelamento solicitado.' });
-      await load();
-    } catch (error) {
-      addToast({ type: 'error', title: 'Cancelar', description: errorMessage(error) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const copyPix = async (payload: string) => {
     try {
       await navigator.clipboard.writeText(payload);
@@ -314,27 +304,16 @@ export const BillingView: React.FC = () => {
   return (
     <div className="billing-page">
       <section className="hpanel-table-card billing-card">
-        <h2>Situação</h2>
-        <p>
-          {entitlementLabel(entitlement?.status)} {entitlement?.planCode ? `· ${entitlement.planCode}` : ''}
-          {entitlement?.interval ? ` · ${intervalLabel(entitlement.interval)}` : ''}
-        </p>
-        <p className="table-cell-muted">
-          Produto {entitlement?.allowsProduct ? 'liberado' : 'não liberado'}. Fatura pendente não libera acesso.
-        </p>
-      </section>
-
-      {writable && (
-        <section className="hpanel-table-card billing-card">
-          <h2>Credencial Asaas da organização</h2>
-          {account ? (
-            <p>
-              Máscara da API key: <strong>{account.apiKeyMasked}</strong>
-              {account.webhookConfigured ? ' · webhook configurado' : ' · webhook pendente'}
-            </p>
-          ) : (
-            <p className="table-cell-muted">Nenhuma credencial cadastrada. A chave não volta a ser exibida.</p>
-          )}
+        <h2>Credencial Asaas da organização</h2>
+        {account ? (
+          <p>
+            Máscara da API key: <strong>{account.apiKeyMasked}</strong>
+            {account.webhookConfigured ? ' · webhook configurado' : ' · webhook pendente'}
+          </p>
+        ) : (
+          <p className="table-cell-muted">Nenhuma credencial cadastrada. A chave não volta a ser exibida.</p>
+        )}
+        {writable && (
           <form className="billing-form" onSubmit={saveCredential}>
             <label>
               API key
@@ -362,13 +341,13 @@ export const BillingView: React.FC = () => {
               Salvar credencial
             </button>
           </form>
-        </section>
-      )}
+        )}
+      </section>
 
-      {writable && (
-        <section className="hpanel-table-card billing-card">
-          <div className="client-system-create-row">
-            <h2>Planos da organização</h2>
+      <section className="hpanel-table-card billing-card">
+        <div className="client-system-create-row">
+          <h2>Planos da organização</h2>
+          {writable && (
             <button
               type="button"
               className="btn btn-primary btn-pill"
@@ -380,27 +359,33 @@ export const BillingView: React.FC = () => {
               <Plus size={15} />
               <span>Novo plano</span>
             </button>
-          </div>
-          <div className="hpanel-table-card desktop-table-view">
-            <table className="hpanel-table">
-              <thead>
+          )}
+        </div>
+        <div className="hpanel-table-card desktop-table-view">
+          <table className="hpanel-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nome</th>
+                <th>Status</th>
+                <th>Preços</th>
+                {writable ? <th /> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {plans.length === 0 ? (
                 <tr>
-                  <th>Código</th>
-                  <th>Nome</th>
-                  <th>Status</th>
-                  <th>Preços</th>
-                  <th />
+                  <td colSpan={writable ? 5 : 4} className="table-cell-muted">Nenhum plano.</td>
                 </tr>
-              </thead>
-              <tbody>
-                {plans.map((plan) => (
-                  <tr key={plan.id}>
-                    <td>{plan.code}</td>
-                    <td>{plan.name}</td>
-                    <td>{plan.enabled ? 'Ativo' : 'Inativo'}</td>
-                    <td>
-                      {plan.prices.map((price) => `${intervalLabel(price.interval)} ${formatMoney(price.amountCents, price.currency)}`).join(' · ') || '—'}
-                    </td>
+              ) : plans.map((plan) => (
+                <tr key={plan.id}>
+                  <td>{plan.code}</td>
+                  <td>{plan.name}</td>
+                  <td>{plan.enabled ? 'Ativo' : 'Inativo'}</td>
+                  <td>
+                    {plan.prices.map((price) => `${intervalLabel(price.interval)} ${formatMoney(price.amountCents, price.currency)}`).join(' · ') || '—'}
+                  </td>
+                  {writable ? (
                     <td>
                       <button
                         type="button"
@@ -421,110 +406,17 @@ export const BillingView: React.FC = () => {
                         <Pencil size={15} />
                       </button>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      <section className="hpanel-table-card billing-card">
-        <h2>Minha assinatura</h2>
-        {subscription ? (
-          <div>
-            <p>
-              {subscription.planCode} · {intervalLabel(subscription.interval)} · {subscription.paymentMethod} · {subscription.status}
-            </p>
-            <p className="table-cell-muted">Vigência até {formatDate(subscription.currentPeriodEnd)}</p>
-            {subscription.status !== 'canceled' && (
-              <button type="button" className="btn btn-outline btn-pill" disabled={busy} onClick={() => void cancelMine()}>
-                Cancelar
-              </button>
-            )}
-          </div>
-        ) : (
-          <form className="billing-form" onSubmit={subscribe}>
-            <label>
-              Plano
-              <select className="form-input" value={planCode} onChange={(event) => setPlanCode(event.target.value)} required>
-                <option value="">Selecione</option>
-                {plans.filter((plan) => plan.enabled).map((plan) => (
-                  <option key={plan.id} value={plan.code}>{plan.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Ciclo
-              <select className="form-input" value={interval} onChange={(event) => setInterval(event.target.value)}>
-                {(selectedPlan?.prices.length ? selectedPlan.prices : INTERVALS.map((item) => ({ interval: item.value } as BillingPlanPrice))).map((price) => (
-                  <option key={price.interval} value={price.interval}>
-                    {intervalLabel(price.interval)}
-                    {'amountCents' in price && price.amountCents ? ` · ${formatMoney(price.amountCents, price.currency)}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Pagamento
-              <select
-                className="form-input"
-                value={paymentMethod}
-                onChange={(event) => setPaymentMethod(event.target.value as 'pix' | 'boleto')}
-              >
-                <option value="pix">PIX</option>
-                <option value="boleto">Boleto</option>
-              </select>
-            </label>
-            {selectedPrice && <p>Valor do ciclo: {formatMoney(selectedPrice.amountCents, selectedPrice.currency)}</p>}
-            <button className="btn btn-primary btn-pill" type="submit" disabled={busy || !planCode}>
-              <CreditCard size={15} />
-              Assinar
-            </button>
-          </form>
-        )}
-      </section>
-
-      <section className="hpanel-table-card billing-card">
-        <h2>{writable ? 'Faturas da organização' : 'Minhas faturas'}</h2>
-        <div className="hpanel-table-card desktop-table-view">
-          <table className="hpanel-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Valor</th>
-                <th>Método</th>
-                <th>Vencimento</th>
-                <th>Pagamento</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="table-cell-muted">Nenhuma fatura.</td>
-                </tr>
-              ) : invoices.map((invoice) => (
-                <tr key={invoice.id}>
-                  <td>{invoiceStatusLabel(invoice.status)}</td>
-                  <td>{formatMoney(invoice.amountCents, invoice.currency)}</td>
-                  <td>{(invoice.paymentMethod || '—').toUpperCase()}</td>
-                  <td>{formatDate(invoice.dueAt)}</td>
-                  <td>
-                    {invoice.status === 'pending' && invoice.pixPayload && (
-                      <button type="button" className="btn btn-outline btn-pill" onClick={() => void copyPix(invoice.pixPayload!)}>
-                        <Copy size={14} /> PIX
-                      </button>
-                    )}
-                    {invoice.status === 'pending' && invoice.bankSlipUrl && (
-                      <a className="link-btn" href={invoice.bankSlipUrl} target="_blank" rel="noreferrer">Boleto</a>
-                    )}
-                    {invoice.status === 'paid' ? formatDate(invoice.paidAt) : null}
-                  </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="hpanel-table-card billing-card">
+        <h2>Faturas da organização</h2>
+        <InvoiceTable invoices={invoices} onCopyPix={(payload) => void copyPix(payload)} />
       </section>
 
       <Modal
@@ -618,6 +510,191 @@ export const BillingView: React.FC = () => {
           </form>
         )}
       </Modal>
+    </div>
+  );
+};
+
+export const BillingPlansView: React.FC = () => {
+  const { isAuthenticated, getAccessToken } = useAuth();
+  const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [entitlement, setEntitlement] = useState<BillingEntitlement | null>(null);
+  const [plans, setPlans] = useState<BillingPlan[]>([]);
+  const [subscription, setSubscription] = useState<BillingSubscription | null>(null);
+  const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
+  const [planCode, setPlanCode] = useState('');
+  const [interval, setInterval] = useState('month');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>('pix');
+  const [busy, setBusy] = useState(false);
+
+  const token = getAccessToken();
+
+  const load = useCallback(async () => {
+    const access = getAccessToken();
+    if (!access) return;
+    setLoading(true);
+    try {
+      const [nextEntitlement, nextPlans, nextSubscription, nextInvoices] = await Promise.all([
+        getBillingEntitlement(access),
+        listBillingPlans(access),
+        getBillingSubscription(access),
+        listBillingInvoices(access),
+      ]);
+      setEntitlement(nextEntitlement);
+      setPlans(nextPlans);
+      setSubscription(nextSubscription);
+      setInvoices(nextInvoices);
+    } catch (error) {
+      addToast({ type: 'error', title: 'Billing', description: errorMessage(error) });
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, getAccessToken]);
+
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      void load();
+    }
+  }, [isAuthenticated, token, load]);
+
+  const selectedPlan = useMemo(
+    () => plans.find((item) => item.code === planCode && item.enabled) || plans.find((item) => item.enabled),
+    [plans, planCode],
+  );
+
+  useEffect(() => {
+    if (!planCode && selectedPlan) {
+      setPlanCode(selectedPlan.code);
+    }
+  }, [planCode, selectedPlan]);
+
+  const selectedPrice = selectedPlan?.prices.find((price) => price.interval === interval);
+
+  const subscribe = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const access = getAccessToken();
+    if (!access || !planCode) return;
+    setBusy(true);
+    try {
+      const created = await createBillingSubscription({ planCode, interval, paymentMethod }, access);
+      setSubscription(created);
+      const pendingGateway = created.status === 'pending_gateway';
+      addToast({
+        type: pendingGateway ? 'info' : 'success',
+        title: pendingGateway ? 'Gateway pendente' : 'Assinatura criada',
+        description: pendingGateway
+          ? 'A assinatura será reenviada ao Asaas. O produto só libera após PAYMENT_CONFIRMED ou PAYMENT_RECEIVED.'
+          : 'Aguardando pagamento. CREATED no Asaas não conta como pago.',
+      });
+      await load();
+    } catch (error) {
+      addToast({ type: 'error', title: 'Assinatura', description: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelMine = async () => {
+    const access = getAccessToken();
+    if (!access || !subscription?.id) return;
+    setBusy(true);
+    try {
+      await cancelBillingSubscription(subscription.id, access);
+      addToast({ type: 'success', title: 'Assinatura', description: 'Cancelamento solicitado.' });
+      await load();
+    } catch (error) {
+      addToast({ type: 'error', title: 'Cancelar', description: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyPix = async (payload: string) => {
+    try {
+      await navigator.clipboard.writeText(payload);
+      addToast({ type: 'success', title: 'PIX', description: 'Código copiado.' });
+    } catch {
+      addToast({ type: 'error', title: 'PIX', description: 'Não foi possível copiar.' });
+    }
+  };
+
+  if (loading) {
+    return <p className="text-muted">Carregando billing…</p>;
+  }
+
+  return (
+    <div className="billing-page">
+      <section className="hpanel-table-card billing-card">
+        <h2>Situação</h2>
+        <p>
+          {entitlementLabel(entitlement?.status)} {entitlement?.planCode ? `· ${entitlement.planCode}` : ''}
+          {entitlement?.interval ? ` · ${intervalLabel(entitlement.interval)}` : ''}
+        </p>
+        <p className="table-cell-muted">
+          Produto {entitlement?.allowsProduct ? 'liberado' : 'não liberado'}. Fatura pendente não libera acesso.
+        </p>
+      </section>
+
+      <section className="hpanel-table-card billing-card">
+        <h2>Minha assinatura</h2>
+        {subscription ? (
+          <div>
+            <p>
+              {subscription.planCode} · {intervalLabel(subscription.interval)} · {subscription.paymentMethod} · {subscription.status}
+            </p>
+            <p className="table-cell-muted">Vigência até {formatDate(subscription.currentPeriodEnd)}</p>
+            {subscription.status !== 'canceled' && (
+              <button type="button" className="btn btn-outline btn-pill" disabled={busy} onClick={() => void cancelMine()}>
+                Cancelar
+              </button>
+            )}
+          </div>
+        ) : (
+          <form className="billing-form" onSubmit={subscribe}>
+            <label>
+              Plano
+              <select className="form-input" value={planCode} onChange={(event) => setPlanCode(event.target.value)} required>
+                <option value="">Selecione</option>
+                {plans.filter((plan) => plan.enabled).map((plan) => (
+                  <option key={plan.id} value={plan.code}>{plan.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Ciclo
+              <select className="form-input" value={interval} onChange={(event) => setInterval(event.target.value)}>
+                {(selectedPlan?.prices.length ? selectedPlan.prices : INTERVALS.map((item) => ({ interval: item.value } as BillingPlanPrice))).map((price) => (
+                  <option key={price.interval} value={price.interval}>
+                    {intervalLabel(price.interval)}
+                    {'amountCents' in price && price.amountCents ? ` · ${formatMoney(price.amountCents, price.currency)}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Pagamento
+              <select
+                className="form-input"
+                value={paymentMethod}
+                onChange={(event) => setPaymentMethod(event.target.value as 'pix' | 'boleto')}
+              >
+                <option value="pix">PIX</option>
+                <option value="boleto">Boleto</option>
+              </select>
+            </label>
+            {selectedPrice && <p>Valor do ciclo: {formatMoney(selectedPrice.amountCents, selectedPrice.currency)}</p>}
+            <button className="btn btn-primary btn-pill" type="submit" disabled={busy || !planCode}>
+              <CreditCard size={15} />
+              Assinar
+            </button>
+          </form>
+        )}
+      </section>
+
+      <section className="hpanel-table-card billing-card">
+        <h2>Minhas faturas</h2>
+        <InvoiceTable invoices={invoices} onCopyPix={(payload) => void copyPix(payload)} />
+      </section>
     </div>
   );
 };

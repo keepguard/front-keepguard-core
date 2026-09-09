@@ -20,7 +20,7 @@ import {
   PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canReadBilling, hasAdminRole } from '../../utils/roles';
+import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canSeeBillingOrg, canSeeBillingStorefront, hasAdminRole } from '../../utils/roles';
 import { PATHS } from '../../navigation/routes';
 
 interface SidebarProps {
@@ -75,8 +75,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeMarketOps = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);
-  const canSeeBilling = canReadBilling(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarketOps;
+  const canSeeBillingStorefrontNav = canSeeBillingStorefront(accessToken, user?.roles);
+  const canSeeBillingOrgNav = canSeeBillingOrg(accessToken, user?.roles);
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarketOps || canSeeBillingOrgNav;
 
   return (
     <>
@@ -135,10 +136,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               icon={<Ban size={18} className="sidebar-icon" />}
               onCloseMobile={onCloseMobile}
             />
-            {canSeeBilling && (
+            {canSeeBillingStorefrontNav && (
               <SidebarLink
                 to={PATHS.billing}
-                label="Assinatura"
+                label="Planos"
                 icon={<CreditCard size={18} className="sidebar-icon" />}
                 onCloseMobile={onCloseMobile}
               />
@@ -241,6 +242,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   to={PATHS.llm}
                   label="LLM"
                   icon={<Sparkles size={18} className="sidebar-icon" />}
+                  onCloseMobile={onCloseMobile}
+                />
+              )}
+              {canSeeBillingOrgNav && (
+                <SidebarLink
+                  to={PATHS.billingOrg}
+                  label="Assinaturas"
+                  icon={<CreditCard size={18} className="sidebar-icon" />}
                   onCloseMobile={onCloseMobile}
                 />
               )}
