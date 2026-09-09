@@ -43,9 +43,19 @@ const EMPTY_PLAN: SaveBillingPlan = {
   code: '',
   name: '',
   enabled: true,
+  quotasJson: '',
   trialDays: 0,
   prices: [{ interval: 'month', amountCents: 0, currency: 'BRL' }],
 };
+
+const QUOTAS_PLACEHOLDER = '{ "watchlistSlots": 5, "watchlistPicks": 1 }';
+
+function planQuotasJson(plan: { quotas?: Record<string, number> | null; quotasJson?: string | null }): string {
+  if (plan.quotas && Object.keys(plan.quotas).length > 0) {
+    return JSON.stringify(plan.quotas);
+  }
+  return plan.quotasJson || '';
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
@@ -782,7 +792,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
               className="btn btn-primary btn-pill"
               onClick={() => {
                 setEditingCode(null);
-                setPlanModal({ ...EMPTY_PLAN, prices: [{ interval: 'month', amountCents: 9900, currency: 'BRL' }] });
+                setPlanModal({ ...EMPTY_PLAN });
               }}
             >
               <Plus size={15} />
@@ -826,7 +836,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                             code: plan.code,
                             name: plan.name,
                             enabled: plan.enabled,
-                            quotasJson: plan.quotasJson || '',
+                            quotasJson: planQuotasJson(plan),
                             trialDays: plan.trialDays,
                             prices: plan.prices.length ? plan.prices : EMPTY_PLAN.prices,
                           });
@@ -866,6 +876,16 @@ function PlansPanel({ writable }: { writable: boolean }) {
             <label>
               Trial (dias)
               <input className="form-input" type="number" min={0} value={planModal.trialDays} onChange={(event) => setPlanModal({ ...planModal, trialDays: Number(event.target.value) || 0 })} />
+            </label>
+            <label>
+              Cotas (JSON)
+              <textarea
+                className="form-input"
+                rows={3}
+                placeholder={QUOTAS_PLACEHOLDER}
+                value={planModal.quotasJson || ''}
+                onChange={(event) => setPlanModal({ ...planModal, quotasJson: event.target.value })}
+              />
             </label>
             <label className="billing-check">
               <input type="checkbox" checked={planModal.enabled} onChange={(event) => setPlanModal({ ...planModal, enabled: event.target.checked })} />

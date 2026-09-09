@@ -36,7 +36,7 @@ function mapAnalystError(err: unknown, fallback: string): string {
   const status = (err as { status?: number }).status;
   const data = (err as { data?: { error?: string; message?: string } }).data;
   if (data?.error === 'WATCHLIST_TOO_LARGE') {
-    return `A lista de favoritos aceita no máximo ${WATCHLIST_MAX_TICKERS} ativos.`;
+    return data?.message || `A lista de favoritos aceita no máximo ${WATCHLIST_MAX_TICKERS} ativos.`;
   }
   if (data?.error === 'INVALID_TICKER' || status === 400) {
     return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).';
@@ -188,11 +188,13 @@ export const MarketDeskView: React.FC = () => {
   }
 
   const normalizedQuery = query.trim().toUpperCase();
+  const favoriteTickers = favorites?.tickers ?? [];
+  const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const suggestions = useMemo(() => {
-    const pool = catalog;
+    const pool = maxFavorites < WATCHLIST_MAX_TICKERS ? favoriteTickers : catalog;
     if (!normalizedQuery) return pool.slice(0, 12);
     return pool.filter((ticker) => ticker.includes(normalizedQuery)).slice(0, 12);
-  }, [catalog, normalizedQuery]);
+  }, [catalog, favoriteTickers, maxFavorites, normalizedQuery]);
 
   const latest = runs[0] ?? null;
   const collectedAt = freshestCollectedAt(latest);
@@ -214,8 +216,6 @@ export const MarketDeskView: React.FC = () => {
       .map(({ point }) => point.dataSource)
       .filter((slug): slug is string => Boolean(slug)),
   )];
-  const favoriteTickers = favorites?.tickers ?? [];
-  const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const isFavorite = selectedTicker ? favoriteTickers.includes(selectedTicker) : false;
   const atFavCap = favoriteTickers.length >= maxFavorites;
 

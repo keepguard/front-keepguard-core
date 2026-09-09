@@ -8,6 +8,7 @@ export interface BillingEntitlement {
   status: string;
   planCode?: string | null;
   interval?: string | null;
+  quotas?: Record<string, number> | null;
   quotasJson?: string | null;
   graceEndsAt?: string | null;
   currentPeriodEnd?: string | null;
@@ -29,6 +30,7 @@ export interface BillingPlan {
   code: string;
   name: string;
   enabled: boolean;
+  quotas?: Record<string, number> | null;
   quotasJson?: string | null;
   trialDays: number;
   prices: BillingPlanPrice[];
@@ -187,7 +189,7 @@ export async function getBillingSubscription(token: string): Promise<BillingSubs
 }
 
 export function createBillingSubscription(
-  body: { planCode: string; interval: string; paymentMethod: string },
+  body: { planCode: string; interval: string; paymentMethod: string; payerCpfCnpj?: string },
   token: string,
 ): Promise<BillingSubscription> {
   return customFetch<BillingSubscription>(`${BILLING_BASE}/subscriptions`, {

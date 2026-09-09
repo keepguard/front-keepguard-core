@@ -17,6 +17,7 @@ import {
   type BillingPlanPrice,
   type BillingSubscription,
 } from '../../services/billingService';
+import { authService } from '../../services/authService';
 import { PATHS } from '../../navigation/routes';
 import {
   assertBillingVisibility,
@@ -40,12 +41,67 @@ function errorMessage(error: unknown): string {
   return 'Não foi possível concluir a operação.';
 }
 
+function apiErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+  const data = (error as { data?: { error?: string } }).data;
+  return (data?.error || '').trim();
+}
+
+function cpfDigitsOf(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 11);
+}
+
+function formatCpfMask(digits: string): string {
+  const d = cpfDigitsOf(digits);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function isValidCpf(digits: string): boolean {
+  const d = cpfDigitsOf(digits);
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const check = (len: number) => {
+    let sum = 0;
+    for (let i = 0; i < len; i += 1) sum += Number(d[i]) * (len + 1 - i);
+    const rest = (sum * 10) % 11;
+    return (rest === 10 ? 0 : rest) === Number(d[len]);
+  };
+  return check(9) && check(10);
+}
+
+function maskedCpfLast4(last4?: string): string {
+  const tail = (last4 || '').replace(/\D/g, '').slice(-4);
+  return tail.length === 4 ? `***.***.***-${tail}` : '***.***.***-****';
+}
+
 function formatMoney(cents: number, currency = 'BRL'): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: currency || 'BRL' });
 }
 
 function intervalLabel(value?: string | null): string {
   return INTERVALS.find((item) => item.value === value)?.label || value || '—';
+}
+
+function watchlistSlotsOf(source?: { quotas?: Record<string, number> | null; quotasJson?: string | null } | null): number | undefined {
+  const fromObject = source?.quotas?.watchlistSlots;
+  if (typeof fromObject === 'number' && fromObject > 0) return fromObject;
+  if (!source?.quotasJson) return undefined;
+  try {
+    const parsed = JSON.parse(source.quotasJson) as { watchlistSlots?: number };
+    if (typeof parsed.watchlistSlots === 'number' && parsed.watchlistSlots > 0) return parsed.watchlistSlots;
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+function planBenefit(plan: BillingPlan): string {
+  const slots = watchlistSlotsOf(plan);
+  const quota = slots ? `até ${slots} ativos` : '';
+  const trial = plan.trialDays > 0 ? `${plan.trialDays} dias para usar o Mercado` : '';
+  return [quota, trial].filter(Boolean).join(' · ');
 }
 
 function entitlementLabel(status?: string): string {
@@ -121,7 +177,6 @@ export const BillingEntitlementBanner: React.FC = () => {
   }, [isAuthenticated, token, showStorefront, user?.id]);
 
   if (!showStorefront || !entitlement) return null;
-  if (entitlement.allowsProduct) return null;
   const status = (entitlement.status || '').toLowerCase();
   if (status === 'active' || status === 'trial') return null;
 
@@ -295,6 +350,10 @@ export const BillingPlansView: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>('pix');
   const [busy, setBusy] = useState(false);
   const [justSubscribed, setJustSubscribed] = useState(false);
+  const [hasCpf, setHasCpf] = useState(false);
+  const [cpfLast4, setCpfLast4] = useState('');
+  const [cpfDigits, setCpfDigits] = useState('');
+  const [cpfError, setCpfError] = useState('');
 
   const token = getAccessToken();
 
@@ -303,16 +362,25 @@ export const BillingPlansView: React.FC = () => {
     if (!access) return;
     if (!opts?.silent) setLoading(true);
     try {
-      const [nextEntitlement, nextPlans, nextSubscription, nextInvoices] = await Promise.all([
+      const [nextEntitlement, nextPlans, nextSubscription, nextInvoices, me] = await Promise.all([
         getBillingEntitlement(access),
         listBillingPlans(access),
         getBillingSubscription(access),
         listBillingInvoices(access, user?.id || user?.codeUser),
+        authService.getMe(access).catch(() => null),
       ]);
       setEntitlement(nextEntitlement);
       setPlans(nextPlans);
       setSubscription(nextSubscription);
       setInvoices(nextInvoices);
+      const profile = me?.personProfile;
+      const nextHasCpf = Boolean(profile?.hasCpf);
+      setHasCpf(nextHasCpf);
+      setCpfLast4(profile?.cpfLast4 || '');
+      if (nextHasCpf) {
+        setCpfDigits('');
+        setCpfError('');
+      }
     } catch (error) {
       addToast({ type: 'error', title: 'Billing', description: errorMessage(error) });
     } finally {
@@ -378,9 +446,22 @@ export const BillingPlansView: React.FC = () => {
     event.preventDefault();
     const access = getAccessToken();
     if (!access || !planCode) return;
+    if (!hasCpf && !isValidCpf(cpfDigits)) {
+      setCpfError('Informe um CPF válido.');
+      return;
+    }
     setBusy(true);
+    setCpfError('');
     try {
-      const created = await createBillingSubscription({ planCode, interval, paymentMethod }, access);
+      const payload: { planCode: string; interval: string; paymentMethod: string; payerCpfCnpj?: string } = {
+        planCode,
+        interval,
+        paymentMethod,
+      };
+      if (!hasCpf) {
+        payload.payerCpfCnpj = cpfDigitsOf(cpfDigits);
+      }
+      const created = await createBillingSubscription(payload, access);
       setSubscription(created);
       setJustSubscribed(true);
       const pendingGateway = created.status === 'pending_gateway';
@@ -393,7 +474,14 @@ export const BillingPlansView: React.FC = () => {
       });
       await load({ silent: true });
     } catch (error) {
-      addToast({ type: 'error', title: 'Assinatura', description: errorMessage(error) });
+      const code = apiErrorCode(error);
+      if (code === 'CPF_ALREADY_EXISTS') {
+        setCpfError('Este CPF já está em uso nesta organização.');
+      } else if (code === 'PAYER_DOCUMENT_MISSING' || code === 'PAYER_DOCUMENT_INVALID') {
+        setCpfError('Informe um CPF válido.');
+      } else {
+        addToast({ type: 'error', title: 'Assinatura', description: errorMessage(error) });
+      }
     } finally {
       setBusy(false);
     }
@@ -471,16 +559,18 @@ export const BillingPlansView: React.FC = () => {
           <form className="billing-form" onSubmit={subscribe}>
             <label>
               Plano
-              <select className="form-input" value={planCode} onChange={(event) => setPlanCode(event.target.value)} required>
+              <select className="form-input" value={planCode} disabled={busy} onChange={(event) => setPlanCode(event.target.value)} required>
                 <option value="">Selecione</option>
                 {plans.filter((plan) => plan.enabled).map((plan) => (
-                  <option key={plan.id} value={plan.code}>{plan.name}</option>
+                  <option key={plan.id} value={plan.code}>
+                    {plan.name}{planBenefit(plan) ? ` — ${planBenefit(plan)}` : ''}
+                  </option>
                 ))}
               </select>
             </label>
             <label>
               Ciclo
-              <select className="form-input" value={interval} onChange={(event) => setInterval(event.target.value)}>
+              <select className="form-input" value={interval} disabled={busy} onChange={(event) => setInterval(event.target.value)}>
                 {(selectedPlan?.prices.length ? selectedPlan.prices : INTERVALS.map((item) => ({ interval: item.value } as BillingPlanPrice))).map((price) => (
                   <option key={price.interval} value={price.interval}>
                     {intervalLabel(price.interval)}
@@ -494,14 +584,52 @@ export const BillingPlansView: React.FC = () => {
               <select
                 className="form-input"
                 value={paymentMethod}
+                disabled={busy}
                 onChange={(event) => setPaymentMethod(event.target.value as 'pix' | 'boleto')}
               >
                 <option value="pix">PIX</option>
                 <option value="boleto">Boleto</option>
               </select>
             </label>
+            <label>
+              CPF
+              <input
+                className="form-input"
+                value={hasCpf ? maskedCpfLast4(cpfLast4) : formatCpfMask(cpfDigits)}
+                onChange={(event) => {
+                  setCpfDigits(cpfDigitsOf(event.target.value));
+                  if (cpfError) setCpfError('');
+                }}
+                required={!hasCpf}
+                readOnly={hasCpf}
+                disabled={busy || hasCpf}
+                inputMode="numeric"
+                autoComplete="off"
+                aria-readonly={hasCpf || undefined}
+                aria-invalid={cpfError ? true : undefined}
+                aria-describedby={cpfError ? 'billing-cpf-error' : !hasCpf ? 'billing-cpf-hint' : undefined}
+                placeholder="000.000.000-00"
+              />
+              {!hasCpf ? (
+                <span id="billing-cpf-hint" className="billing-cpf-hint">
+                  O Asaas usa o CPF do pagador no PIX e no boleto.
+                </span>
+              ) : null}
+              {cpfError ? (
+                <span id="billing-cpf-error" className="billing-field-error" role="alert">
+                  {cpfError}
+                </span>
+              ) : null}
+            </label>
+            {selectedPlan && planBenefit(selectedPlan) ? (
+              <p className="table-cell-muted">{planBenefit(selectedPlan)}</p>
+            ) : null}
             {selectedPrice && <p>Valor do ciclo: {formatMoney(selectedPrice.amountCents, selectedPrice.currency)}</p>}
-            <button className="btn btn-primary btn-pill" type="submit" disabled={busy || !planCode}>
+            <button
+              className="btn btn-primary btn-pill"
+              type="submit"
+              disabled={busy || !planCode || (!hasCpf && cpfDigits.length !== 11)}
+            >
               <CreditCard size={15} />
               Assinar
             </button>

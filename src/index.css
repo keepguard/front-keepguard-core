@@ -6434,15 +6434,41 @@ textarea.form-input {
 }
 
 .billing-page .billing-form {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   align-items: end;
 }
 
-.billing-page .billing-form > p,
-.billing-page .billing-form > .btn {
+.billing-page .billing-form > p {
   grid-column: 1 / -1;
+}
+
+.billing-page .billing-form > .btn {
   width: auto;
-  justify-self: start;
+  min-height: 2.5rem;
+  justify-self: stretch;
+}
+
+.billing-cpf-hint,
+.billing-field-error {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.billing-cpf-hint {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.billing-field-error {
+  color: var(--danger);
+}
+
+.billing-form .form-input[readonly],
+.billing-form .form-input:disabled {
+  cursor: default;
+  opacity: 0.85;
 }
 
 .billing-check {

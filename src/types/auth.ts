@@ -172,6 +172,8 @@ export interface HealthResponse {
 
 export interface MePersonProfile {
   fullName?: string;
+  hasCpf?: boolean;
+  cpfLast4?: string;
 }
 
 export interface MeProfile {
