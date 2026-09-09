@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Copy, CreditCard, ExternalLink, LoaderCircle } from 'lucide-react';
 import { PixQr } from './PixQr';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -11,6 +11,8 @@ import {
   getBillingSubscription,
   listBillingInvoices,
   listBillingPlans,
+  notifyBillingEntitlement,
+  onBillingEntitlement,
   type BillingEntitlement,
   type BillingInvoice,
   type BillingPlan,
@@ -155,28 +157,52 @@ function formatDate(value?: string | null): string {
 export const BillingEntitlementBanner: React.FC = () => {
   const { isAuthenticated, getAccessToken, user } = useAuth();
   const [entitlement, setEntitlement] = useState<BillingEntitlement | null>(null);
+  const location = useLocation();
   const token = getAccessToken();
   const showStorefront = canSeeBillingStorefront(token, user?.roles);
 
-  useEffect(() => {
-    if (!isAuthenticated || !token || !showStorefront) {
+  const fetchEntitlement = useCallback(() => {
+    const access = getAccessToken();
+    if (!isAuthenticated || !access || !showStorefront) {
       setEntitlement(null);
       return;
     }
-    let cancelled = false;
-    getBillingEntitlement(token)
-      .then((data) => {
-        if (!cancelled) setEntitlement(data);
-      })
-      .catch(() => {
-        if (!cancelled) setEntitlement(null);
-      });
-    return () => {
-      cancelled = true;
+    getBillingEntitlement(access)
+      .then((data) => setEntitlement(data))
+      .catch(() => setEntitlement(null));
+  }, [isAuthenticated, getAccessToken, showStorefront]);
+
+  useEffect(() => {
+    fetchEntitlement();
+  }, [fetchEntitlement, user?.id]);
+
+  useEffect(() => {
+    return onBillingEntitlement((next) => {
+      setEntitlement(next);
+    });
+  }, []);
+
+  useEffect(() => {
+    const status = (entitlement?.status || '').toLowerCase();
+    if (status !== 'active' && status !== 'trial') {
+      fetchEntitlement();
+    }
+  }, [location.pathname, fetchEntitlement]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      const status = (entitlement?.status || '').toLowerCase();
+      if (status !== 'active' && status !== 'trial') {
+        fetchEntitlement();
+      }
     };
-  }, [isAuthenticated, token, showStorefront, user?.id]);
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchEntitlement, entitlement?.status]);
 
   if (!showStorefront || !entitlement) return null;
+  if (location.pathname === PATHS.billing) return null;
+
   const status = (entitlement.status || '').toLowerCase();
   if (status === 'active' || status === 'trial') return null;
 
@@ -370,6 +396,7 @@ export const BillingPlansView: React.FC = () => {
         authService.getMe(access).catch(() => null),
       ]);
       setEntitlement(nextEntitlement);
+      notifyBillingEntitlement(nextEntitlement);
       setPlans(nextPlans);
       setSubscription(nextSubscription);
       setInvoices(nextInvoices);

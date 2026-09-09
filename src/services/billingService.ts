@@ -256,3 +256,22 @@ export function searchBillingEntitlements(
     token,
   );
 }
+
+const BILLING_ENTITLEMENT_EVENT = 'keepguard:billing-entitlement-updated';
+
+export function notifyBillingEntitlement(entitlement: BillingEntitlement | null): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(BILLING_ENTITLEMENT_EVENT, { detail: entitlement }));
+  }
+}
+
+export function onBillingEntitlement(callback: (entitlement: BillingEntitlement | null) => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (e: Event) => {
+    const customEvent = e as CustomEvent<BillingEntitlement | null>;
+    callback(customEvent.detail ?? null);
+  };
+  window.addEventListener(BILLING_ENTITLEMENT_EVENT, handler);
+  return () => window.removeEventListener(BILLING_ENTITLEMENT_EVENT, handler);
+}
+
