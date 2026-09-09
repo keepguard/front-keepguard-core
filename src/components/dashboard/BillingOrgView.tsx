@@ -160,7 +160,7 @@ export const BillingOrgView: React.FC = () => {
             Billing
           </h1>
           <p className="dashboard-subtitle">
-            Planos, assinantes e cobrança da organização. Quem opera não assina.
+            Planos, assinantes e cobrança da organização.
           </p>
         </div>
       </div>
