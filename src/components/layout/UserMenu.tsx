@@ -1,21 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Settings, UserCircle, LogOut, CreditCard } from 'lucide-react';
+import { User as UserIcon, Settings, UserCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { PATHS } from '../../navigation/routes';
-import { canSeeBillingOrg, canSeeBillingStorefront } from '../../utils/roles';
 
 interface UserMenuProps {
   onLogout?: () => void;
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({ onLogout }) => {
-  const { user, accessToken } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const canSeeStorefront = canSeeBillingStorefront(accessToken, user?.roles);
-  const canSeeOrg = canSeeBillingOrg(accessToken, user?.roles);
 
   const getInitials = (name?: string, email?: string) => {
     if (name) return name.charAt(0).toUpperCase();
@@ -94,28 +91,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onLogout }) => {
             <UserCircle size={16} />
             <span>Conta</span>
           </button>
-          {canSeeStorefront && (
-          <button
-            type="button"
-            className="user-menu-item"
-            role="menuitem"
-            onClick={() => handleNavigate(PATHS.billing)}
-          >
-            <CreditCard size={16} />
-            <span>Planos</span>
-          </button>
-          )}
-          {canSeeOrg && (
-          <button
-            type="button"
-            className="user-menu-item"
-            role="menuitem"
-            onClick={() => handleNavigate(PATHS.billingOrg)}
-          >
-            <CreditCard size={16} />
-            <span>Billing</span>
-          </button>
-          )}
           <div className="user-menu-divider" />
           <button
             type="button"

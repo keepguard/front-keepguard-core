@@ -176,9 +176,12 @@ export function canWriteBilling(token: string | null | undefined, roles?: string
   return hasJwtAuthority(token, roles, BILLING_WRITE_AUTHORITY);
 }
 
-/** Loja do pagador: USER com billing:read. ADMIN/SYSTEM/MANAGER não assinam. */
+/** Loja do pagador: USER com billing:read, ou ADMIN/SYSTEM (plano próprio). MANAGER não assina. */
 export function canSeeBillingStorefront(token: string | null | undefined, roles?: string[] | null): boolean {
-  if (hasAdminRole(roles) || hasManagerRole(roles)) {
+  if (hasAdminRole(roles)) {
+    return true;
+  }
+  if (hasManagerRole(roles)) {
     return false;
   }
   return authoritiesFromJwt(token).includes(BILLING_READ_AUTHORITY);
@@ -432,8 +435,8 @@ export const BILLING_VISIBILITY_CASES: Array<{
   canStorefront: boolean;
   canOrg: boolean;
 }> = [
-  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true, canWrite: true, canStorefront: false, canOrg: true },
-  { name: 'SYSTEM sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_SYSTEM'], canRead: true, canWrite: true, canStorefront: false, canOrg: true },
+  { name: 'ADMIN sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_ADMIN'], canRead: true, canWrite: true, canStorefront: true, canOrg: true },
+  { name: 'SYSTEM sem authority', tokenPayload: { authorities: [] }, roles: ['ROLE_SYSTEM'], canRead: true, canWrite: true, canStorefront: true, canOrg: true },
   { name: 'USER com billing:read', tokenPayload: { authorities: ['billing:read'] }, roles: ['ROLE_USER'], canRead: true, canWrite: false, canStorefront: true, canOrg: false },
   { name: 'USER sem billing:read', tokenPayload: { authorities: [] }, roles: ['ROLE_USER'], canRead: false, canWrite: false, canStorefront: false, canOrg: false },
   { name: 'MANAGER com billing:read', tokenPayload: { authorities: ['billing:read'] }, roles: ['ROLE_MANAGER'], canRead: true, canWrite: false, canStorefront: false, canOrg: true },

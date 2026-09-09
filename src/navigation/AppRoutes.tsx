@@ -169,7 +169,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.billing}
           element={(
-            <RequireAccess allowed={canSeeBillingStorefrontNav} description="Somente o usuário com billing:read acessa os planos e a própria assinatura.">
+            <RequireAccess allowed={canSeeBillingStorefrontNav} description="USER com billing:read, ADMIN ou SYSTEM acessam os planos e a própria assinatura.">
               <BillingPage />
             </RequireAccess>
           )}

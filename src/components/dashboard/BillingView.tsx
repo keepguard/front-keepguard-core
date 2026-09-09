@@ -283,7 +283,7 @@ const SubscriberCheckout: React.FC<{
 };
 
 export const BillingPlansView: React.FC = () => {
-  const { isAuthenticated, getAccessToken } = useAuth();
+  const { isAuthenticated, getAccessToken, user } = useAuth();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [entitlement, setEntitlement] = useState<BillingEntitlement | null>(null);
@@ -307,7 +307,7 @@ export const BillingPlansView: React.FC = () => {
         getBillingEntitlement(access),
         listBillingPlans(access),
         getBillingSubscription(access),
-        listBillingInvoices(access),
+        listBillingInvoices(access, user?.id || user?.codeUser),
       ]);
       setEntitlement(nextEntitlement);
       setPlans(nextPlans);
@@ -318,7 +318,7 @@ export const BillingPlansView: React.FC = () => {
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [addToast, getAccessToken]);
+  }, [addToast, getAccessToken, user?.codeUser, user?.id]);
 
   useEffect(() => {
     if (isAuthenticated && token) {

@@ -232,8 +232,8 @@ export async function searchBillingInvoices(
   );
 }
 
-export async function listBillingInvoices(token: string): Promise<BillingInvoice[]> {
-  const page = await searchBillingInvoices({ page: 0, size: 20 }, token);
+export async function listBillingInvoices(token: string, payerUserId?: string): Promise<BillingInvoice[]> {
+  const page = await searchBillingInvoices({ page: 0, size: 20, payerUserId }, token);
   return page.items || [];
 }
 
