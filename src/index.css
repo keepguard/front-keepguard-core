@@ -6394,16 +6394,6 @@ textarea.form-input {
   margin-inline: 0;
 }
 
-.billing-org-mask {
-  margin: -0.5rem 0 0;
-}
-
-@media (max-width: 640px) {
-  .billing-org .dashboard-top-actions .btn {
-    width: auto;
-  }
-}
-
 .billing-page .hpanel-table-card,
 .billing-org .hpanel-table-card {
   margin-bottom: 0;
@@ -6474,6 +6464,74 @@ textarea.form-input {
   color: var(--text-sub);
 }
 
+.billing-org .billing-gateway-card {
+  max-width: 36rem;
+}
+
+.billing-gateway-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.billing-gateway-head h2 {
+  margin: 0;
+}
+
+.billing-gateway-meta {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.1rem;
+}
+
+.billing-gateway-meta div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.billing-gateway-meta dt {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+
+.billing-gateway-meta dd {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-body);
+}
+
+.billing-gateway-empty h2 {
+  margin: 0 0 0.35rem;
+}
+
+.billing-gateway-empty p {
+  margin: 0 0 1rem;
+  color: var(--text-sub);
+}
+
+.billing-gateway-card .billing-form > .btn {
+  width: auto;
+  justify-self: start;
+}
+
+@media (max-width: 640px) {
+  .billing-gateway-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .billing-gateway-card .billing-form > .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .billing-checkout {
   padding: 1.35rem 1.4rem 1.3rem;
 }
@@ -6500,6 +6558,12 @@ textarea.form-input {
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.2;
+}
+
+.billing-status-pill.is-ok {
+  color: var(--success);
+  background: var(--success-light);
+  border: 1px solid var(--success-border);
 }
 
 .billing-status-pill.is-pending {

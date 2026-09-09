@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CreditCard, KeyRound, Pencil, Plus, Search } from 'lucide-react';
+import { CreditCard, Pencil, Plus, Search } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
@@ -125,34 +125,10 @@ function toIso(localValue: string): string | undefined {
 }
 
 export const BillingOrgView: React.FC = () => {
-  const { isAuthenticated, getAccessToken, user } = useAuth();
+  const { getAccessToken, user } = useAuth();
   const writable = canWriteBilling(getAccessToken(), user?.roles);
-  const { addToast } = useToast();
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [panel, setPanel] = useState<Panel>('transacoes');
-  const [credentialOpen, setCredentialOpen] = useState(false);
-  const [account, setAccount] = useState<BillingGatewayAccount | null>(null);
-  const [apiKey, setApiKey] = useState('');
-  const [webhookToken, setWebhookToken] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const token = getAccessToken();
-
-  const loadAccount = useCallback(async () => {
-    const access = getAccessToken();
-    if (!access) return;
-    try {
-      setAccount(await getBillingGatewayAccount(access));
-    } catch (error) {
-      addToast({ type: 'error', title: 'Billing', description: errorMessage(error) });
-    }
-  }, [addToast, getAccessToken]);
-
-  useEffect(() => {
-    if (isAuthenticated && token) {
-      void loadAccount();
-    }
-  }, [isAuthenticated, token, loadAccount]);
 
   const selectPanel = (id: Panel, focus = false) => {
     setPanel(id);
@@ -172,25 +148,6 @@ export const BillingOrgView: React.FC = () => {
     selectPanel(TABS[next].id, true);
   };
 
-  const saveCredential = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const access = getAccessToken();
-    if (!access) return;
-    setBusy(true);
-    try {
-      const saved = await putBillingGatewayAccount(apiKey.trim(), webhookToken.trim(), access);
-      setAccount(saved);
-      setApiKey('');
-      setWebhookToken('');
-      setCredentialOpen(false);
-      addToast({ type: 'success', title: 'Credencial', description: 'Credencial Asaas gravada.' });
-    } catch (error) {
-      addToast({ type: 'error', title: 'Credencial', description: errorMessage(error) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const activeTab = TABS.find((tab) => tab.id === panel) ?? TABS[0];
 
   return (
@@ -202,28 +159,10 @@ export const BillingOrgView: React.FC = () => {
             Billing
           </h1>
           <p className="dashboard-subtitle">
-            Credencial Asaas, planos, assinantes e transações da organização. Quem opera não assina.
+            Planos, assinantes e cobrança da organização. Quem opera não assina.
           </p>
         </div>
-        <div className="dashboard-top-actions">
-          <button
-            type="button"
-            className="btn btn-outline btn-pill btn-icon-pager"
-            onClick={() => setCredentialOpen(true)}
-            aria-label="Credencial Asaas"
-            title={account?.apiKeyMasked ? `Credencial Asaas ${account.apiKeyMasked}` : 'Credencial Asaas'}
-          >
-            <KeyRound size={18} />
-          </button>
-        </div>
       </div>
-
-      {account?.apiKeyMasked ? (
-        <p className="table-cell-muted billing-org-mask">
-          API key {account.apiKeyMasked}
-          {account.webhookConfigured ? ' · webhook configurado' : ' · webhook pendente'}
-        </p>
-      ) : null}
 
       <div className="llm-panel-tabs" role="tablist" aria-label="Seções de Billing">
         {TABS.map((tab, index) => {
@@ -257,55 +196,8 @@ export const BillingOrgView: React.FC = () => {
         {panel === 'transacoes' ? <TransactionsPanel /> : null}
         {panel === 'assinantes' ? <SubscribersPanel /> : null}
         {panel === 'planos' ? <PlansPanel writable={writable} /> : null}
-        {panel === 'configuracoes' ? <EntitlementsPanel /> : null}
+        {panel === 'configuracoes' ? <GatewaysPanel writable={writable} /> : null}
       </div>
-
-      <Modal
-        isOpen={credentialOpen}
-        onClose={() => setCredentialOpen(false)}
-        title="Credencial Asaas"
-        subtitle={writable ? 'A chave completa não volta a ser exibida.' : 'Somente leitura. É preciso billing:write para alterar.'}
-        footer={writable ? (
-          <button className="btn btn-primary btn-pill" type="submit" form="billing-credential-form" disabled={busy}>
-            Salvar credencial
-          </button>
-        ) : undefined}
-      >
-        {account ? (
-          <p>
-            Máscara da API key: <strong>{account.apiKeyMasked}</strong>
-            {account.webhookConfigured ? ' · webhook configurado' : ' · webhook pendente'}
-          </p>
-        ) : (
-          <p className="table-cell-muted">Nenhuma credencial cadastrada.</p>
-        )}
-        <form id="billing-credential-form" className="billing-form" onSubmit={saveCredential}>
-          <label>
-            API key
-            <input
-              className="form-input"
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              required={writable}
-              disabled={!writable}
-            />
-          </label>
-          <label>
-            Webhook token (asaas-access-token)
-            <input
-              className="form-input"
-              type="password"
-              autoComplete="off"
-              value={webhookToken}
-              onChange={(event) => setWebhookToken(event.target.value)}
-              required={writable}
-              disabled={!writable}
-            />
-          </label>
-        </form>
-      </Modal>
     </div>
   );
 };
@@ -424,20 +316,156 @@ function SubscribersPanel() {
   return <EntitlementTable hasPlan qPlaceholder="Usuário, e-mail ou UUID" emptyLabel="Nenhum assinante." />;
 }
 
-function EntitlementsPanel() {
-  return <EntitlementTable qPlaceholder="Usuário, e-mail ou UUID" emptyLabel="Nenhum entitlement." showAllColumns />;
+function gatewayLabel(gateway?: string | null): string {
+  switch ((gateway || '').toLowerCase()) {
+    case 'asaas':
+      return 'Asaas';
+    default:
+      return gateway || 'Gateway';
+  }
+}
+
+function GatewaysPanel({ writable }: { writable: boolean }) {
+  const { isAuthenticated, getAccessToken } = useAuth();
+  const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [account, setAccount] = useState<BillingGatewayAccount | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [webhookToken, setWebhookToken] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const loadAccount = useCallback(async () => {
+    const access = getAccessToken();
+    if (!access) return;
+    setLoading(true);
+    try {
+      setAccount(await getBillingGatewayAccount(access));
+    } catch (error) {
+      addToast({ type: 'error', title: 'Billing', description: errorMessage(error) });
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, getAccessToken]);
+
+  useEffect(() => {
+    if (isAuthenticated) void loadAccount();
+  }, [isAuthenticated, loadAccount]);
+
+  const saveCredential = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const access = getAccessToken();
+    if (!access || !writable) return;
+    setBusy(true);
+    try {
+      const saved = await putBillingGatewayAccount(apiKey.trim(), webhookToken.trim(), access);
+      setAccount(saved);
+      setApiKey('');
+      setWebhookToken('');
+      addToast({
+        type: 'success',
+        title: 'Meio de cobrança',
+        description: account ? 'Credencial Asaas atualizada.' : 'Asaas conectado.',
+      });
+    } catch (error) {
+      addToast({ type: 'error', title: 'Meio de cobrança', description: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <section className="hpanel-table-card billing-card billing-gateway-card" aria-busy="true" aria-live="polite">
+        <p className="table-cell-muted">Carregando…</p>
+      </section>
+    );
+  }
+
+  const connected = Boolean(account?.apiKeyMasked);
+
+  return (
+    <section className="hpanel-table-card billing-card billing-gateway-card">
+      {connected ? (
+        <>
+          <div className="billing-gateway-head">
+            <div>
+              <p className="billing-kicker">Meio de cobrança</p>
+              <h2>{gatewayLabel(account?.gateway)}</h2>
+            </div>
+            <span className={`billing-status-pill ${account?.webhookConfigured ? 'is-ok' : 'is-pending'}`}>
+              {account?.webhookConfigured ? 'Webhook configurado' : 'Webhook pendente'}
+            </span>
+          </div>
+          <dl className="billing-gateway-meta">
+            <div>
+              <dt>API key</dt>
+              <dd>{account?.apiKeyMasked}</dd>
+            </div>
+            {account?.rotatedAt ? (
+              <div>
+                <dt>Última rotação</dt>
+                <dd>{formatDate(account.rotatedAt)}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </>
+      ) : (
+        <div className="billing-gateway-empty">
+          <h2>Nenhum meio de cobrança</h2>
+          <p>Conecte o Asaas da organização.</p>
+        </div>
+      )}
+
+      {writable ? (
+        <form className="billing-form" onSubmit={saveCredential}>
+          <p className="table-cell-muted">
+            {connected
+              ? 'Para rotacionar, informe a nova API key e o token de webhook. A chave completa não volta a ser exibida.'
+              : 'A chave completa não volta a ser exibida depois de salvar.'}
+          </p>
+          <label htmlFor="billing-gateway-api-key">
+            API key
+            <input
+              id="billing-gateway-api-key"
+              className="form-input"
+              type="password"
+              autoComplete="off"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              required
+            />
+          </label>
+          <label htmlFor="billing-gateway-webhook-token">
+            Webhook token (asaas-access-token)
+            <input
+              id="billing-gateway-webhook-token"
+              className="form-input"
+              type="password"
+              autoComplete="off"
+              value={webhookToken}
+              onChange={(event) => setWebhookToken(event.target.value)}
+              required
+            />
+          </label>
+          <button className="btn btn-primary btn-pill" type="submit" disabled={busy}>
+            {connected ? 'Salvar credencial' : 'Conectar Asaas'}
+          </button>
+        </form>
+      ) : connected ? (
+        <p className="table-cell-muted">Somente leitura. É preciso billing:write para alterar.</p>
+      ) : null}
+    </section>
+  );
 }
 
 function EntitlementTable({
   hasPlan,
   qPlaceholder,
   emptyLabel,
-  showAllColumns = false,
 }: {
   hasPlan?: boolean;
   qPlaceholder: string;
   emptyLabel: string;
-  showAllColumns?: boolean;
 }) {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
@@ -515,16 +543,13 @@ function EntitlementTable({
               <th>Intervalo</th>
               <th>Status</th>
               <th>Período</th>
-              {showAllColumns ? <th>Produto</th> : null}
-              {showAllColumns ? <th>Carência</th> : null}
-              {showAllColumns ? <th>Atualizado</th> : null}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={showAllColumns ? 8 : 5} className="table-cell-muted">Carregando…</td></tr>
+              <tr><td colSpan={5} className="table-cell-muted">Carregando…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={showAllColumns ? 8 : 5} className="table-cell-muted">{emptyLabel}</td></tr>
+              <tr><td colSpan={5} className="table-cell-muted">{emptyLabel}</td></tr>
             ) : items.map((row) => (
               <tr key={`${row.companyId}-${row.userId}`}>
                 <td>{payerLabel(row.payerName, row.payerEmail, row.userId)}</td>
@@ -532,9 +557,6 @@ function EntitlementTable({
                 <td>{intervalLabel(row.interval)}</td>
                 <td>{entitlementLabel(row.status)}</td>
                 <td>{formatDate(row.currentPeriodEnd)}</td>
-                {showAllColumns ? <td>{row.allowsProduct ? 'Liberado' : 'Não'}</td> : null}
-                {showAllColumns ? <td>{formatDate(row.graceEndsAt)}</td> : null}
-                {showAllColumns ? <td>{formatDate(row.updatedAt)}</td> : null}
               </tr>
             ))}
           </tbody>
