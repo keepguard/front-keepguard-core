@@ -29,6 +29,8 @@ export interface BillingPlan {
   name: string;
   enabled: boolean;
   trialDays: number;
+  isPublic?: boolean;
+  isLifetime?: boolean;
   prices: BillingPlanPrice[];
 }
 
@@ -37,6 +39,8 @@ export interface SaveBillingPlan {
   name: string;
   enabled: boolean;
   trialDays: number;
+  isPublic?: boolean;
+  isLifetime?: boolean;
   prices: BillingPlanPrice[];
 }
 
@@ -276,5 +280,19 @@ export function onBillingEntitlement(callback: (entitlement: BillingEntitlement 
   };
   window.addEventListener(BILLING_ENTITLEMENT_EVENT, handler);
   return () => window.removeEventListener(BILLING_ENTITLEMENT_EVENT, handler);
+}
+
+export function grantLifetimeSubscription(
+  data: { targetUserId: string; planCode: string },
+  token: string,
+): Promise<BillingSubscription> {
+  return customFetch<BillingSubscription>(
+    `${BILLING_BASE}/subscriptions/grant-lifetime`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+    token,
+  );
 }
 

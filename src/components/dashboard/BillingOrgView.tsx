@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CreditCard, Pencil, Plus, Search } from 'lucide-react';
+import { CreditCard, Crown, Pencil, Plus, Search } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
+  grantLifetimeSubscription,
   listBillingGatewayAccounts,
   listBillingPlans,
   patchBillingPlan,
@@ -44,6 +45,8 @@ const EMPTY_PLAN: SaveBillingPlan = {
   code: '',
   name: '',
   enabled: true,
+  isPublic: true,
+  isLifetime: false,
   trialDays: 0,
   prices: [{ interval: 'month', amountCents: 0, currency: 'BRL' }],
 };
@@ -58,6 +61,7 @@ function formatMoney(cents: number, currency = 'BRL'): string {
 }
 
 function intervalLabel(value?: string | null): string {
+  if (value === 'lifetime') return 'Vitalício';
   return INTERVALS.find((item) => item.value === value)?.label || value || '—';
 }
 
@@ -196,7 +200,7 @@ export const BillingOrgView: React.FC = () => {
         className="llm-panel-tabpanel"
       >
         {panel === 'transacoes' ? <TransactionsPanel /> : null}
-        {panel === 'assinantes' ? <SubscribersPanel /> : null}
+        {panel === 'assinantes' ? <SubscribersPanel writable={writable} /> : null}
         {panel === 'planos' ? <PlansPanel writable={writable} /> : null}
         {panel === 'configuracoes' ? <GatewaysPanel writable={writable} /> : null}
       </div>
@@ -346,8 +350,8 @@ function TransactionsPanel() {
   );
 }
 
-function SubscribersPanel() {
-  return <EntitlementTable hasPlan qPlaceholder="Usuário, e-mail ou UUID" emptyLabel="Nenhum assinante." />;
+function SubscribersPanel({ writable }: { writable: boolean }) {
+  return <EntitlementTable hasPlan qPlaceholder="Usuário, e-mail ou UUID" emptyLabel="Nenhum assinante." writable={writable} />;
 }
 
 const LINKED_GATEWAYS = [
@@ -663,10 +667,12 @@ function EntitlementTable({
   hasPlan,
   qPlaceholder,
   emptyLabel,
+  writable,
 }: {
   hasPlan?: boolean;
   qPlaceholder: string;
   emptyLabel: string;
+  writable?: boolean;
 }) {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
@@ -676,6 +682,10 @@ function EntitlementTable({
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<BillingEntitlement[]>([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [grantVipOpen, setGrantVipOpen] = useState(false);
+  const [vipTargetUserId, setVipTargetUserId] = useState('');
+  const [vipPlanCode, setVipPlanCode] = useState('VIP');
+  const [vipBusy, setVipBusy] = useState(false);
 
   const load = useCallback(async (nextPage: number, filters: typeof draft) => {
     const access = getAccessToken();
@@ -704,6 +714,39 @@ function EntitlementTable({
     if (isAuthenticated) void load(page, applied);
   }, [applied, isAuthenticated, load, page]);
 
+  const handleGrantVip = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const access = getAccessToken();
+    if (!access || !vipTargetUserId.trim() || !vipPlanCode.trim()) return;
+    setVipBusy(true);
+    try {
+      await grantLifetimeSubscription(
+        {
+          targetUserId: vipTargetUserId.trim(),
+          planCode: vipPlanCode.trim().toUpperCase(),
+        },
+        access,
+      );
+      addToast({
+        type: 'success',
+        title: 'Plano VIP Concedido',
+        description: `Assinatura vitalícia ativada com sucesso para o usuário ${vipTargetUserId.trim()}.`,
+      });
+      setGrantVipOpen(false);
+      setVipTargetUserId('');
+      setVipPlanCode('VIP');
+      void load(0, applied);
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Conceder VIP',
+        description: errorMessage(error),
+      });
+    } finally {
+      setVipBusy(false);
+    }
+  };
+
   return (
     <div>
       <form
@@ -731,6 +774,21 @@ function EntitlementTable({
               <Search size={15} />
               <span>Filtrar</span>
             </button>
+            {writable && (
+              <button
+                type="button"
+                className="btn btn-primary btn-pill"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                onClick={() => {
+                  setVipTargetUserId('');
+                  setVipPlanCode('VIP');
+                  setGrantVipOpen(true);
+                }}
+              >
+                <Crown size={15} />
+                <span>Conceder Plano VIP</span>
+              </button>
+            )}
           </div>
         </div>
       </form>
@@ -755,14 +813,74 @@ function EntitlementTable({
               <tr key={`${row.companyId}-${row.userId}`}>
                 <td>{payerLabel(row.payerName, row.payerEmail, row.userId)}</td>
                 <td>{row.planCode || '—'}</td>
-                <td>{intervalLabel(row.interval)}</td>
+                <td>
+                  {row.interval === 'lifetime' ? (
+                    <span className="billing-status-pill is-vip">
+                      <Crown size={12} style={{ marginRight: '0.25rem' }} />
+                      Vitalício
+                    </span>
+                  ) : (
+                    intervalLabel(row.interval)
+                  )}
+                </td>
                 <td>{entitlementLabel(row.status)}</td>
-                <td>{formatDate(row.currentPeriodEnd)}</td>
+                <td>
+                  {row.interval === 'lifetime' || (!row.currentPeriodEnd && row.planCode?.toUpperCase() === 'VIP') ? (
+                    <span style={{ color: 'var(--success, #10b981)', fontWeight: 600 }}>
+                      Vitalício (Sem expiração)
+                    </span>
+                  ) : (
+                    formatDate(row.currentPeriodEnd)
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <Modal
+        isOpen={grantVipOpen}
+        onClose={() => { if (!vipBusy) setGrantVipOpen(false); }}
+        title="Conceder Plano VIP / Vitalício"
+        footer={(
+          <>
+            <button className="btn btn-pill" type="button" onClick={() => setGrantVipOpen(false)} disabled={vipBusy}>
+              Cancelar
+            </button>
+            <button className="btn btn-primary btn-pill" type="submit" form="billing-grant-vip-form" disabled={vipBusy || !vipTargetUserId.trim()}>
+              {vipBusy ? 'Concedendo…' : 'Conceder Acesso Vitalício'}
+            </button>
+          </>
+        )}
+      >
+        <form id="billing-grant-vip-form" className="billing-form" onSubmit={handleGrantVip}>
+          <p className="table-cell-muted" style={{ marginBottom: '1rem' }}>
+            Atribui uma assinatura vitalícia imediata sem cobrança de gateway (Asaas). O usuário terá acesso completo ao universo de ativos no Mercado, sem limites de slots.
+          </p>
+          <label>
+            ID do Usuário (UUID)
+            <input
+              className="form-input"
+              value={vipTargetUserId}
+              onChange={(e) => setVipTargetUserId(e.target.value)}
+              placeholder="Ex: 550e8400-e29b-41d4-a716-446655440000"
+              required
+              autoFocus
+            />
+          </label>
+          <label>
+            Código do Plano
+            <input
+              className="form-input"
+              value={vipPlanCode}
+              onChange={(e) => setVipPlanCode(e.target.value)}
+              placeholder="VIP"
+              required
+            />
+          </label>
+        </form>
+      </Modal>
     </div>
   );
 }
@@ -853,10 +971,29 @@ function PlansPanel({ writable }: { writable: boolean }) {
               ) : plans.map((plan) => (
                 <tr key={plan.id}>
                   <td>{plan.code}</td>
-                  <td>{plan.name}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span>{plan.name}</span>
+                      {plan.isLifetime && (
+                        <span className="billing-status-pill is-vip" title="Plano VIP vitalício sem cobrança de gateway">
+                          <Crown size={12} style={{ marginRight: '0.25rem' }} />
+                          VIP / Vitalício
+                        </span>
+                      )}
+                      {plan.isPublic === false && (
+                        <span className="billing-status-pill is-private" title="Plano oculto da vitrine de contratação pública">
+                          Privado
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td>{plan.enabled ? 'Ativo' : 'Inativo'}</td>
                   <td>
-                    {plan.prices.map((price) => `${intervalLabel(price.interval)} ${formatMoney(price.amountCents, price.currency)}`).join(' · ') || '—'}
+                    {plan.isLifetime && plan.prices.length === 0 ? (
+                      <span className="table-cell-muted">Isento (Vitalício)</span>
+                    ) : (
+                      plan.prices.map((price) => `${intervalLabel(price.interval)} ${formatMoney(price.amountCents, price.currency)}`).join(' · ') || '—'
+                    )}
                   </td>
                   {writable ? (
                     <td>
@@ -870,8 +1007,10 @@ function PlansPanel({ writable }: { writable: boolean }) {
                             code: plan.code,
                             name: plan.name,
                             enabled: plan.enabled,
+                            isPublic: plan.isPublic ?? true,
+                            isLifetime: plan.isLifetime ?? false,
                             trialDays: plan.trialDays,
-                            prices: plan.prices.length ? plan.prices : EMPTY_PLAN.prices,
+                            prices: plan.prices.length ? plan.prices : (plan.isLifetime ? [] : EMPTY_PLAN.prices),
                           });
                         }}
                       >
@@ -910,10 +1049,48 @@ function PlansPanel({ writable }: { writable: boolean }) {
               Trial (dias)
               <input className="form-input" type="number" min={0} value={planModal.trialDays} onChange={(event) => setPlanModal({ ...planModal, trialDays: Number(event.target.value) || 0 })} />
             </label>
-            <label className="billing-check">
-              <input type="checkbox" checked={planModal.enabled} onChange={(event) => setPlanModal({ ...planModal, enabled: event.target.checked })} />
-              Ativo
-            </label>
+            <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.25rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+              <label className="billing-check">
+                <input type="checkbox" checked={planModal.enabled} onChange={(event) => setPlanModal({ ...planModal, enabled: event.target.checked })} />
+                Ativo
+              </label>
+              <label className="billing-check">
+                <input
+                  type="checkbox"
+                  checked={planModal.isPublic ?? true}
+                  onChange={(event) => setPlanModal({ ...planModal, isPublic: event.target.checked })}
+                />
+                Exibir na vitrine pública
+              </label>
+              <label className="billing-check">
+                <input
+                  type="checkbox"
+                  checked={planModal.isLifetime ?? false}
+                  onChange={(event) => {
+                    const isLifetime = event.target.checked;
+                    setPlanModal({
+                      ...planModal,
+                      isLifetime,
+                      isPublic: isLifetime ? false : (planModal.isPublic ?? true),
+                    });
+                  }}
+                />
+                Plano VIP / Vitalício
+              </label>
+            </div>
+            {planModal.isLifetime && (
+              <div style={{
+                padding: '0.6rem 0.8rem',
+                borderRadius: '6px',
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                fontSize: '0.82rem',
+                color: '#d97706',
+                marginBottom: '0.75rem',
+              }}>
+                <strong>Plano VIP Vitalício:</strong> Assinaturas vinculadas a este plano terão acesso irrestrito ao mercado sem cobranças ou faturas no gateway Asaas. Não é obrigatório cadastrar ciclos de preços.
+              </div>
+            )}
             {planModal.prices.map((price, index) => (
               <div key={`${price.interval}-${index}`} className="billing-price-row">
                 <select

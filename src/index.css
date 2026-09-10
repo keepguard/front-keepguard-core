@@ -6758,6 +6758,18 @@ textarea.form-input {
   border: 1px solid var(--danger-border);
 }
 
+.billing-status-pill.is-vip {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.38);
+}
+
+.billing-status-pill.is-private {
+  color: var(--text-sub);
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+  border: 1px dashed var(--border, rgba(255, 255, 255, 0.2));
+}
+
 .billing-checkout-amount {
   margin: 0;
   font-size: 1.7rem;
