@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowUpDown, LineChart, Search, Star } from 'lucide-react';
+import { ArrowUpDown, LineChart, Lock, Search, Star } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import {
   getFavorites,
@@ -189,12 +189,14 @@ export const MarketDeskView: React.FC = () => {
 
   const normalizedQuery = query.trim().toUpperCase();
   const favoriteTickers = favorites?.tickers ?? [];
+  const lockedTickers = favorites?.lockedTickers ?? [];
+  const allUserTickers = useMemo(() => [...favoriteTickers, ...lockedTickers], [favoriteTickers, lockedTickers]);
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const suggestions = useMemo(() => {
-    const pool = Array.from(new Set([...favoriteTickers, ...catalog]));
+    const pool = Array.from(new Set([...favoriteTickers, ...lockedTickers, ...catalog]));
     if (!normalizedQuery) return pool.slice(0, 12);
     return pool.filter((ticker) => ticker.includes(normalizedQuery)).slice(0, 12);
-  }, [catalog, favoriteTickers, normalizedQuery]);
+  }, [catalog, favoriteTickers, lockedTickers, normalizedQuery]);
 
   const latest = runs[0] ?? null;
   const collectedAt = freshestCollectedAt(latest);
@@ -216,7 +218,7 @@ export const MarketDeskView: React.FC = () => {
       .map(({ point }) => point.dataSource)
       .filter((slug): slug is string => Boolean(slug)),
   )];
-  const isFavorite = selectedTicker ? favoriteTickers.includes(selectedTicker) : false;
+  const isFavorite = selectedTicker ? (favoriteTickers.includes(selectedTicker) || lockedTickers.includes(selectedTicker)) : false;
   const atFavCap = favoriteTickers.length >= maxFavorites;
 
   const applyTicker = useCallback((raw: string) => {
@@ -356,11 +358,12 @@ export const MarketDeskView: React.FC = () => {
 
   const toggleFavorite = async () => {
     if (!selectedTicker || savingFav) return;
-    const next = isFavorite
-      ? favoriteTickers.filter((ticker) => ticker !== selectedTicker)
-      : [...favoriteTickers, selectedTicker];
-    if (!isFavorite && atFavCap) {
-      addToast({ type: 'error', title: 'Limite de favoritos', description: `A lista aceita no máximo ${maxFavorites} ativos.` });
+    const isFav = favoriteTickers.includes(selectedTicker) || lockedTickers.includes(selectedTicker);
+    const next = isFav
+      ? allUserTickers.filter((ticker) => ticker !== selectedTicker)
+      : [...allUserTickers, selectedTicker];
+    if (!isFav && atFavCap) {
+      addToast({ type: 'error', title: 'Limite de favoritos', description: `A lista aceita no máximo ${maxFavorites} ativos pelo seu plano.` });
       return;
     }
     setSavingFav(true);
@@ -370,6 +373,9 @@ export const MarketDeskView: React.FC = () => {
       setCatalog((prev) => {
         const merged = new Set(prev);
         for (const ticker of saved.tickers) merged.add(ticker);
+        if (saved.lockedTickers) {
+          for (const ticker of saved.lockedTickers) merged.add(ticker);
+        }
         return Array.from(merged).sort();
       });
     } catch (err) {
@@ -386,6 +392,9 @@ export const MarketDeskView: React.FC = () => {
       setCatalog((prev) => {
         const merged = new Set(prev);
         for (const ticker of saved.tickers) merged.add(ticker);
+        if (saved.lockedTickers) {
+          for (const ticker of saved.lockedTickers) merged.add(ticker);
+        }
         return Array.from(merged).sort();
       });
     } catch (err) {
@@ -429,7 +438,7 @@ export const MarketDeskView: React.FC = () => {
 
   return (
     <div className="market-desk">
-      {favoriteTickers.length > 0 ? (
+      {allUserTickers.length > 0 ? (
         <div className="market-desk-tickers">
           <div className="market-favs-header">
             <span className="market-desk-tickers-label" id={`${instanceId}-favs`}>Favoritos</span>
@@ -465,6 +474,25 @@ export const MarketDeskView: React.FC = () => {
                     className="market-ticker-chip-label"
                     onClick={() => applyTicker(ticker)}
                   >
+                    {ticker}
+                  </button>
+                </span>
+              );
+            })}
+            {lockedTickers.map((ticker) => {
+              const isChipActive = ticker === selectedTicker;
+              return (
+                <span
+                  className={`badge-role market-ticker-chip market-ticker-chip--locked${isChipActive ? ' market-ticker-chip--active' : ''}`}
+                  key={ticker}
+                  title="Ativo congelado pela cota do plano atual. Organize seus favoritos para ativá-lo."
+                >
+                  <button
+                    type="button"
+                    className="market-ticker-chip-label"
+                    onClick={() => applyTicker(ticker)}
+                  >
+                    <Lock size={11} className="market-ticker-chip-lock-icon" />
                     {ticker}
                   </button>
                 </span>
@@ -818,7 +846,8 @@ export const MarketDeskView: React.FC = () => {
       <ReorderFavoritesModal
         isOpen={reorderOpen}
         onClose={() => setReorderOpen(false)}
-        tickers={favoriteTickers}
+        tickers={allUserTickers}
+        maxActiveTickers={favorites?.maxTickers || favoriteTickers.length}
         onSave={handleReorderSave}
       />
     </div>

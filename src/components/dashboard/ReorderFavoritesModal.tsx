@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import { ArrowUp, ArrowDown, GripVertical, Lock } from 'lucide-react';
 import { Modal } from '../common/Modal';
 
 interface ReorderFavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
   tickers: string[];
+  maxActiveTickers?: number;
   onSave: (newTickers: string[]) => Promise<void>;
 }
 
@@ -13,6 +14,7 @@ export const ReorderFavoritesModal: React.FC<ReorderFavoritesModalProps> = ({
   isOpen,
   onClose,
   tickers,
+  maxActiveTickers,
   onSave,
 }) => {
   const [items, setItems] = useState<string[]>(tickers);
@@ -98,7 +100,9 @@ export const ReorderFavoritesModal: React.FC<ReorderFavoritesModalProps> = ({
     >
       <div className="reorder-favs-container">
         <p className="reorder-favs-hint">
-          Use as setas para mover os itens para cima ou para baixo, ou arraste pela barra lateral.
+          {maxActiveTickers !== undefined && items.length > maxActiveTickers
+            ? `Os primeiros ${maxActiveTickers} ativos ficam monitorados em tempo real pelo seu plano. Os demais ficam congelados.`
+            : 'Use as setas para mover os itens para cima ou para baixo, ou arraste pela barra lateral.'}
         </p>
         <ul className="reorder-favs-list" role="list">
           {items.map((ticker, idx) => {
@@ -106,47 +110,62 @@ export const ReorderFavoritesModal: React.FC<ReorderFavoritesModalProps> = ({
             const isLast = idx === items.length - 1;
             const isDragging = draggedIdx === idx;
             const isOver = dragOverIdx === idx;
+            const isLocked = maxActiveTickers !== undefined && idx >= maxActiveTickers;
+            const showDivider = maxActiveTickers !== undefined && idx === maxActiveTickers;
 
             return (
-              <li
-                key={ticker}
-                className={`reorder-favs-item${isDragging ? ' is-dragging' : ''}${isOver ? ' is-over' : ''}`}
-                draggable
-                onDragStart={() => handleDragStart(idx)}
-                onDragOver={(e) => handleDragOver(e, idx)}
-                onDrop={() => handleDrop(idx)}
-                onDragEnd={handleDragEnd}
-              >
-                <div className="reorder-favs-handle" aria-hidden="true">
-                  <GripVertical size={16} />
-                </div>
-                <div className="reorder-favs-info">
-                  <span className="reorder-favs-position">{idx + 1}</span>
-                  <span className="reorder-favs-ticker">{ticker}</span>
-                </div>
-                <div className="reorder-favs-actions">
-                  <button
-                    type="button"
-                    className="reorder-favs-btn"
-                    onClick={() => moveItem(idx, idx - 1)}
-                    disabled={isFirst || saving}
-                    title="Mover para cima"
-                    aria-label={`Mover ${ticker} para cima`}
-                  >
-                    <ArrowUp size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    className="reorder-favs-btn"
-                    onClick={() => moveItem(idx, idx + 1)}
-                    disabled={isLast || saving}
-                    title="Mover para baixo"
-                    aria-label={`Mover ${ticker} para baixo`}
-                  >
-                    <ArrowDown size={15} />
-                  </button>
-                </div>
-              </li>
+              <React.Fragment key={ticker}>
+                {showDivider && (
+                  <li className="reorder-favs-divider" role="separator">
+                    <span>Limite do plano ({maxActiveTickers} ativos monitorados)</span>
+                  </li>
+                )}
+                <li
+                  className={`reorder-favs-item${isDragging ? ' is-dragging' : ''}${isOver ? ' is-over' : ''}${isLocked ? ' is-locked' : ''}`}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={() => handleDrop(idx)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="reorder-favs-handle" aria-hidden="true">
+                    <GripVertical size={16} />
+                  </div>
+                  <div className="reorder-favs-info">
+                    <span className="reorder-favs-position">{idx + 1}</span>
+                    <span className="reorder-favs-ticker">{ticker}</span>
+                    {isLocked ? (
+                      <span className="reorder-favs-badge-locked" title="Ativo congelado pela cota do plano">
+                        <Lock size={10} /> Congelado
+                      </span>
+                    ) : maxActiveTickers !== undefined && items.length > maxActiveTickers ? (
+                      <span className="reorder-favs-badge-active">Ativo</span>
+                    ) : null}
+                  </div>
+                  <div className="reorder-favs-actions">
+                    <button
+                      type="button"
+                      className="reorder-favs-btn"
+                      onClick={() => moveItem(idx, idx - 1)}
+                      disabled={isFirst || saving}
+                      title="Mover para cima"
+                      aria-label={`Mover ${ticker} para cima`}
+                    >
+                      <ArrowUp size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="reorder-favs-btn"
+                      onClick={() => moveItem(idx, idx + 1)}
+                      disabled={isLast || saving}
+                      title="Mover para baixo"
+                      aria-label={`Mover ${ticker} para baixo`}
+                    >
+                      <ArrowDown size={15} />
+                    </button>
+                  </div>
+                </li>
+              </React.Fragment>
             );
           })}
         </ul>

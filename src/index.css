@@ -6226,6 +6226,80 @@ textarea.form-input {
   cursor: not-allowed;
 }
 
+.market-ticker-chip--locked {
+  background: var(--bg-muted, #f1f3f5);
+  color: var(--text-muted, #6c757d);
+  border-color: var(--border-color, #dee2e6);
+  opacity: 0.85;
+}
+
+.market-ticker-chip--locked:hover {
+  opacity: 1;
+  border-color: #adb5bd;
+}
+
+.market-ticker-chip-lock-icon {
+  margin-right: 0.25rem;
+  color: #e67e22;
+}
+
+.reorder-favs-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0;
+  margin: 0.25rem 0;
+  position: relative;
+}
+
+.reorder-favs-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #e67e22;
+  opacity: 0.4;
+}
+
+.reorder-favs-divider span {
+  position: relative;
+  background: var(--bg-card);
+  padding: 0 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #d35400;
+  border-radius: 999px;
+  border: 1px solid rgba(230, 126, 34, 0.4);
+}
+
+.reorder-favs-item.is-locked {
+  opacity: 0.75;
+  background: rgba(0, 0, 0, 0.02);
+  border-style: dashed;
+}
+
+.reorder-favs-badge-active {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(46, 204, 113, 0.15);
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.reorder-favs-badge-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(230, 126, 34, 0.15);
+  color: #d35400;
+  font-weight: 600;
+}
+
 .market-analysis-card {
   padding: 1.15rem 1.25rem 1rem;
   margin-bottom: 1rem;

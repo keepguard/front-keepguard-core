@@ -285,6 +285,7 @@ export interface AnalystFavorites {
   companyId: string;
   userId: string;
   tickers: string[];
+  lockedTickers?: string[];
   maxTickers: number;
   updatedAt?: string;
 }
