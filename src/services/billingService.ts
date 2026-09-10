@@ -296,3 +296,20 @@ export function grantLifetimeSubscription(
   );
 }
 
+export interface BillingUserSummary {
+  id: string;
+  codeUser?: string;
+  username?: string;
+  email: string;
+  status: string;
+  emailVerified?: boolean;
+}
+
+export function lookupBillingUser(query: string, token: string): Promise<BillingUserSummary> {
+  return customFetch<BillingUserSummary>(
+    `${BILLING_BASE}/users/lookup?q=${encodeURIComponent(query.trim())}`,
+    { method: 'GET' },
+    token,
+  );
+}
+

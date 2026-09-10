@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CreditCard, Crown, Pencil, Plus, Search } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, Crown, Loader2, Pencil, Plus, Search } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
@@ -9,6 +9,7 @@ import {
   grantLifetimeSubscription,
   listBillingGatewayAccounts,
   listBillingPlans,
+  lookupBillingUser,
   patchBillingPlan,
   putBillingGatewayAccountByGateway,
   saveBillingPlan,
@@ -19,6 +20,7 @@ import {
   type BillingGatewayAccount,
   type BillingInvoice,
   type BillingPlan,
+  type BillingUserSummary,
   type SaveBillingPlan,
 } from '../../services/billingService';
 import { canWriteBilling } from '../../utils/roles';
@@ -682,10 +684,33 @@ function EntitlementTable({
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<BillingEntitlement[]>([]);
   const [totalPages, setTotalPages] = useState(1);
-  const [grantVipOpen, setGrantVipOpen] = useState(false);
-  const [vipTargetUserId, setVipTargetUserId] = useState('');
-  const [vipPlanCode, setVipPlanCode] = useState('VIP');
-  const [vipBusy, setVipBusy] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [availablePlans, setAvailablePlans] = useState<BillingPlan[]>([]);
+  const [selectedPlanCode, setSelectedPlanCode] = useState('VIP');
+  const [userEmailQuery, setUserEmailQuery] = useState('');
+  const [searchingUser, setSearchingUser] = useState(false);
+  const [foundUser, setFoundUser] = useState<BillingUserSummary | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [assignBusy, setAssignBusy] = useState(false);
+
+  const loadPlans = useCallback(async () => {
+    const access = getAccessToken();
+    if (!access) return;
+    try {
+      const plansList = await listBillingPlans(access);
+      setAvailablePlans(plansList);
+      if (plansList.length > 0) {
+        const vipOrLifetime = plansList.find((p) => p.code?.toUpperCase() === 'VIP' || p.isLifetime);
+        if (vipOrLifetime) {
+          setSelectedPlanCode(vipOrLifetime.code);
+        } else {
+          setSelectedPlanCode(plansList[0].code);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [getAccessToken]);
 
   const load = useCallback(async (nextPage: number, filters: typeof draft) => {
     const access = getAccessToken();
@@ -714,36 +739,66 @@ function EntitlementTable({
     if (isAuthenticated) void load(page, applied);
   }, [applied, isAuthenticated, load, page]);
 
-  const handleGrantVip = async (event: React.FormEvent) => {
+  useEffect(() => {
+    if (!assignModalOpen) return;
+    const trimmed = userEmailQuery.trim();
+    if (!trimmed || trimmed.length < 3) {
+      setFoundUser(null);
+      setSearchError(null);
+      setSearchingUser(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const access = getAccessToken();
+      if (!access) return;
+      setSearchingUser(true);
+      setSearchError(null);
+      try {
+        const user = await lookupBillingUser(trimmed, access);
+        setFoundUser(user);
+        setSearchError(null);
+      } catch {
+        setFoundUser(null);
+        setSearchError('Usuário não encontrado nesta organização');
+      } finally {
+        setSearchingUser(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [userEmailQuery, assignModalOpen, getAccessToken]);
+
+  const handleAssignPlan = async (event: React.FormEvent) => {
     event.preventDefault();
     const access = getAccessToken();
-    if (!access || !vipTargetUserId.trim() || !vipPlanCode.trim()) return;
-    setVipBusy(true);
+    if (!access || !foundUser || !selectedPlanCode.trim()) return;
+    setAssignBusy(true);
     try {
       await grantLifetimeSubscription(
         {
-          targetUserId: vipTargetUserId.trim(),
-          planCode: vipPlanCode.trim().toUpperCase(),
+          targetUserId: foundUser.id,
+          planCode: selectedPlanCode.trim().toUpperCase(),
         },
         access,
       );
       addToast({
         type: 'success',
-        title: 'Plano VIP Concedido',
-        description: `Assinatura vitalícia ativada com sucesso para o usuário ${vipTargetUserId.trim()}.`,
+        title: 'Plano Atribuído',
+        description: `Plano ${selectedPlanCode.trim().toUpperCase()} atribuído com sucesso para ${foundUser.username || foundUser.email}.`,
       });
-      setGrantVipOpen(false);
-      setVipTargetUserId('');
-      setVipPlanCode('VIP');
+      setAssignModalOpen(false);
+      setFoundUser(null);
+      setUserEmailQuery('');
+      setSearchError(null);
       void load(0, applied);
     } catch (error) {
       addToast({
         type: 'error',
-        title: 'Conceder VIP',
+        title: 'Atribuir Plano',
         description: errorMessage(error),
       });
     } finally {
-      setVipBusy(false);
+      setAssignBusy(false);
     }
   };
 
@@ -780,13 +835,15 @@ function EntitlementTable({
                 className="btn btn-primary btn-pill"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
                 onClick={() => {
-                  setVipTargetUserId('');
-                  setVipPlanCode('VIP');
-                  setGrantVipOpen(true);
+                  setUserEmailQuery('');
+                  setFoundUser(null);
+                  setSearchError(null);
+                  void loadPlans();
+                  setAssignModalOpen(true);
                 }}
               >
-                <Crown size={15} />
-                <span>Conceder Plano VIP</span>
+                <Plus size={15} />
+                <span>Atribuir Plano</span>
               </button>
             )}
           </div>
@@ -840,45 +897,102 @@ function EntitlementTable({
       </div>
 
       <Modal
-        isOpen={grantVipOpen}
-        onClose={() => { if (!vipBusy) setGrantVipOpen(false); }}
-        title="Conceder Plano VIP / Vitalício"
+        isOpen={assignModalOpen}
+        onClose={() => { if (!assignBusy) setAssignModalOpen(false); }}
+        title="Atribuir Plano ao Usuário"
         footer={(
           <>
-            <button className="btn btn-pill" type="button" onClick={() => setGrantVipOpen(false)} disabled={vipBusy}>
+            <button className="btn btn-pill" type="button" onClick={() => setAssignModalOpen(false)} disabled={assignBusy}>
               Cancelar
             </button>
-            <button className="btn btn-primary btn-pill" type="submit" form="billing-grant-vip-form" disabled={vipBusy || !vipTargetUserId.trim()}>
-              {vipBusy ? 'Concedendo…' : 'Conceder Acesso Vitalício'}
+            <button
+              className="btn btn-primary btn-pill"
+              type="submit"
+              form="billing-assign-plan-form"
+              disabled={assignBusy || !foundUser || !selectedPlanCode.trim()}
+            >
+              {assignBusy ? 'Atribuindo…' : 'Confirmar Atribuição de Plano'}
             </button>
           </>
         )}
       >
-        <form id="billing-grant-vip-form" className="billing-form" onSubmit={handleGrantVip}>
+        <form id="billing-assign-plan-form" className="billing-form" onSubmit={handleAssignPlan}>
           <p className="table-cell-muted" style={{ marginBottom: '1rem' }}>
-            Atribui uma assinatura vitalícia imediata sem cobrança de gateway (Asaas). O usuário terá acesso completo ao universo de ativos no Mercado, sem limites de slots.
+            Selecione o plano desejado e localize o usuário pelo e-mail para conceder o acesso manual sem cobranças no gateway Asaas.
           </p>
           <label>
-            ID do Usuário (UUID)
-            <input
+            Plano
+            <select
               className="form-input"
-              value={vipTargetUserId}
-              onChange={(e) => setVipTargetUserId(e.target.value)}
-              placeholder="Ex: 550e8400-e29b-41d4-a716-446655440000"
+              value={selectedPlanCode}
+              onChange={(e) => setSelectedPlanCode(e.target.value)}
               required
-              autoFocus
-            />
+            >
+              {availablePlans.length === 0 ? (
+                <option value="VIP">VIP</option>
+              ) : (
+                availablePlans.map((plan) => (
+                  <option key={plan.code} value={plan.code}>
+                    {plan.name} ({plan.code}){plan.isLifetime ? ' • Vitalício' : ''}{!plan.enabled ? ' (Inativo)' : ''}
+                  </option>
+                ))
+              )}
+            </select>
           </label>
-          <label>
-            Código do Plano
-            <input
-              className="form-input"
-              value={vipPlanCode}
-              onChange={(e) => setVipPlanCode(e.target.value)}
-              placeholder="VIP"
-              required
-            />
-          </label>
+          <div className="billing-user-lookup">
+            <label>
+              E-mail do Usuário
+              <div className="billing-search-input-wrap">
+                <input
+                  className="form-input"
+                  type="email"
+                  value={userEmailQuery}
+                  onChange={(e) => setUserEmailQuery(e.target.value)}
+                  placeholder="Digite o e-mail do usuário cadastrado"
+                  required
+                  autoFocus
+                />
+                <div className="billing-search-icon">
+                  {searchingUser ? <Loader2 size={16} className="spin" /> : <Search size={16} />}
+                </div>
+              </div>
+            </label>
+
+            {searchingUser && (
+              <div className="billing-user-feedback is-loading">
+                <Loader2 size={14} className="spin" />
+                <span>Localizando usuário...</span>
+              </div>
+            )}
+
+            {searchError && !searchingUser && (
+              <div className="billing-user-feedback is-error">
+                <AlertCircle size={14} />
+                <span>{searchError}</span>
+              </div>
+            )}
+
+            {foundUser && !searchingUser && (
+              <div className="billing-user-card is-selected">
+                <div className="billing-user-avatar">
+                  {(foundUser.username || foundUser.email || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="billing-user-info">
+                  <div className="billing-user-name-row">
+                    <span className="billing-user-name">
+                      {foundUser.username || 'Sem nome cadastrado'}
+                    </span>
+                    <span className="billing-status-pill is-ok" style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem' }}>
+                      <CheckCircle2 size={11} style={{ marginRight: '0.2rem' }} />
+                      {foundUser.status === 'ACTIVE' ? 'Ativo' : foundUser.status}
+                    </span>
+                  </div>
+                  <span className="billing-user-email">{foundUser.email}</span>
+                  <span className="billing-user-id">UUID: {foundUser.id}</span>
+                </div>
+              </div>
+            )}
+          </div>
         </form>
       </Modal>
     </div>
