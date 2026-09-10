@@ -185,23 +185,21 @@ export const BillingEntitlementBanner: React.FC = () => {
   }, [fetchEntitlement, entitlement?.status]);
 
   if (!showStorefront || !entitlement) return null;
-  if (location.pathname === PATHS.billing) return null;
 
   const status = (entitlement.status || '').toLowerCase();
-  if (status === 'active' || status === 'trial') return null;
+  if (status === 'active' || status === 'trial' || entitlement.allowsProduct) return null;
 
   const grace = status === 'grace';
-  const isMarket = location.pathname.startsWith('/mercado');
   const isFreemium = status === 'none' || status === '';
 
   let message = 'Assine um plano para continuar. O collector da organização segue rodando.';
   if (grace) {
     message = `Assinatura em carência até ${formatDate(entitlement.graceEndsAt)}. Regularize o pagamento para manter o produto.`;
-  } else if (isFreemium && isMarket) {
+  } else if (isFreemium) {
     message = 'Modo Degustação (Freemium): você pode acompanhar até 2 ativos simultaneamente. Assine um plano para liberar ativos ilimitados.';
   }
 
-  const bannerClass = grace ? 'is-grace' : (isFreemium && isMarket ? 'is-freemium' : 'is-restricted');
+  const bannerClass = grace ? 'is-grace' : (isFreemium ? 'is-freemium' : 'is-restricted');
 
   return (
     <div className={`billing-banner ${bannerClass}`} role="status">
@@ -442,7 +440,7 @@ export const BillingPlansView: React.FC = () => {
     const waitingForInstrument = Boolean(pendingInvoice && !hasInstrument);
     const waitingForPaid = Boolean(pendingInvoice && hasInstrument && pendingInvoice.status === 'pending');
     if (!waitingForInvoice && !waitingForInstrument && !waitingForPaid) return;
-    const ms = waitingForPaid ? 10_000 : 2_000;
+    const ms = waitingForPaid ? 5_000 : 2_000;
     const max = waitingForPaid ? 180_000 : 30_000;
     const started = Date.now();
     const id = window.setInterval(() => {
