@@ -190,7 +190,7 @@ if [ "$DEPLOY_DOCKER" = true ]; then
 
     cd "${DOCKER_COMPOSE_DIR}"
     docker compose pull "${SERVICE_NAME}" || true
-    docker compose up -d --force-recreate "${SERVICE_NAME}"
+    docker compose up -d --force-recreate --no-deps "${SERVICE_NAME}"
     log_success "Container ${SERVICE_NAME} recriado com sucesso no Docker local!"
 else
     log_step "Deploy Docker local ignorado (use './${SCRIPT_NAME:-script-deploy.sh} up' para subir local)"
