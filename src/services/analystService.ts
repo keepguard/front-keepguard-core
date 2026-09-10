@@ -405,6 +405,7 @@ export interface PlanQuotaDTO {
   planCode: string;
   watchlistSlots: number;
   watchlistPicks: number;
+  fixedTickers?: string[];
   updatedAt?: string | null;
 }
 
@@ -413,6 +414,7 @@ export interface SavePlanQuotasPayload {
     planCode: string;
     watchlistSlots: number;
     watchlistPicks: number;
+    fixedTickers?: string[];
   }>;
 }
 
