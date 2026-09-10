@@ -285,6 +285,15 @@ export interface AnalystFavorites {
   companyId: string;
   userId: string;
   tickers: string[];
+  maxTickers: number;
+  updatedAt?: string;
+}
+
+export interface AnalystUserWatchlist {
+  companyId: string;
+  userId: string;
+  planCode?: string;
+  tickers: string[];
   lockedTickers?: string[];
   maxTickers: number;
   updatedAt?: string;
@@ -329,6 +338,18 @@ export function getFavorites(): Promise<AnalystFavorites> {
 export function saveFavorites(tickers: string[]): Promise<AnalystFavorites> {
   return customFetch<AnalystFavorites>(
     `${ANALYST_BASE}/favorites`,
+    { method: 'PUT', body: JSON.stringify({ tickers }) },
+    token(),
+  );
+}
+
+export function getUserWatchlist(): Promise<AnalystUserWatchlist> {
+  return customFetch<AnalystUserWatchlist>(`${ANALYST_BASE}/user-watchlist`, { method: 'GET' }, token());
+}
+
+export function saveUserWatchlist(tickers: string[]): Promise<AnalystUserWatchlist> {
+  return customFetch<AnalystUserWatchlist>(
+    `${ANALYST_BASE}/user-watchlist`,
     { method: 'PUT', body: JSON.stringify({ tickers }) },
     token(),
   );
