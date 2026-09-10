@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Check, Copy, CreditCard, ExternalLink, LoaderCircle } from 'lucide-react';
 import { PixQr } from './PixQr';
 import { Link, useLocation } from 'react-router-dom';
@@ -373,6 +373,7 @@ export const BillingPlansView: React.FC = () => {
   const [cpfLast4, setCpfLast4] = useState('');
   const [cpfDigits, setCpfDigits] = useState('');
   const [cpfError, setCpfError] = useState('');
+  const cpfInputRef = useRef<HTMLInputElement>(null);
 
   const token = getAccessToken();
 
@@ -462,13 +463,41 @@ export const BillingPlansView: React.FC = () => {
     || subscription?.planCode
     || selectedPlan?.name;
 
+  const cpfMissing = !hasCpf && !cpfDigits;
+  const cpfIncomplete = !hasCpf && cpfDigits.length > 0 && cpfDigits.length < 11;
+  const cpfMathInvalid = !hasCpf && cpfDigits.length === 11 && !isValidCpf(cpfDigits);
+  const cpfIsInvalid = Boolean(cpfError) || cpfMissing || cpfIncomplete || cpfMathInvalid;
+
+  const cpfDisplayError = useMemo(() => {
+    if (hasCpf) return '';
+    if (cpfError) return cpfError;
+    if (cpfMissing) return 'Campo obrigatório para emitir a assinatura.';
+    if (cpfIncomplete) return 'Informe o CPF completo (11 dígitos).';
+    if (cpfMathInvalid) return 'CPF inválido. Verifique os dígitos.';
+    return '';
+  }, [hasCpf, cpfError, cpfMissing, cpfIncomplete, cpfMathInvalid]);
+
+  const cpfAriaDescribedBy = hasCpf
+    ? undefined
+    : cpfDisplayError
+      ? 'billing-cpf-error'
+      : 'billing-cpf-hint';
+
   const subscribe = async (event: React.FormEvent) => {
     event.preventDefault();
     const access = getAccessToken();
     if (!access || !planCode) return;
-    if (!hasCpf && !isValidCpf(cpfDigits)) {
-      setCpfError('Informe um CPF válido.');
-      return;
+    if (!hasCpf) {
+      if (!cpfDigits) {
+        setCpfError('O CPF é obrigatório para realizar a assinatura.');
+        cpfInputRef.current?.focus();
+        return;
+      }
+      if (!isValidCpf(cpfDigits)) {
+        setCpfError('Informe um CPF válido.');
+        cpfInputRef.current?.focus();
+        return;
+      }
     }
     setBusy(true);
     setCpfError('');
@@ -592,106 +621,126 @@ export const BillingPlansView: React.FC = () => {
           </div>
         ) : (
           <form className="billing-form" onSubmit={subscribe}>
-            <label>
-              Plano
-              <select className="form-input" value={planCode} disabled={busy} onChange={(event) => setPlanCode(event.target.value)} required>
-                <option value="">Selecione</option>
-                {plans.filter((plan) => plan.enabled).map((plan) => (
-                  <option key={plan.id} value={plan.code}>
-                    {plan.name}{planBenefit(plan) ? ` — ${planBenefit(plan)}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Ciclo
-              <select className="form-input" value={interval} disabled={busy} onChange={(event) => setInterval(event.target.value)}>
-                {(selectedPlan?.prices.length ? selectedPlan.prices : INTERVALS.map((item) => ({ interval: item.value } as BillingPlanPrice))).map((price) => (
-                  <option key={price.interval} value={price.interval}>
-                    {intervalLabel(price.interval)}
-                    {'amountCents' in price && price.amountCents ? ` · ${formatMoney(price.amountCents, price.currency)}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Pagamento
-              <select
-                className="form-input"
-                value={paymentMethod}
-                disabled={busy}
-                onChange={(event) => setPaymentMethod(event.target.value as 'pix' | 'boleto' | 'credit_card')}
-              >
-                <option value="pix">PIX</option>
-                <option value="boleto">Boleto</option>
-                <option value="credit_card">Cartão</option>
-              </select>
-            </label>
-            {paymentMethod === 'credit_card' ? (
+            <div className="billing-form-grid">
               <label>
-                Token do cartão
-                <input
-                  className="form-input"
-                  value={creditCardToken}
-                  onChange={(event) => setCreditCardToken(event.target.value)}
-                  required
-                  disabled={busy}
-                  autoComplete="off"
-                  placeholder="Token Asaas (sem PAN)"
-                  aria-describedby="billing-card-token-hint"
-                />
-                <span id="billing-card-token-hint" className="billing-cpf-hint">
-                  Use o SDK/hosted fields Asaas no browser. O KeepGuard não aceita número do cartão.
-                </span>
+                <span className="billing-label-title">Plano</span>
+                <select className="form-input" value={planCode} disabled={busy} onChange={(event) => setPlanCode(event.target.value)} required>
+                  <option value="">Selecione</option>
+                  {plans.filter((plan) => plan.enabled).map((plan) => (
+                    <option key={plan.id} value={plan.code}>
+                      {plan.name}{planBenefit(plan) ? ` — ${planBenefit(plan)}` : ''}
+                    </option>
+                  ))}
+                </select>
               </label>
-            ) : null}
-            <label>
-              CPF
-              <input
-                className="form-input"
-                value={hasCpf ? maskedCpfLast4(cpfLast4) : formatCpfMask(cpfDigits)}
-                onChange={(event) => {
-                  setCpfDigits(cpfDigitsOf(event.target.value));
-                  if (cpfError) setCpfError('');
-                }}
-                required={!hasCpf}
-                readOnly={hasCpf}
-                disabled={busy || hasCpf}
-                inputMode="numeric"
-                autoComplete="off"
-                aria-readonly={hasCpf || undefined}
-                aria-invalid={cpfError ? true : undefined}
-                aria-describedby={cpfError ? 'billing-cpf-error' : !hasCpf ? 'billing-cpf-hint' : undefined}
-                placeholder="000.000.000-00"
-              />
-              {!hasCpf ? (
-                <span id="billing-cpf-hint" className="billing-cpf-hint">
-                  O Asaas usa o CPF do pagador no PIX e no boleto.
+              <label>
+                <span className="billing-label-title">Ciclo</span>
+                <select className="form-input" value={interval} disabled={busy} onChange={(event) => setInterval(event.target.value)}>
+                  {(selectedPlan?.prices.length ? selectedPlan.prices : INTERVALS.map((item) => ({ interval: item.value } as BillingPlanPrice))).map((price) => (
+                    <option key={price.interval} value={price.interval}>
+                      {intervalLabel(price.interval)}
+                      {'amountCents' in price && price.amountCents ? ` · ${formatMoney(price.amountCents, price.currency)}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className="billing-label-title">Pagamento</span>
+                <select
+                  className="form-input"
+                  value={paymentMethod}
+                  disabled={busy}
+                  onChange={(event) => setPaymentMethod(event.target.value as 'pix' | 'boleto' | 'credit_card')}
+                >
+                  <option value="pix">PIX</option>
+                  <option value="boleto">Boleto</option>
+                  <option value="credit_card">Cartão</option>
+                </select>
+              </label>
+              <label>
+                <span className="billing-label-title">
+                  CPF
+                  {!hasCpf && <span className="billing-required-tag">Obrigatório</span>}
                 </span>
+                <input
+                  ref={cpfInputRef}
+                  className={`form-input${cpfIsInvalid ? ' form-input-error' : ''}`}
+                  value={hasCpf ? maskedCpfLast4(cpfLast4) : formatCpfMask(cpfDigits)}
+                  onChange={(event) => {
+                    setCpfDigits(cpfDigitsOf(event.target.value));
+                    if (cpfError) setCpfError('');
+                  }}
+                  required={!hasCpf}
+                  readOnly={hasCpf}
+                  disabled={busy || hasCpf}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  aria-readonly={hasCpf || undefined}
+                  aria-required={!hasCpf}
+                  aria-invalid={cpfIsInvalid ? true : undefined}
+                  aria-describedby={cpfAriaDescribedBy}
+                  placeholder="000.000.000-00"
+                />
+                <div className="billing-field-feedback">
+                  {hasCpf ? (
+                    <span className="billing-cpf-hint">CPF cadastrado no perfil.</span>
+                  ) : cpfDisplayError ? (
+                    <span id="billing-cpf-error" className="billing-field-error" role="alert">
+                      {cpfDisplayError}
+                    </span>
+                  ) : (
+                    <span id="billing-cpf-hint" className="billing-cpf-hint">
+                      O Asaas usa o CPF do pagador no PIX e no boleto.
+                    </span>
+                  )}
+                </div>
+              </label>
+              {paymentMethod === 'credit_card' ? (
+                <label className="billing-field-full">
+                  <span className="billing-label-title">
+                    Token do cartão
+                    <span className="billing-required-tag">Obrigatório</span>
+                  </span>
+                  <input
+                    className="form-input"
+                    value={creditCardToken}
+                    onChange={(event) => setCreditCardToken(event.target.value)}
+                    required
+                    disabled={busy}
+                    autoComplete="off"
+                    placeholder="Token Asaas (sem PAN)"
+                    aria-describedby="billing-card-token-hint"
+                  />
+                  <span id="billing-card-token-hint" className="billing-cpf-hint">
+                    Use o SDK/hosted fields Asaas no browser. O KeepGuard não aceita número do cartão.
+                  </span>
+                </label>
               ) : null}
-              {cpfError ? (
-                <span id="billing-cpf-error" className="billing-field-error" role="alert">
-                  {cpfError}
-                </span>
-              ) : null}
-            </label>
-            {selectedPlan && planBenefit(selectedPlan) ? (
-              <p className="table-cell-muted">{planBenefit(selectedPlan)}</p>
-            ) : null}
-            {selectedPrice && <p>Valor do ciclo: {formatMoney(selectedPrice.amountCents, selectedPrice.currency)}</p>}
-            <button
-              className="btn btn-primary btn-pill"
-              type="submit"
-              disabled={
-                busy
-                || !planCode
-                || (!hasCpf && cpfDigits.length !== 11)
-                || (paymentMethod === 'credit_card' && !creditCardToken.trim())
-              }
-            >
-              <CreditCard size={15} />
-              Assinar
-            </button>
+            </div>
+            {selectedPrice && (
+              <div className="billing-cycle-info">
+                <span>Valor do ciclo:</span>
+                <strong>{formatMoney(selectedPrice.amountCents, selectedPrice.currency)}</strong>
+                {selectedPlan && planBenefit(selectedPlan) ? (
+                  <span className="billing-benefit-tag">{planBenefit(selectedPlan)}</span>
+                ) : null}
+              </div>
+            )}
+            <div className="billing-actions-row">
+              <button
+                className="btn btn-primary btn-pill"
+                type="submit"
+                disabled={
+                  busy
+                  || !planCode
+                  || (!hasCpf && (!cpfDigits || !isValidCpf(cpfDigits)))
+                  || (paymentMethod === 'credit_card' && !creditCardToken.trim())
+                }
+              >
+                <CreditCard size={15} />
+                {busy ? 'Processando…' : 'Assinar'}
+              </button>
+            </div>
           </form>
         )}
       </section>
