@@ -621,10 +621,20 @@ export const BillingPlansView: React.FC = () => {
           </div>
         ) : (
           <form className="billing-form" onSubmit={subscribe}>
-            <div className="billing-form-grid">
-              <label>
-                <span className="billing-label-title">Plano</span>
-                <select className="form-input" value={planCode} disabled={busy} onChange={(event) => setPlanCode(event.target.value)} required>
+            {/* 1. Plano */}
+            <div className="billing-form-row">
+              <label htmlFor="billing-plan-select" className="billing-label-title">
+                Plano
+              </label>
+              <div className="billing-field-content">
+                <select
+                  id="billing-plan-select"
+                  className="form-input"
+                  value={planCode}
+                  disabled={busy}
+                  onChange={(event) => setPlanCode(event.target.value)}
+                  required
+                >
                   <option value="">Selecione</option>
                   {plans.filter((plan) => plan.enabled).map((plan) => (
                     <option key={plan.id} value={plan.code}>
@@ -632,10 +642,22 @@ export const BillingPlansView: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            {/* 2. Ciclo */}
+            <div className="billing-form-row">
+              <label htmlFor="billing-interval-select" className="billing-label-title">
+                Ciclo
               </label>
-              <label>
-                <span className="billing-label-title">Ciclo</span>
-                <select className="form-input" value={interval} disabled={busy} onChange={(event) => setInterval(event.target.value)}>
+              <div className="billing-field-content">
+                <select
+                  id="billing-interval-select"
+                  className="form-input"
+                  value={interval}
+                  disabled={busy}
+                  onChange={(event) => setInterval(event.target.value)}
+                >
                   {(selectedPlan?.prices.length ? selectedPlan.prices : INTERVALS.map((item) => ({ interval: item.value } as BillingPlanPrice))).map((price) => (
                     <option key={price.interval} value={price.interval}>
                       {intervalLabel(price.interval)}
@@ -643,10 +665,17 @@ export const BillingPlansView: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            {/* 3. Pagamento */}
+            <div className="billing-form-row">
+              <label htmlFor="billing-payment-method" className="billing-label-title">
+                Pagamento
               </label>
-              <label>
-                <span className="billing-label-title">Pagamento</span>
+              <div className="billing-field-content">
                 <select
+                  id="billing-payment-method"
                   className="form-input"
                   value={paymentMethod}
                   disabled={busy}
@@ -656,13 +685,44 @@ export const BillingPlansView: React.FC = () => {
                   <option value="boleto">Boleto</option>
                   <option value="credit_card">Cartão</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Se cartão: Token do cartão */}
+            {paymentMethod === 'credit_card' ? (
+              <div className="billing-form-row">
+                <label htmlFor="billing-credit-card-token" className="billing-label-title">
+                  Token do cartão
+                  <span className="billing-required-tag">Obrigatório</span>
+                </label>
+                <div className="billing-field-content">
+                  <input
+                    id="billing-credit-card-token"
+                    className="form-input"
+                    value={creditCardToken}
+                    onChange={(event) => setCreditCardToken(event.target.value)}
+                    required
+                    disabled={busy}
+                    autoComplete="off"
+                    placeholder="Token Asaas (sem PAN)"
+                    aria-describedby="billing-card-token-hint"
+                  />
+                  <span id="billing-card-token-hint" className="billing-cpf-hint">
+                    Use o SDK/hosted fields Asaas no browser. O KeepGuard não aceita número do cartão.
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            {/* 4. CPF */}
+            <div className="billing-form-row">
+              <label htmlFor="billing-cpf-input" className="billing-label-title">
+                CPF
+                {!hasCpf && <span className="billing-required-tag">Obrigatório</span>}
               </label>
-              <label>
-                <span className="billing-label-title">
-                  CPF
-                  {!hasCpf && <span className="billing-required-tag">Obrigatório</span>}
-                </span>
+              <div className="billing-field-content">
                 <input
+                  id="billing-cpf-input"
                   ref={cpfInputRef}
                   className={`form-input${cpfIsInvalid ? ' form-input-error' : ''}`}
                   value={hasCpf ? maskedCpfLast4(cpfLast4) : formatCpfMask(cpfDigits)}
@@ -694,52 +754,40 @@ export const BillingPlansView: React.FC = () => {
                     </span>
                   )}
                 </div>
-              </label>
-              {paymentMethod === 'credit_card' ? (
-                <label className="billing-field-full">
-                  <span className="billing-label-title">
-                    Token do cartão
-                    <span className="billing-required-tag">Obrigatório</span>
-                  </span>
-                  <input
-                    className="form-input"
-                    value={creditCardToken}
-                    onChange={(event) => setCreditCardToken(event.target.value)}
-                    required
-                    disabled={busy}
-                    autoComplete="off"
-                    placeholder="Token Asaas (sem PAN)"
-                    aria-describedby="billing-card-token-hint"
-                  />
-                  <span id="billing-card-token-hint" className="billing-cpf-hint">
-                    Use o SDK/hosted fields Asaas no browser. O KeepGuard não aceita número do cartão.
-                  </span>
-                </label>
-              ) : null}
+              </div>
             </div>
+
+            {/* 5. Valor do ciclo */}
             {selectedPrice && (
-              <div className="billing-cycle-info">
-                <span>Valor do ciclo:</span>
-                <strong>{formatMoney(selectedPrice.amountCents, selectedPrice.currency)}</strong>
-                {selectedPlan && planBenefit(selectedPlan) ? (
-                  <span className="billing-benefit-tag">{planBenefit(selectedPlan)}</span>
-                ) : null}
+              <div className="billing-form-row billing-cycle-row">
+                <span className="billing-label-title">Valor do ciclo</span>
+                <div className="billing-cycle-display">
+                  <strong className="billing-cycle-amount">{formatMoney(selectedPrice.amountCents, selectedPrice.currency)}</strong>
+                  {selectedPlan && planBenefit(selectedPlan) ? (
+                    <span className="billing-benefit-tag">{planBenefit(selectedPlan)}</span>
+                  ) : null}
+                </div>
               </div>
             )}
-            <div className="billing-actions-row">
-              <button
-                className="btn btn-primary btn-pill"
-                type="submit"
-                disabled={
-                  busy
-                  || !planCode
-                  || (!hasCpf && (!cpfDigits || !isValidCpf(cpfDigits)))
-                  || (paymentMethod === 'credit_card' && !creditCardToken.trim())
-                }
-              >
-                <CreditCard size={15} />
-                {busy ? 'Processando…' : 'Assinar'}
-              </button>
+
+            {/* 6. Botão assinatura */}
+            <div className="billing-form-row billing-action-row">
+              <div className="billing-action-spacer" aria-hidden="true" />
+              <div className="billing-action-btn-wrap">
+                <button
+                  className="btn btn-primary btn-pill billing-submit-btn"
+                  type="submit"
+                  disabled={
+                    busy
+                    || !planCode
+                    || (!hasCpf && (!cpfDigits || !isValidCpf(cpfDigits)))
+                    || (paymentMethod === 'credit_card' && !creditCardToken.trim())
+                  }
+                >
+                  <CreditCard size={15} />
+                  {busy ? 'Processando…' : 'Assinar'}
+                </button>
+              </div>
             </div>
           </form>
         )}

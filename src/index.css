@@ -6441,30 +6441,28 @@ textarea.form-input {
 .billing-page .billing-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.1rem;
+  max-width: 640px;
+  width: 100%;
 }
 
-.billing-page .billing-form-grid {
+.billing-page .billing-form-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: 140px 1fr;
   align-items: start;
-}
-
-.billing-page .billing-form-grid label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-body);
+  gap: 1.25rem;
+  width: 100%;
 }
 
 .billing-page .billing-label-title {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  min-height: 1.25rem;
+  padding-top: 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-body);
+  flex-wrap: wrap;
 }
 
 .billing-page .billing-required-tag {
@@ -6480,14 +6478,17 @@ textarea.form-input {
   letter-spacing: 0.03em;
 }
 
-.billing-page .billing-field-full {
-  grid-column: 1 / -1;
+.billing-page .billing-field-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
 }
 
 .billing-page .billing-field-feedback {
   display: flex;
   flex-direction: column;
-  min-height: 1.35rem;
+  min-height: 1.25rem;
   justify-content: flex-start;
 }
 
@@ -6501,18 +6502,23 @@ textarea.form-input {
   box-shadow: 0 0 0 3px var(--danger-light) !important;
 }
 
-.billing-page .billing-cycle-info {
+.billing-page .billing-cycle-row {
+  align-items: center;
+}
+
+.billing-page .billing-cycle-row .billing-label-title {
+  padding-top: 0;
+}
+
+.billing-page .billing-cycle-display {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-  font-size: 0.95rem;
-  color: var(--text-body);
-  margin-top: 0.25rem;
 }
 
-.billing-page .billing-cycle-info strong {
-  font-size: 1.15rem;
+.billing-page .billing-cycle-amount {
+  font-size: 1.25rem;
   color: var(--text-main);
   font-weight: 700;
 }
@@ -6527,16 +6533,15 @@ textarea.form-input {
   border: 1px solid var(--border-subtle);
 }
 
-.billing-page .billing-actions-row {
+.billing-page .billing-action-btn-wrap {
   display: flex;
   align-items: center;
-  gap: 1rem;
 }
 
-.billing-page .billing-actions-row .btn {
+.billing-page .billing-submit-btn {
   width: auto;
-  min-height: 2.6rem;
-  padding: 0.6rem 2rem;
+  min-height: 2.75rem;
+  padding: 0.65rem 2.25rem;
   font-size: 0.95rem;
   font-weight: 600;
   display: inline-flex;
@@ -6545,18 +6550,21 @@ textarea.form-input {
   gap: 0.5rem;
 }
 
-@media (max-width: 960px) {
-  .billing-page .billing-form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 600px) {
-  .billing-page .billing-form-grid {
+@media (max-width: 640px) {
+  .billing-page .billing-form-row {
     grid-template-columns: 1fr;
+    gap: 0.35rem;
   }
 
-  .billing-page .billing-actions-row .btn {
+  .billing-page .billing-label-title {
+    padding-top: 0;
+  }
+
+  .billing-page .billing-action-spacer {
+    display: none;
+  }
+
+  .billing-page .billing-submit-btn {
     width: 100%;
   }
 }
