@@ -62,3 +62,22 @@ export function getDeviceInfo(): DeviceInfo {
     deviceType: getDeviceType(),
   };
 }
+
+const SESSION_ID_KEY = 'keepguard_session_id';
+
+export function getOrCreateSessionId(): string {
+  try {
+    let sessionId = sessionStorage.getItem(SESSION_ID_KEY);
+    if (!sessionId) {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        sessionId = 'sess_' + crypto.randomUUID();
+      } else {
+        sessionId = 'sess_' + Date.now().toString(36) + Math.random().toString(36).substring(2);
+      }
+      sessionStorage.setItem(SESSION_ID_KEY, sessionId);
+    }
+    return sessionId;
+  } catch {
+    return 'sess_fallback';
+  }
+}

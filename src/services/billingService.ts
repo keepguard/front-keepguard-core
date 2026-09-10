@@ -68,6 +68,12 @@ export interface BillingSubscription {
   status: string;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
+  sessionId?: string | null;
+  deviceId?: string | null;
+  deviceName?: string | null;
+  deviceType?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 }
 
 export interface BillingInvoice {
@@ -196,6 +202,12 @@ export function createBillingSubscription(
     paymentMethod: string;
     payerCpfCnpj?: string;
     creditCardToken?: string;
+    sessionId?: string;
+    deviceId?: string;
+    deviceName?: string;
+    deviceType?: string;
+    ipAddress?: string;
+    userAgent?: string;
   },
   token: string,
 ): Promise<BillingSubscription> {

@@ -1,4 +1,4 @@
-import { getDeviceInfo } from '../utils/deviceUtils';
+import { getDeviceInfo, getOrCreateSessionId } from '../utils/deviceUtils';
 import { peekPublicClientNetwork, prefetchPublicClientIp } from '../utils/publicIp';
 import {
   clearTokens,
@@ -105,6 +105,7 @@ export async function customFetch<T>(
     'X-Device-Id': deviceInfo.deviceId,
     'X-Device-Name': deviceInfo.deviceName,
     'X-Device-Type': deviceInfo.deviceType,
+    'X-Session-Id': getOrCreateSessionId(),
     ...(fetchOptions.headers as Record<string, string>),
   };
   if (url.startsWith(BFF_INVEST_URL) || url.includes('/bff-invest')) {
