@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CreditCard, Pencil, Plus, Search } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
+import { InvoiceDetailModal } from './InvoiceDetailModal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -222,6 +223,7 @@ function TransactionsPanel() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<BillingInvoice[]>([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedInvoice, setSelectedInvoice] = useState<BillingInvoice | null>(null);
 
   const load = useCallback(async (nextPage: number, filters: typeof draft) => {
     const access = getAccessToken();
@@ -307,7 +309,20 @@ function TransactionsPanel() {
             ) : items.length === 0 ? (
               <tr><td colSpan={8} className="table-cell-muted">Nenhuma transação.</td></tr>
             ) : items.map((invoice) => (
-              <tr key={invoice.id}>
+              <tr
+                key={invoice.id}
+                className="billing-table-row-clickable"
+                tabIndex={0}
+                role="button"
+                aria-label={`Ver detalhes da fatura ${invoice.id}`}
+                onClick={() => setSelectedInvoice(invoice)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedInvoice(invoice);
+                  }
+                }}
+              >
                 <td>{invoiceStatusLabel(invoice.status)}</td>
                 <td>{formatMoney(invoice.amountCents, invoice.currency)}</td>
                 <td>{(invoice.paymentMethod || '—').toUpperCase()}</td>
@@ -316,7 +331,14 @@ function TransactionsPanel() {
                 <td>{invoice.status === 'paid' ? formatDate(invoice.paidAt) : '—'}</td>
                 <td>
                   {invoice.nfUrl ? (
-                    <a href={invoice.nfUrl} target="_blank" rel="noreferrer">Nota</a>
+                    <a
+                      href={invoice.nfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Nota
+                    </a>
                   ) : '—'}
                 </td>
                 <td title={invoice.id}>{compactId(invoice.id)}</td>
@@ -325,6 +347,11 @@ function TransactionsPanel() {
           </tbody>
         </table>
       </div>
+      <InvoiceDetailModal
+        isOpen={selectedInvoice !== null}
+        onClose={() => setSelectedInvoice(null)}
+        invoice={selectedInvoice}
+      />
     </div>
   );
 }
@@ -333,15 +360,19 @@ function SubscribersPanel() {
   return <EntitlementTable hasPlan qPlaceholder="Usuário, e-mail ou UUID" emptyLabel="Nenhum assinante." />;
 }
 
-const LINKED_GATEWAYS = [{ slug: 'asaas', label: 'Asaas' }] as const;
+const LINKED_GATEWAYS = [
+  { slug: 'asaas', label: 'Asaas' },
+  { slug: 'stripe', label: 'Stripe' },
+] as const;
 
 function gatewayLabel(gateway?: string | null): string {
   const linked = LINKED_GATEWAYS.find((item) => item.slug === (gateway || '').toLowerCase());
   return linked?.label || gateway || 'Gateway';
 }
 
-function AsaasCredentialForm({
+function GatewayCredentialForm({
   idPrefix,
+  gateway,
   apiKey,
   webhookToken,
   onApiKey,
@@ -352,6 +383,7 @@ function AsaasCredentialForm({
   onSubmit,
 }: {
   idPrefix: string;
+  gateway: string;
   apiKey: string;
   webhookToken: string;
   onApiKey: (value: string) => void;
@@ -361,11 +393,15 @@ function AsaasCredentialForm({
   hint: string;
   onSubmit: (event: React.FormEvent) => void;
 }) {
+  const isStripe = (gateway || '').toLowerCase() === 'stripe';
+  const apiKeyLabel = isStripe ? 'Secret Key (sk_live_... / sk_test_...)' : 'API key';
+  const tokenLabel = isStripe ? 'Webhook Signing Secret (whsec_...)' : 'Webhook token (asaas-access-token)';
+
   return (
     <form className="billing-form" onSubmit={onSubmit}>
       <p className="table-cell-muted">{hint}</p>
       <label htmlFor={`${idPrefix}-api-key`}>
-        API key
+        {apiKeyLabel}
         <input
           id={`${idPrefix}-api-key`}
           className="form-input"
@@ -377,7 +413,7 @@ function AsaasCredentialForm({
         />
       </label>
       <label htmlFor={`${idPrefix}-webhook-token`}>
-        Webhook token (asaas-access-token)
+        {tokenLabel}
         <input
           id={`${idPrefix}-webhook-token`}
           className="form-input"
@@ -501,19 +537,20 @@ function GatewaysPanel({ writable }: { writable: boolean }) {
             ))}
           </select>
         </label>
-        {selectedType === 'asaas' ? (
-          <AsaasCredentialForm
+        {selectedType === 'asaas' || selectedType === 'stripe' ? (
+          <GatewayCredentialForm
             idPrefix="billing-gateway-new"
+            gateway={selectedType}
             apiKey={newApiKey}
             webhookToken={newWebhookToken}
             onApiKey={setNewApiKey}
             onWebhookToken={setNewWebhookToken}
-            submitLabel="Conectar Asaas"
+            submitLabel={`Conectar ${gatewayLabel(selectedType)}`}
             busy={busy}
             hint="A chave completa não volta a ser exibida depois de salvar."
             onSubmit={(event) => {
               event.preventDefault();
-              void saveGateway('asaas', newApiKey, newWebhookToken, false);
+              void saveGateway(selectedType, newApiKey, newWebhookToken, false);
             }}
           />
         ) : null}
@@ -570,16 +607,17 @@ function GatewaysPanel({ writable }: { writable: boolean }) {
                 </dl>
                 {writable ? (
                   <>
-                    {slug === 'asaas' ? (
-                      <AsaasCredentialForm
+                    {slug === 'asaas' || slug === 'stripe' ? (
+                      <GatewayCredentialForm
                         idPrefix={`billing-gateway-${slug}`}
+                        gateway={slug}
                         apiKey={draft.apiKey}
                         webhookToken={draft.webhookToken}
                         onApiKey={(value) => setDrafts((current) => ({ ...current, [slug]: { ...draft, apiKey: value } }))}
                         onWebhookToken={(value) => setDrafts((current) => ({ ...current, [slug]: { ...draft, webhookToken: value } }))}
                         submitLabel="Salvar credencial"
                         busy={busy}
-                        hint="Para rotacionar, informe a nova API key e o token de webhook. A chave completa não volta a ser exibida."
+                        hint="Para rotacionar, informe a nova credencial e o token de webhook. A chave completa não volta a ser exibida."
                         onSubmit={(event) => {
                           event.preventDefault();
                           void saveGateway(slug, draft.apiKey, draft.webhookToken, true);
