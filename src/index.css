@@ -6376,6 +6376,11 @@ textarea.form-input {
   background: rgba(192, 57, 43, 0.1);
 }
 
+.billing-banner.is-freemium {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+}
+
 .billing-page,
 .billing-org {
   display: flex;

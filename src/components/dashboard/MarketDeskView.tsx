@@ -239,8 +239,12 @@ export const MarketDeskView: React.FC = () => {
       if (!initialAutoSelectedRef.current) {
         initialAutoSelectedRef.current = true;
         const currentParam = tickerFromQuery(new URLSearchParams(window.location.search).get('ticker'));
-        if (!currentParam && fav?.tickers && fav.tickers.length > 0) {
-          applyTicker(fav.tickers[0]);
+        if (!currentParam) {
+          if (fav?.tickers && fav.tickers.length > 0) {
+            applyTicker(fav.tickers[0]);
+          } else if (known?.tickers && known.tickers.length > 0) {
+            applyTicker(known.tickers[0]);
+          }
         }
       }
     } catch (err) {

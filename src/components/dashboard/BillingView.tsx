@@ -191,12 +191,20 @@ export const BillingEntitlementBanner: React.FC = () => {
   if (status === 'active' || status === 'trial') return null;
 
   const grace = status === 'grace';
-  const message = grace
-    ? `Assinatura em carência até ${formatDate(entitlement.graceEndsAt)}. Regularize o pagamento para manter o produto.`
-    : 'Assine um plano para continuar. O collector da organização segue rodando.';
+  const isMarket = location.pathname.startsWith('/mercado');
+  const isFreemium = status === 'none' || status === '';
+
+  let message = 'Assine um plano para continuar. O collector da organização segue rodando.';
+  if (grace) {
+    message = `Assinatura em carência até ${formatDate(entitlement.graceEndsAt)}. Regularize o pagamento para manter o produto.`;
+  } else if (isFreemium && isMarket) {
+    message = 'Modo Degustação (Freemium): você pode acompanhar até 2 ativos simultaneamente. Assine um plano para liberar ativos ilimitados.';
+  }
+
+  const bannerClass = grace ? 'is-grace' : (isFreemium && isMarket ? 'is-freemium' : 'is-restricted');
 
   return (
-    <div className={`billing-banner ${grace ? 'is-grace' : 'is-restricted'}`} role="status">
+    <div className={`billing-banner ${bannerClass}`} role="status">
       <AlertTriangle size={16} />
       <span>{message}</span>
       <Link className="link-btn" to={PATHS.billing}>
