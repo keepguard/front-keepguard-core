@@ -345,9 +345,17 @@ export const MarketDeskView: React.FC = () => {
 
   useEffect(() => {
     void loadCatalog();
-    return onBillingEntitlement(() => {
+    const handleFocus = () => {
+      void loadCatalog();
+    };
+    window.addEventListener('focus', handleFocus);
+    const unbind = onBillingEntitlement(() => {
       void loadCatalog();
     });
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      unbind();
+    };
   }, [loadCatalog]);
 
   useEffect(() => {

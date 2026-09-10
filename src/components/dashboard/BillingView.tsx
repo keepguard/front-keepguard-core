@@ -354,7 +354,7 @@ const SubscriberCheckout: React.FC<{
 };
 
 export const BillingPlansView: React.FC = () => {
-  const { isAuthenticated, getAccessToken, user, performRefreshToken } = useAuth();
+  const { isAuthenticated, getAccessToken, user } = useAuth();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [entitlement, setEntitlement] = useState<BillingEntitlement | null>(null);
@@ -373,48 +373,55 @@ export const BillingPlansView: React.FC = () => {
   const [cpfError, setCpfError] = useState('');
   const cpfInputRef = useRef<HTMLInputElement>(null);
 
-  const token = getAccessToken();
-
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; pollOnly?: boolean }) => {
     const access = getAccessToken();
     if (!access) return;
     if (!opts?.silent) setLoading(true);
     try {
-      const [nextEntitlement, nextPlans, nextSubscription, nextInvoices, me] = await Promise.all([
-        getBillingEntitlement(access),
-        listBillingPlans(access),
-        getBillingSubscription(access),
-        listBillingInvoices(access, user?.id || user?.codeUser),
-        authService.getMe(access).catch(() => null),
-      ]);
-      setEntitlement(nextEntitlement);
-      notifyBillingEntitlement(nextEntitlement);
-      if (nextEntitlement?.status === 'active' || nextSubscription?.status === 'active') {
-        void performRefreshToken();
-      }
-      setPlans(nextPlans);
-      setSubscription(nextSubscription);
-      setInvoices(nextInvoices);
-      const profile = me?.personProfile;
-      const nextHasCpf = Boolean(profile?.hasCpf);
-      setHasCpf(nextHasCpf);
-      setCpfLast4(profile?.cpfLast4 || '');
-      if (nextHasCpf) {
-        setCpfDigits('');
-        setCpfError('');
+      if (opts?.pollOnly) {
+        const [nextEntitlement, nextSubscription, nextInvoices] = await Promise.all([
+          getBillingEntitlement(access),
+          getBillingSubscription(access),
+          listBillingInvoices(access, user?.id || user?.codeUser),
+        ]);
+        setEntitlement(nextEntitlement);
+        notifyBillingEntitlement(nextEntitlement);
+        setSubscription(nextSubscription);
+        setInvoices(nextInvoices);
+      } else {
+        const [nextEntitlement, nextPlans, nextSubscription, nextInvoices, me] = await Promise.all([
+          getBillingEntitlement(access),
+          listBillingPlans(access),
+          getBillingSubscription(access),
+          listBillingInvoices(access, user?.id || user?.codeUser),
+          authService.getMe(access).catch(() => null),
+        ]);
+        setEntitlement(nextEntitlement);
+        notifyBillingEntitlement(nextEntitlement);
+        setPlans(nextPlans);
+        setSubscription(nextSubscription);
+        setInvoices(nextInvoices);
+        const profile = me?.personProfile;
+        const nextHasCpf = Boolean(profile?.hasCpf);
+        setHasCpf(nextHasCpf);
+        setCpfLast4(profile?.cpfLast4 || '');
+        if (nextHasCpf) {
+          setCpfDigits('');
+          setCpfError('');
+        }
       }
     } catch (error) {
       addToast({ type: 'error', title: 'Billing', description: errorMessage(error) });
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [addToast, getAccessToken, performRefreshToken, user?.codeUser, user?.id]);
+  }, [addToast, getAccessToken, user?.codeUser, user?.id]);
 
   useEffect(() => {
-    if (isAuthenticated && token) {
+    if (isAuthenticated) {
       void load();
     }
-  }, [isAuthenticated, token, load]);
+  }, [isAuthenticated, load]);
 
   const selectedPlan = useMemo(
     () => plans.find((item) => item.code === planCode && item.enabled) || plans.find((item) => item.enabled),
@@ -443,8 +450,8 @@ export const BillingPlansView: React.FC = () => {
     const waitingForInstrument = Boolean(pendingInvoice && !hasInstrument);
     const waitingForPaid = Boolean(pendingInvoice && hasInstrument && pendingInvoice.status === 'pending');
     if (!waitingForInvoice && !waitingForInstrument && !waitingForPaid) return;
-    const ms = waitingForPaid ? 5_000 : 2_000;
-    const max = waitingForPaid ? 180_000 : 30_000;
+    const ms = waitingForPaid ? 10_000 : 3_000;
+    const max = waitingForPaid ? 300_000 : 45_000;
     const started = Date.now();
     const id = window.setInterval(() => {
       if (Date.now() - started > max) {
@@ -452,7 +459,7 @@ export const BillingPlansView: React.FC = () => {
         setJustSubscribed(false);
         return;
       }
-      void load({ silent: true });
+      void load({ silent: true, pollOnly: true });
     }, ms);
     return () => window.clearInterval(id);
   }, [justSubscribed, pendingInvoice?.id, pendingInvoice?.status, hasInstrument, load]);
