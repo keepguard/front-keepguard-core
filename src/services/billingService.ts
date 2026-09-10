@@ -8,8 +8,6 @@ export interface BillingEntitlement {
   status: string;
   planCode?: string | null;
   interval?: string | null;
-  quotas?: Record<string, number> | null;
-  quotasJson?: string | null;
   graceEndsAt?: string | null;
   currentPeriodEnd?: string | null;
   updatedAt?: string | null;
@@ -30,8 +28,6 @@ export interface BillingPlan {
   code: string;
   name: string;
   enabled: boolean;
-  quotas?: Record<string, number> | null;
-  quotasJson?: string | null;
   trialDays: number;
   prices: BillingPlanPrice[];
 }
@@ -40,7 +36,6 @@ export interface SaveBillingPlan {
   code: string;
   name: string;
   enabled: boolean;
-  quotasJson?: string;
   trialDays: number;
   prices: BillingPlanPrice[];
 }

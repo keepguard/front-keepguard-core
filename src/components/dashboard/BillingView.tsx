@@ -86,24 +86,8 @@ function intervalLabel(value?: string | null): string {
   return INTERVALS.find((item) => item.value === value)?.label || value || '—';
 }
 
-function watchlistSlotsOf(source?: { quotas?: Record<string, number> | null; quotasJson?: string | null } | null): number | undefined {
-  const fromObject = source?.quotas?.watchlistSlots;
-  if (typeof fromObject === 'number' && fromObject > 0) return fromObject;
-  if (!source?.quotasJson) return undefined;
-  try {
-    const parsed = JSON.parse(source.quotasJson) as { watchlistSlots?: number };
-    if (typeof parsed.watchlistSlots === 'number' && parsed.watchlistSlots > 0) return parsed.watchlistSlots;
-  } catch {
-    return undefined;
-  }
-  return undefined;
-}
-
 function planBenefit(plan: BillingPlan): string {
-  const slots = watchlistSlotsOf(plan);
-  const quota = slots ? `até ${slots} ativos` : '';
-  const trial = plan.trialDays > 0 ? `${plan.trialDays} dias para usar o Mercado` : '';
-  return [quota, trial].filter(Boolean).join(' · ');
+  return plan.trialDays > 0 ? `${plan.trialDays} dias de avaliação` : '';
 }
 
 function entitlementLabel(status?: string): string {

@@ -400,3 +400,39 @@ export async function getLatestMagicFormulaRanking(): Promise<AnalystMagicFormul
   }
   return null;
 }
+
+export interface PlanQuotaDTO {
+  planCode: string;
+  watchlistSlots: number;
+  watchlistPicks: number;
+  updatedAt?: string | null;
+}
+
+export interface SavePlanQuotasPayload {
+  quotas: Array<{
+    planCode: string;
+    watchlistSlots: number;
+    watchlistPicks: number;
+  }>;
+}
+
+export function getPlanQuotas(): Promise<PlanQuotaDTO[]> {
+  return customFetch<PlanQuotaDTO[]>(
+    `${ANALYST_BASE}/plan-quotas`,
+    { method: 'GET' },
+    token(),
+  );
+}
+
+export function savePlanQuotas(payload: SavePlanQuotasPayload): Promise<void> {
+  return customFetch<void>(
+    `${ANALYST_BASE}/plan-quotas`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    token(),
+  );
+}
+

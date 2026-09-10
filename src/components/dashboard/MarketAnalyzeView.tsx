@@ -20,6 +20,7 @@ import { METRIC_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMat
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { FormulasCard } from './FormulasCard';
 import { MagicFormulaPanel } from './MagicFormulaPanel';
+import { MarketPlanQuotasPanel } from './MarketPlanQuotasPanel';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -82,6 +83,7 @@ export const MarketAnalyzeView: React.FC = () => {
   const [changes, setChanges] = useState<AnalystVerdictChange[]>([]);
   const [changesLoading, setChangesLoading] = useState(true);
   const [ranking, setRanking] = useState<AnalystMagicFormulaRanking | null>(null);
+  const [activeTab, setActiveTab] = useState<'analysis' | 'quotas'>('analysis');
 
   if (fromQuery !== appliedQuery) {
     setAppliedQuery(fromQuery);
@@ -242,7 +244,40 @@ export const MarketAnalyzeView: React.FC = () => {
 
   return (
     <div className="market-desk">
-      <div className="client-system-create-row market-desk-create-row">
+      <div className="llm-panel-tabs" role="tablist" aria-label="Abas de Análise e Cotas" style={{ marginBottom: '1.25rem' }}>
+        <button
+          id="tab-market-analysis"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'analysis'}
+          aria-controls="panel-market-analysis"
+          tabIndex={activeTab === 'analysis' ? 0 : -1}
+          className={`llm-panel-tab${activeTab === 'analysis' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('analysis')}
+        >
+          Análise sob demanda
+        </button>
+        <button
+          id="tab-market-quotas"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'quotas'}
+          aria-controls="panel-market-quotas"
+          tabIndex={activeTab === 'quotas' ? 0 : -1}
+          className={`llm-panel-tab${activeTab === 'quotas' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('quotas')}
+        >
+          Limites e Cotas de Planos
+        </button>
+      </div>
+
+      {activeTab === 'quotas' ? (
+        <div id="panel-market-quotas" role="tabpanel" aria-labelledby="tab-market-quotas">
+          <MarketPlanQuotasPanel />
+        </div>
+      ) : (
+        <div id="panel-market-analysis" role="tabpanel" aria-labelledby="tab-market-analysis">
+          <div className="client-system-create-row market-desk-create-row">
         <div className="client-system-create-actions">
           <button
             type="button"
@@ -438,6 +473,8 @@ export const MarketAnalyzeView: React.FC = () => {
           </button>
         ))}
       </div>
+        </div>
+      )}
     </div>
   );
 };
