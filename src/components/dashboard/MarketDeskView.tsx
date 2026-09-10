@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowUpDown, LineChart, Lock, Search, Star } from 'lucide-react';
+import { ArrowUpDown, LineChart, Lock, Plus, Search, Sparkles, Star } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import {
+  addUserWatchlistPicks,
   getFavorites,
   getMemory,
   getRun,
@@ -26,6 +27,7 @@ import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { FormulasCard } from './FormulasCard';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
+import { PickTickersModal } from './PickTickersModal';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -172,6 +174,7 @@ export const MarketDeskView: React.FC = () => {
   const [changes, setChanges] = useState<AnalystVerdictChange[]>([]);
   const [changesLoading, setChangesLoading] = useState(false);
   const [savingFav, setSavingFav] = useState(false);
+  const [pickModalOpen, setPickModalOpen] = useState(false);
 
   const initialAutoSelectedRef = useRef(Boolean(fromQuery));
   const [reorderOpen, setReorderOpen] = useState(false);
@@ -246,10 +249,10 @@ export const MarketDeskView: React.FC = () => {
         initialAutoSelectedRef.current = true;
         const currentParam = tickerFromQuery(new URLSearchParams(window.location.search).get('ticker'));
         if (!currentParam) {
-          if (fav?.tickers && fav.tickers.length > 0) {
-            applyTicker(fav.tickers[0]);
-          } else if (uw?.tickers && uw.tickers.length > 0) {
+          if (uw?.tickers && uw.tickers.length > 0) {
             applyTicker(uw.tickers[0]);
+          } else if (fav?.tickers && fav.tickers.length > 0) {
+            applyTicker(fav.tickers[0]);
           } else if (known?.tickers && known.tickers.length > 0) {
             applyTicker(known.tickers[0]);
           }
@@ -259,6 +262,27 @@ export const MarketDeskView: React.FC = () => {
       setError(mapAnalystError(err, 'Falha ao carregar tickers conhecidos'));
     }
   }, [applyTicker]);
+
+  const handleConfirmPick = async (ticker: string) => {
+    try {
+      const updated = await addUserWatchlistPicks([ticker]);
+      setUserWatchlist(updated);
+      addToast({
+        type: 'success',
+        title: 'Carteira do Plano',
+        description: `Ativo ${ticker} adicionado à sua carteira com sucesso!`,
+      });
+      applyTicker(ticker);
+    } catch (err: unknown) {
+      const msg = mapAnalystError(err, 'Falha ao adicionar ativo à carteira');
+      addToast({
+        type: 'error',
+        title: 'Erro ao adicionar ativo',
+        description: msg,
+      });
+      throw err;
+    }
+  };
 
   const loadDossier = useCallback(async (ticker: string) => {
     setLoading(true);
@@ -433,10 +457,177 @@ export const MarketDeskView: React.FC = () => {
 
   return (
     <div className="market-desk">
-      {(favoriteTickers.length > 0 || lockedTickers.length > 0) ? (
-        <div className="market-desk-tickers">
+      {/* Banner Convidativo de Escolha de Picks do Plano */}
+      {(userWatchlist?.picksRemaining ?? 0) > 0 && (
+        <div
+          style={{
+            marginBottom: '1rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, rgba(103, 61, 230, 0.12) 0%, rgba(103, 61, 230, 0.04) 100%)',
+            border: '1px solid var(--primary-border, #dcd2f9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            boxShadow: '0 2px 8px rgba(103, 61, 230, 0.06)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'var(--primary, #673de6)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 4px 10px rgba(103, 61, 230, 0.3)',
+              }}
+            >
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main, #1d2129)' }}>
+                Personalize sua Carteira do Plano
+              </div>
+              <div style={{ fontSize: '0.825rem', color: 'var(--text-muted, #5f6368)', marginTop: '2px' }}>
+                Seu plano permite adicionar <strong>{userWatchlist?.picksRemaining} ativo{(userWatchlist?.picksRemaining ?? 0) > 1 ? 's' : ''}</strong> de sua escolha dentre todo o catálogo da B3. Esta escolha é definitiva.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setPickModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.625rem 1.25rem',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(103, 61, 230, 0.25)',
+            }}
+          >
+            <Plus size={16} />
+            Escolher Ativo (Pick)
+          </button>
+        </div>
+      )}
+
+      {/* Carteira do Plano (Watchlist Oficial) */}
+      {(watchlistTickers.length > 0 || lockedTickers.length > 0 || (userWatchlist?.picksRemaining ?? 0) > 0) && (
+        <div className="market-desk-tickers" style={{ marginBottom: favoriteTickers.length > 0 ? '0.75rem' : '1rem' }}>
           <div className="market-favs-header">
-            <span className="market-desk-tickers-label" id={`${instanceId}-favs`}>Favoritos</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span className="market-desk-tickers-label" id={`${instanceId}-watchlist`}>Carteira do Plano</span>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: 'var(--primary-light, #f0ecfc)',
+                  color: 'var(--primary, #673de6)',
+                  fontWeight: 600,
+                }}
+              >
+                {watchlistTickers.length} ativo{watchlistTickers.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            {(userWatchlist?.picksRemaining ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => setPickModalOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--primary, #673de6)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                }}
+                title="Escolher ativo para sua carteira"
+              >
+                <Plus size={14} /> Adicionar Pick ({userWatchlist?.picksRemaining})
+              </button>
+            )}
+          </div>
+          <div className="market-desk-tickers-list" role="group" aria-labelledby={`${instanceId}-watchlist`}>
+            {watchlistTickers.map((ticker) => {
+              const isChipActive = ticker === selectedTicker;
+              const isFixed = (userWatchlist?.fixedTickers ?? []).includes(ticker);
+              const isPicked = (userWatchlist?.pickedTickers ?? []).includes(ticker);
+
+              return (
+                <span
+                  className={`badge-role market-ticker-chip${isChipActive ? ' market-ticker-chip--active' : ''}`}
+                  key={ticker}
+                  title={isFixed ? 'Ativo recomendado fixo do plano' : isPicked ? 'Ativo selecionado por você' : 'Ativo da carteira'}
+                >
+                  <button
+                    type="button"
+                    className="market-ticker-chip-label"
+                    onClick={() => applyTicker(ticker)}
+                  >
+                    {ticker}
+                    {isPicked && (
+                      <span
+                        style={{
+                          fontSize: '0.65rem',
+                          marginLeft: '4px',
+                          padding: '1px 4px',
+                          borderRadius: '4px',
+                          background: 'var(--success-light, #e6f7f3)',
+                          color: 'var(--success, #00b090)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        PICK
+                      </span>
+                    )}
+                  </button>
+                </span>
+              );
+            })}
+            {lockedTickers.map((ticker) => {
+              const isChipActive = ticker === selectedTicker;
+              return (
+                <span
+                  className={`badge-role market-ticker-chip market-ticker-chip--locked${isChipActive ? ' market-ticker-chip--active' : ''}`}
+                  key={ticker}
+                  title="Ativo congelado pela cota do plano atual."
+                >
+                  <button
+                    type="button"
+                    className="market-ticker-chip-label"
+                    onClick={() => applyTicker(ticker)}
+                  >
+                    <Lock size={11} className="market-ticker-chip-lock-icon" />
+                    {ticker}
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Favoritos Pessoais (se houver algum ativo favoritado avulso) */}
+      {favoriteTickers.length > 0 ? (
+        <div className="market-desk-tickers" style={{ opacity: 0.9 }}>
+          <div className="market-favs-header">
+            <span className="market-desk-tickers-label" id={`${instanceId}-favs`}>Favoritos Pessoais</span>
             {favoriteTickers.length > 1 && (
               <button
                 type="button"
@@ -471,25 +662,6 @@ export const MarketDeskView: React.FC = () => {
                     className="market-ticker-chip-label"
                     onClick={() => applyTicker(ticker)}
                   >
-                    {ticker}
-                  </button>
-                </span>
-              );
-            })}
-            {lockedTickers.map((ticker) => {
-              const isChipActive = ticker === selectedTicker;
-              return (
-                <span
-                  className={`badge-role market-ticker-chip market-ticker-chip--locked${isChipActive ? ' market-ticker-chip--active' : ''}`}
-                  key={ticker}
-                  title="Ativo congelado pela cota do plano atual. Organize seus favoritos para ativá-lo."
-                >
-                  <button
-                    type="button"
-                    className="market-ticker-chip-label"
-                    onClick={() => applyTicker(ticker)}
-                  >
-                    <Lock size={11} className="market-ticker-chip-lock-icon" />
                     {ticker}
                   </button>
                 </span>
@@ -846,6 +1018,16 @@ export const MarketDeskView: React.FC = () => {
         tickers={favoriteTickers}
         maxActiveTickers={maxFavorites}
         onSave={handleReorderSave}
+      />
+
+      <PickTickersModal
+        isOpen={pickModalOpen}
+        onClose={() => setPickModalOpen(false)}
+        catalog={catalog}
+        fixedTickers={userWatchlist?.fixedTickers ?? []}
+        alreadyPickedTickers={userWatchlist?.pickedTickers ?? []}
+        picksRemaining={userWatchlist?.picksRemaining ?? 0}
+        onConfirmPick={handleConfirmPick}
       />
     </div>
   );

@@ -294,8 +294,12 @@ export interface AnalystUserWatchlist {
   userId: string;
   planCode?: string;
   tickers: string[];
+  fixedTickers?: string[];
+  pickedTickers?: string[];
   lockedTickers?: string[];
   maxTickers: number;
+  picksAllowed?: number;
+  picksRemaining?: number;
   updatedAt?: string;
 }
 
@@ -351,6 +355,14 @@ export function saveUserWatchlist(tickers: string[]): Promise<AnalystUserWatchli
   return customFetch<AnalystUserWatchlist>(
     `${ANALYST_BASE}/user-watchlist`,
     { method: 'PUT', body: JSON.stringify({ tickers }) },
+    token(),
+  );
+}
+
+export function addUserWatchlistPicks(tickers: string[]): Promise<AnalystUserWatchlist> {
+  return customFetch<AnalystUserWatchlist>(
+    `${ANALYST_BASE}/user-watchlist/picks`,
+    { method: 'POST', body: JSON.stringify({ tickers }) },
     token(),
   );
 }
