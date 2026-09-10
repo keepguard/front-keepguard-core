@@ -354,7 +354,7 @@ const SubscriberCheckout: React.FC<{
 };
 
 export const BillingPlansView: React.FC = () => {
-  const { isAuthenticated, getAccessToken, user } = useAuth();
+  const { isAuthenticated, getAccessToken, user, performRefreshToken } = useAuth();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [entitlement, setEntitlement] = useState<BillingEntitlement | null>(null);
@@ -389,6 +389,9 @@ export const BillingPlansView: React.FC = () => {
       ]);
       setEntitlement(nextEntitlement);
       notifyBillingEntitlement(nextEntitlement);
+      if (nextEntitlement?.status === 'active' || nextSubscription?.status === 'active') {
+        void performRefreshToken();
+      }
       setPlans(nextPlans);
       setSubscription(nextSubscription);
       setInvoices(nextInvoices);
@@ -405,7 +408,7 @@ export const BillingPlansView: React.FC = () => {
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [addToast, getAccessToken, user?.codeUser, user?.id]);
+  }, [addToast, getAccessToken, performRefreshToken, user?.codeUser, user?.id]);
 
   useEffect(() => {
     if (isAuthenticated && token) {

@@ -167,9 +167,48 @@ export const PickTickersModal: React.FC<PickTickersModalProps> = ({
           >
             <Sparkles size={18} color="var(--primary, #673de6)" style={{ flexShrink: 0 }} />
             <div style={{ fontSize: '0.85rem', color: 'var(--text-body, #3c4043)' }}>
-              Selecione o ativo da B3 que deseja acompanhar. Os 4 ativos recomendados já estão fixos no seu plano.
+              Selecione o ativo da B3 que deseja adicionar à sua carteira. Os ativos recomendados do seu plano já estão garantidos e não consomem suas escolhas.
             </div>
           </div>
+
+          {fixedTickers.length > 0 && (
+            <div
+              style={{
+                padding: '0.625rem 0.875rem',
+                borderRadius: '8px',
+                background: 'var(--bg-muted, #f8f9fa)',
+                border: '1px solid var(--border, #e3e5e8)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem',
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted, #5f6368)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Ativos Fixos Inclusos ({fixedTickers.length})
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                {fixedTickers.map((ft) => (
+                  <span
+                    key={ft}
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      background: 'var(--primary-light, #f0ecfc)',
+                      color: 'var(--primary, #673de6)',
+                      fontWeight: 700,
+                      border: '1px solid var(--primary-border, #dcd2f9)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <Lock size={10} /> {ft}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ position: 'relative' }}>
             <Search

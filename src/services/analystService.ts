@@ -335,6 +335,10 @@ export function listKnownTickers(): Promise<AnalystTickers> {
   return customFetch<AnalystTickers>(`${ANALYST_BASE}/tickers`, { method: 'GET' }, token());
 }
 
+export function listCatalogTickers(): Promise<AnalystTickers> {
+  return customFetch<AnalystTickers>(`${ANALYST_BASE}/catalog`, { method: 'GET' }, token());
+}
+
 export function getFavorites(): Promise<AnalystFavorites> {
   return customFetch<AnalystFavorites>(`${ANALYST_BASE}/favorites`, { method: 'GET' }, token());
 }

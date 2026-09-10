@@ -9,6 +9,7 @@ import {
   getRun,
   getUserWatchlist,
   isValidTicker,
+  listCatalogTickers,
   listChanges,
   listKnownTickers,
   listRuns,
@@ -22,6 +23,7 @@ import {
   type AnalystRunDetail,
   type AnalystVerdictChange,
 } from '../../services/analystService';
+import { onBillingEntitlement } from '../../services/billingService';
 import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
@@ -241,8 +243,16 @@ export const MarketDeskView: React.FC = () => {
 
   const loadCatalog = useCallback(async () => {
     try {
-      const [known, fav, uw] = await Promise.all([listKnownTickers(), getFavorites(), getUserWatchlist()]);
-      setCatalog(known.tickers ?? []);
+      const [catalogRes, known, fav, uw] = await Promise.all([
+        listCatalogTickers().catch(() => ({ tickers: [] })),
+        listKnownTickers(),
+        getFavorites(),
+        getUserWatchlist(),
+      ]);
+      const fullCatalog = catalogRes.tickers && catalogRes.tickers.length > 0
+        ? catalogRes.tickers
+        : (known.tickers ?? []);
+      setCatalog(fullCatalog);
       setFavorites(fav);
       setUserWatchlist(uw);
       if (!initialAutoSelectedRef.current) {
@@ -253,8 +263,8 @@ export const MarketDeskView: React.FC = () => {
             applyTicker(uw.tickers[0]);
           } else if (fav?.tickers && fav.tickers.length > 0) {
             applyTicker(fav.tickers[0]);
-          } else if (known?.tickers && known.tickers.length > 0) {
-            applyTicker(known.tickers[0]);
+          } else if (fullCatalog.length > 0) {
+            applyTicker(fullCatalog[0]);
           }
         }
       }
@@ -335,6 +345,9 @@ export const MarketDeskView: React.FC = () => {
 
   useEffect(() => {
     void loadCatalog();
+    return onBillingEntitlement(() => {
+      void loadCatalog();
+    });
   }, [loadCatalog]);
 
   useEffect(() => {
