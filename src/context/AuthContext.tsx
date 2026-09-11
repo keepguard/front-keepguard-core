@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hydrated = useMemo(() => hydrateFromStorage(), []);
   const [user, setUser] = useState<User | null>(() => readStoredUser(hydrated.accessToken));
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!hydrated.accessToken);
-  const [isInitializing, setIsInitializing] = useState<boolean>(true);
+  const [isInitializing, setIsInitializing] = useState<boolean>(() => !hydrated.accessToken);
   // Epoch só muda em login/logout — mantém accessToken estável no Context entre refreshes
   const [sessionEpoch, setSessionEpoch] = useState(0);
 

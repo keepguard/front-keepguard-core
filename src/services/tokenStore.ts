@@ -6,6 +6,8 @@
 
 export const TOKEN_STORAGE_KEY = 'keepguard_access_token';
 export const REFRESH_STORAGE_KEY = 'keepguard_refresh_token';
+export const SESSION_TOKEN_KEY = 'keepguard_session_token';
+export const SESSION_REFRESH_KEY = 'keepguard_session_refresh';
 export const USER_STORAGE_KEY = 'keepguard_user';
 export const LAST_REFRESH_STORAGE_KEY = 'keepguard_last_refresh_time';
 export const REFRESH_COUNT_STORAGE_KEY = 'keepguard_refresh_count';
@@ -69,6 +71,12 @@ export function getTokenExpiresAtMs(token: string): number | null {
   return exp * 1000;
 }
 
+export function isTokenExpired(token: string): boolean {
+  const expiresAt = getTokenExpiresAtMs(token);
+  if (!expiresAt) return false;
+  return Date.now() >= expiresAt;
+}
+
 function notify() {
   version += 1;
   listeners.forEach((l) => l());
@@ -115,18 +123,30 @@ export function hydrateFromStorage(): { accessToken: string | null; refreshToken
   if (typeof window === 'undefined') {
     return { accessToken: null, refreshToken: null };
   }
-  // Limpeza preventiva de tokens do localStorage (RN-FE-01: manter exclusivamente in-memory)
+  // Limpeza preventiva de tokens do localStorage (RN-FE-01: manter exclusivamente in-memory ou sessionStorage efêmero da aba)
   localStorage.removeItem(TOKEN_STORAGE_KEY);
   localStorage.removeItem(REFRESH_STORAGE_KEY);
 
-  accessToken = null;
-  refreshToken = null;
+  // Recupera da aba atual via sessionStorage (sobrevive ao F5/reload na mesma aba, destruído ao fechar aba/navegador)
+  const sessionAccess = sessionStorage.getItem(SESSION_TOKEN_KEY);
+  const sessionRefresh = sessionStorage.getItem(SESSION_REFRESH_KEY);
+
+  if (sessionAccess && !isTokenExpired(sessionAccess)) {
+    accessToken = sessionAccess;
+    refreshToken = sessionRefresh || sessionAccess;
+  } else {
+    accessToken = null;
+    refreshToken = null;
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    sessionStorage.removeItem(SESSION_REFRESH_KEY);
+  }
+
   const savedRefresh = localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
   lastRefreshTime = savedRefresh ? new Date(savedRefresh) : null;
   const savedCount = localStorage.getItem(REFRESH_COUNT_STORAGE_KEY);
   refreshCount = savedCount ? parseInt(savedCount, 10) || 0 : 0;
   notify();
-  return { accessToken: null, refreshToken: null };
+  return { accessToken, refreshToken };
 }
 
 export function setTokens(nextAccess: string, nextRefresh?: string | null): void {
@@ -134,10 +154,21 @@ export function setTokens(nextAccess: string, nextRefresh?: string | null): void
   refreshToken = nextRefresh || null;
 
   if (typeof window !== 'undefined') {
-    // RN-FE-01: Access token e refresh token NUNCA são salvos no localStorage
-    // Mantido exclusivamente in-memory (access token) e em cookie HttpOnly (refresh token)
+    // RN-FE-01: Access token e refresh token NUNCA são salvos no localStorage (permanente)
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(REFRESH_STORAGE_KEY);
+
+    // Salva em sessionStorage para resiliência de F5 na mesma aba (destruído ao fechar aba/navegador)
+    if (nextAccess) {
+      sessionStorage.setItem(SESSION_TOKEN_KEY, nextAccess);
+    } else {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    }
+    if (nextRefresh) {
+      sessionStorage.setItem(SESSION_REFRESH_KEY, nextRefresh);
+    } else {
+      sessionStorage.removeItem(SESSION_REFRESH_KEY);
+    }
   }
 
   notify();
@@ -178,6 +209,8 @@ export function clearTokens(options?: { notifySessionEnded?: boolean }): void {
     localStorage.removeItem(USER_STORAGE_KEY);
     localStorage.removeItem(LAST_REFRESH_STORAGE_KEY);
     localStorage.removeItem(REFRESH_COUNT_STORAGE_KEY);
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    sessionStorage.removeItem(SESSION_REFRESH_KEY);
   }
 
   notify();
@@ -239,8 +272,9 @@ export async function ensureFreshToken(options?: { force?: boolean }): Promise<b
     return refreshInFlight;
   }
 
-  const currentAccess = accessToken;
-  const tokenToUse = refreshToken || currentAccess || '';
+  const currentAccess = accessToken || (typeof window !== 'undefined' ? sessionStorage.getItem(SESSION_TOKEN_KEY) : null);
+  const currentRefresh = refreshToken || (typeof window !== 'undefined' ? sessionStorage.getItem(SESSION_REFRESH_KEY) : null);
+  const tokenToUse = currentRefresh || currentAccess || '';
 
   if (!options?.force && currentAccess) {
     const expiresAt = getTokenExpiresAtMs(currentAccess);
