@@ -78,7 +78,7 @@ export const TermsConsentModal: React.FC<TermsConsentModalProps> = ({
         userId,
         email: userEmail,
         acceptedAt: new Date().toISOString(),
-        geolocation: 'São Paulo, BR',
+        geolocation: undefined,
         consents: pendingDocuments.map(doc => ({
           documentId: doc.id,
           version: doc.version,

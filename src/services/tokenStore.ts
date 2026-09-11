@@ -115,25 +115,18 @@ export function hydrateFromStorage(): { accessToken: string | null; refreshToken
   if (typeof window === 'undefined') {
     return { accessToken: null, refreshToken: null };
   }
-  // Limpeza preventiva de refresh tokens legados do localStorage
+  // Limpeza preventiva de tokens do localStorage (RN-FE-01: manter exclusivamente in-memory)
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
   localStorage.removeItem(REFRESH_STORAGE_KEY);
 
-  accessToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-  if (accessToken) {
-    const exp = getTokenExpiresAtMs(accessToken);
-    if (exp != null && exp <= Date.now()) {
-      accessToken = null;
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-    }
-  }
-
+  accessToken = null;
   refreshToken = null;
   const savedRefresh = localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
   lastRefreshTime = savedRefresh ? new Date(savedRefresh) : null;
   const savedCount = localStorage.getItem(REFRESH_COUNT_STORAGE_KEY);
   refreshCount = savedCount ? parseInt(savedCount, 10) || 0 : 0;
   notify();
-  return { accessToken, refreshToken: null };
+  return { accessToken: null, refreshToken: null };
 }
 
 export function setTokens(nextAccess: string, nextRefresh?: string | null): void {
@@ -141,12 +134,9 @@ export function setTokens(nextAccess: string, nextRefresh?: string | null): void
   refreshToken = nextRefresh || null;
 
   if (typeof window !== 'undefined') {
-    if (accessToken) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, accessToken);
-    } else {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-    }
-    // Refresh token nunca é salvo no localStorage (mantido exclusivamente no Cookie HttpOnly)
+    // RN-FE-01: Access token e refresh token NUNCA são salvos no localStorage
+    // Mantido exclusivamente in-memory (access token) e em cookie HttpOnly (refresh token)
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(REFRESH_STORAGE_KEY);
   }
 
