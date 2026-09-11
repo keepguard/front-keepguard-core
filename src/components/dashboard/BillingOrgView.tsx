@@ -275,16 +275,23 @@ function TransactionsPanel() {
           </select>
           <input className="form-input" value={draft.q} onChange={(e) => setDraft((f) => ({ ...f, q: e.target.value }))} placeholder="Usuário (UUID ou e-mail)" aria-label="Usuário" />
           <input className="form-input" type="datetime-local" value={draft.from} onChange={(e) => setDraft((f) => ({ ...f, from: e.target.value }))} aria-label="De" />
-          <input className="form-input" type="datetime-local" value={draft.to} onChange={(e) => setDraft((f) => ({ ...f, to: e.target.value }))} aria-label="Até" />
-          <div className="audits-filter-actions">
-            <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
-              <Search size={15} />
-              <span>Filtrar</span>
-            </button>
-          </div>
         </div>
+        <ListPager
+          loading={loading}
+          page={page}
+          totalPages={totalPages}
+          onPrev={() => setPage((p) => Math.max(0, p - 1))}
+          onNext={() => setPage((p) => p + 1)}
+          leading={(
+            <div className="audits-filter-actions">
+              <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
+                <Search size={15} />
+                <span>Filtrar</span>
+              </button>
+            </div>
+          )}
+        />
       </form>
-      <ListPager loading={loading} page={page} totalPages={totalPages} onPrev={() => setPage((p) => Math.max(0, p - 1))} onNext={() => setPage((p) => p + 1)} />
       <div className="hpanel-table-card desktop-table-view">
         <table className="hpanel-table">
           <thead>
@@ -516,57 +523,56 @@ function GatewaysPanel({ writable }: { writable: boolean }) {
     );
   }
 
-  const connectForm = writable && (items.length === 0 || unusedLinked.length > 0) ? (
-    connecting ? (
-      <div className="billing-gateway-connect">
-        <label htmlFor="billing-gateway-type">
-          Tipo
-          <select
-            id="billing-gateway-type"
-            className="form-input"
-            value={selectedType}
-            onChange={(event) => setSelectedType(event.target.value)}
-          >
-            <option value="">Selecione o gateway</option>
-            {(items.length === 0 ? LINKED_GATEWAYS : unusedLinked).map((item) => (
-              <option key={item.slug} value={item.slug}>{item.label}</option>
-            ))}
-          </select>
-        </label>
-        {selectedType === 'asaas' || selectedType === 'stripe' ? (
-          <GatewayCredentialForm
-            idPrefix="billing-gateway-new"
-            gateway={selectedType}
-            apiKey={newApiKey}
-            webhookToken={newWebhookToken}
-            onApiKey={setNewApiKey}
-            onWebhookToken={setNewWebhookToken}
-            submitLabel={`Conectar ${gatewayLabel(selectedType)}`}
-            busy={busy}
-            hint="A chave completa não volta a ser exibida depois de salvar."
-            onSubmit={(event) => {
-              event.preventDefault();
-              void saveGateway(selectedType, newApiKey, newWebhookToken, false);
-            }}
-          />
-        ) : null}
-      </div>
-    ) : (
-      <button className="btn btn-primary btn-pill" type="button" onClick={() => setConnecting(true)}>
-        Conectar gateway
-      </button>
-    )
-  ) : null;
-
   return (
     <div className="billing-gateway-list">
+      <div className="client-system-create-row" style={{ marginBottom: '1rem' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.15rem' }}>Gateways de pagamento</h2>
+          <p className="dashboard-subtitle" style={{ margin: '0.25rem 0 0' }}>
+            Meios de cobrança e gateways configurados para a organização.
+          </p>
+        </div>
+        {writable && (items.length === 0 || unusedLinked.length > 0) && (
+          <button
+            type="button"
+            className="btn btn-primary btn-pill"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            onClick={() => {
+              setSelectedType((items.length === 0 ? LINKED_GATEWAYS : unusedLinked)[0]?.slug || '');
+              setNewApiKey('');
+              setNewWebhookToken('');
+              setConnecting(true);
+            }}
+          >
+            <Plus size={15} />
+            <span>Conectar gateway</span>
+          </button>
+        )}
+      </div>
+
       {items.length === 0 ? (
-        <section className="hpanel-table-card billing-card billing-gateway-card">
-          <div className="billing-gateway-empty">
-            <h2>Nenhum meio de cobrança.</h2>
-            <p>Conecte um gateway da organização. O tipo vem antes do formulário.</p>
-          </div>
-          {connectForm}
+        <section className="hpanel-table-card billing-card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+          <CreditCard size={44} style={{ margin: '0 auto 1rem', opacity: 0.4, color: 'var(--text-sub)' }} />
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Nenhum meio de cobrança configurado</h2>
+          <p className="table-cell-muted" style={{ maxWidth: '420px', margin: '0 auto 1.5rem' }}>
+            Conecte um gateway da organização (como Asaas ou Stripe) para gerenciar faturas e assinaturas.
+          </p>
+          {writable && (
+            <button
+              className="btn btn-primary btn-pill"
+              type="button"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              onClick={() => {
+                setSelectedType(LINKED_GATEWAYS[0].slug);
+                setNewApiKey('');
+                setNewWebhookToken('');
+                setConnecting(true);
+              }}
+            >
+              <Plus size={15} />
+              <span>Conectar gateway</span>
+            </button>
+          )}
         </section>
       ) : (
         <>
@@ -634,13 +640,53 @@ function GatewaysPanel({ writable }: { writable: boolean }) {
               </section>
             );
           })}
-          {unusedLinked.length > 0 ? (
-            <section className="hpanel-table-card billing-card billing-gateway-card">
-              {connectForm}
-            </section>
-          ) : null}
         </>
       )}
+
+      <Modal
+        isOpen={connecting}
+        onClose={() => {
+          setConnecting(false);
+          setSelectedType('');
+          setNewApiKey('');
+          setNewWebhookToken('');
+        }}
+        title="Conectar Gateway"
+      >
+        <div className="billing-gateway-connect">
+          <label htmlFor="billing-gateway-type">
+            Tipo de Gateway
+            <select
+              id="billing-gateway-type"
+              className="form-input"
+              value={selectedType}
+              onChange={(event) => setSelectedType(event.target.value)}
+            >
+              <option value="">Selecione o gateway</option>
+              {(items.length === 0 ? LINKED_GATEWAYS : unusedLinked).map((item) => (
+                <option key={item.slug} value={item.slug}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+          {selectedType === 'asaas' || selectedType === 'stripe' ? (
+            <GatewayCredentialForm
+              idPrefix="billing-gateway-new"
+              gateway={selectedType}
+              apiKey={newApiKey}
+              webhookToken={newWebhookToken}
+              onApiKey={setNewApiKey}
+              onWebhookToken={setNewWebhookToken}
+              submitLabel={`Conectar ${gatewayLabel(selectedType)}`}
+              busy={busy}
+              hint="A chave completa não volta a ser exibida depois de salvar."
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveGateway(selectedType, newApiKey, newWebhookToken, false);
+              }}
+            />
+          ) : null}
+        </div>
+      </Modal>
 
       <Modal
         isOpen={promoteGateway !== null}
@@ -804,6 +850,25 @@ function EntitlementTable({
 
   return (
     <div>
+      {writable && (
+        <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-start' }}>
+          <button
+            type="button"
+            className="btn btn-primary btn-pill"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            onClick={() => {
+              setUserEmailQuery('');
+              setFoundUser(null);
+              setSearchError(null);
+              void loadPlans();
+              setAssignModalOpen(true);
+            }}
+          >
+            <Plus size={15} />
+            <span>Atribuir Plano</span>
+          </button>
+        </div>
+      )}
       <form
         className="audits-toolbar"
         onSubmit={(event) => {
@@ -824,32 +889,23 @@ function EntitlementTable({
           </select>
           <input className="form-input" value={draft.planCode} onChange={(e) => setDraft((f) => ({ ...f, planCode: e.target.value }))} placeholder="Código do plano" aria-label="Plano" />
           <input className="form-input" value={draft.q} onChange={(e) => setDraft((f) => ({ ...f, q: e.target.value }))} placeholder={qPlaceholder} aria-label="Busca" />
-          <div className="audits-filter-actions">
-            <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
-              <Search size={15} />
-              <span>Filtrar</span>
-            </button>
-            {writable && (
-              <button
-                type="button"
-                className="btn btn-primary btn-pill"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                onClick={() => {
-                  setUserEmailQuery('');
-                  setFoundUser(null);
-                  setSearchError(null);
-                  void loadPlans();
-                  setAssignModalOpen(true);
-                }}
-              >
-                <Plus size={15} />
-                <span>Atribuir Plano</span>
-              </button>
-            )}
-          </div>
         </div>
+        <ListPager
+          loading={loading}
+          page={page}
+          totalPages={totalPages}
+          onPrev={() => setPage((p) => Math.max(0, p - 1))}
+          onNext={() => setPage((p) => p + 1)}
+          leading={(
+            <div className="audits-filter-actions">
+              <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
+                <Search size={15} />
+                <span>Filtrar</span>
+              </button>
+            </div>
+          )}
+        />
       </form>
-      <ListPager loading={loading} page={page} totalPages={totalPages} onPrev={() => setPage((p) => Math.max(0, p - 1))} onNext={() => setPage((p) => p + 1)} />
       <div className="hpanel-table-card desktop-table-view">
         <table className="hpanel-table">
           <thead>
