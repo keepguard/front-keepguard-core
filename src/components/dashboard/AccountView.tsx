@@ -219,10 +219,21 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
             <div className="account-skel account-skel-sm" />
           </div>
         </div>
-        <div className="account-card account-skeleton">
-          <div className="account-skel account-skel-lg" />
-          <div className="account-skel account-skel-md" />
-          <div className="account-skel account-skel-md" />
+        <div className="account-grid">
+          <div className="account-grid-col">
+            <div className="account-card account-skeleton">
+              <div className="account-skel account-skel-lg" />
+              <div className="account-skel account-skel-md" />
+              <div className="account-skel account-skel-md" />
+            </div>
+          </div>
+          <div className="account-grid-col">
+            <div className="account-card account-skeleton">
+              <div className="account-skel account-skel-lg" />
+              <div className="account-skel account-skel-md" />
+              <div className="account-skel account-skel-md" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -267,74 +278,80 @@ export const AccountView: React.FC<AccountViewProps> = ({ onChangePassword }) =>
           </div>
         </section>
 
-        <section className="account-card" aria-labelledby="account-info-title">
-          <header className="account-section-head">
-            <h3 id="account-info-title">Informações pessoais</h3>
-            <p>Dados usados para identificar você neste tenant.</p>
-          </header>
-          <dl className="account-fields">
-            <FieldRow label="Nome completo" value={profile?.personProfile?.fullName || 'Não informado'} muted={!profile?.personProfile?.fullName} />
-            <FieldRow label="E-mail" value={profile?.email || user?.email || 'Não informado'} />
-            <FieldRow label="Telefone" value={phone || 'Não informado'} muted={!phone} />
-            <FieldRow label="Conta criada em" value={formatDate(profile?.createdAt)} />
-          </dl>
-        </section>
+        <div className="account-grid">
+          <div className="account-grid-col">
+            <section className="account-card" aria-labelledby="account-info-title">
+              <header className="account-section-head">
+                <h3 id="account-info-title">Informações pessoais</h3>
+                <p>Dados usados para identificar você neste tenant.</p>
+              </header>
+              <dl className="account-fields">
+                <FieldRow label="Nome completo" value={profile?.personProfile?.fullName || 'Não informado'} muted={!profile?.personProfile?.fullName} />
+                <FieldRow label="E-mail" value={profile?.email || user?.email || 'Não informado'} />
+                <FieldRow label="Telefone" value={phone || 'Não informado'} muted={!phone} />
+                <FieldRow label="Conta criada em" value={formatDate(profile?.createdAt)} />
+              </dl>
+            </section>
 
-        <section className="account-card" aria-labelledby="account-prefs-title">
-          <header className="account-section-head">
-            <h3 id="account-prefs-title">Preferências</h3>
-            <p>Tema visual da interface, idioma e fuso usados no seu acesso.</p>
-          </header>
-          <div
-            className="account-setting-row"
-            style={{ marginBottom: '1.25rem', paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}
-          >
-            <div>
-              <p className="account-setting-title">Aparência</p>
-              <p className="account-setting-hint">
-                Alterne entre o tema claro, escuro ou sincronizado com o sistema operacional.
-              </p>
-            </div>
-            <AppearanceControl />
+            <section className="account-card" aria-labelledby="account-prefs-title">
+              <header className="account-section-head">
+                <h3 id="account-prefs-title">Preferências</h3>
+                <p>Tema visual da interface, idioma e fuso usados no seu acesso.</p>
+              </header>
+              <div
+                className="account-setting-row"
+                style={{ marginBottom: '1.25rem', paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}
+              >
+                <div>
+                  <p className="account-setting-title">Aparência</p>
+                  <p className="account-setting-hint">
+                    Alterne entre o tema claro, escuro ou sincronizado com o sistema operacional.
+                  </p>
+                </div>
+                <AppearanceControl />
+              </div>
+              <dl className="account-fields">
+                <FieldRow label="Idioma" value={formatLocale(profile?.preferredLocale)} />
+                <FieldRow label="Fuso horário" value={profile?.timezone || 'Não informado'} muted={!profile?.timezone} />
+              </dl>
+            </section>
           </div>
-          <dl className="account-fields">
-            <FieldRow label="Idioma" value={formatLocale(profile?.preferredLocale)} />
-            <FieldRow label="Fuso horário" value={profile?.timezone || 'Não informado'} muted={!profile?.timezone} />
-          </dl>
-        </section>
 
-        <section className="account-card" aria-labelledby="account-access-title">
-          <header className="account-section-head">
-            <h3 id="account-access-title">Acesso</h3>
-            <p>Perfis associados à sua sessão atual.</p>
-          </header>
-          <div className="account-roles">
-            {jwtRoles.length > 0 ? jwtRoles.map((role) => (
-              <span key={role} className="account-role-chip" title={role}>
-                {formatRole(role)}
-              </span>
-            )) : (
-              <span className="account-empty">Nenhum perfil nesta sessão.</span>
-            )}
-          </div>
-        </section>
+          <div className="account-grid-col">
+            <section className="account-card" aria-labelledby="account-access-title">
+              <header className="account-section-head">
+                <h3 id="account-access-title">Acesso</h3>
+                <p>Perfis associados à sua sessão atual.</p>
+              </header>
+              <div className="account-roles">
+                {jwtRoles.length > 0 ? jwtRoles.map((role) => (
+                  <span key={role} className="account-role-chip" title={role}>
+                    {formatRole(role)}
+                  </span>
+                )) : (
+                  <span className="account-empty">Nenhum perfil nesta sessão.</span>
+                )}
+              </div>
+            </section>
 
-        <section className="account-card" aria-labelledby="account-security-title">
-          <header className="account-section-head">
-            <h3 id="account-security-title">Segurança</h3>
-            <p>Credenciais de acesso à plataforma.</p>
-          </header>
-          <div className="account-setting-row">
-            <div>
-              <p className="account-setting-title">Senha</p>
-              <p className="account-setting-hint">Altere a senha desta conta. Você continuará autenticado nesta sessão.</p>
-            </div>
-            <button type="button" className="btn btn-outline btn-pill" onClick={onChangePassword}>
-              <KeyRound size={16} />
-              Alterar senha
-            </button>
+            <section className="account-card" aria-labelledby="account-security-title">
+              <header className="account-section-head">
+                <h3 id="account-security-title">Segurança</h3>
+                <p>Credenciais de acesso à plataforma.</p>
+              </header>
+              <div className="account-setting-row">
+                <div>
+                  <p className="account-setting-title">Senha</p>
+                  <p className="account-setting-hint">Altere a senha desta conta. Você continuará autenticado nesta sessão.</p>
+                </div>
+                <button type="button" className="btn btn-outline btn-pill" onClick={onChangePassword}>
+                  <KeyRound size={16} />
+                  Alterar senha
+                </button>
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
 
         {showDangerZone && (
           <section className="account-card account-danger" aria-labelledby="account-danger-title">

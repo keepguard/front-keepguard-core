@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Settings, UserCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { PATHS } from '../../navigation/routes';
+import { hasAdminRole } from '../../utils/roles';
 
 interface UserMenuProps {
   onLogout?: () => void;
@@ -13,6 +14,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onLogout }) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const canSeeSettings = hasAdminRole(user?.roles);
 
   const getInitials = (name?: string, email?: string) => {
     if (name) return name.charAt(0).toUpperCase();
@@ -73,15 +75,17 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onLogout }) => {
               {user.email}
             </div>
           )}
-          <button
-            type="button"
-            className="user-menu-item"
-            role="menuitem"
-            onClick={() => handleNavigate(PATHS.settings)}
-          >
-            <Settings size={16} />
-            <span>Configuração</span>
-          </button>
+          {canSeeSettings && (
+            <button
+              type="button"
+              className="user-menu-item"
+              role="menuitem"
+              onClick={() => handleNavigate(PATHS.settings)}
+            >
+              <Settings size={16} />
+              <span>Configuração</span>
+            </button>
+          )}
           <button
             type="button"
             className="user-menu-item"

@@ -186,7 +186,14 @@ export const AppRoutes: React.FC = () => {
         <Route path={PATHS.billingLegacy} element={<BillingLegacyRedirect />} />
         <Route path={PATHS.templates} element={<TemplatesPage />} />
         <Route path={PATHS.account} element={<AccountPage />} />
-        <Route path={PATHS.settings} element={<SettingsPage />} />
+        <Route
+          path={PATHS.settings}
+          element={(
+            <RequireAccess allowed={canSeeAdmin} description="Somente usuários ADMIN ou SYSTEM acessam as configurações.">
+              <SettingsPage />
+            </RequireAccess>
+          )}
+        />
         <Route path="*" element={<Navigate to={PATHS.market} replace />} />
       </Route>
     </Routes>
