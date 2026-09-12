@@ -200,6 +200,7 @@ export const MarketDeskView: React.FC = () => {
   const watchlistTickers = userWatchlist?.tickers ?? [];
   const lockedTickers = userWatchlist?.lockedTickers ?? [];
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
+  const isVIP = userWatchlist?.planCode?.toUpperCase() === 'VIP' || (userWatchlist?.maxTickers ?? 0) >= WATCHLIST_MAX_TICKERS;
   const suggestions = useMemo(() => {
     const pool = Array.from(new Set([...favoriteTickers, ...watchlistTickers, ...lockedTickers, ...catalog]));
     if (!normalizedQuery) return pool.slice(0, 12);
@@ -259,10 +260,10 @@ export const MarketDeskView: React.FC = () => {
         initialAutoSelectedRef.current = true;
         const currentParam = tickerFromQuery(new URLSearchParams(window.location.search).get('ticker'));
         if (!currentParam) {
-          if (uw?.tickers && uw.tickers.length > 0) {
-            applyTicker(uw.tickers[0]);
-          } else if (fav?.tickers && fav.tickers.length > 0) {
+          if (fav?.tickers && fav.tickers.length > 0) {
             applyTicker(fav.tickers[0]);
+          } else if (uw?.tickers && uw.tickers.length > 0) {
+            applyTicker(uw.tickers[0]);
           } else if (fullCatalog.length > 0) {
             applyTicker(fullCatalog[0]);
           }
@@ -478,8 +479,8 @@ export const MarketDeskView: React.FC = () => {
 
   return (
     <div className="market-desk">
-      {/* Banner Convidativo de Escolha de Picks do Plano */}
-      {(userWatchlist?.picksRemaining ?? 0) > 0 && (
+      {/* Banner Convidativo de Escolha de Picks do Plano (oculto para VIP com acesso integral) */}
+      {!isVIP && (userWatchlist?.picksRemaining ?? 0) > 0 && (
         <div
           style={{
             marginBottom: '1rem',
@@ -542,8 +543,8 @@ export const MarketDeskView: React.FC = () => {
         </div>
       )}
 
-      {/* Carteira do Plano (Watchlist Oficial) */}
-      {(watchlistTickers.length > 0 || lockedTickers.length > 0 || (userWatchlist?.picksRemaining ?? 0) > 0) && (
+      {/* Carteira do Plano (Watchlist Oficial - oculta para VIP para evitar poluição visual) */}
+      {!isVIP && (watchlistTickers.length > 0 || lockedTickers.length > 0 || (userWatchlist?.picksRemaining ?? 0) > 0) && (
         <div className="market-desk-tickers" style={{ marginBottom: favoriteTickers.length > 0 ? '0.75rem' : '1rem' }}>
           <div className="market-favs-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
