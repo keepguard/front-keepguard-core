@@ -5584,6 +5584,291 @@ textarea.form-input {
   margin-bottom: 0.85rem;
 }
 
+/* ==========================================================================
+   M7 — Visão por Setor (Mercado)
+   ========================================================================== */
+
+.market-sectors-panel {
+  padding: 1.25rem 1.5rem;
+}
+
+.market-sector-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.market-sector-row:hover,
+.market-sector-row:focus-visible {
+  background-color: var(--bg-hover, rgba(0, 0, 0, 0.025));
+}
+
+.market-sector-row.is-expanded {
+  background-color: var(--bg-selected, rgba(0, 0, 0, 0.04));
+}
+
+.market-sector-label-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.market-sector-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-main, #1a202c);
+}
+
+.market-sector-count-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--bg-muted, #edf2f7);
+  color: var(--text-muted, #718096);
+}
+
+.market-sector-return-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.market-sector-return {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.market-sector-return.is-positive {
+  color: var(--success, #059669);
+}
+
+.market-sector-return.is-negative {
+  color: var(--danger, #dc2626);
+}
+
+.market-sector-dispersion {
+  font-size: 0.72rem;
+  color: var(--text-muted, #718096);
+}
+
+.market-sector-val-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.market-val-current {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.market-val-hist {
+  font-size: 0.75rem;
+}
+
+.market-theses-tags {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.market-thesis-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+}
+
+.market-thesis-tag.is-positive {
+  background: var(--success-light, #d1fae5);
+  color: var(--success-dark, #065f46);
+}
+
+.market-thesis-tag.is-neutral {
+  background: var(--info-light, #e0e7ff);
+  color: var(--info-dark, #3730a3);
+}
+
+.market-thesis-tag.is-muted {
+  background: var(--bg-muted, #f3f4f6);
+  color: var(--text-muted, #4b5563);
+}
+
+.market-thesis-tag.is-caution {
+  background: var(--warning-light, #fef3c7);
+  color: var(--warning-dark, #92400e);
+}
+
+.market-sector-toggle-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: var(--text-muted, #718096);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.market-sector-toggle-btn:hover {
+  color: var(--text-main, #1a202c);
+  background: var(--bg-muted, #edf2f7);
+}
+
+.market-chevron-icon {
+  transition: transform 0.2s ease;
+}
+
+.market-chevron-icon.is-rotated {
+  transform: rotate(180deg);
+}
+
+.market-sector-expanded-row td {
+  padding: 0 !important;
+  background-color: var(--bg-subtle, #f8fafc);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.market-sector-details-container {
+  padding: 1rem 1.25rem;
+}
+
+.market-sector-sample-alert {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  margin-bottom: 0.75rem;
+}
+
+.market-sector-tickers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.market-ticker-card {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--surface, #ffffff);
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.market-ticker-card:hover,
+.market-ticker-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary, #3b82f6);
+  outline: none;
+}
+
+.market-ticker-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.market-ticker-badge {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-main, #1e293b);
+}
+
+.market-ticker-thesis-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.market-ticker-company {
+  font-size: 0.75rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.market-ticker-metrics {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.market-ticker-goto {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--primary, #2563eb);
+  margin-top: 0.2rem;
+}
+
+/* Mobile cards */
+.market-sectors-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.market-sector-card-mobile {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  padding: 0.85rem;
+  background: var(--surface, #ffffff);
+}
+
+.market-sector-mobile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.market-sector-mobile-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.market-sector-mobile-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.market-sector-mobile-metrics {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.82rem;
+  margin-top: 0.5rem;
+}
+
+.market-sector-mobile-expanded {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+}
+
+.market-ticker-chip-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-muted, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 0.82rem;
+}
+
 .market-signals {
   display: grid;
   gap: 0.75rem;

@@ -476,3 +476,87 @@ export function savePlanQuotas(payload: SavePlanQuotasPayload): Promise<void> {
   );
 }
 
+export interface AnalystSectorPerformance {
+  m1?: number;
+  m3?: number;
+  m12?: number;
+  upCount: number;
+  downCount: number;
+}
+
+export interface AnalystSectorValuation {
+  plMedian?: number;
+  plHistMedian?: number;
+  pvpMedian?: number;
+  pvpHistMedian?: number;
+}
+
+export interface AnalystSectorTheses {
+  OPORTUNIDADE: number;
+  QUALIDADE_A_PRECO_JUSTO: number;
+  NEUTRO: number;
+  OUTROS: number;
+}
+
+export interface AnalystSectorAxes {
+  quality: { ALTA: number; MEDIA: number; BAIXA: number };
+  price: { CHEAP: number; FAIR: number; EXPENSIVE: number };
+  health: { HEALTHY: number; NEUTRAL: number; RISKY: number };
+}
+
+export interface AnalystSectorTickerDetail {
+  ticker: string;
+  displayName?: string;
+  thesisCode?: string;
+  price?: number;
+  pl?: number;
+  pvp?: number;
+}
+
+export interface AnalystSectorSummary {
+  sector: string;
+  sectorLabel: string;
+  tickerCount: number;
+  tickers: string[];
+  tickerDetails?: AnalystSectorTickerDetail[];
+  hasSufficientSample: boolean;
+  performance: AnalystSectorPerformance;
+  valuation: AnalystSectorValuation;
+  theses: AnalystSectorTheses;
+  axes: AnalystSectorAxes;
+}
+
+export interface AnalystSectorSnapshot {
+  id?: string;
+  companyId?: string;
+  asOfDate: string;
+  createdAt?: string;
+  rulesVersion?: string;
+  totalTickers: number;
+  sectors: AnalystSectorSummary[];
+  disclaimer: string;
+}
+
+export function getSectorSnapshot(date?: string): Promise<AnalystSectorSnapshot> {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return customFetch<AnalystSectorSnapshot>(
+    `${ANALYST_BASE}/sectors/snapshot${query}`,
+    { method: 'GET' },
+    token(),
+  );
+}
+
+export async function getLatestSectorSnapshot(): Promise<AnalystSectorSnapshot | null> {
+  const today = businessDateBRT();
+  for (let offset = 0; offset <= MAGIC_FORMULA_LOOKBACK_DAYS; offset += 1) {
+    try {
+      return await getSectorSnapshot(shiftIsoDate(today, -offset));
+    } catch (err) {
+      if (isHttpStatus(err, 404)) continue;
+      throw err;
+    }
+  }
+  return null;
+}
+
+
