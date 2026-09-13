@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronsUpDown, ChevronUp, ScrollText, Search } from 'lucide-react';
+import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Copy, ScrollText, Search } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { RefreshCombo } from '../common/RefreshCombo';
@@ -76,6 +76,87 @@ function outcomeStyle(outcome?: string): React.CSSProperties {
       return { background: '#fff4e5', color: '#b36b00', borderColor: '#ffe0b2' };
     default:
       return {};
+  }
+}
+
+function actionLabel(action?: string): string {
+  switch (action) {
+    case 'DOSSIER_BATCH_STARTED':
+      return 'Início do Lote de Dossiês';
+    case 'DOSSIER_BATCH_COMPLETED':
+      return 'Lote de Dossiês Concluído';
+    case 'ASSET_ANALYZED':
+      return 'Dossiê de Ativo Gerado';
+    case 'AUDIT_READ':
+      return 'Consulta de Auditoria';
+    case 'ANALYST_AUDIT_READ':
+      return 'Consulta de Auditoria (Invest)';
+    case 'WATCHLIST_UPDATED':
+      return 'Watchlist Atualizada';
+    case 'ASSET_VERDICT_CHANGED':
+      return 'Mudança de Veredito / Tese';
+    case 'LOGIN':
+      return 'Login no Sistema';
+    case 'LOGOUT':
+      return 'Logout';
+    case 'AGENT_RUN_QUEUED':
+      return 'Execução de Agente Enfileirada';
+    case 'COLLECTION_SUCCESS':
+      return 'Coleta Concluída';
+    case 'COLLECTION_PARTIAL':
+      return 'Coleta Parcial';
+    case 'COLLECTION_FAILED':
+      return 'Falha na Coleta';
+    default:
+      return action || '—';
+  }
+}
+
+function actionBadgeStyle(action?: string): React.CSSProperties {
+  if (!action) return {};
+  if (action.startsWith('DOSSIER_BATCH_')) {
+    return { background: '#f3e8ff', color: '#7e22ce', borderColor: '#d8b4fe' };
+  }
+  if (action === 'ASSET_ANALYZED') {
+    return { background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' };
+  }
+  if (action === 'ASSET_VERDICT_CHANGED' || action === 'WATCHLIST_UPDATED') {
+    return { background: '#fef3c7', color: '#b45309', borderColor: '#fde68a' };
+  }
+  if (action.includes('READ')) {
+    return { background: '#f1f3f4', color: '#5f6368', borderColor: '#dadce0' };
+  }
+  return {};
+}
+
+function actorDisplay(actor?: AuditEvent['actor']): string {
+  if (!actor) return '—';
+  if (actor.name && typeof actor.name === 'string' && actor.name.trim()) {
+    return actor.name.trim();
+  }
+  if (actor.type === 'SYSTEM') {
+    return '🤖 Sistema';
+  }
+  if (actor.codeUser) {
+    return compactId(actor.codeUser);
+  }
+  return actor.type || '—';
+}
+
+function resourceDisplay(resource?: AuditEvent['resource']): { label: string; sub?: string } {
+  if (!resource || !resource.type) return { label: '—' };
+  switch (resource.type) {
+    case 'DOSSIER_BATCH':
+      return { label: '📑 Lote de Dossiês', sub: resource.id ? `Ref: ${resource.id}` : undefined };
+    case 'ASSET':
+      return { label: `📊 ${resource.name || resource.id || 'Ativo'}`, sub: 'Ação / Cotação' };
+    case 'AUDIT_EVENT':
+      return { label: '🔍 Log de Auditoria', sub: resource.id ? compactId(resource.id) : undefined };
+    default:
+      return {
+        label: resource.name || resource.type,
+        sub: resource.id ? compactId(resource.id) : undefined,
+      };
   }
 }
 
@@ -157,6 +238,8 @@ export const AuditsView: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [hideReads, setHideReads] = useState(false);
+  const [copiedCorrelation, setCopiedCorrelation] = useState(false);
   const pageRef = useRef(page);
   const appliedRef = useRef(applied);
   const itemsRef = useRef(items);
@@ -222,10 +305,14 @@ export const AuditsView: React.FC = () => {
   }, [applied, isAuthenticated, loadPage, page]);
 
   const displayedItems = useMemo(() => {
-    if (!sortKey) return items;
-    const sorted = [...items].sort((a, b) => compareEvents(a, b, sortKey));
+    let list = items;
+    if (hideReads) {
+      list = list.filter((e) => e.action !== 'AUDIT_READ' && e.action !== 'ANALYST_AUDIT_READ');
+    }
+    if (!sortKey) return list;
+    const sorted = [...list].sort((a, b) => compareEvents(a, b, sortKey));
     return sortDir === 'asc' ? sorted : sorted.reverse();
-  }, [items, sortDir, sortKey]);
+  }, [items, sortDir, sortKey, hideReads]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -370,7 +457,7 @@ export const AuditsView: React.FC = () => {
             onChange={(e) => setFilters((f) => ({ ...f, sourceService: e.target.value }))}
           />
         </div>
-        <div className="audits-filter-row audits-filter-row-sort">
+        <div className="audits-filter-row audits-filter-row-sort" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div className="audits-sort-group">
             <select
               className="form-input audits-sort-select"
@@ -411,6 +498,15 @@ export const AuditsView: React.FC = () => {
               )}
             </select>
           </div>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.85rem', color: '#475569', cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={hideReads}
+              onChange={(e) => setHideReads(e.target.checked)}
+              style={{ cursor: 'pointer', accentColor: '#7e22ce' }}
+            />
+            <span>Ocultar leituras operacionais (AUDIT_READ)</span>
+          </label>
         </div>
         {pager(true)}
       </form>
@@ -468,63 +564,71 @@ export const AuditsView: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              displayedItems.map((event) => (
-                <tr
-                  key={event.eventId}
-                  onClick={() => openDetail(event)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td>{formatDate(event.occurredAt)}</td>
-                  <td>
-                    <span className="id-compact" title={event.actor?.codeUser || event.actor?.type}>
-                      {compactId(event.actor?.codeUser) === '—' ? event.actor?.type || '—' : compactId(event.actor?.codeUser)}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="table-cell-title">{event.action}</span>
-                  </td>
-                  <td>
-                    <span title={`${event.resource?.type || ''} ${event.resource?.id || ''}`}>
-                      {event.resource?.type || '—'}
-                      {event.resource?.id ? ` · ${compactId(event.resource.id)}` : ''}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="badge-role" style={outcomeStyle(event.outcome)}>
-                      {outcomeLabel(event.outcome)}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="id-compact">{event.sourceService || '—'}</span>
-                  </td>
-                </tr>
-              ))
+              displayedItems.map((event) => {
+                const res = resourceDisplay(event.resource);
+                return (
+                  <tr
+                    key={event.eventId}
+                    onClick={() => openDetail(event)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td>{formatDate(event.occurredAt)}</td>
+                    <td>
+                      <span className="id-compact" title={event.actor?.codeUser || event.actor?.type}>
+                        {actorDisplay(event.actor)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge-role" style={{ ...actionBadgeStyle(event.action), marginRight: '0.35rem', fontWeight: 600 }}>
+                        {actionLabel(event.action)}
+                      </span>
+                    </td>
+                    <td>
+                      <span title={`${event.resource?.type || ''} ${event.resource?.id || ''}`}>
+                        <strong>{res.label}</strong>
+                        {res.sub ? <span style={{ fontSize: '0.78rem', color: '#64748b', marginLeft: '0.35rem' }}>({res.sub})</span> : null}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge-role" style={outcomeStyle(event.outcome)}>
+                        {outcomeLabel(event.outcome)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="id-compact">{event.sourceService || '—'}</span>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
       <div className="mobile-cards-container">
-        {displayedItems.map((event) => (
-          <button
-            type="button"
-            key={event.eventId}
-            className="mobile-domain-card"
-            onClick={() => openDetail(event)}
-            style={{ textAlign: 'left', width: '100%', border: 'none', background: 'inherit' }}
-          >
-            <div className="mobile-card-top">
-              <span className="mobile-domain-name">{event.action}</span>
-              <span className="badge-role" style={outcomeStyle(event.outcome)}>
-                {outcomeLabel(event.outcome)}
-              </span>
-            </div>
-            <div className="mobile-card-subinfo">{formatDate(event.occurredAt)}</div>
-            <div className="mobile-card-meta">
-              {event.actor?.codeUser || event.actor?.type} · {event.sourceService}
-            </div>
-          </button>
-        ))}
+        {displayedItems.map((event) => {
+          const res = resourceDisplay(event.resource);
+          return (
+            <button
+              type="button"
+              key={event.eventId}
+              className="mobile-domain-card"
+              onClick={() => openDetail(event)}
+              style={{ textAlign: 'left', width: '100%', border: 'none', background: 'inherit' }}
+            >
+              <div className="mobile-card-top">
+                <span className="mobile-domain-name">{actionLabel(event.action)}</span>
+                <span className="badge-role" style={outcomeStyle(event.outcome)}>
+                  {outcomeLabel(event.outcome)}
+                </span>
+              </div>
+              <div className="mobile-card-subinfo">{formatDate(event.occurredAt)} · {res.label}</div>
+              <div className="mobile-card-meta">
+                {actorDisplay(event.actor)} · {event.sourceService}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {pager(false)}
@@ -532,60 +636,176 @@ export const AuditsView: React.FC = () => {
       <Modal
         isOpen={!!detail || detailLoading}
         onClose={() => setDetail(null)}
-        title={detail?.action || 'Evento de auditoria'}
+        title={detail ? actionLabel(detail.action) : 'Evento de auditoria'}
         subtitle={detail ? formatDate(detail.occurredAt) : 'Carregando...'}
-        maxWidth="640px"
+        maxWidth="680px"
       >
         {detailLoading && !detail ? (
           <p style={{ color: '#5f6368' }}>Carregando detalhe...</p>
         ) : detail ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div className="info-row">
-              <span className="info-label">Resultado</span>
-              <span className="badge-role" style={outcomeStyle(detail.outcome)}>
-                {outcomeLabel(detail.outcome)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span className="badge-role" style={actionBadgeStyle(detail.action)}>
+                  {detail.action}
+                </span>
+                <span className="badge-role" style={outcomeStyle(detail.outcome)}>
+                  {outcomeLabel(detail.outcome)}
+                </span>
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                Origem: <strong>{detail.sourceService}</strong>
               </span>
             </div>
+
             <div className="info-row">
               <span className="info-label">Quem</span>
-              <span className="info-value text-mono">{detail.actor?.codeUser || detail.actor?.type || '—'}</span>
+              <span className="info-value">
+                <strong>{actorDisplay(detail.actor)}</strong>
+                {detail.actor?.codeUser ? (
+                  <span className="text-mono" style={{ fontSize: '0.78rem', color: '#64748b', marginLeft: '0.4rem' }}>
+                    ({detail.actor.codeUser})
+                  </span>
+                ) : null}
+              </span>
             </div>
+
             <div className="info-row">
               <span className="info-label">Recurso</span>
               <span className="info-value">
-                {detail.resource?.type || '—'} {detail.resource?.id ? `· ${detail.resource.id}` : ''}
+                <strong>{resourceDisplay(detail.resource).label}</strong>
+                {detail.resource?.id ? (
+                  <span className="text-mono" style={{ fontSize: '0.78rem', color: '#64748b', marginLeft: '0.4rem' }}>
+                    ({detail.resource.id})
+                  </span>
+                ) : null}
               </span>
             </div>
-            <div className="info-row">
-              <span className="info-label">Fonte de dados</span>
-              <span className="info-value">{metadataDataSourceName(detail.metadata)}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Origem</span>
-              <span className="info-value">{detail.sourceService}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">IP</span>
-              <span className="info-value text-mono">{detail.actor?.clientIp || '—'}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Dispositivo</span>
-              <span className="info-value text-mono">{detail.actor?.deviceId || '—'}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Motivo</span>
-              <span className="info-value">{detail.reason || '—'}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Correlation ID</span>
-              <span className="info-value text-mono">{detail.correlationId || '—'}</span>
-            </div>
-            {detail.actor?.roles && detail.actor.roles.length > 0 ? (
+
+            {metadataDataSourceName(detail.metadata) !== '—' ? (
               <div className="info-row">
-                <span className="info-label">Roles do ator</span>
-                <span className="info-value">{detail.actor.roles.join(', ')}</span>
+                <span className="info-label">Fonte de dados</span>
+                <span className="info-value">{metadataDataSourceName(detail.metadata)}</span>
               </div>
             ) : null}
+
+            {detail.reason ? (
+              <div className="info-row">
+                <span className="info-label">Motivo</span>
+                <span className="info-value">{detail.reason}</span>
+              </div>
+            ) : null}
+
+            {detail.metadata && Object.keys(detail.metadata).length > 0 ? (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.85rem' }}>
+                <strong style={{ fontSize: '0.82rem', color: '#1e293b', display: 'block', marginBottom: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  Dados da Execução / Metadados de Domínio
+                </strong>
+                {detail.action === 'ASSET_ANALYZED' ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem' }}>
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Ativo Analisado</span>
+                      <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{String(detail.metadata.ticker || detail.resource?.id || '—')}</strong>
+                    </div>
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Sinais Detectados</span>
+                      <strong style={{ fontSize: '1rem', color: '#0284c7' }}>{String(detail.metadata.signals ?? 0)}</strong>
+                    </div>
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Gaps de Informação</span>
+                      <strong style={{ fontSize: '1rem', color: '#64748b' }}>{String(detail.metadata.gaps ?? 0)}</strong>
+                    </div>
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Módulo</span>
+                      <strong style={{ fontSize: '0.9rem', color: '#475569' }}>{String(detail.metadata.module || 'investbot')}</strong>
+                    </div>
+                  </div>
+                ) : detail.action?.startsWith('DOSSIER_BATCH_') ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem' }}>
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Data Referência</span>
+                      <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>{String(detail.metadata.business_date || '—')}</strong>
+                    </div>
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Total de Ativos</span>
+                      <strong style={{ fontSize: '1rem', color: '#7e22ce' }}>{String(detail.metadata.total_tickers ?? '—')}</strong>
+                    </div>
+                    {detail.metadata.success_count !== undefined ? (
+                      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Sucessos</span>
+                        <strong style={{ fontSize: '1rem', color: '#00b090' }}>{String(detail.metadata.success_count)}</strong>
+                      </div>
+                    ) : null}
+                    {detail.metadata.skipped_count !== undefined ? (
+                      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Pulados (Idemp.)</span>
+                        <strong style={{ fontSize: '1rem', color: '#b45309' }}>{String(detail.metadata.skipped_count)}</strong>
+                      </div>
+                    ) : null}
+                    {detail.metadata.duration_ms !== undefined ? (
+                      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Duração Total</span>
+                        <strong style={{ fontSize: '1rem', color: '#0369a1' }}>{`${detail.metadata.duration_ms} ms`}</strong>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {Object.entries(detail.metadata).map(([key, val]) => (
+                      <div key={key} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}>
+                        <span style={{ color: '#64748b', marginRight: '0.35rem' }}>{key}:</span>
+                        <strong style={{ color: '#1e293b' }}>{typeof val === 'object' ? JSON.stringify(val) : String(val)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            <details style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.65rem 0.85rem' }}>
+              <summary style={{ cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>
+                Rastreabilidade e Detalhes Técnicos
+              </summary>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.65rem', paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0' }}>
+                <div className="info-row">
+                  <span className="info-label">Correlation ID</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span className="info-value text-mono" style={{ fontSize: '0.8rem' }}>{detail.correlationId || '—'}</span>
+                    {detail.correlationId ? (
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '2px 6px', height: 'auto', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(detail.correlationId);
+                          setCopiedCorrelation(true);
+                          setTimeout(() => setCopiedCorrelation(false), 2000);
+                          addToast({ type: 'success', title: 'Copiado', description: 'Correlation ID copiado para a área de transferência.' });
+                        }}
+                        title="Copiar Correlation ID"
+                      >
+                        {copiedCorrelation ? <Check size={13} color="#00b090" /> : <Copy size={13} color="#64748b" />}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">IP do Cliente/Pod</span>
+                  <span className="info-value text-mono" style={{ fontSize: '0.8rem' }}>{detail.actor?.clientIp || '—'}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Dispositivo</span>
+                  <span className="info-value text-mono" style={{ fontSize: '0.8rem' }}>{detail.actor?.deviceId || '—'}</span>
+                </div>
+                {detail.actor?.roles && detail.actor.roles.length > 0 ? (
+                  <div className="info-row">
+                    <span className="info-label">Roles</span>
+                    <span className="info-value" style={{ fontSize: '0.8rem' }}>{detail.actor.roles.join(', ')}</span>
+                  </div>
+                ) : null}
+              </div>
+            </details>
+
             {detail.changes && detail.changes.length > 0 ? (
               <div>
                 <strong style={{ fontSize: '0.85rem' }}>Alterações</strong>
@@ -598,13 +818,17 @@ export const AuditsView: React.FC = () => {
                 </ul>
               </div>
             ) : null}
+
             {detail.journey && detail.journey.length > 0 ? (
-              <div>
-                <strong style={{ fontSize: '0.85rem' }}>Jornada</strong>
+              <div style={{ marginTop: '0.25rem' }}>
+                <strong style={{ fontSize: '0.85rem' }}>Jornada da Operação</strong>
                 <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>
                   {detail.journey.map((hop) => (
-                    <li key={hop.eventId} style={{ fontSize: '0.85rem', color: '#5f6368' }}>
-                      {formatDate(hop.occurredAt)} · {hop.sourceService} · {hop.action} · {outcomeLabel(hop.outcome)}
+                    <li key={hop.eventId} style={{ fontSize: '0.85rem', color: '#5f6368', marginBottom: '0.2rem' }}>
+                      {formatDate(hop.occurredAt)} · <strong>{hop.sourceService}</strong> · {actionLabel(hop.action)} ·{' '}
+                      <span className="badge-role" style={{ ...outcomeStyle(hop.outcome), padding: '1px 6px', fontSize: '0.72rem' }}>
+                        {outcomeLabel(hop.outcome)}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -615,7 +839,7 @@ export const AuditsView: React.FC = () => {
                     style={{ marginTop: '0.75rem' }}
                     onClick={() => applyCorrelation(detail.correlationId)}
                   >
-                    Filtrar esta jornada
+                    Filtrar toda esta jornada
                   </button>
                 ) : null}
               </div>

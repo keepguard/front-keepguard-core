@@ -3,6 +3,7 @@ import { BFF_CORE_URL, customFetch } from './api';
 export interface AuditActor {
   type: string;
   codeUser?: string;
+  name?: string;
   roles?: string[];
   clientIp?: string;
   deviceId?: string;
@@ -11,6 +12,7 @@ export interface AuditActor {
 export interface AuditResource {
   type?: string;
   id?: string;
+  name?: string;
 }
 
 export interface AuditChange {
