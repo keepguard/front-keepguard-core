@@ -196,7 +196,7 @@ export const BillingEntitlementBanner: React.FC = () => {
   if (grace) {
     message = `Assinatura em carência até ${formatDate(entitlement.graceEndsAt)}. Regularize o pagamento para manter o produto.`;
   } else if (isFreemium) {
-    message = 'Modo Degustação (Freemium): você pode acompanhar até 2 ativos simultaneamente. Assine um plano para liberar ativos ilimitados.';
+    message = 'Modo Degustação (Freemium): faça o upgrade para expandir sua capacidade de acompanhamento e desbloquear recursos avançados.';
   }
 
   const bannerClass = grace ? 'is-grace' : (isFreemium ? 'is-freemium' : 'is-restricted');
