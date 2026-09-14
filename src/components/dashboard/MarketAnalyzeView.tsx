@@ -39,7 +39,7 @@ function mapAnalystError(err: unknown, fallback: string): string {
     return 'Ainda não há fatos deste ticker nesta organização. Confira os agents de coleta.';
   }
   if (data?.error === 'INVALID_TICKER' || status === 400) {
-    return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).';
+    return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4, HGLG11).';
   }
   if (status === 502 || status === 503 || status === 504) {
     return 'Não foi possível falar com o analista agora. Tente de novo.';
@@ -304,7 +304,7 @@ export const MarketAnalyzeView: React.FC = () => {
               onChange={(e) => setTicker(e.target.value.toUpperCase())}
               maxLength={6}
               autoComplete="off"
-              placeholder="Ticker (ex.: PETR4)"
+              placeholder="Ticker ou ativo (ex.: PETR4, HGLG11)"
               aria-label="Ticker"
             />
           </div>

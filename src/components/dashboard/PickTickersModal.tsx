@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, AlertTriangle, Check, ArrowLeft, Sparkles, Lock } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import type { MarketAssetItem } from '../../services/analystService';
 
 interface PickTickersModalProps {
   isOpen: boolean;
   onClose: () => void;
   catalog: string[];
+  catalogItems?: MarketAssetItem[];
   fixedTickers: string[];
   alreadyPickedTickers: string[];
   picksRemaining: number;
@@ -16,6 +18,7 @@ export const PickTickersModal: React.FC<PickTickersModalProps> = ({
   isOpen,
   onClose,
   catalog,
+  catalogItems,
   fixedTickers,
   alreadyPickedTickers,
   picksRemaining,
@@ -39,6 +42,14 @@ export const PickTickersModal: React.FC<PickTickersModalProps> = ({
 
   const fixedSet = useMemo(() => new Set(fixedTickers.map((t) => t.toUpperCase())), [fixedTickers]);
   const pickedSet = useMemo(() => new Set(alreadyPickedTickers.map((t) => t.toUpperCase())), [alreadyPickedTickers]);
+
+  const itemMap = useMemo(() => {
+    const map = new Map<string, MarketAssetItem>();
+    for (const item of catalogItems || []) {
+      map.set(item.ticker, item);
+    }
+    return map;
+  }, [catalogItems]);
 
   const filteredCatalog = useMemo(() => {
     const q = search.trim().toUpperCase();
@@ -335,6 +346,24 @@ export const PickTickersModal: React.FC<PickTickersModalProps> = ({
                     >
                       {ticker}
                     </span>
+                    {(() => {
+                      const assetItem = itemMap.get(ticker);
+                      if (!assetItem?.assetType || assetItem.assetType === 'STOCK') return null;
+                      const badgeLabel =
+                        assetItem.assetType === 'FII'
+                          ? 'FII'
+                          : assetItem.assetType === 'FI_INFRA'
+                          ? 'FI-Infra'
+                          : assetItem.assetType === 'FIAGRO'
+                          ? 'Fiagro'
+                          : assetItem.assetType;
+                      const badgeClass = `market-asset-type-badge market-asset-type-badge--${assetItem.assetType.toLowerCase().replace('_', '-')}`;
+                      return (
+                        <span className={badgeClass} style={{ fontSize: '0.65rem', marginTop: '2px', padding: '1px 6px' }}>
+                          {badgeLabel}
+                        </span>
+                      );
+                    })()}
                     <span
                       style={{
                         fontSize: '0.7rem',

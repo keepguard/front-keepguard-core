@@ -159,6 +159,26 @@ function newsPlainText(raw: string): string {
     .trim();
 }
 
+function renderAssetTypeBadge(assetType?: AssetClassType) {
+  if (!assetType) return null;
+  switch (assetType) {
+    case 'FII':
+      return <span className="market-asset-type-badge market-asset-type-badge--fii">FII</span>;
+    case 'FI_INFRA':
+      return <span className="market-asset-type-badge market-asset-type-badge--fi-infra">FI-Infra</span>;
+    case 'FIAGRO':
+      return <span className="market-asset-type-badge market-asset-type-badge--fiagro">Fiagro</span>;
+    case 'BDR':
+      return <span className="market-asset-type-badge market-asset-type-badge--bdr">BDR</span>;
+    case 'ETF':
+      return <span className="market-asset-type-badge market-asset-type-badge--etf">ETF</span>;
+    case 'STOCK':
+      return <span className="market-asset-type-badge market-asset-type-badge--stock">Ação</span>;
+    default:
+      return <span className="market-asset-type-badge market-asset-type-badge--stock">{assetType}</span>;
+  }
+}
+
 function signalValue(run: AnalystRun | null, metric: string): number | undefined {
   const value = run?.signals.find((s) => s.metric === metric)?.grounding?.valueNum;
   return typeof value === 'number' ? value : undefined;
@@ -224,6 +244,36 @@ export const MarketDeskView: React.FC = () => {
     }
     return map;
   }, [catalogItems]);
+
+  const [watchlistCategory, setWatchlistCategory] = useState<'ALL' | 'STOCK' | 'FII' | 'OTHER'>('ALL');
+
+  const { stockCount, fiiCount, otherCount } = useMemo(() => {
+    let s = 0;
+    let f = 0;
+    let o = 0;
+    for (const t of watchlistTickers) {
+      const type = catalogMap.get(t)?.assetType || 'STOCK';
+      if (type === 'STOCK') {
+        s++;
+      } else if (type === 'FII') {
+        f++;
+      } else {
+        o++;
+      }
+    }
+    return { stockCount: s, fiiCount: f, otherCount: o };
+  }, [watchlistTickers, catalogMap]);
+
+  const filteredWatchlistTickers = useMemo(() => {
+    if (watchlistCategory === 'ALL') return watchlistTickers;
+    return watchlistTickers.filter((t) => {
+      const type = catalogMap.get(t)?.assetType || 'STOCK';
+      if (watchlistCategory === 'STOCK') return type === 'STOCK';
+      if (watchlistCategory === 'FII') return type === 'FII';
+      if (watchlistCategory === 'OTHER') return type !== 'STOCK' && type !== 'FII';
+      return true;
+    });
+  }, [watchlistTickers, watchlistCategory, catalogMap]);
 
   const suggestions = useMemo<SearchSuggestion[]>(() => {
     const queryUpper = query.trim().toUpperCase();
@@ -640,8 +690,8 @@ export const MarketDeskView: React.FC = () => {
       {/* Carteira do Plano (Watchlist Oficial - oculta para VIP para evitar poluição visual) */}
       {!isVIP && (watchlistTickers.length > 0 || lockedTickers.length > 0 || (userWatchlist?.picksRemaining ?? 0) > 0) && (
         <div className="market-desk-tickers" style={{ marginBottom: favoriteTickers.length > 0 ? '0.75rem' : '1rem' }}>
-          <div className="market-favs-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="market-favs-header" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span className="market-desk-tickers-label" id={`${instanceId}-watchlist`}>Carteira do Plano</span>
               <span
                 style={{
@@ -655,6 +705,48 @@ export const MarketDeskView: React.FC = () => {
               >
                 {watchlistTickers.length} ativo{watchlistTickers.length !== 1 ? 's' : ''}
               </span>
+
+              {/* Taxonomy category tabs */}
+              <div className="market-watchlist-filter-tabs" role="tablist" aria-label="Filtrar por classe de ativo">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={watchlistCategory === 'ALL'}
+                  className={`market-watchlist-filter-tab ${watchlistCategory === 'ALL' ? 'is-active' : ''}`}
+                  onClick={() => setWatchlistCategory('ALL')}
+                >
+                  Todos ({watchlistTickers.length})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={watchlistCategory === 'STOCK'}
+                  className={`market-watchlist-filter-tab ${watchlistCategory === 'STOCK' ? 'is-active' : ''}`}
+                  onClick={() => setWatchlistCategory('STOCK')}
+                >
+                  Ações ({stockCount})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={watchlistCategory === 'FII'}
+                  className={`market-watchlist-filter-tab ${watchlistCategory === 'FII' ? 'is-active' : ''}`}
+                  onClick={() => setWatchlistCategory('FII')}
+                >
+                  FIIs ({fiiCount})
+                </button>
+                {otherCount > 0 && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={watchlistCategory === 'OTHER'}
+                    className={`market-watchlist-filter-tab ${watchlistCategory === 'OTHER' ? 'is-active' : ''}`}
+                    onClick={() => setWatchlistCategory('OTHER')}
+                  >
+                    Outros ({otherCount})
+                  </button>
+                )}
+              </div>
             </div>
             {(userWatchlist?.picksRemaining ?? 0) > 0 && (
               <button
@@ -680,10 +772,12 @@ export const MarketDeskView: React.FC = () => {
             )}
           </div>
           <div className="market-desk-tickers-list" role="group" aria-labelledby={`${instanceId}-watchlist`}>
-            {watchlistTickers.map((ticker) => {
+            {filteredWatchlistTickers.map((ticker) => {
               const isChipActive = ticker === selectedTicker;
               const isFixed = (userWatchlist?.fixedTickers ?? []).includes(ticker);
               const isPicked = (userWatchlist?.pickedTickers ?? []).includes(ticker);
+              const meta = catalogMap.get(ticker);
+              const nonStockType = meta?.assetType && meta.assetType !== 'STOCK' ? meta.assetType : null;
 
               return (
                 <span
@@ -697,6 +791,11 @@ export const MarketDeskView: React.FC = () => {
                     onClick={() => applyTicker(ticker)}
                   >
                     {ticker}
+                    {nonStockType && (
+                      <span style={{ marginLeft: '4px' }}>
+                        {renderAssetTypeBadge(nonStockType)}
+                      </span>
+                    )}
                     {isPicked && (
                       <span
                         style={{
@@ -716,6 +815,11 @@ export const MarketDeskView: React.FC = () => {
                 </span>
               );
             })}
+            {filteredWatchlistTickers.length === 0 && (
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Nenhum ativo desta categoria na carteira do plano.
+              </span>
+            )}
             {lockedTickers.map((ticker) => {
               const isChipActive = ticker === selectedTicker;
               return (
@@ -812,7 +916,7 @@ export const MarketDeskView: React.FC = () => {
               onKeyDown={onSearchKeyDown}
               maxLength={6}
               autoComplete="off"
-              placeholder="Ticker (ex.: PETR4)"
+              placeholder="Ticker ou ativo (ex.: PETR4, HGLG11)"
               aria-label="Ticker"
               aria-autocomplete="list"
               aria-expanded={openList}
@@ -853,17 +957,7 @@ export const MarketDeskView: React.FC = () => {
                         >
                           <div className="market-ticker-option-rich">
                             <div className="market-ticker-option-main">
-                              {item.assetType && (
-                                <span
-                                  className={`market-asset-type-badge ${
-                                    item.assetType === 'FII'
-                                      ? 'market-asset-type-badge--fii'
-                                      : 'market-asset-type-badge--stock'
-                                  }`}
-                                >
-                                  {item.assetType === 'FII' ? 'FII' : 'Ação'}
-                                </span>
-                              )}
+                              {renderAssetTypeBadge(item.assetType)}
                               <span className="market-ticker-option-symbol">{item.ticker}</span>
                               {item.displayName ? (
                                 <span className="market-ticker-option-name">· {item.displayName}</span>
@@ -1191,6 +1285,7 @@ export const MarketDeskView: React.FC = () => {
         isOpen={pickModalOpen}
         onClose={() => setPickModalOpen(false)}
         catalog={catalog}
+        catalogItems={catalogItems}
         fixedTickers={userWatchlist?.fixedTickers ?? []}
         alreadyPickedTickers={userWatchlist?.pickedTickers ?? []}
         picksRemaining={userWatchlist?.picksRemaining ?? 0}

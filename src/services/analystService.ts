@@ -301,18 +301,34 @@ export interface AnalystUserWatchlist {
   picksAllowed?: number;
   picksRemaining?: number;
   updatedAt?: string;
+  items?: MarketAssetItem[];
+  countsByAssetType?: Record<string, number>;
 }
 
-export type AssetClassType = 'STOCK' | 'FII';
+export type AssetClassType = 'STOCK' | 'FII' | 'FI_INFRA' | 'FIAGRO' | 'BDR' | 'ETF' | 'FIXED_INCOME' | 'CRYPTO';
+export type AssetClassCategory = 'EQUITY' | 'REAL_ESTATE' | 'CREDIT' | 'AGRO' | 'INDEX' | 'FIXED_INCOME' | 'CRYPTO';
 
 export interface MarketAssetItem {
   ticker: string;
   displayName: string;
   assetType: AssetClassType;
+  assetClass?: AssetClassCategory;
   sectorId: string;
   sectorLabel: string;
   segment?: string;
   hasRuns?: boolean;
+}
+
+export interface AssetDetailResponse {
+  ticker: string;
+  displayName: string;
+  assetType: AssetClassType;
+  assetClass: AssetClassCategory;
+  sectorId: string;
+  sectorLabel: string;
+  segment?: string;
+  supportedMetrics: string[];
+  hasRuns: boolean;
 }
 
 export interface AnalystCatalogResponse {
@@ -353,8 +369,20 @@ export function listKnownTickers(): Promise<AnalystTickers> {
   return customFetch<AnalystTickers>(`${ANALYST_BASE}/tickers`, { method: 'GET' }, token());
 }
 
-export function listCatalogTickers(): Promise<AnalystCatalogResponse> {
-  return customFetch<AnalystCatalogResponse>(`${ANALYST_BASE}/catalog`, { method: 'GET' }, token());
+export function listCatalogTickers(options?: { assetType?: string; query?: string }): Promise<AnalystCatalogResponse> {
+  const params = new URLSearchParams();
+  if (options?.assetType) params.set('assetType', options.assetType);
+  if (options?.query) params.set('query', options.query);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return customFetch<AnalystCatalogResponse>(`${ANALYST_BASE}/catalog${qs}`, { method: 'GET' }, token());
+}
+
+export function getAssetDetail(ticker: string): Promise<AssetDetailResponse> {
+  return customFetch<AssetDetailResponse>(
+    `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}`,
+    { method: 'GET' },
+    token(),
+  );
 }
 
 export function getFavorites(): Promise<AnalystFavorites> {
@@ -369,8 +397,9 @@ export function saveFavorites(tickers: string[]): Promise<AnalystFavorites> {
   );
 }
 
-export function getUserWatchlist(): Promise<AnalystUserWatchlist> {
-  return customFetch<AnalystUserWatchlist>(`${ANALYST_BASE}/user-watchlist`, { method: 'GET' }, token());
+export function getUserWatchlist(assetType?: string): Promise<AnalystUserWatchlist> {
+  const qs = assetType ? `?assetType=${encodeURIComponent(assetType)}` : '';
+  return customFetch<AnalystUserWatchlist>(`${ANALYST_BASE}/user-watchlist${qs}`, { method: 'GET' }, token());
 }
 
 export function saveUserWatchlist(tickers: string[]): Promise<AnalystUserWatchlist> {
