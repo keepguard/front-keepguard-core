@@ -284,6 +284,7 @@ export interface AnalystMemory {
 export interface AnalystFavorites {
   companyId: string;
   userId: string;
+  assetIds?: string[];
   tickers: string[];
   maxTickers: number;
   updatedAt?: string;
@@ -293,6 +294,10 @@ export interface AnalystUserWatchlist {
   companyId: string;
   userId: string;
   planCode?: string;
+  assetIds?: string[];
+  fixedAssetIds?: string[];
+  pickedAssetIds?: string[];
+  lockedAssetIds?: string[];
   tickers: string[];
   fixedTickers?: string[];
   pickedTickers?: string[];
@@ -305,10 +310,13 @@ export interface AnalystUserWatchlist {
   countsByAssetType?: Record<string, number>;
 }
 
+export type AnalystUserPicks = AnalystUserWatchlist;
+
 export type AssetClassType = 'STOCK' | 'FII' | 'FI_INFRA' | 'FIAGRO' | 'BDR' | 'ETF' | 'FIXED_INCOME' | 'CRYPTO';
 export type AssetClassCategory = 'EQUITY' | 'REAL_ESTATE' | 'CREDIT' | 'AGRO' | 'INDEX' | 'FIXED_INCOME' | 'CRYPTO';
 
 export interface MarketAssetItem {
+  id?: string;
   ticker: string;
   displayName: string;
   assetType: AssetClassType;
@@ -320,6 +328,7 @@ export interface MarketAssetItem {
 }
 
 export interface AssetDetailResponse {
+  id?: string;
   ticker: string;
   displayName: string;
   assetType: AssetClassType;
@@ -389,34 +398,40 @@ export function getFavorites(): Promise<AnalystFavorites> {
   return customFetch<AnalystFavorites>(`${ANALYST_BASE}/favorites`, { method: 'GET' }, token());
 }
 
-export function saveFavorites(tickers: string[]): Promise<AnalystFavorites> {
+export function saveFavorites(identifiers: string[]): Promise<AnalystFavorites> {
   return customFetch<AnalystFavorites>(
     `${ANALYST_BASE}/favorites`,
-    { method: 'PUT', body: JSON.stringify({ tickers }) },
+    { method: 'PUT', body: JSON.stringify({ assetIds: identifiers, tickers: identifiers }) },
     token(),
   );
 }
 
 export function getUserWatchlist(assetType?: string): Promise<AnalystUserWatchlist> {
   const qs = assetType ? `?assetType=${encodeURIComponent(assetType)}` : '';
-  return customFetch<AnalystUserWatchlist>(`${ANALYST_BASE}/user-watchlist${qs}`, { method: 'GET' }, token());
+  return customFetch<AnalystUserWatchlist>(`${ANALYST_BASE}/user-picks${qs}`, { method: 'GET' }, token());
 }
 
-export function saveUserWatchlist(tickers: string[]): Promise<AnalystUserWatchlist> {
+export function saveUserWatchlist(identifiers: string[]): Promise<AnalystUserWatchlist> {
   return customFetch<AnalystUserWatchlist>(
-    `${ANALYST_BASE}/user-watchlist`,
-    { method: 'PUT', body: JSON.stringify({ tickers }) },
+    `${ANALYST_BASE}/user-picks`,
+    { method: 'PUT', body: JSON.stringify({ assetIds: identifiers, tickers: identifiers }) },
     token(),
   );
 }
 
-export function addUserWatchlistPicks(tickers: string[]): Promise<AnalystUserWatchlist> {
+export function addUserWatchlistPicks(identifiers: string[]): Promise<AnalystUserWatchlist> {
   return customFetch<AnalystUserWatchlist>(
-    `${ANALYST_BASE}/user-watchlist/picks`,
-    { method: 'POST', body: JSON.stringify({ tickers }) },
+    `${ANALYST_BASE}/user-picks/picks`,
+    { method: 'POST', body: JSON.stringify({ assetIds: identifiers, tickers: identifiers }) },
     token(),
   );
 }
+
+export const getUserFavorites = getFavorites;
+export const saveUserFavorites = saveFavorites;
+export const getUserPicks = getUserWatchlist;
+export const saveUserPicks = saveUserWatchlist;
+export const addUserPicks = addUserWatchlistPicks;
 
 export interface AnalystMagicRanked {
   rank: number;
@@ -488,6 +503,9 @@ export async function getLatestMagicFormulaRanking(): Promise<AnalystMagicFormul
 
 export interface PlanQuotaDTO {
   planCode: string;
+  slots?: number;
+  picksAllowed?: number;
+  fixedAssetIds?: string[];
   watchlistSlots: number;
   watchlistPicks: number;
   fixedTickers?: string[];
@@ -497,8 +515,11 @@ export interface PlanQuotaDTO {
 export interface SavePlanQuotasPayload {
   quotas: Array<{
     planCode: string;
-    watchlistSlots: number;
-    watchlistPicks: number;
+    slots?: number;
+    picksAllowed?: number;
+    fixedAssetIds?: string[];
+    watchlistSlots?: number;
+    watchlistPicks?: number;
     fixedTickers?: string[];
   }>;
 }

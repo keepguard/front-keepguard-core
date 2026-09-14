@@ -692,7 +692,7 @@ export const MarketDeskView: React.FC = () => {
         <div className="market-desk-tickers" style={{ marginBottom: favoriteTickers.length > 0 ? '0.75rem' : '1rem' }}>
           <div className="market-favs-header" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span className="market-desk-tickers-label" id={`${instanceId}-watchlist`}>Carteira do Plano</span>
+              <span className="market-desk-tickers-label" id={`${instanceId}-watchlist`}>Meus Picks do Plano</span>
               <span
                 style={{
                   fontSize: '0.75rem',
@@ -817,7 +817,7 @@ export const MarketDeskView: React.FC = () => {
             })}
             {filteredWatchlistTickers.length === 0 && (
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Nenhum ativo desta categoria na carteira do plano.
+                Nenhum ativo desta categoria nos picks do plano.
               </span>
             )}
             {lockedTickers.map((ticker) => {
