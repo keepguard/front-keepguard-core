@@ -134,7 +134,17 @@ export async function customFetch<T>(
   const contentType = response.headers.get('content-type');
   let data: any = null;
   if (contentType && contentType.includes('application/json')) {
-    data = await response.json();
+    try {
+      data = await response.json();
+    } catch {
+      try {
+        const text = await response.text();
+        const firstLine = text.trim().split('\n')[0];
+        data = firstLine ? JSON.parse(firstLine) : { message: text || `Erro HTTP ${response.status}` };
+      } catch {
+        data = { message: `Erro HTTP ${response.status}` };
+      }
+    }
   } else {
     const text = await response.text();
     data = text ? { message: text } : {};

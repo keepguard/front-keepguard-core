@@ -58,6 +58,9 @@ function mapAnalystError(err: unknown, fallback: string): string {
   if (data?.error === 'INVALID_TICKER' || status === 400) {
     return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).';
   }
+  if (data?.error === 'PRODUCT_RESTRICTED' || status === 403) {
+    return data?.message || 'Este ativo não está incluído na cota do seu plano atual.';
+  }
   if (status === 404) {
     return 'Ainda não há análise neste ativo.';
   }
