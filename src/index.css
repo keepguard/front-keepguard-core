@@ -5786,6 +5786,10 @@ textarea.form-input {
   font-weight: 600;
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
 }
 
 .market-ticker-company {
@@ -5812,9 +5816,8 @@ textarea.form-input {
 
 /* Mobile cards */
 .market-sectors-mobile {
-  display: flex;
-  flex-direction: column;
   gap: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .market-sector-card-mobile {

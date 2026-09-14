@@ -49,6 +49,16 @@ function ColumnHint({
   );
 }
 
+function compactThesisLabel(code?: string): string {
+  if (!code) return 'Sem tese';
+  if (code.endsWith('_COM_RISCO')) {
+    const base = code.slice(0, -'_COM_RISCO'.length);
+    const baseLabel = THESIS_LABEL[base] || base;
+    return `${baseLabel} (c/ risco)`;
+  }
+  return THESIS_LABEL[code] || thesisDisplayLabel(code);
+}
+
 function num(value: number | undefined | null, suffix = ''): string {
   if (value == null || isNaN(value)) {
     return '—';
@@ -278,9 +288,7 @@ export const SectorsPanel: React.FC<SectorsPanelProps> = ({ snapshot, onSelectTi
                             <div className="market-sector-tickers-grid">
                               {(row.tickerDetails ?? []).map((t: AnalystSectorTickerDetail) => {
                                 const tone = t.thesisCode ? thesisTone(t.thesisCode) : 'muted';
-                                const label = t.thesisCode
-                                  ? THESIS_LABEL[t.thesisCode] || thesisDisplayLabel(t.thesisCode)
-                                  : 'Sem tese';
+                                const label = compactThesisLabel(t.thesisCode);
 
                                 return (
                                   <div
@@ -328,93 +336,104 @@ export const SectorsPanel: React.FC<SectorsPanelProps> = ({ snapshot, onSelectTi
           </table>
         </div>
 
-        {/* Mobile View */}
-        <div className="mobile-cards-view market-sectors-mobile">
-          {snapshot.sectors.map((row) => {
-            const isExpanded = expandedSectors.has(row.sector);
-            const hasSufficient = row.hasSufficientSample;
+        <footer className="market-table-footer">
+          <p className="market-magic-disclaimer text-muted">
+            {snapshot.disclaimer || 'Agregação factual e determinística dos ativos acompanhados. Não constitui recomendação ou alocação setorial.'}
+          </p>
+        </footer>
+      </div>
 
-            return (
-              <article key={row.sector} className="market-sector-card-mobile">
-                <header
-                  className="market-sector-mobile-header"
-                  onClick={() => toggleSector(row.sector)}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={isExpanded}
+      {/* Mobile View */}
+      <div className="mobile-cards-container market-sectors-mobile">
+        {pendingToday ? <PendingTodayNotice asOfDate={snapshot.asOfDate} /> : null}
+        <header className="market-sector-mobile-top">
+          <h2 className="market-table-title">Visão por Setor</h2>
+          <p className="text-muted market-table-subtitle">{meta}</p>
+        </header>
+        {snapshot.sectors.map((row) => {
+          const isExpanded = expandedSectors.has(row.sector);
+          const hasSufficient = row.hasSufficientSample;
+
+          return (
+            <article key={row.sector} className="market-sector-card-mobile">
+              <header
+                className="market-sector-mobile-header"
+                onClick={() => toggleSector(row.sector)}
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+              >
+                <div className="market-sector-mobile-title-wrap">
+                  <h3 className="market-sector-mobile-name">{row.sectorLabel}</h3>
+                  <span className="market-sector-count-badge">
+                    {row.tickerCount} {row.tickerCount === 1 ? 'ativo' : 'ativos'}
+                  </span>
+                </div>
+                <svg
+                  className={`market-chevron-icon${isExpanded ? ' is-rotated' : ''}`}
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
                 >
-                  <div className="market-sector-mobile-title-wrap">
-                    <h3 className="market-sector-mobile-name">{row.sectorLabel}</h3>
-                    <span className="market-sector-count-badge">
-                      {row.tickerCount} {row.tickerCount === 1 ? 'ativo' : 'ativos'}
-                    </span>
-                  </div>
-                  <svg
-                    className={`market-chevron-icon${isExpanded ? ' is-rotated' : ''}`}
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden="true"
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </header>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </header>
 
-                <div className="market-sector-mobile-metrics">
-                  <div>
-                    <span className="text-muted">Var 3M:</span>{' '}
-                    {hasSufficient && row.performance.m3 != null ? (
-                      <span
-                        className={`market-sector-return ${
-                          row.performance.m3 > 0 ? 'is-positive' : row.performance.m3 < 0 ? 'is-negative' : ''
-                        }`}
+              <div className="market-sector-mobile-metrics">
+                <div>
+                  <span className="text-muted">Var 3M:</span>{' '}
+                  {hasSufficient && row.performance.m3 != null ? (
+                    <span
+                      className={`market-sector-return ${
+                        row.performance.m3 > 0 ? 'is-positive' : row.performance.m3 < 0 ? 'is-negative' : ''
+                      }`}
+                    >
+                      {formatPercent(row.performance.m3)}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </div>
+                <div>
+                  <span className="text-muted">P/L:</span>{' '}
+                  {hasSufficient && row.valuation.plMedian != null
+                    ? `${num(row.valuation.plMedian)}x`
+                    : '—'}
+                </div>
+                <div>
+                  <span className="text-muted">P/VP:</span>{' '}
+                  {hasSufficient && row.valuation.pvpMedian != null
+                    ? `${num(row.valuation.pvpMedian)}x`
+                    : '—'}
+                </div>
+              </div>
+
+              {isExpanded ? (
+                <div className="market-sector-mobile-expanded">
+                  <div className="market-sector-tickers-grid">
+                    {(row.tickerDetails ?? []).map((t) => (
+                      <button
+                        type="button"
+                        key={t.ticker}
+                        className="market-ticker-chip-mobile"
+                        onClick={() => onSelectTicker?.(t.ticker)}
                       >
-                        {formatPercent(row.performance.m3)}
-                      </span>
-                    ) : (
-                      '—'
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-muted">P/L:</span>{' '}
-                    {hasSufficient && row.valuation.plMedian != null
-                      ? `${num(row.valuation.plMedian)}x`
-                      : '—'}
-                  </div>
-                  <div>
-                    <span className="text-muted">P/VP:</span>{' '}
-                    {hasSufficient && row.valuation.pvpMedian != null
-                      ? `${num(row.valuation.pvpMedian)}x`
-                      : '—'}
+                        <strong>{t.ticker}</strong>
+                        <span className="text-muted">
+                          {compactThesisLabel(t.thesisCode)}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
-
-                {isExpanded ? (
-                  <div className="market-sector-mobile-expanded">
-                    <div className="market-sector-tickers-grid">
-                      {(row.tickerDetails ?? []).map((t) => (
-                        <button
-                          type="button"
-                          key={t.ticker}
-                          className="market-ticker-chip-mobile"
-                          onClick={() => onSelectTicker?.(t.ticker)}
-                        >
-                          <strong>{t.ticker}</strong>
-                          <span className="text-muted">
-                            {t.thesisCode ? THESIS_LABEL[t.thesisCode] || t.thesisCode : '—'}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
+              ) : null}
+            </article>
+          );
+        })}
 
         <footer className="market-table-footer">
           <p className="market-magic-disclaimer text-muted">
