@@ -46,6 +46,7 @@ const TABS: ReadonlyArray<{ id: Panel; label: string; tabId: string; panelId: st
 const EMPTY_PLAN: SaveBillingPlan = {
   code: '',
   name: '',
+  level: 0,
   enabled: true,
   isPublic: true,
   isLifetime: false,
@@ -1126,6 +1127,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
           <table className="hpanel-table">
             <thead>
               <tr>
+                <th>Nível</th>
                 <th>Código</th>
                 <th>Nome</th>
                 <th>Status</th>
@@ -1135,11 +1137,16 @@ function PlansPanel({ writable }: { writable: boolean }) {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={writable ? 5 : 4} className="table-cell-muted">Carregando…</td></tr>
+                <tr><td colSpan={writable ? 6 : 5} className="table-cell-muted">Carregando…</td></tr>
               ) : plans.length === 0 ? (
-                <tr><td colSpan={writable ? 5 : 4} className="table-cell-muted">Nenhum plano.</td></tr>
+                <tr><td colSpan={writable ? 6 : 5} className="table-cell-muted">Nenhum plano.</td></tr>
               ) : plans.map((plan) => (
                 <tr key={plan.id}>
+                  <td>
+                    <span className="billing-status-pill">
+                      Nível {plan.level ?? 0}
+                    </span>
+                  </td>
                   <td>{plan.code}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -1176,6 +1183,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                           setPlanModal({
                             code: plan.code,
                             name: plan.name,
+                            level: plan.level ?? 0,
                             enabled: plan.enabled,
                             isPublic: plan.isPublic ?? true,
                             isLifetime: plan.isLifetime ?? false,
@@ -1214,6 +1222,25 @@ function PlansPanel({ writable }: { writable: boolean }) {
             <label>
               Nome
               <input className="form-input" value={planModal.name} onChange={(event) => setPlanModal({ ...planModal, name: event.target.value })} required />
+            </label>
+            <label>
+              Nível de Hierarquia (Upgrade / Downgrade)
+              <input
+                className="form-input"
+                type="number"
+                min={0}
+                value={planModal.level ?? 0}
+                onChange={(event) =>
+                  setPlanModal({
+                    ...planModal,
+                    level: Math.max(0, parseInt(event.target.value, 10) || 0),
+                  })
+                }
+                required
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #5f6368)', marginTop: '2px', display: 'block' }}>
+                Ex: 0 = Básico/Free, 1 = Pro, 2 = Pro+, 3 = VIP. O nível define a ordem de upgrade/downgrade e deve ser único por organização.
+              </span>
             </label>
             <label>
               Trial (dias)

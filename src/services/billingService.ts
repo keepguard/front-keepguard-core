@@ -27,6 +27,7 @@ export interface BillingPlan {
   companyId: string;
   code: string;
   name: string;
+  level?: number;
   enabled: boolean;
   trialDays: number;
   isPublic?: boolean;
@@ -37,6 +38,7 @@ export interface BillingPlan {
 export interface SaveBillingPlan {
   code: string;
   name: string;
+  level?: number;
   enabled: boolean;
   trialDays: number;
   isPublic?: boolean;

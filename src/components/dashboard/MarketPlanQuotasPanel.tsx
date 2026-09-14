@@ -25,6 +25,7 @@ import { listBillingPlans, type BillingPlan } from '../../services/billingServic
 interface QuotaDraft {
   planCode: string;
   name?: string;
+  level?: number;
   watchlistSlots: number;
   watchlistPicks: number;
   fixedTickers: string[];
@@ -45,6 +46,7 @@ export const MarketPlanQuotasPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [drafts, setDrafts] = useState<QuotaDraft[]>([]);
+  const [availableBillingPlans, setAvailableBillingPlans] = useState<BillingPlan[]>([]);
   const [newPlanCode, setNewPlanCode] = useState('');
   const [showAddRow, setShowAddRow] = useState(false);
   const [knownTickers, setKnownTickers] = useState<string[]>([]);
@@ -76,6 +78,8 @@ export const MarketPlanQuotasPanel: React.FC = () => {
         setKnownTickers(tickersResp.tickers);
       }
 
+      setAvailableBillingPlans(billingPlans);
+
       const quotaMap = new Map<string, PlanQuotaDTO>();
       for (const q of existingQuotas) {
         quotaMap.set(q.planCode, q);
@@ -88,11 +92,12 @@ export const MarketPlanQuotasPanel: React.FC = () => {
 
       const merged: QuotaDraft[] = [];
 
-      // 1. Linha especial para usuários sem plano
+      // 1. Linha especial para usuários sem plano (Nível 0)
       const noPlanExisting = quotaMap.get(NO_PLAN_CODE);
       merged.push({
         planCode: NO_PLAN_CODE,
         name: 'Usuários sem Assinatura (Freemium)',
+        level: 0,
         watchlistSlots: noPlanExisting ? noPlanExisting.watchlistSlots : DEFAULT_NO_PLAN_SLOTS,
         watchlistPicks: noPlanExisting ? noPlanExisting.watchlistPicks : DEFAULT_NO_PLAN_PICKS,
         fixedTickers: noPlanExisting?.fixedTickers ?? [],
@@ -107,6 +112,7 @@ export const MarketPlanQuotasPanel: React.FC = () => {
         merged.push({
           planCode: p.code,
           name: p.name,
+          level: p.level ?? 1,
           watchlistSlots: q ? q.watchlistSlots : DEFAULT_PAID_SLOTS,
           watchlistPicks: q ? q.watchlistPicks : DEFAULT_PAID_PICKS,
           fixedTickers: q?.fixedTickers ?? [],
@@ -122,6 +128,7 @@ export const MarketPlanQuotasPanel: React.FC = () => {
           merged.push({
             planCode: q.planCode,
             name: `Plano customizado (${q.planCode})`,
+            level: 99,
             watchlistSlots: q.watchlistSlots,
             watchlistPicks: q.watchlistPicks,
             fixedTickers: q.fixedTickers ?? [],
@@ -131,6 +138,7 @@ export const MarketPlanQuotasPanel: React.FC = () => {
         }
       }
 
+      merged.sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
       setDrafts(merged);
     } catch (err) {
       addToast({
@@ -223,27 +231,29 @@ export const MarketPlanQuotasPanel: React.FC = () => {
   };
 
   const handleAddNewPlan = () => {
-    const code = newPlanCode.trim().toLowerCase();
+    const code = newPlanCode.trim();
     if (!code) return;
-    if (drafts.some((d) => d.planCode === code)) {
+    if (drafts.some((d) => d.planCode.toLowerCase() === code.toLowerCase())) {
       addToast({
         type: 'error',
         title: 'Plano já existente',
-        description: `O código de plano "${code}" já consta na lista de cotas.`,
+        description: `O plano "${code}" já consta na lista de cotas.`,
       });
       return;
     }
-    setDrafts((prev) => [
-      ...prev,
-      {
-        planCode: code,
-        name: `Plano ${code}`,
-        watchlistSlots: DEFAULT_PAID_SLOTS,
-        watchlistPicks: DEFAULT_PAID_PICKS,
-        fixedTickers: [],
-        isNoPlan: false,
-      },
-    ]);
+    const billingPlan = availableBillingPlans.find(
+      (p) => p.code.toLowerCase() === code.toLowerCase()
+    );
+    const newDraft: QuotaDraft = {
+      planCode: billingPlan?.code || code,
+      name: billingPlan?.name || `Plano ${code}`,
+      level: billingPlan?.level ?? 1,
+      watchlistSlots: DEFAULT_PAID_SLOTS,
+      watchlistPicks: DEFAULT_PAID_PICKS,
+      fixedTickers: [],
+      isNoPlan: false,
+    };
+    setDrafts((prev) => [...prev, newDraft].sort((a, b) => (a.level ?? 0) - (b.level ?? 0)));
     setNewPlanCode('');
     setShowAddRow(false);
   };
@@ -449,7 +459,22 @@ export const MarketPlanQuotasPanel: React.FC = () => {
                       }
                     >
                       <td style={{ padding: '0.75rem 1rem', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span
+                            style={{
+                              background: '#e8f0fe',
+                              color: '#1a73e8',
+                              border: '1px solid #d2e3fc',
+                              borderRadius: '6px',
+                              padding: '2px 8px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              fontFamily: 'monospace',
+                              letterSpacing: '0.02em',
+                            }}
+                          >
+                            NÍVEL {draft.level ?? 0}
+                          </span>
                           <strong>{draft.name || draft.planCode}</strong>
                           {draft.isNoPlan ? (
                             <span
@@ -849,25 +874,41 @@ export const MarketPlanQuotasPanel: React.FC = () => {
         </table>
       </div>
 
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         {showAddRow ? (
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Código do plano (ex: vip, gold)"
-              value={newPlanCode}
-              onChange={(e) => setNewPlanCode(e.target.value)}
-              style={{ width: '240px' }}
-            />
-            <button
-              type="button"
-              className="btn btn-primary btn-pill"
-              onClick={handleAddNewPlan}
-              disabled={!newPlanCode.trim()}
-            >
-              Adicionar
-            </button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {availableBillingPlans.filter((p) => !drafts.some((d) => d.planCode.toLowerCase() === p.code.toLowerCase())).length > 0 ? (
+              <>
+                <select
+                  className="form-input"
+                  value={newPlanCode}
+                  onChange={(e) => setNewPlanCode(e.target.value)}
+                  style={{ minWidth: '260px' }}
+                >
+                  <option value="">Selecione um plano do faturamento...</option>
+                  {availableBillingPlans
+                    .filter((p) => !drafts.some((d) => d.planCode.toLowerCase() === p.code.toLowerCase()))
+                    .sort((a, b) => (a.level ?? 0) - (b.level ?? 0))
+                    .map((p) => (
+                      <option key={p.code} value={p.code}>
+                        Nível {p.level ?? 0} — {p.name} ({p.code})
+                      </option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-pill"
+                  onClick={handleAddNewPlan}
+                  disabled={!newPlanCode.trim()}
+                >
+                  Adicionar
+                </button>
+              </>
+            ) : (
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #5f6368)', padding: '0.35rem 0.5rem' }}>
+                Todos os planos cadastrados no faturamento já estão nas cotas.
+              </span>
+            )}
             <button
               type="button"
               className="btn btn-secondary btn-pill"
@@ -887,7 +928,7 @@ export const MarketPlanQuotasPanel: React.FC = () => {
             disabled={loading || saving}
           >
             <Plus size={15} />
-            <span>Adicionar Outro Plano</span>
+            <span>Adicionar Plano do Faturamento</span>
           </button>
         )}
 
