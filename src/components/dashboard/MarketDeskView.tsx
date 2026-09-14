@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { useSearchParams } from 'react-router-dom';
 import { ArrowUpDown, LineChart, Lock, Plus, Search, Sparkles, Star } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   addUserWatchlistPicks,
   getFavorites,
@@ -189,6 +190,10 @@ function macroPoint(detail: AnalystRunDetail | null, metric: string): AnalystInp
 }
 
 export const MarketDeskView: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = Boolean(
+    user?.roles?.some((r) => r === 'ROLE_ADMIN' || r === 'ROLE_OPS')
+  );
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const fromQuery = tickerFromQuery(searchParams.get('ticker'));
@@ -236,6 +241,7 @@ export const MarketDeskView: React.FC = () => {
   const lockedTickers = userWatchlist?.lockedTickers ?? [];
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const isVIP = userWatchlist?.planCode?.toUpperCase() === 'VIP' || (userWatchlist?.maxTickers ?? 0) >= WATCHLIST_MAX_TICKERS;
+  const isFullAccess = isAdmin || isVIP;
 
   const catalogMap = useMemo(() => {
     const map = new Map<string, MarketAssetItem>();
@@ -278,10 +284,16 @@ export const MarketDeskView: React.FC = () => {
   const suggestions = useMemo<SearchSuggestion[]>(() => {
     const queryUpper = query.trim().toUpperCase();
     const queryLower = query.trim().toLowerCase();
-    const poolTickers = Array.from(new Set([...favoriteTickers, ...watchlistTickers, ...lockedTickers, ...catalog]));
+    
+    // Universo permitido para busca e navegação no dossiê:
+    // Admin e VIP: catálogo completo do mercado (market_assets).
+    // Usuários com plano regular: estritamente os seus picks do plano e favoritos.
+    const allowedPool = isFullAccess
+      ? Array.from(new Set([...favoriteTickers, ...watchlistTickers, ...lockedTickers, ...catalog]))
+      : Array.from(new Set([...favoriteTickers, ...watchlistTickers]));
 
     if (!queryUpper) {
-      return poolTickers.slice(0, 12).map((ticker) => {
+      return allowedPool.slice(0, 12).map((ticker) => {
         const meta = catalogMap.get(ticker);
         return {
           ticker,
@@ -296,35 +308,42 @@ export const MarketDeskView: React.FC = () => {
     const matched: SearchSuggestion[] = [];
     const seen = new Set<string>();
 
-    for (const item of catalogItems) {
-      const matchTicker = item.ticker.includes(queryUpper);
-      const matchName = item.displayName && item.displayName.toLowerCase().includes(queryLower);
-      const matchSegment = item.segment && item.segment.toLowerCase().includes(queryLower);
-      const matchSector = item.sectorLabel && item.sectorLabel.toLowerCase().includes(queryLower);
+    if (isFullAccess) {
+      for (const item of catalogItems) {
+        const matchTicker = item.ticker.includes(queryUpper);
+        const matchName = item.displayName && item.displayName.toLowerCase().includes(queryLower);
+        const matchSegment = item.segment && item.segment.toLowerCase().includes(queryLower);
+        const matchSector = item.sectorLabel && item.sectorLabel.toLowerCase().includes(queryLower);
 
-      if (matchTicker || matchName || matchSegment || matchSector) {
-        seen.add(item.ticker);
-        matched.push({
-          ticker: item.ticker,
-          displayName: item.displayName,
-          assetType: item.assetType,
-          sectorLabel: item.sectorLabel,
-          segment: item.segment,
-        });
+        if (matchTicker || matchName || matchSegment || matchSector) {
+          seen.add(item.ticker);
+          matched.push({
+            ticker: item.ticker,
+            displayName: item.displayName,
+            assetType: item.assetType,
+            sectorLabel: item.sectorLabel,
+            segment: item.segment,
+          });
+        }
       }
-    }
+    } else {
+      for (const t of allowedPool) {
+        const item = catalogMap.get(t);
+        const matchTicker = t.includes(queryUpper);
+        const matchName = item?.displayName && item.displayName.toLowerCase().includes(queryLower);
+        const matchSegment = item?.segment && item.segment.toLowerCase().includes(queryLower);
+        const matchSector = item?.sectorLabel && item.sectorLabel.toLowerCase().includes(queryLower);
 
-    for (const t of poolTickers) {
-      if (!seen.has(t) && t.includes(queryUpper)) {
-        seen.add(t);
-        const meta = catalogMap.get(t);
-        matched.push({
-          ticker: t,
-          displayName: meta?.displayName,
-          assetType: meta?.assetType,
-          sectorLabel: meta?.sectorLabel,
-          segment: meta?.segment,
-        });
+        if (matchTicker || matchName || matchSegment || matchSector) {
+          seen.add(t);
+          matched.push({
+            ticker: t,
+            displayName: item?.displayName,
+            assetType: item?.assetType,
+            sectorLabel: item?.sectorLabel,
+            segment: item?.segment,
+          });
+        }
       }
     }
 
@@ -339,7 +358,7 @@ export const MarketDeskView: React.FC = () => {
     const results = matched.slice(0, 10);
 
     const exactMatch = results.some((r) => r.ticker === queryUpper);
-    if (isValidTicker(queryUpper) && !exactMatch) {
+    if (isFullAccess && isValidTicker(queryUpper) && !exactMatch) {
       results.unshift({
         ticker: queryUpper,
         displayName: 'Consultar dossiê no mercado',
@@ -348,7 +367,7 @@ export const MarketDeskView: React.FC = () => {
     }
 
     return results;
-  }, [catalog, catalogItems, catalogMap, favoriteTickers, watchlistTickers, lockedTickers, query]);
+  }, [catalog, catalogItems, catalogMap, favoriteTickers, watchlistTickers, lockedTickers, query, isFullAccess]);
 
   const latest = runs[0] ?? null;
   const collectedAt = freshestCollectedAt(latest);
@@ -379,11 +398,23 @@ export const MarketDeskView: React.FC = () => {
       setError('Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).');
       return;
     }
+    if (!isFullAccess) {
+      const allowedSet = new Set([...watchlistTickers, ...favoriteTickers]);
+      if (allowedSet.size > 0 && !allowedSet.has(ticker)) {
+        addToast({
+          type: 'warning',
+          title: 'Ativo fora da sua carteira',
+          description: `O ativo "${ticker}" não consta nos seus picks do plano. Utilize o botão "Escolher Ativo (Pick)" para adicioná-lo à sua carteira.`,
+        });
+        return;
+      }
+    }
+    setError('');
     setQuery(ticker);
     setSelectedTicker(ticker);
     setOpenList(false);
     setSearchParams({ ticker }, { replace: true });
-  }, [setSearchParams]);
+  }, [isFullAccess, watchlistTickers, favoriteTickers, addToast, setSearchParams]);
 
   const loadCatalog = useCallback(async () => {
     try {
@@ -408,7 +439,7 @@ export const MarketDeskView: React.FC = () => {
             applyTicker(fav.tickers[0]);
           } else if (uw?.tickers && uw.tickers.length > 0) {
             applyTicker(uw.tickers[0]);
-          } else if (fullCatalog.length > 0) {
+          } else if (isFullAccess && fullCatalog.length > 0) {
             applyTicker(fullCatalog[0]);
           }
         }
@@ -916,7 +947,11 @@ export const MarketDeskView: React.FC = () => {
               onKeyDown={onSearchKeyDown}
               maxLength={6}
               autoComplete="off"
-              placeholder="Ticker ou ativo (ex.: PETR4, HGLG11)"
+              placeholder={
+                isFullAccess
+                  ? "Ticker ou ativo (ex.: PETR4, HGLG11)"
+                  : `Buscar nos meus picks (ex.: ${watchlistTickers.slice(0, 2).join(', ') || 'MGLU3'})...`
+              }
               aria-label="Ticker"
               aria-autocomplete="list"
               aria-expanded={openList}
@@ -981,7 +1016,33 @@ export const MarketDeskView: React.FC = () => {
                 className="market-ticker-listbox"
                 style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}
               >
-                Nenhum ativo encontrado para "{query}". Digite o ticker completo (ex.: HGLG11 ou PETR4) para pesquisar.
+                {!isFullAccess ? (
+                  <div>
+                    <div style={{ marginBottom: (userWatchlist?.picksRemaining ?? 0) > 0 ? '0.5rem' : 0 }}>
+                      O ativo "{query}" não consta nos seus picks do plano.
+                    </div>
+                    {(userWatchlist?.picksRemaining ?? 0) > 0 ? (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm btn-pill"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setOpenList(false);
+                          setPickModalOpen(true);
+                        }}
+                      >
+                        <Plus size={13} style={{ marginRight: '4px' }} />
+                        Escolher ativo na bolsa ({userWatchlist?.picksRemaining} restante{(userWatchlist?.picksRemaining ?? 0) > 1 ? 's' : ''})
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', opacity: 0.85 }}>
+                        Seus {watchlistTickers.length} slots de picks estão ocupados.
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span>Nenhum ativo encontrado para "{query}". Digite o ticker completo (ex.: HGLG11 ou PETR4) para pesquisar.</span>
+                )}
               </div>
             ) : null}
           </div>
