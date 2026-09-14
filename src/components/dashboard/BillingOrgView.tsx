@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, CreditCard, Crown, Loader2, Pencil, Plus, Search } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, CreditCard, Crown, Loader2, Pencil, Plus, Search } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
@@ -25,12 +25,14 @@ import {
 } from '../../services/billingService';
 import { canWriteBilling } from '../../utils/roles';
 
-const INTERVALS = [
-  { value: 'month', label: 'Mensal' },
-  { value: 'quarter', label: 'Trimestral' },
-  { value: 'semiannual', label: 'Semestral' },
-  { value: 'year', label: 'Anual' },
+const INTERVAL_CONFIGS = [
+  { value: 'month', label: 'Mensal', description: 'Cobrança padrão recorrente a cada 30 dias', months: 1, defaultCents: 19900 },
+  { value: 'quarter', label: 'Trimestral', description: 'Cobrança trimestral a cada 3 meses', months: 3, defaultCents: 53700 },
+  { value: 'semiannual', label: 'Semestral', description: 'Cobrança semestral a cada 6 meses', months: 6, defaultCents: 101400 },
+  { value: 'year', label: 'Anual', description: 'Cobrança anual com renovação a cada 12 meses', months: 12, defaultCents: 178800 },
 ] as const;
+
+const INTERVALS = INTERVAL_CONFIGS;
 
 const PAGE_SIZE = 20;
 
@@ -1062,6 +1064,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [planModal, setPlanModal] = useState<SaveBillingPlan | null>(null);
+  const [planStep, setPlanStep] = useState<'general' | 'pricing'>('general');
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -1082,20 +1085,65 @@ function PlansPanel({ writable }: { writable: boolean }) {
     if (isAuthenticated) void load();
   }, [isAuthenticated, load]);
 
-  const submitPlan = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const openNewPlan = () => {
+    setEditingCode(null);
+    setPlanStep('general');
+    setPlanModal({ ...EMPTY_PLAN });
+  };
+
+  const openEditPlan = (plan: BillingPlan) => {
+    setEditingCode(plan.code);
+    setPlanStep('general');
+    setPlanModal({
+      code: plan.code,
+      name: plan.name,
+      level: plan.level ?? 0,
+      enabled: plan.enabled,
+      isPublic: plan.isPublic ?? true,
+      isLifetime: plan.isLifetime ?? false,
+      trialDays: plan.trialDays,
+      prices: plan.prices.length
+        ? plan.prices.map((p) => ({ ...p }))
+        : (plan.isLifetime ? [] : [{ interval: 'month', amountCents: 19900, currency: 'BRL' }]),
+    });
+  };
+
+  const submitPlan = async (event?: React.FormEvent) => {
+    if (event) event.preventDefault();
     const access = getAccessToken();
     if (!access || !planModal) return;
+
+    if (!planModal.code.trim() || !planModal.name.trim()) {
+      addToast({ type: 'warning', title: 'Dados do Plano', description: 'Código e nome são obrigatórios.' });
+      setPlanStep('general');
+      return;
+    }
+
+    if (!planModal.isLifetime && planModal.prices.length === 0) {
+      addToast({ type: 'warning', title: 'Ciclos de Cobrança', description: 'O plano precisa ter ao menos um ciclo de cobrança ativo.' });
+      setPlanStep('pricing');
+      return;
+    }
+
     setBusy(true);
     try {
+      const payload: SaveBillingPlan = {
+        ...planModal,
+        code: planModal.code.trim(),
+        name: planModal.name.trim(),
+        level: planModal.level ?? 0,
+        prices: planModal.isLifetime ? [] : planModal.prices,
+      };
+
       if (editingCode) {
-        await patchBillingPlan(editingCode, planModal, access);
+        await patchBillingPlan(editingCode, payload, access);
       } else {
-        await saveBillingPlan(planModal, access);
+        await saveBillingPlan(payload, access);
       }
       setPlanModal(null);
       setEditingCode(null);
-      addToast({ type: 'success', title: 'Plano', description: 'Plano gravado.' });
+      setPlanStep('general');
+      addToast({ type: 'success', title: 'Plano', description: editingCode ? 'Plano atualizado com sucesso.' : 'Plano cadastrado com sucesso.' });
       await load();
     } catch (error) {
       addToast({ type: 'error', title: 'Plano', description: errorMessage(error) });
@@ -1113,10 +1161,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
             <button
               type="button"
               className="btn btn-primary btn-pill"
-              onClick={() => {
-                setEditingCode(null);
-                setPlanModal({ ...EMPTY_PLAN });
-              }}
+              onClick={openNewPlan}
             >
               <Plus size={15} />
               <span>Novo plano</span>
@@ -1164,7 +1209,11 @@ function PlansPanel({ writable }: { writable: boolean }) {
                       )}
                     </div>
                   </td>
-                  <td>{plan.enabled ? 'Ativo' : 'Inativo'}</td>
+                  <td>
+                    <span className={`billing-status-pill ${plan.enabled ? 'is-active' : 'is-inactive'}`}>
+                      {plan.enabled ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
                   <td>
                     {plan.isLifetime && plan.prices.length === 0 ? (
                       <span className="table-cell-muted">Isento (Vitalício)</span>
@@ -1178,19 +1227,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                         type="button"
                         className="btn-table-icon"
                         title="Editar"
-                        onClick={() => {
-                          setEditingCode(plan.code);
-                          setPlanModal({
-                            code: plan.code,
-                            name: plan.name,
-                            level: plan.level ?? 0,
-                            enabled: plan.enabled,
-                            isPublic: plan.isPublic ?? true,
-                            isLifetime: plan.isLifetime ?? false,
-                            trialDays: plan.trialDays,
-                            prices: plan.prices.length ? plan.prices : (plan.isLifetime ? [] : EMPTY_PLAN.prices),
-                          });
-                        }}
+                        onClick={() => openEditPlan(plan)}
                       >
                         <Pencil size={15} />
                       </button>
@@ -1205,129 +1242,396 @@ function PlansPanel({ writable }: { writable: boolean }) {
 
       <Modal
         isOpen={planModal !== null}
-        onClose={() => { setPlanModal(null); setEditingCode(null); }}
-        title={editingCode ? 'Editar plano' : 'Novo plano'}
+        onClose={() => { setPlanModal(null); setEditingCode(null); setPlanStep('general'); }}
+        title={editingCode ? 'Editar Plano' : 'Novo Plano'}
+        subtitle={
+          editingCode
+            ? `Configuração do plano "${planModal?.name || editingCode}" (${planModal?.code || editingCode})`
+            : 'Defina os dados fundamentais do plano e seus ciclos de faturamento'
+        }
+        maxWidth="660px"
         footer={(
-          <button className="btn btn-primary btn-pill" type="submit" form="billing-plan-form" disabled={busy}>
-            Salvar
-          </button>
-        )}
-      >
-        {planModal && (
-          <form id="billing-plan-form" className="billing-form" onSubmit={submitPlan}>
-            <label>
-              Código
-              <input className="form-input" value={planModal.code} disabled={Boolean(editingCode)} onChange={(event) => setPlanModal({ ...planModal, code: event.target.value })} required />
-            </label>
-            <label>
-              Nome
-              <input className="form-input" value={planModal.name} onChange={(event) => setPlanModal({ ...planModal, name: event.target.value })} required />
-            </label>
-            <label>
-              Nível de Hierarquia (Upgrade / Downgrade)
-              <input
-                className="form-input"
-                type="number"
-                min={0}
-                value={planModal.level ?? 0}
-                onChange={(event) =>
-                  setPlanModal({
-                    ...planModal,
-                    level: Math.max(0, parseInt(event.target.value, 10) || 0),
-                  })
-                }
-                required
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #5f6368)', marginTop: '2px', display: 'block' }}>
-                Ex: 0 = Básico/Free, 1 = Pro, 2 = Pro+, 3 = VIP. O nível define a ordem de upgrade/downgrade e deve ser único por organização.
-              </span>
-            </label>
-            <label>
-              Trial (dias)
-              <input className="form-input" type="number" min={0} value={planModal.trialDays} onChange={(event) => setPlanModal({ ...planModal, trialDays: Number(event.target.value) || 0 })} />
-            </label>
-            <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.25rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-              <label className="billing-check">
-                <input type="checkbox" checked={planModal.enabled} onChange={(event) => setPlanModal({ ...planModal, enabled: event.target.checked })} />
-                Ativo
-              </label>
-              <label className="billing-check">
-                <input
-                  type="checkbox"
-                  checked={planModal.isPublic ?? true}
-                  onChange={(event) => setPlanModal({ ...planModal, isPublic: event.target.checked })}
-                />
-                Exibir na vitrine pública
-              </label>
-              <label className="billing-check">
-                <input
-                  type="checkbox"
-                  checked={planModal.isLifetime ?? false}
-                  onChange={(event) => {
-                    const isLifetime = event.target.checked;
-                    setPlanModal({
-                      ...planModal,
-                      isLifetime,
-                      isPublic: isLifetime ? false : (planModal.isPublic ?? true),
-                    });
-                  }}
-                />
-                Plano VIP / Vitalício
-              </label>
-            </div>
-            {planModal.isLifetime && (
-              <div style={{
-                padding: '0.6rem 0.8rem',
-                borderRadius: '6px',
-                background: 'rgba(245, 158, 11, 0.1)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
-                fontSize: '0.82rem',
-                color: '#d97706',
-                marginBottom: '0.75rem',
-              }}>
-                <strong>Plano VIP Vitalício:</strong> Assinaturas vinculadas a este plano terão acesso irrestrito ao mercado sem cobranças ou faturas no gateway Asaas. Não é obrigatório cadastrar ciclos de preços.
-              </div>
-            )}
-            {planModal.prices.map((price, index) => (
-              <div key={`${price.interval}-${index}`} className="billing-price-row">
-                <select
-                  className="form-input"
-                  value={price.interval}
-                  onChange={(event) => {
-                    const prices = [...planModal.prices];
-                    prices[index] = { ...price, interval: event.target.value };
-                    setPlanModal({ ...planModal, prices });
-                  }}
-                >
-                  {INTERVALS.map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
-                  ))}
-                </select>
-                <input
-                  className="form-input"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={(price.amountCents / 100).toString()}
-                  onChange={(event) => {
-                    const prices = [...planModal.prices];
-                    prices[index] = { ...price, amountCents: Math.round(Number(event.target.value) * 100) };
-                    setPlanModal({ ...planModal, prices });
-                  }}
-                />
-              </div>
-            ))}
+          <div className="billing-modal-footer">
             <button
               type="button"
               className="btn btn-outline btn-pill"
-              onClick={() => setPlanModal({
-                ...planModal,
-                prices: [...planModal.prices, { interval: 'year', amountCents: 0, currency: 'BRL' }],
-              })}
+              onClick={() => {
+                if (planStep === 'pricing' && !planModal?.isLifetime) {
+                  setPlanStep('general');
+                } else {
+                  setPlanModal(null);
+                  setEditingCode(null);
+                  setPlanStep('general');
+                }
+              }}
+              disabled={busy}
             >
-              Adicionar ciclo
+              {planStep === 'pricing' && !planModal?.isLifetime ? (
+                <>
+                  <ArrowLeft size={15} style={{ marginRight: '0.35rem' }} />
+                  Voltar aos dados
+                </>
+              ) : (
+                'Cancelar'
+              )}
             </button>
-          </form>
+
+            {planStep === 'general' && !planModal?.isLifetime ? (
+              <button
+                type="button"
+                className="btn btn-primary btn-pill"
+                onClick={() => {
+                  if (!planModal?.code?.trim() || !planModal?.name?.trim()) {
+                    addToast({ type: 'warning', title: 'Dados do Plano', description: 'Preencha o código e o nome antes de prosseguir.' });
+                    return;
+                  }
+                  setPlanStep('pricing');
+                }}
+              >
+                Avançar para Ciclos
+                <ArrowRight size={15} style={{ marginLeft: '0.35rem' }} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary btn-pill"
+                disabled={busy || (!planModal?.isLifetime && (!planModal?.prices || planModal.prices.length === 0))}
+                onClick={() => void submitPlan()}
+              >
+                {busy ? (
+                  <>
+                    <Loader2 size={15} className="billing-spin" style={{ marginRight: '0.35rem' }} />
+                    Salvando…
+                  </>
+                ) : editingCode ? (
+                  'Salvar Alterações'
+                ) : (
+                  'Criar Plano'
+                )}
+              </button>
+            )}
+          </div>
+        )}
+      >
+        {planModal && (
+          <div className="billing-plan-dialog">
+            {/* Stepper Header */}
+            <div className="billing-modal-stepper">
+              <button
+                type="button"
+                className={`billing-stepper-btn ${planStep === 'general' ? 'is-active' : ''}`}
+                onClick={() => setPlanStep('general')}
+              >
+                <span className="billing-stepper-num">1</span>
+                <div className="billing-stepper-text">
+                  <strong>1. Dados do Plano</strong>
+                  <span>Código, nome, nível e tipo</span>
+                </div>
+              </button>
+
+              <div className="billing-stepper-divider" />
+
+              <button
+                type="button"
+                className={`billing-stepper-btn ${planStep === 'pricing' ? 'is-active' : ''}`}
+                onClick={() => {
+                  if (editingCode || (planModal.code.trim() && planModal.name.trim())) {
+                    setPlanStep('pricing');
+                  } else {
+                    addToast({ type: 'info', title: 'Dados do Plano', description: 'Preencha o código e o nome antes de avançar para os ciclos.' });
+                  }
+                }}
+              >
+                <span className="billing-stepper-num">2</span>
+                <div className="billing-stepper-text">
+                  <strong>2. Ciclos e Preços</strong>
+                  <span>{planModal.isLifetime ? 'Isento (Vitalício)' : `${planModal.prices.length} ciclo(s) ativo(s)`}</span>
+                </div>
+              </button>
+            </div>
+
+            {/* Step 1: Dados do Plano */}
+            {planStep === 'general' && (
+              <div className="billing-step-content">
+                <div className="billing-form-grid-2">
+                  <div className="billing-field">
+                    <label className="billing-field-label" htmlFor="plan-code-input">
+                      Código {editingCode && <span className="billing-tag-readonly">Fixo</span>}
+                    </label>
+                    <input
+                      id="plan-code-input"
+                      className="form-input"
+                      value={planModal.code}
+                      disabled={Boolean(editingCode)}
+                      onChange={(event) =>
+                        setPlanModal({
+                          ...planModal,
+                          code: event.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''),
+                        })
+                      }
+                      placeholder="ex: basic, pro, vip"
+                      required
+                    />
+                    <span className="billing-field-hint">Chave de URL e APIs (minúsculas, números e hífens).</span>
+                  </div>
+
+                  <div className="billing-field">
+                    <label className="billing-field-label" htmlFor="plan-name-input">
+                      Nome do Plano
+                    </label>
+                    <input
+                      id="plan-name-input"
+                      className="form-input"
+                      value={planModal.name}
+                      onChange={(event) => setPlanModal({ ...planModal, name: event.target.value })}
+                      placeholder="ex: KeepGuard Básico"
+                      required
+                    />
+                    <span className="billing-field-hint">Nome visível na contratação e no painel.</span>
+                  </div>
+                </div>
+
+                <div className="billing-form-grid-2" style={{ marginTop: '1rem' }}>
+                  <div className="billing-field">
+                    <label className="billing-field-label" htmlFor="plan-level-input">
+                      Nível de Hierarquia
+                    </label>
+                    <input
+                      id="plan-level-input"
+                      className="form-input"
+                      type="number"
+                      min={0}
+                      value={planModal.level ?? 0}
+                      onChange={(event) =>
+                        setPlanModal({
+                          ...planModal,
+                          level: Math.max(0, parseInt(event.target.value, 10) || 0),
+                        })
+                      }
+                      required
+                    />
+                    <span className="billing-field-hint">0 = Básico/Free, 1 = Pro, 2 = Pro+, 3 = VIP. Ordem de upgrade.</span>
+                  </div>
+
+                  <div className="billing-field">
+                    <label className="billing-field-label" htmlFor="plan-trial-input">
+                      Trial (dias)
+                    </label>
+                    <div className="billing-input-group">
+                      <input
+                        id="plan-trial-input"
+                        className="form-input"
+                        type="number"
+                        min={0}
+                        max={14}
+                        value={planModal.trialDays}
+                        onChange={(event) =>
+                          setPlanModal({
+                            ...planModal,
+                            trialDays: Math.min(14, Math.max(0, Number(event.target.value) || 0)),
+                          })
+                        }
+                      />
+                      <span className="billing-input-affix">dias</span>
+                    </div>
+                    <span className="billing-field-hint">0 a 14 dias de teste gratuito sem cobrança imediata.</span>
+                  </div>
+                </div>
+
+                <div className="billing-toggles-card" style={{ marginTop: '1.25rem' }}>
+                  <label className="billing-toggle-item">
+                    <input
+                      type="checkbox"
+                      checked={planModal.enabled}
+                      onChange={(event) => setPlanModal({ ...planModal, enabled: event.target.checked })}
+                    />
+                    <div className="billing-toggle-body">
+                      <strong>Plano Ativo</strong>
+                      <span>Disponível para novas assinaturas no sistema</span>
+                    </div>
+                  </label>
+
+                  <label className="billing-toggle-item">
+                    <input
+                      type="checkbox"
+                      checked={planModal.isPublic ?? true}
+                      disabled={planModal.isLifetime}
+                      onChange={(event) => setPlanModal({ ...planModal, isPublic: event.target.checked })}
+                    />
+                    <div className="billing-toggle-body">
+                      <strong>Exibir na Vitrine Pública</strong>
+                      <span>Aparece no catálogo de planos para visitantes e clientes</span>
+                    </div>
+                  </label>
+
+                  <label className="billing-toggle-item">
+                    <input
+                      type="checkbox"
+                      checked={planModal.isLifetime ?? false}
+                      onChange={(event) => {
+                        const isLifetime = event.target.checked;
+                        setPlanModal({
+                          ...planModal,
+                          isLifetime,
+                          isPublic: isLifetime ? false : (planModal.isPublic ?? true),
+                          prices: isLifetime
+                            ? []
+                            : (planModal.prices.length ? planModal.prices : [{ interval: 'month', amountCents: 19900, currency: 'BRL' }]),
+                        });
+                      }}
+                    />
+                    <div className="billing-toggle-body">
+                      <strong>Plano VIP / Vitalício</strong>
+                      <span>Acesso permanente com isenção total de faturas no gateway</span>
+                    </div>
+                  </label>
+                </div>
+
+                {planModal.isLifetime && (
+                  <div className="billing-vip-alert">
+                    <Crown size={22} className="billing-vip-alert-icon" />
+                    <div className="billing-vip-alert-text">
+                      <strong>Plano VIP Vitalício Selecionado</strong>
+                      <p>Assinantes vinculados a este plano terão acesso irrestrito sem geração de cobranças no Asaas. A etapa de ciclos é dispensada e você já pode salvar o plano diretamente.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2: Ciclos e Preços */}
+            {planStep === 'pricing' && (
+              <div className="billing-step-content">
+                {planModal.isLifetime ? (
+                  <div className="billing-vip-hero">
+                    <div className="billing-vip-hero-badge">
+                      <Crown size={28} />
+                    </div>
+                    <h4>Isento de Ciclos Recorrentes</h4>
+                    <p>
+                      Este plano está configurado como <strong>VIP Vitalício</strong>. Usuários vinculados a ele não recebem cobranças automáticas no gateway de pagamento.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-pill btn-sm"
+                      onClick={() => {
+                        setPlanModal({
+                          ...planModal,
+                          isLifetime: false,
+                          prices: [{ interval: 'month', amountCents: 19900, currency: 'BRL' }],
+                        });
+                      }}
+                    >
+                      Alterar para Plano Recorrente com Ciclos
+                    </button>
+                  </div>
+                ) : (
+                  <div className="billing-pricing-section">
+                    <div className="billing-pricing-header">
+                      <div>
+                        <h4>Ciclos de Faturamento Disponíveis</h4>
+                        <p>Selecione as periodicidades que deseja oferecer e informe os respectivos valores em reais.</p>
+                      </div>
+                    </div>
+
+                    <div className="billing-cycles-grid">
+                      {INTERVAL_CONFIGS.map((cfg) => {
+                        const price = planModal.prices.find((p) => p.interval === cfg.value);
+                        const isSelected = Boolean(price);
+
+                        return (
+                          <div
+                            key={cfg.value}
+                            className={`billing-cycle-box ${isSelected ? 'is-selected' : 'is-unselected'}`}
+                          >
+                            <div className="billing-cycle-top">
+                              <label className="billing-cycle-check">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      const defaultCents = cfg.defaultCents;
+                                      setPlanModal({
+                                        ...planModal,
+                                        prices: [...planModal.prices, { interval: cfg.value, amountCents: defaultCents, currency: 'BRL' }],
+                                      });
+                                    } else {
+                                      if (planModal.prices.length <= 1) {
+                                        addToast({ type: 'warning', title: 'Ciclos', description: 'O plano precisa ter ao menos um ciclo ativo.' });
+                                        return;
+                                      }
+                                      setPlanModal({
+                                        ...planModal,
+                                        prices: planModal.prices.filter((p) => p.interval !== cfg.value),
+                                      });
+                                    }
+                                  }}
+                                />
+                                <span className="billing-cycle-label">{cfg.label}</span>
+                              </label>
+
+                              {isSelected && (
+                                <span className="billing-cycle-badge-active">
+                                  <Check size={12} style={{ marginRight: '3px' }} /> Ativo
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="billing-cycle-desc">{cfg.description}</p>
+
+                            <div className="billing-cycle-footer">
+                              {isSelected ? (
+                                <div className="billing-cycle-price-control">
+                                  <div className="billing-money-input-wrapper">
+                                    <span className="billing-money-currency">R$</span>
+                                    <input
+                                      className="form-input billing-money-input"
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      value={(price!.amountCents / 100).toFixed(2)}
+                                      onChange={(e) => {
+                                        const rawVal = Math.round(Number(e.target.value) * 100) || 0;
+                                        setPlanModal({
+                                          ...planModal,
+                                          prices: planModal.prices.map((p) =>
+                                            p.interval === cfg.value ? { ...p, amountCents: rawVal } : p
+                                          ),
+                                        });
+                                      }}
+                                    />
+                                  </div>
+                                  {cfg.months > 1 && (
+                                    <span className="billing-cycle-calc">
+                                      ≈ {formatMoney(Math.round(price!.amountCents / cfg.months))}/mês
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm btn-pill"
+                                  onClick={() => {
+                                    setPlanModal({
+                                      ...planModal,
+                                      prices: [...planModal.prices, { interval: cfg.value, amountCents: cfg.defaultCents, currency: 'BRL' }],
+                                    });
+                                  }}
+                                >
+                                  + Habilitar Ciclo
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </Modal>
     </div>

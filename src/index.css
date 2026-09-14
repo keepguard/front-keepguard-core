@@ -7129,6 +7129,418 @@ textarea.form-input {
   gap: 0.5rem;
 }
 
+/* =============================================================================
+   Billing Plan 2-Step Modal & Cycle Manager
+   ============================================================================= */
+
+.billing-plan-dialog {
+  display: flex;
+  flex-direction: column;
+}
+
+.billing-modal-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-muted, #f8f9fa);
+  border: 1px solid var(--border, #e3e5e8);
+  border-radius: 12px;
+}
+
+.billing-stepper-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-smooth);
+  flex: 1;
+}
+
+.billing-stepper-btn:hover {
+  background: rgba(103, 61, 230, 0.05);
+}
+
+.billing-stepper-btn.is-active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.billing-stepper-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: var(--border, #e3e5e8);
+  color: var(--text-muted, #5f6368);
+  transition: var(--transition-smooth);
+  flex-shrink: 0;
+}
+
+.billing-stepper-btn.is-active .billing-stepper-num {
+  background: var(--primary, #673de6);
+  color: #ffffff;
+}
+
+.billing-stepper-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.billing-stepper-text strong {
+  font-size: 0.85rem;
+  color: var(--text-main, #1d2129);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.billing-stepper-text span {
+  font-size: 0.72rem;
+  color: var(--text-muted, #5f6368);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.billing-stepper-divider {
+  width: 24px;
+  height: 1px;
+  background: var(--border, #e3e5e8);
+  flex-shrink: 0;
+}
+
+.billing-step-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.billing-form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .billing-form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.billing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.billing-field-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main, #1d2129);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.billing-tag-readonly {
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-muted, #f1f3f5);
+  color: var(--text-muted, #5f6368);
+  border: 1px solid var(--border, #e3e5e8);
+}
+
+.billing-field-hint {
+  font-size: 0.73rem;
+  color: var(--text-muted, #5f6368);
+  line-height: 1.3;
+}
+
+.billing-input-group {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.billing-input-affix {
+  position: absolute;
+  right: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted, #5f6368);
+  pointer-events: none;
+}
+
+.billing-toggles-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg-muted, #f8f9fa);
+  border: 1px solid var(--border, #e3e5e8);
+  border-radius: 10px;
+}
+
+.billing-toggle-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.billing-toggle-item input[type="checkbox"] {
+  margin-top: 0.2rem;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary, #673de6);
+  cursor: pointer;
+}
+
+.billing-toggle-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.billing-toggle-body strong {
+  font-size: 0.84rem;
+  color: var(--text-main, #1d2129);
+}
+
+.billing-toggle-body span {
+  font-size: 0.74rem;
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-vip-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 10px;
+}
+
+.billing-vip-alert-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #d97706;
+}
+
+.billing-vip-alert-text strong {
+  font-size: 0.85rem;
+  display: block;
+  margin-bottom: 2px;
+  color: #b45309;
+}
+
+.billing-vip-alert-text p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #92400e;
+}
+
+.billing-vip-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.25rem 1.5rem;
+  background: rgba(245, 158, 11, 0.04);
+  border: 1px dashed rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+}
+
+.billing-vip-hero-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #fef3c7;
+  color: #d97706;
+  margin-bottom: 1rem;
+}
+
+.billing-vip-hero h4 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  color: var(--text-main, #1d2129);
+}
+
+.billing-vip-hero p {
+  margin: 0 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted, #5f6368);
+  max-width: 440px;
+  line-height: 1.45;
+}
+
+.billing-pricing-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.billing-pricing-header {
+  margin-bottom: 1rem;
+}
+
+.billing-pricing-header h4 {
+  margin: 0 0 0.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main, #1d2129);
+}
+
+.billing-pricing-header p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-cycles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.85rem;
+}
+
+@media (max-width: 580px) {
+  .billing-cycles-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.billing-cycle-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1rem;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid var(--border, #e3e5e8);
+  transition: var(--transition-smooth);
+  min-height: 138px;
+}
+
+.billing-cycle-box.is-selected {
+  border-color: var(--primary, #673de6);
+  box-shadow: 0 2px 8px rgba(103, 61, 230, 0.08);
+  background: #ffffff;
+}
+
+.billing-cycle-box.is-unselected {
+  background: var(--bg-muted, #fafbfc);
+  border-color: var(--border, #e3e5e8);
+  opacity: 0.85;
+}
+
+.billing-cycle-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.billing-cycle-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.billing-cycle-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary, #673de6);
+  cursor: pointer;
+}
+
+.billing-cycle-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main, #1d2129);
+}
+
+.billing-cycle-badge-active {
+  display: flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: var(--success-light, #e6f7f3);
+  color: var(--success, #00b090);
+}
+
+.billing-cycle-desc {
+  font-size: 0.73rem;
+  color: var(--text-muted, #5f6368);
+  margin: 0 0 0.75rem;
+  line-height: 1.3;
+}
+
+.billing-cycle-footer {
+  margin-top: auto;
+}
+
+.billing-cycle-price-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.billing-money-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.billing-money-currency {
+  position: absolute;
+  left: 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted, #5f6368);
+  pointer-events: none;
+}
+
+.billing-money-input {
+  padding-left: 2rem !important;
+  font-weight: 600;
+  font-size: 0.92rem;
+  width: 100%;
+}
+
+.billing-cycle-calc {
+  font-size: 0.72rem;
+  color: var(--primary, #673de6);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.billing-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
 .billing-kicker {
   margin: 0 0 0.2rem;
   font-size: 0.72rem;
