@@ -6030,15 +6030,102 @@ textarea.form-input {
   background: transparent;
   color: inherit;
   font: inherit;
-  font-weight: 700;
-  letter-spacing: 0.03em;
   padding: 0.55rem 0.9rem;
   cursor: pointer;
+  transition: background-color 0.12s ease;
 }
 
 .market-ticker-option.is-active,
 .market-ticker-option:hover {
   background: var(--bg-muted, #f8f9fa);
+}
+
+.market-ticker-option-rich {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.market-ticker-option-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.market-ticker-option-symbol {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  font-size: 0.92rem;
+  color: var(--text-main, #1e293b);
+}
+
+.market-ticker-option-name {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.market-ticker-option-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.market-asset-type-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.12rem 0.38rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.market-asset-type-badge--fii {
+  background: var(--success-light, #d1fae5);
+  color: var(--success-dark, #065f46);
+  border: 1px solid rgba(6, 95, 70, 0.2);
+}
+
+.market-asset-type-badge--stock {
+  background: var(--info-light, #dbeafe);
+  color: var(--info-dark, #1e40af);
+  border: 1px solid rgba(30, 64, 175, 0.2);
+}
+
+.market-ticker-option-action {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  color: var(--primary, #2563eb);
+  font-weight: 600;
+  font-size: 0.82rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-subtle, #f8fafc);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+.market-ticker-option-action:hover,
+.market-ticker-option-action.is-active {
+  background: var(--bg-hover, #f1f5f9);
+}
+
+.market-ticker-action-hint {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted, #64748b);
+  margin-left: auto;
 }
 
 .market-desk-header {

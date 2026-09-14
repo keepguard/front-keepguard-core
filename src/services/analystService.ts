@@ -303,6 +303,24 @@ export interface AnalystUserWatchlist {
   updatedAt?: string;
 }
 
+export type AssetClassType = 'STOCK' | 'FII';
+
+export interface MarketAssetItem {
+  ticker: string;
+  displayName: string;
+  assetType: AssetClassType;
+  sectorId: string;
+  sectorLabel: string;
+  segment?: string;
+  hasRuns?: boolean;
+}
+
+export interface AnalystCatalogResponse {
+  tickers: string[];
+  total?: number;
+  items?: MarketAssetItem[];
+}
+
 export interface AnalystTickers {
   tickers: string[];
 }
@@ -335,8 +353,8 @@ export function listKnownTickers(): Promise<AnalystTickers> {
   return customFetch<AnalystTickers>(`${ANALYST_BASE}/tickers`, { method: 'GET' }, token());
 }
 
-export function listCatalogTickers(): Promise<AnalystTickers> {
-  return customFetch<AnalystTickers>(`${ANALYST_BASE}/catalog`, { method: 'GET' }, token());
+export function listCatalogTickers(): Promise<AnalystCatalogResponse> {
+  return customFetch<AnalystCatalogResponse>(`${ANALYST_BASE}/catalog`, { method: 'GET' }, token());
 }
 
 export function getFavorites(): Promise<AnalystFavorites> {

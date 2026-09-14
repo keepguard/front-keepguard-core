@@ -22,7 +22,18 @@ import {
   type AnalystRun,
   type AnalystRunDetail,
   type AnalystVerdictChange,
+  type MarketAssetItem,
+  type AssetClassType,
 } from '../../services/analystService';
+
+interface SearchSuggestion {
+  ticker: string;
+  displayName?: string;
+  assetType?: AssetClassType;
+  sectorLabel?: string;
+  segment?: string;
+  isDirectAction?: boolean;
+}
 import { onBillingEntitlement } from '../../services/billingService';
 import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
@@ -163,6 +174,7 @@ export const MarketDeskView: React.FC = () => {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(fromQuery);
 
   const [catalog, setCatalog] = useState<string[]>([]);
+  const [catalogItems, setCatalogItems] = useState<MarketAssetItem[]>([]);
   const [favorites, setFavorites] = useState<AnalystFavorites | null>(null);
   const [userWatchlist, setUserWatchlist] = useState<AnalystUserWatchlist | null>(null);
   const [openList, setOpenList] = useState(false);
@@ -201,11 +213,89 @@ export const MarketDeskView: React.FC = () => {
   const lockedTickers = userWatchlist?.lockedTickers ?? [];
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const isVIP = userWatchlist?.planCode?.toUpperCase() === 'VIP' || (userWatchlist?.maxTickers ?? 0) >= WATCHLIST_MAX_TICKERS;
-  const suggestions = useMemo(() => {
-    const pool = Array.from(new Set([...favoriteTickers, ...watchlistTickers, ...lockedTickers, ...catalog]));
-    if (!normalizedQuery) return pool.slice(0, 12);
-    return pool.filter((ticker) => ticker.includes(normalizedQuery)).slice(0, 12);
-  }, [catalog, favoriteTickers, watchlistTickers, lockedTickers, normalizedQuery]);
+
+  const catalogMap = useMemo(() => {
+    const map = new Map<string, MarketAssetItem>();
+    for (const item of catalogItems) {
+      map.set(item.ticker, item);
+    }
+    return map;
+  }, [catalogItems]);
+
+  const suggestions = useMemo<SearchSuggestion[]>(() => {
+    const queryUpper = query.trim().toUpperCase();
+    const queryLower = query.trim().toLowerCase();
+    const poolTickers = Array.from(new Set([...favoriteTickers, ...watchlistTickers, ...lockedTickers, ...catalog]));
+
+    if (!queryUpper) {
+      return poolTickers.slice(0, 12).map((ticker) => {
+        const meta = catalogMap.get(ticker);
+        return {
+          ticker,
+          displayName: meta?.displayName,
+          assetType: meta?.assetType,
+          sectorLabel: meta?.sectorLabel,
+          segment: meta?.segment,
+        };
+      });
+    }
+
+    const matched: SearchSuggestion[] = [];
+    const seen = new Set<string>();
+
+    for (const item of catalogItems) {
+      const matchTicker = item.ticker.includes(queryUpper);
+      const matchName = item.displayName && item.displayName.toLowerCase().includes(queryLower);
+      const matchSegment = item.segment && item.segment.toLowerCase().includes(queryLower);
+      const matchSector = item.sectorLabel && item.sectorLabel.toLowerCase().includes(queryLower);
+
+      if (matchTicker || matchName || matchSegment || matchSector) {
+        seen.add(item.ticker);
+        matched.push({
+          ticker: item.ticker,
+          displayName: item.displayName,
+          assetType: item.assetType,
+          sectorLabel: item.sectorLabel,
+          segment: item.segment,
+        });
+      }
+    }
+
+    for (const t of poolTickers) {
+      if (!seen.has(t) && t.includes(queryUpper)) {
+        seen.add(t);
+        const meta = catalogMap.get(t);
+        matched.push({
+          ticker: t,
+          displayName: meta?.displayName,
+          assetType: meta?.assetType,
+          sectorLabel: meta?.sectorLabel,
+          segment: meta?.segment,
+        });
+      }
+    }
+
+    matched.sort((a, b) => {
+      const aStarts = a.ticker.startsWith(queryUpper);
+      const bStarts = b.ticker.startsWith(queryUpper);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.ticker.localeCompare(b.ticker);
+    });
+
+    const results = matched.slice(0, 10);
+
+    const exactMatch = results.some((r) => r.ticker === queryUpper);
+    if (isValidTicker(queryUpper) && !exactMatch) {
+      results.unshift({
+        ticker: queryUpper,
+        displayName: 'Consultar dossiê no mercado',
+        isDirectAction: true,
+      });
+    }
+
+    return results;
+  }, [catalog, catalogItems, catalogMap, favoriteTickers, watchlistTickers, lockedTickers, query]);
 
   const latest = runs[0] ?? null;
   const collectedAt = freshestCollectedAt(latest);
@@ -245,7 +335,7 @@ export const MarketDeskView: React.FC = () => {
   const loadCatalog = useCallback(async () => {
     try {
       const [catalogRes, known, fav, uw] = await Promise.all([
-        listCatalogTickers().catch(() => ({ tickers: [] })),
+        listCatalogTickers().catch(() => ({ tickers: [] as string[], items: [] as MarketAssetItem[] })),
         listKnownTickers(),
         getFavorites(),
         getUserWatchlist(),
@@ -254,6 +344,7 @@ export const MarketDeskView: React.FC = () => {
         ? catalogRes.tickers
         : (known.tickers ?? []);
       setCatalog(fullCatalog);
+      setCatalogItems(catalogRes.items ?? []);
       setFavorites(fav);
       setUserWatchlist(uw);
       if (!initialAutoSelectedRef.current) {
@@ -396,7 +487,7 @@ export const MarketDeskView: React.FC = () => {
     if (event.key === 'Enter') {
       event.preventDefault();
       if (openList && suggestions[activeIndex]) {
-        applyTicker(suggestions[activeIndex]);
+        applyTicker(suggestions[activeIndex].ticker);
         return;
       }
       applyTicker(normalizedQuery);
@@ -727,23 +818,74 @@ export const MarketDeskView: React.FC = () => {
             />
             {openList && suggestions.length > 0 ? (
               <ul id={`${instanceId}-listbox`} className="market-ticker-listbox" role="listbox">
-                {suggestions.map((ticker, index) => (
-                  <li key={ticker} role="presentation">
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={index === activeIndex}
-                      className={`market-ticker-option${index === activeIndex ? ' is-active' : ''}`}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        applyTicker(ticker);
-                      }}
-                    >
-                      {ticker}
-                    </button>
-                  </li>
-                ))}
+                {suggestions.map((item, index) => {
+                  const isAction = item.isDirectAction;
+                  return (
+                    <li key={`${item.ticker}-${index}`} role="presentation">
+                      {isAction ? (
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={index === activeIndex}
+                          className={`market-ticker-option-action${index === activeIndex ? ' is-active' : ''}`}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            applyTicker(item.ticker);
+                          }}
+                        >
+                          <Search size={14} />
+                          <span>Consultar dossiê de <strong>{item.ticker}</strong></span>
+                          <span className="market-ticker-action-hint">Enter ↵</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={index === activeIndex}
+                          className={`market-ticker-option${index === activeIndex ? ' is-active' : ''}`}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            applyTicker(item.ticker);
+                          }}
+                        >
+                          <div className="market-ticker-option-rich">
+                            <div className="market-ticker-option-main">
+                              {item.assetType && (
+                                <span
+                                  className={`market-asset-type-badge ${
+                                    item.assetType === 'FII'
+                                      ? 'market-asset-type-badge--fii'
+                                      : 'market-asset-type-badge--stock'
+                                  }`}
+                                >
+                                  {item.assetType === 'FII' ? 'FII' : 'Ação'}
+                                </span>
+                              )}
+                              <span className="market-ticker-option-symbol">{item.ticker}</span>
+                              {item.displayName ? (
+                                <span className="market-ticker-option-name">· {item.displayName}</span>
+                              ) : null}
+                            </div>
+                            {item.segment || item.sectorLabel ? (
+                              <span className="market-ticker-option-sub">
+                                {item.segment || item.sectorLabel}
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
+            ) : null}
+            {openList && query.trim() && suggestions.length === 0 ? (
+              <div
+                className="market-ticker-listbox"
+                style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}
+              >
+                Nenhum ativo encontrado para "{query}". Digite o ticker completo (ex.: HGLG11 ou PETR4) para pesquisar.
+              </div>
             ) : null}
           </div>
         </div>
