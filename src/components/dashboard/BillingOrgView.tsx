@@ -65,6 +65,66 @@ function formatMoney(cents: number, currency = 'BRL'): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: currency || 'BRL' });
 }
 
+interface CurrencyInputProps {
+  valueCents: number;
+  onChange: (cents: number) => void;
+  disabled?: boolean;
+}
+
+const CurrencyInput: React.FC<CurrencyInputProps> = ({ valueCents, onChange, disabled }) => {
+  const formatValue = (cents: number) => {
+    return (cents / 100).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const [text, setText] = useState(() => formatValue(valueCents));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setText(formatValue(valueCents));
+    }
+  }, [valueCents, isFocused]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const sanitized = raw.replace(/[^\d.,]/g, '');
+    setText(sanitized);
+
+    const normalized = sanitized.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(normalized);
+    if (!isNaN(num) && num >= 0) {
+      onChange(Math.round(num * 100));
+    } else if (sanitized === '') {
+      onChange(0);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    setText(formatValue(valueCents));
+  };
+
+  return (
+    <div className={`billing-currency-control ${isFocused ? 'is-focused' : ''} ${disabled ? 'is-disabled' : ''}`}>
+      <span className="billing-currency-addon" aria-hidden="true">R$</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        className="billing-currency-field-input"
+        value={text}
+        onChange={handleChange}
+        onFocus={() => setIsFocused(true)}
+        onBlur={handleBlur}
+        disabled={disabled}
+        placeholder="0,00"
+      />
+    </div>
+  );
+};
+
 function intervalLabel(value?: string | null): string {
   if (value === 'lifetime') return 'Vitalício';
   return INTERVALS.find((item) => item.value === value)?.label || value || '—';
@@ -1538,6 +1598,13 @@ function PlansPanel({ writable }: { writable: boolean }) {
                       {INTERVAL_CONFIGS.map((cfg) => {
                         const price = planModal.prices.find((p) => p.interval === cfg.value);
                         const isSelected = Boolean(price);
+                        const monthlyPrice = planModal.prices.find((p) => p.interval === 'month');
+                        const monthlyCents = monthlyPrice ? monthlyPrice.amountCents : 0;
+                        const expectedCents = monthlyCents * cfg.months;
+                        const actualCents = price ? price.amountCents : 0;
+                        const discount = cfg.months > 1 && expectedCents > 0 && actualCents > 0 && actualCents < expectedCents
+                          ? Math.round(((expectedCents - actualCents) / expectedCents) * 100)
+                          : 0;
 
                         return (
                           <div
@@ -1583,29 +1650,28 @@ function PlansPanel({ writable }: { writable: boolean }) {
                             <div className="billing-cycle-footer">
                               {isSelected ? (
                                 <div className="billing-cycle-price-control">
-                                  <div className="billing-money-input-wrapper">
-                                    <span className="billing-money-currency">R$</span>
-                                    <input
-                                      className="form-input billing-money-input"
-                                      type="number"
-                                      min={0}
-                                      step="0.01"
-                                      value={(price!.amountCents / 100).toFixed(2)}
-                                      onChange={(e) => {
-                                        const rawVal = Math.round(Number(e.target.value) * 100) || 0;
-                                        setPlanModal({
-                                          ...planModal,
-                                          prices: planModal.prices.map((p) =>
-                                            p.interval === cfg.value ? { ...p, amountCents: rawVal } : p
-                                          ),
-                                        });
-                                      }}
-                                    />
-                                  </div>
-                                  {cfg.months > 1 && (
-                                    <span className="billing-cycle-calc">
-                                      ≈ {formatMoney(Math.round(price!.amountCents / cfg.months))}/mês
-                                    </span>
+                                  <CurrencyInput
+                                    valueCents={price!.amountCents}
+                                    onChange={(newCents) => {
+                                      setPlanModal({
+                                        ...planModal,
+                                        prices: planModal.prices.map((p) =>
+                                          p.interval === cfg.value ? { ...p, amountCents: newCents } : p
+                                        ),
+                                      });
+                                    }}
+                                  />
+                                  {cfg.months > 1 && price!.amountCents > 0 && (
+                                    <div className="billing-cycle-calc-row">
+                                      <span className="billing-cycle-calc-monthly">
+                                        ≈ {formatMoney(Math.round(price!.amountCents / cfg.months))}/mês
+                                      </span>
+                                      {discount > 0 && (
+                                        <span className="billing-cycle-discount-tag">
+                                          {discount}% de economia
+                                        </span>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               ) : (
