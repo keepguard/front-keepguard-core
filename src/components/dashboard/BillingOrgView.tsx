@@ -1517,7 +1517,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     <div className="billing-input-group">
                       <input
                         id="plan-trial-input"
-                        className="form-input"
+                        className="billing-input-group-field"
                         type="number"
                         min={0}
                         max={14}
@@ -1529,7 +1529,19 @@ function PlansPanel({ writable }: { writable: boolean }) {
                           })
                         }
                       />
-                      <span className="billing-input-affix">dias</span>
+                      <span className="billing-input-group-addon">dias</span>
+                    </div>
+                    <div className="billing-quick-presets">
+                      {[0, 7, 14].map((days) => (
+                        <button
+                          key={days}
+                          type="button"
+                          className={`billing-preset-chip ${planModal.trialDays === days ? 'is-active' : ''}`}
+                          onClick={() => setPlanModal({ ...planModal, trialDays: days })}
+                        >
+                          {days === 0 ? 'Sem trial' : `${days} dias`}
+                        </button>
+                      ))}
                     </div>
                     <span className="billing-field-hint">0 a 14 dias de teste gratuito sem cobrança imediata.</span>
                   </div>
