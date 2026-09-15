@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, CreditCard, Crown, Loader2, Lock, Pencil, Plus, Search } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, CreditCard, Crown, Eye, Loader2, Lock, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
+  deleteBillingPlan,
   grantLifetimeSubscription,
   listBillingGatewayAccounts,
   listBillingPlans,
@@ -1127,6 +1128,9 @@ function PlansPanel({ writable }: { writable: boolean }) {
   const [planStep, setPlanStep] = useState<'general' | 'pricing'>('general');
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewingPlan, setViewingPlan] = useState<BillingPlan | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState<BillingPlan | null>(null);
+  const [deletingBusy, setDeletingBusy] = useState(false);
 
   const load = useCallback(async () => {
     const access = getAccessToken();
@@ -1144,6 +1148,35 @@ function PlansPanel({ writable }: { writable: boolean }) {
   useEffect(() => {
     if (isAuthenticated) void load();
   }, [isAuthenticated, load]);
+
+  const confirmDelete = async () => {
+    if (!deletingPlan) return;
+    const access = getAccessToken();
+    if (!access) return;
+
+    setDeletingBusy(true);
+    try {
+      await deleteBillingPlan(deletingPlan.code, access);
+      addToast({
+        type: 'success',
+        title: 'Plano excluído',
+        description: `O plano "${deletingPlan.name}" (${deletingPlan.code}) foi removido com sucesso.`,
+      });
+      setDeletingPlan(null);
+      if (viewingPlan?.id === deletingPlan.id) {
+        setViewingPlan(null);
+      }
+      await load();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Não foi possível excluir o plano',
+        description: err.message || 'Falha ao excluir o plano no servidor.',
+      });
+    } finally {
+      setDeletingBusy(false);
+    }
+  };
 
   const openNewPlan = () => {
     setEditingCode(null);
@@ -1250,14 +1283,14 @@ function PlansPanel({ writable }: { writable: boolean }) {
               <th style={{ minWidth: '190px' }}>Nome</th>
               <th style={{ width: '110px' }}>Status</th>
               <th>Preços por Ciclo</th>
-              {writable ? <th style={{ width: '60px', textAlign: 'right' }} /> : null}
+              <th style={{ width: writable ? '120px' : '50px', textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={writable ? 6 : 5} className="table-cell-muted">Carregando…</td></tr>
+              <tr><td colSpan={6} className="table-cell-muted">Carregando…</td></tr>
             ) : plans.length === 0 ? (
-              <tr><td colSpan={writable ? 6 : 5} className="table-cell-muted">Nenhum plano cadastrado.</td></tr>
+              <tr><td colSpan={6} className="table-cell-muted">Nenhum plano cadastrado.</td></tr>
             ) : plans.map((plan) => (
               <tr key={plan.id}>
                 <td>
@@ -1311,18 +1344,38 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     </div>
                   )}
                 </td>
-                {writable ? (
-                  <td style={{ textAlign: 'right' }}>
+                <td style={{ textAlign: 'right' }}>
+                  <div className="billing-table-actions">
                     <button
                       type="button"
                       className="btn-table-icon"
-                      title="Editar plano"
-                      onClick={() => openEditPlan(plan)}
+                      title="Ver detalhes do plano"
+                      onClick={() => setViewingPlan(plan)}
                     >
-                      <Pencil size={15} />
+                      <Eye size={15} />
                     </button>
-                  </td>
-                ) : null}
+                    {writable ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-table-icon"
+                          title="Editar plano"
+                          onClick={() => openEditPlan(plan)}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-table-icon is-danger"
+                          title="Excluir plano"
+                          onClick={() => setDeletingPlan(plan)}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -1747,6 +1800,220 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 )}
               </div>
             )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal de Detalhes do Plano */}
+      <Modal
+        isOpen={viewingPlan !== null}
+        onClose={() => setViewingPlan(null)}
+        title={viewingPlan ? `Plano: ${viewingPlan.name}` : 'Detalhes do Plano'}
+        subtitle={viewingPlan ? `Código identificador: ${viewingPlan.code}` : undefined}
+        maxWidth="720px"
+        footer={(
+          <div className="billing-modal-footer">
+            <button
+              type="button"
+              className="btn btn-outline btn-pill"
+              onClick={() => setViewingPlan(null)}
+            >
+              Fechar
+            </button>
+            {writable && viewingPlan && (
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-pill"
+                  onClick={() => {
+                    const target = viewingPlan;
+                    setViewingPlan(null);
+                    setDeletingPlan(target);
+                  }}
+                >
+                  <Trash2 size={15} style={{ marginRight: '0.35rem' }} />
+                  Excluir Plano
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-pill"
+                  onClick={() => {
+                    const target = viewingPlan;
+                    setViewingPlan(null);
+                    openEditPlan(target);
+                  }}
+                >
+                  <Pencil size={15} style={{ marginRight: '0.35rem' }} />
+                  Editar Plano
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      >
+        {viewingPlan && (
+          <div className="billing-plan-detail-dialog">
+            <div className="billing-detail-grid-4">
+              <div className="billing-detail-stat-card">
+                <span className="billing-detail-stat-label">Status</span>
+                <div className="billing-detail-stat-value">
+                  <span className={`billing-status-badge ${viewingPlan.enabled ? 'is-active' : 'is-inactive'}`}>
+                    <span className="billing-status-dot" />
+                    {viewingPlan.enabled ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="billing-detail-stat-card">
+                <span className="billing-detail-stat-label">Nível de Acesso</span>
+                <div className="billing-detail-stat-value">
+                  {viewingPlan.isLifetime || (viewingPlan.level != null && viewingPlan.level >= 999) ? (
+                    <span className="billing-level-tag is-vip">
+                      <Crown size={11} style={{ marginRight: '0.25rem' }} />
+                      Vitalício
+                    </span>
+                  ) : (
+                    <span className={`billing-level-tag level-${viewingPlan.level ?? 0}`}>
+                      Nível {viewingPlan.level ?? 0}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="billing-detail-stat-card">
+                <span className="billing-detail-stat-label">Visibilidade</span>
+                <div className="billing-detail-stat-value">
+                  {viewingPlan.isPublic === false ? (
+                    <span className="billing-tag-meta is-private">
+                      <Lock size={10} />
+                      Privado
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--text-main)' }}>Público</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="billing-detail-stat-card">
+                <span className="billing-detail-stat-label">Período de Avaliação</span>
+                <div className="billing-detail-stat-value">
+                  {viewingPlan.trialDays && viewingPlan.trialDays > 0 ? (
+                    <span>{viewingPlan.trialDays} dias grátis</span>
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)' }}>Sem trial</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {viewingPlan.isLifetime ? (
+              <div className="billing-vip-alert">
+                <Crown size={24} className="billing-vip-alert-icon" />
+                <div className="billing-vip-alert-text">
+                  <strong>Plano VIP Vitalício Isento</strong>
+                  <p>
+                    Este plano concede acesso permanente sem geração de faturas nem cobranças recorrentes no gateway Asaas.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="billing-detail-section">
+                <span className="billing-detail-section-title">Ciclos e Preços Configurados</span>
+                {!viewingPlan.prices || viewingPlan.prices.length === 0 ? (
+                  <div className="table-cell-muted" style={{ padding: '1rem', background: 'var(--bg-surface-elevated)', borderRadius: '8px' }}>
+                    Nenhum ciclo de cobrança configurado para este plano.
+                  </div>
+                ) : (
+                  <div className="billing-detail-prices-grid">
+                    {INTERVALS.map((cfg) => {
+                      const p = viewingPlan.prices.find((pr) => pr.interval === cfg.value);
+                      if (!p) return null;
+                      const monthPrice = viewingPlan.prices.find((pr) => pr.interval === 'month');
+                      const baseMonthly = monthPrice ? monthPrice.amountCents : 0;
+                      const monthlyEquivalent = Math.round(p.amountCents / cfg.months);
+                      const discount = (baseMonthly > 0 && cfg.months > 1 && monthlyEquivalent < baseMonthly)
+                        ? Math.round(((baseMonthly - monthlyEquivalent) / baseMonthly) * 100)
+                        : 0;
+
+                      return (
+                        <div key={cfg.value} className="billing-detail-price-card">
+                          <div className="billing-detail-price-header">
+                            <span className="billing-detail-price-interval">{cfg.label}</span>
+                          </div>
+                          <div className="billing-detail-price-amount">
+                            {formatMoney(p.amountCents, p.currency)}
+                          </div>
+                          {cfg.months > 1 && (
+                            <span className="billing-detail-price-monthly">
+                              ≈ {formatMoney(monthlyEquivalent, p.currency)}/mês
+                            </span>
+                          )}
+                          {discount > 0 && (
+                            <span className="billing-detail-discount-tag">
+                              {discount}% de economia
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <Modal
+        isOpen={deletingPlan !== null}
+        onClose={() => !deletingBusy && setDeletingPlan(null)}
+        title="Excluir Plano"
+        subtitle="Confirmação de remoção permanente"
+        maxWidth="500px"
+        footer={(
+          <div className="billing-modal-footer">
+            <button
+              type="button"
+              className="btn btn-outline btn-pill"
+              onClick={() => setDeletingPlan(null)}
+              disabled={deletingBusy}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger btn-pill"
+              disabled={deletingBusy}
+              onClick={() => void confirmDelete()}
+            >
+              {deletingBusy ? (
+                <>
+                  <Loader2 size={15} className="billing-spin" style={{ marginRight: '0.35rem' }} />
+                  Excluindo…
+                </>
+              ) : (
+                'Sim, Excluir Plano'
+              )}
+            </button>
+          </div>
+        )}
+      >
+        {deletingPlan && (
+          <div className="billing-delete-confirm-box">
+            <div className="billing-delete-hero">
+              <AlertCircle size={24} className="billing-delete-hero-icon" />
+              <div className="billing-delete-hero-body">
+                <span className="billing-delete-hero-title">Ação irreversível</span>
+                <p className="billing-delete-hero-desc">
+                  Você tem certeza que deseja excluir o plano <strong>{deletingPlan.name}</strong> (código: <code>{deletingPlan.code}</code>)?
+                </p>
+              </div>
+            </div>
+
+            <div className="billing-delete-rules-notice">
+              <strong>Regra de Integridade Financeira:</strong> O sistema não permite excluir planos que já possuam assinaturas ou direitos de acesso concedidos a usuários. Caso este plano já tenha sido utilizado, você pode inativá-lo na edição em vez de excluí-lo.
+            </div>
           </div>
         )}
       </Modal>

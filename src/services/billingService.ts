@@ -153,6 +153,12 @@ export function patchBillingPlan(code: string, body: SaveBillingPlan, token: str
   }, token);
 }
 
+export function deleteBillingPlan(code: string, token: string): Promise<void> {
+  return customFetch<void>(`${BILLING_BASE}/plans/${encodeURIComponent(code)}`, {
+    method: 'DELETE',
+  }, token);
+}
+
 export async function listBillingGatewayAccounts(token: string): Promise<BillingGatewayAccountList> {
   return customFetch<BillingGatewayAccountList>(`${BILLING_BASE}/gateway-accounts`, { method: 'GET' }, token);
 }
