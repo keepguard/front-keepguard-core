@@ -1213,52 +1213,60 @@ function PlansPanel({ writable }: { writable: boolean }) {
   };
 
   return (
-    <div>
-      <section className="hpanel-table-card billing-card">
-        <div className="client-system-create-row">
-          <h2>Planos da organização</h2>
-          {writable && (
-            <button
-              type="button"
-              className="btn btn-primary btn-pill"
-              onClick={openNewPlan}
-            >
-              <Plus size={15} />
-              <span>Novo plano</span>
-            </button>
-          )}
+    <div className="billing-plans-view">
+      <div className="client-system-create-row" style={{ marginBottom: '1.25rem' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Planos da organização</h2>
+          <p className="dashboard-subtitle" style={{ margin: '0.25rem 0 0' }}>
+            Gerencie os planos de assinatura, níveis de acesso e ciclos de preços ativos.
+          </p>
         </div>
-        <div className="hpanel-table-card desktop-table-view">
-          <table className="hpanel-table">
-            <thead>
-              <tr>
-                <th>Nível</th>
-                <th>Código</th>
-                <th>Nome</th>
-                <th>Status</th>
-                <th>Preços</th>
-                {writable ? <th /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={writable ? 6 : 5} className="table-cell-muted">Carregando…</td></tr>
-              ) : plans.length === 0 ? (
-                <tr><td colSpan={writable ? 6 : 5} className="table-cell-muted">Nenhum plano.</td></tr>
-              ) : plans.map((plan) => (
-                <tr key={plan.id}>
-                  <td>
-                    <span className="billing-status-pill">
-                      Nível {plan.level ?? 0}
-                    </span>
-                  </td>
-                  <td>{plan.code}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <span>{plan.name}</span>
+        {writable && (
+          <button
+            type="button"
+            className="btn btn-primary btn-pill"
+            onClick={openNewPlan}
+          >
+            <Plus size={15} />
+            <span>Novo plano</span>
+          </button>
+        )}
+      </div>
+
+      <div className="hpanel-table-card desktop-table-view">
+        <table className="hpanel-table billing-plans-table">
+          <thead>
+            <tr>
+              <th style={{ width: '90px' }}>Nível</th>
+              <th style={{ width: '120px' }}>Código</th>
+              <th style={{ width: '220px' }}>Nome</th>
+              <th style={{ width: '110px' }}>Status</th>
+              <th>Preços por Ciclo</th>
+              {writable ? <th style={{ width: '60px', textAlign: 'right' }} /> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={writable ? 6 : 5} className="table-cell-muted">Carregando…</td></tr>
+            ) : plans.length === 0 ? (
+              <tr><td colSpan={writable ? 6 : 5} className="table-cell-muted">Nenhum plano cadastrado.</td></tr>
+            ) : plans.map((plan) => (
+              <tr key={plan.id}>
+                <td>
+                  <span className={`billing-level-tag level-${plan.level ?? 0}`}>
+                    Nível {plan.level ?? 0}
+                  </span>
+                </td>
+                <td>
+                  <code className="billing-code-pill">{plan.code}</code>
+                </td>
+                <td>
+                  <div className="billing-plan-info">
+                    <span className="billing-plan-title">{plan.name}</span>
+                    <div className="billing-plan-badges">
                       {plan.isLifetime && (
                         <span className="billing-status-pill is-vip" title="Plano VIP vitalício sem cobrança de gateway">
-                          <Crown size={12} style={{ marginRight: '0.25rem' }} />
+                          <Crown size={11} style={{ marginRight: '0.25rem' }} />
                           VIP / Vitalício
                         </span>
                       )}
@@ -1268,37 +1276,50 @@ function PlansPanel({ writable }: { writable: boolean }) {
                         </span>
                       )}
                     </div>
+                  </div>
+                </td>
+                <td>
+                  <span className={`billing-status-badge ${plan.enabled ? 'is-active' : 'is-inactive'}`}>
+                    <span className="billing-status-dot" />
+                    {plan.enabled ? 'Ativo' : 'Inativo'}
+                  </span>
+                </td>
+                <td>
+                  {plan.isLifetime && (!plan.prices || plan.prices.length === 0) ? (
+                    <div className="billing-price-exempt-tag">
+                      <Crown size={13} />
+                      <span>Isento (Vitalício)</span>
+                    </div>
+                  ) : !plan.prices || plan.prices.length === 0 ? (
+                    <span className="table-cell-muted">Sem ciclos de preço</span>
+                  ) : (
+                    <div className="billing-price-chips-wrap">
+                      {plan.prices.map((price) => (
+                        <div key={price.interval} className="billing-price-chip">
+                          <span className="billing-price-chip-interval">{intervalLabel(price.interval)}</span>
+                          <span className="billing-price-chip-amount">{formatMoney(price.amountCents, price.currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </td>
+                {writable ? (
+                  <td style={{ textAlign: 'right' }}>
+                    <button
+                      type="button"
+                      className="btn-table-icon"
+                      title="Editar plano"
+                      onClick={() => openEditPlan(plan)}
+                    >
+                      <Pencil size={15} />
+                    </button>
                   </td>
-                  <td>
-                    <span className={`billing-status-pill ${plan.enabled ? 'is-active' : 'is-inactive'}`}>
-                      {plan.enabled ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </td>
-                  <td>
-                    {plan.isLifetime && plan.prices.length === 0 ? (
-                      <span className="table-cell-muted">Isento (Vitalício)</span>
-                    ) : (
-                      plan.prices.map((price) => `${intervalLabel(price.interval)} ${formatMoney(price.amountCents, price.currency)}`).join(' · ') || '—'
-                    )}
-                  </td>
-                  {writable ? (
-                    <td>
-                      <button
-                        type="button"
-                        className="btn-table-icon"
-                        title="Editar"
-                        onClick={() => openEditPlan(plan)}
-                      >
-                        <Pencil size={15} />
-                      </button>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <Modal
         isOpen={planModal !== null}
