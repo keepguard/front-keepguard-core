@@ -1634,25 +1634,27 @@ function PlansPanel({ writable }: { writable: boolean }) {
       return;
     }
 
-    if (planModal.quotaSlots < 1) {
-      addToast({ type: 'warning', title: 'Cotas do Plano', description: 'A carteira deve ter ao menos 1 slot de ativo.' });
-      setPlanStep('quotas');
-      return;
-    }
-    if (planModal.quotaPicks < 0 || planModal.quotaPicks > planModal.quotaSlots) {
-      addToast({ type: 'warning', title: 'Cotas do Plano', description: 'Os picks livres não podem ser negativos nem maiores que os slots totais.' });
-      setPlanStep('quotas');
-      return;
-    }
-    const requiredFixed = planModal.quotaSlots - planModal.quotaPicks;
-    if (planModal.quotaFixedTickers.length !== requiredFixed) {
-      addToast({
-        type: 'warning',
-        title: 'Ativos Fixos Incompletos',
-        description: `Este plano exige exatamente ${requiredFixed} ativo(s) fixo(s) obrigatório(s) (Slots: ${planModal.quotaSlots} - Picks: ${planModal.quotaPicks}). Foram adicionados ${planModal.quotaFixedTickers.length}.`,
-      });
-      setPlanStep('quotas');
-      return;
+    if (!planModal.isLifetime) {
+      if (planModal.quotaSlots < 1) {
+        addToast({ type: 'warning', title: 'Cotas do Plano', description: 'A carteira deve ter ao menos 1 slot de ativo.' });
+        setPlanStep('quotas');
+        return;
+      }
+      if (planModal.quotaPicks < 0 || planModal.quotaPicks > planModal.quotaSlots) {
+        addToast({ type: 'warning', title: 'Cotas do Plano', description: 'Os picks livres não podem ser negativos nem maiores que os slots totais.' });
+        setPlanStep('quotas');
+        return;
+      }
+      const requiredFixed = planModal.quotaSlots - planModal.quotaPicks;
+      if (planModal.quotaFixedTickers.length !== requiredFixed) {
+        addToast({
+          type: 'warning',
+          title: 'Ativos Fixos Incompletos',
+          description: `Este plano exige exatamente ${requiredFixed} ativo(s) fixo(s) obrigatório(s) (Slots: ${planModal.quotaSlots} - Picks: ${planModal.quotaPicks}). Foram adicionados ${planModal.quotaFixedTickers.length}.`,
+        });
+        setPlanStep('quotas');
+        return;
+      }
     }
 
     setBusy(true);
@@ -1674,15 +1676,19 @@ function PlansPanel({ writable }: { writable: boolean }) {
         await saveBillingPlan(payload, access);
       }
 
-      // Persiste cotas de mercado no bff-invest
+      // Persiste cotas de mercado no bff-invest (VIP recebe 150 slots 100% livres)
+      const quotaSlots = planModal.isLifetime ? 150 : planModal.quotaSlots;
+      const quotaPicks = planModal.isLifetime ? 150 : planModal.quotaPicks;
+      const quotaFixed = planModal.isLifetime ? [] : planModal.quotaFixedTickers;
+
       const otherQuotas = allQuotas.filter((q) => q.planCode !== payload.code);
       const newQuotaList = [
         ...otherQuotas,
         {
           planCode: payload.code,
-          watchlistSlots: planModal.quotaSlots,
-          watchlistPicks: planModal.quotaPicks,
-          fixedTickers: planModal.quotaFixedTickers,
+          watchlistSlots: quotaSlots,
+          watchlistPicks: quotaPicks,
+          fixedTickers: quotaFixed,
         },
       ];
       await savePlanQuotas({ quotas: newQuotaList });
@@ -1991,7 +1997,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
               <button
                 type="button"
                 className="btn btn-primary btn-pill"
-                disabled={!planModal?.prices || planModal.prices.length === 0}
+                disabled={!planModal?.isLifetime && (!planModal?.prices || planModal.prices.length === 0)}
                 onClick={() => setPlanStep('quotas')}
               >
                 Avançar para Cotas
@@ -2067,7 +2073,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 <span className="billing-stepper-num">3</span>
                 <div className="billing-stepper-text">
                   <strong>3. Cotas de Mercado</strong>
-                  <span>{planModal.quotaSlots} slots ({planModal.quotaPicks} livres)</span>
+                  <span>{planModal.isLifetime ? 'Acesso Total (Irrestrito)' : `${planModal.quotaSlots} slots (${planModal.quotaPicks} livres)`}</span>
                 </div>
               </button>
             </div>
@@ -2220,6 +2226,9 @@ function PlansPanel({ writable }: { writable: boolean }) {
                           prices: isLifetime
                             ? []
                             : (planModal.prices.length ? planModal.prices : [{ interval: 'month', amountCents: 19900, currency: 'BRL' }]),
+                          quotaSlots: isLifetime ? 150 : (planModal.quotaSlots || 10),
+                          quotaPicks: isLifetime ? 150 : (planModal.quotaPicks || 10),
+                          quotaFixedTickers: isLifetime ? [] : planModal.quotaFixedTickers,
                         });
                       }}
                     />
@@ -2384,132 +2393,162 @@ function PlansPanel({ writable }: { writable: boolean }) {
             {/* Step 3: Limites e Cotas de Mercado */}
             {planStep === 'quotas' && (
               <div className="billing-step-content">
-                <div className="billing-quotas-form-intro">
-                  <div className="billing-title-with-tooltip">
-                    <h4>Capacidade da Carteira de Mercado</h4>
-                    <InfoHelpTooltip text="Defina o tamanho da carteira que o assinante pode acompanhar e quantos ativos ele escolhe livremente." />
-                  </div>
-                </div>
-
-                {(() => {
-                  const requiredFixed = planModal.quotaSlots - planModal.quotaPicks;
-                  const is100Free = requiredFixed === 0;
-                  const percentComplete = requiredFixed > 0
-                    ? Math.min(100, Math.round((planModal.quotaFixedTickers.length / requiredFixed) * 100))
-                    : 100;
-
-                  return (
-                    <div>
-                      {/* Equação Visual Interativa da Carteira */}
-                      <div className="billing-quotas-composition-card">
-                        <div className="billing-quotas-equation">
-                          <div className="billing-equation-box is-total">
-                            <input
-                              id="plan-quota-slots"
-                              type="number"
-                              min={1}
-                              max={200}
-                              className="billing-equation-input"
-                              value={planModal.quotaSlots}
-                              onChange={(e) => {
-                                const s = Math.max(1, parseInt(e.target.value, 10) || 1);
-                                const p = Math.min(planModal.quotaPicks, s);
-                                setPlanModal({
-                                  ...planModal,
-                                  quotaSlots: s,
-                                  quotaPicks: p,
-                                  quotaFixedTickers: planModal.quotaFixedTickers.slice(0, s - p),
-                                });
-                              }}
-                              title="Capacidade máxima de ativos monitorados pelo usuário"
-                              required
-                            />
-                            <div className="billing-equation-lbl-wrap">
-                              <span className="billing-equation-lbl">Slots Totais</span>
-                              <InfoHelpTooltip text="Limite máximo de ativos monitorados pelo usuário nesta carteira." />
-                            </div>
-                          </div>
-
-                          <span className="billing-equation-op">=</span>
-
-                          <div className="billing-equation-box is-picks">
-                            <input
-                              id="plan-quota-picks"
-                              type="number"
-                              min={0}
-                              max={planModal.quotaSlots}
-                              className="billing-equation-input is-picks"
-                              value={planModal.quotaPicks}
-                              onChange={(e) => {
-                                const p = Math.min(
-                                  planModal.quotaSlots,
-                                  Math.max(0, parseInt(e.target.value, 10) || 0)
-                                );
-                                setPlanModal({
-                                  ...planModal,
-                                  quotaPicks: p,
-                                  quotaFixedTickers: planModal.quotaFixedTickers.slice(0, planModal.quotaSlots - p),
-                                });
-                              }}
-                              title="Ativos que o cliente escolhe livremente no catálogo"
-                              required
-                            />
-                            <div className="billing-equation-lbl-wrap">
-                              <span className="billing-equation-lbl" style={{ color: 'var(--primary, #673de6)' }}>Livre Escolha</span>
-                              <InfoHelpTooltip text="Ativos que o cliente escolhe livremente no catálogo de mercado." />
-                            </div>
-                          </div>
-
-                          <span className="billing-equation-op">+</span>
-
-                          <div className="billing-equation-box is-fixed">
-                            <span className="billing-equation-val" style={{ color: 'var(--warning, #b45309)' }}>
-                              {requiredFixed}
-                            </span>
-                            <div className="billing-equation-lbl-wrap">
-                              <span className="billing-equation-lbl" style={{ color: 'var(--warning, #b45309)' }}>Fixos da Plataforma</span>
-                              <InfoHelpTooltip text="Ativos fixos recomendados obrigatórios configurados pela plataforma (Total menos Livre Escolha)." />
-                            </div>
-                          </div>
-                        </div>
-
-                        {requiredFixed > 0 && (
-                          <div className="billing-quotas-progress-box">
-                            <div className="billing-quotas-progress-header">
-                              <span className="billing-quotas-progress-title">Composição dos Fixos Obrigatórios</span>
-                              <span className="billing-quotas-progress-counter">
-                                {planModal.quotaFixedTickers.length} de {requiredFixed} cadastrados ({percentComplete}%)
-                              </span>
-                            </div>
-                            <div className="billing-quotas-progress-track">
-                              <div
-                                className={`billing-quotas-progress-bar ${percentComplete === 100 ? 'is-complete' : ''}`}
-                                style={{ width: `${percentComplete}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {is100Free ? (
-                        <div className="billing-tickers-empty-hint is-success" style={{ marginTop: '1rem' }}>
-                          <CheckCircle2 size={16} />
-                          <span>100% Livre Escolha: O assinante poderá escolher todos os {planModal.quotaSlots} ativos livremente.</span>
-                        </div>
-                      ) : (
-                        <TickerPicker
-                          id="plan-ticker-picker-input"
-                          knownTickers={knownTickers}
-                          selectedTickers={planModal.quotaFixedTickers}
-                          maxCount={requiredFixed}
-                          onAdd={addPlanFixedTicker}
-                          onRemove={removePlanFixedTicker}
-                          placeholder="Buscar ativo no catálogo (ex: PETR4, HGLG11)..."
-                        />
-                      )}
+                {planModal.isLifetime ? (
+                  <div className="billing-vip-hero">
+                    <div className="billing-vip-hero-badge">
+                      <Crown size={28} />
                     </div>
-                  );
-                })()}
+                    <h4>Acesso Irrestrito à Carteira de Mercado</h4>
+                    <p>
+                      Este plano está configurado como <strong>VIP Vitalício</strong>. Usuários vinculados a ele possuem acesso total e irrestrito ao catálogo de ativos da carteira ({planModal.quotaSlots || 150} slots 100% livres), sem obrigatoriedade de ativos fixos ou cotas limitadas.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-pill btn-sm"
+                      onClick={() => {
+                        setPlanModal({
+                          ...planModal,
+                          isLifetime: false,
+                          prices: [{ interval: 'month', amountCents: 19900, currency: 'BRL' }],
+                          quotaSlots: 10,
+                          quotaPicks: 10,
+                          quotaFixedTickers: [],
+                        });
+                      }}
+                    >
+                      Alterar para Plano Recorrente com Cotas Personalizadas
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="billing-quotas-form-intro">
+                      <div className="billing-title-with-tooltip">
+                        <h4>Capacidade da Carteira de Mercado</h4>
+                        <InfoHelpTooltip text="Defina o tamanho da carteira que o assinante pode acompanhar e quantos ativos ele escolhe livremente." />
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const requiredFixed = planModal.quotaSlots - planModal.quotaPicks;
+                      const is100Free = requiredFixed === 0;
+                      const percentComplete = requiredFixed > 0
+                        ? Math.min(100, Math.round((planModal.quotaFixedTickers.length / requiredFixed) * 100))
+                        : 100;
+
+                      return (
+                        <div>
+                          {/* Equação Visual Interativa da Carteira */}
+                          <div className="billing-quotas-composition-card">
+                            <div className="billing-quotas-equation">
+                              <div className="billing-equation-box is-total">
+                                <input
+                                  id="plan-quota-slots"
+                                  type="number"
+                                  min={1}
+                                  max={200}
+                                  className="billing-equation-input"
+                                  value={planModal.quotaSlots}
+                                  onChange={(e) => {
+                                    const s = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                    const p = Math.min(planModal.quotaPicks, s);
+                                    setPlanModal({
+                                      ...planModal,
+                                      quotaSlots: s,
+                                      quotaPicks: p,
+                                      quotaFixedTickers: planModal.quotaFixedTickers.slice(0, s - p),
+                                    });
+                                  }}
+                                  title="Capacidade máxima de ativos monitorados pelo usuário"
+                                  required
+                                />
+                                <div className="billing-equation-lbl-wrap">
+                                  <span className="billing-equation-lbl">Slots Totais</span>
+                                  <InfoHelpTooltip text="Limite máximo de ativos monitorados pelo usuário nesta carteira." />
+                                </div>
+                              </div>
+
+                              <span className="billing-equation-op">=</span>
+
+                              <div className="billing-equation-box is-picks">
+                                <input
+                                  id="plan-quota-picks"
+                                  type="number"
+                                  min={0}
+                                  max={planModal.quotaSlots}
+                                  className="billing-equation-input is-picks"
+                                  value={planModal.quotaPicks}
+                                  onChange={(e) => {
+                                    const p = Math.min(
+                                      planModal.quotaSlots,
+                                      Math.max(0, parseInt(e.target.value, 10) || 0)
+                                    );
+                                    setPlanModal({
+                                      ...planModal,
+                                      quotaPicks: p,
+                                      quotaFixedTickers: planModal.quotaFixedTickers.slice(0, planModal.quotaSlots - p),
+                                    });
+                                  }}
+                                  title="Ativos que o cliente escolhe livremente no catálogo"
+                                  required
+                                />
+                                <div className="billing-equation-lbl-wrap">
+                                  <span className="billing-equation-lbl" style={{ color: 'var(--primary, #673de6)' }}>Livre Escolha</span>
+                                  <InfoHelpTooltip text="Ativos que o cliente escolhe livremente no catálogo de mercado." />
+                                </div>
+                              </div>
+
+                              <span className="billing-equation-op">+</span>
+
+                              <div className="billing-equation-box is-fixed">
+                                <span className="billing-equation-val" style={{ color: 'var(--warning, #b45309)' }}>
+                                  {requiredFixed}
+                                </span>
+                                <div className="billing-equation-lbl-wrap">
+                                  <span className="billing-equation-lbl" style={{ color: 'var(--warning, #b45309)' }}>Fixos da Plataforma</span>
+                                  <InfoHelpTooltip text="Ativos fixos recomendados obrigatórios configurados pela plataforma (Total menos Livre Escolha)." />
+                                </div>
+                              </div>
+                            </div>
+
+                            {requiredFixed > 0 && (
+                              <div className="billing-quotas-progress-box">
+                                <div className="billing-quotas-progress-header">
+                                  <span className="billing-quotas-progress-title">Composição dos Fixos Obrigatórios</span>
+                                  <span className="billing-quotas-progress-counter">
+                                    {planModal.quotaFixedTickers.length} de {requiredFixed} cadastrados ({percentComplete}%)
+                                  </span>
+                                </div>
+                                <div className="billing-quotas-progress-track">
+                                  <div
+                                    className={`billing-quotas-progress-bar ${percentComplete === 100 ? 'is-complete' : ''}`}
+                                    style={{ width: `${percentComplete}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {is100Free ? (
+                            <div className="billing-tickers-empty-hint is-success" style={{ marginTop: '1rem' }}>
+                              <CheckCircle2 size={16} />
+                              <span>100% Livre Escolha: O assinante poderá escolher todos os {planModal.quotaSlots} ativos livremente.</span>
+                            </div>
+                          ) : (
+                            <TickerPicker
+                              id="plan-ticker-picker-input"
+                              knownTickers={knownTickers}
+                              selectedTickers={planModal.quotaFixedTickers}
+                              maxCount={requiredFixed}
+                              onAdd={addPlanFixedTicker}
+                              onRemove={removePlanFixedTicker}
+                              placeholder="Buscar ativo no catálogo (ex: PETR4, HGLG11)..."
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2840,7 +2879,17 @@ function PlansPanel({ writable }: { writable: boolean }) {
             )}
 
             {/* Seção de Cotas de Mercado */}
-            {(() => {
+            {viewingPlan.isLifetime ? (
+              <div className="billing-vip-alert" style={{ marginTop: '1.25rem' }}>
+                <Crown size={22} className="billing-vip-alert-icon" />
+                <div className="billing-vip-alert-text">
+                  <strong>Acesso Irrestrito à Carteira de Mercado</strong>
+                  <p>
+                    Assinantes vinculados a este plano VIP Vitalício possuem acesso total e irrestrito (150 slots 100% livres), sem restrições de cotas ou obrigatoriedade de ativos fixos.
+                  </p>
+                </div>
+              </div>
+            ) : (() => {
               const q = quotasMap[viewingPlan.code];
               return (
                 <div className="billing-detail-section" style={{ marginTop: '1.25rem' }}>
