@@ -7839,23 +7839,43 @@ textarea.form-input {
   white-space: nowrap;
 }
 
-.billing-plan-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+.billing-plan-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.billing-plan-title {
+.billing-plan-name-text {
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-main, #1d2129);
+  white-space: nowrap;
 }
 
-.billing-plan-badges {
-  display: flex;
+.billing-tag-meta {
+  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.billing-tag-meta.is-vip {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.billing-tag-meta.is-private {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
 }
 
 .billing-status-badge {

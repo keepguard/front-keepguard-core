@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, CreditCard, Crown, Loader2, Pencil, Plus, Search } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, CreditCard, Crown, Loader2, Lock, Pencil, Plus, Search } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
@@ -1239,7 +1239,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
             <tr>
               <th style={{ width: '90px' }}>Nível</th>
               <th style={{ width: '120px' }}>Código</th>
-              <th style={{ width: '220px' }}>Nome</th>
+              <th style={{ minWidth: '190px' }}>Nome</th>
               <th style={{ width: '110px' }}>Status</th>
               <th>Preços por Ciclo</th>
               {writable ? <th style={{ width: '60px', textAlign: 'right' }} /> : null}
@@ -1261,21 +1261,20 @@ function PlansPanel({ writable }: { writable: boolean }) {
                   <code className="billing-code-pill">{plan.code}</code>
                 </td>
                 <td>
-                  <div className="billing-plan-info">
-                    <span className="billing-plan-title">{plan.name}</span>
-                    <div className="billing-plan-badges">
-                      {plan.isLifetime && (
-                        <span className="billing-status-pill is-vip" title="Plano VIP vitalício sem cobrança de gateway">
-                          <Crown size={11} style={{ marginRight: '0.25rem' }} />
-                          VIP / Vitalício
-                        </span>
-                      )}
-                      {plan.isPublic === false && (
-                        <span className="billing-status-pill is-private" title="Plano oculto da vitrine de contratação pública">
-                          Privado
-                        </span>
-                      )}
-                    </div>
+                  <div className="billing-plan-name-cell">
+                    <span className="billing-plan-name-text">{plan.name}</span>
+                    {plan.isLifetime && (
+                      <span className="billing-tag-meta is-vip" title="Acesso vitalício com isenção de gateway">
+                        <Crown size={11} />
+                        <span>Vitalício</span>
+                      </span>
+                    )}
+                    {plan.isPublic === false && (
+                      <span className="billing-tag-meta is-private" title="Plano privado (oculto da vitrine pública de contratação)">
+                        <Lock size={10} />
+                        <span>Privado</span>
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td>
