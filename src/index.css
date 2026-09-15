@@ -8863,14 +8863,102 @@ textarea.form-input {
   background: var(--bg-card, #ffffff);
   border: 1px solid var(--border, #e3e5e8);
   border-radius: 12px;
-  padding: 1.1rem 1.25rem;
+  padding: 0.85rem 1.25rem;
   margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: padding 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.billing-freemium-card:hover {
+  border-color: #dcd2f9;
+}
+
+.billing-freemium-card.is-expanded {
+  padding: 1.15rem 1.25rem;
+}
+
+.billing-freemium-header-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  cursor: pointer;
+  user-select: none;
+}
+
+.billing-freemium-header-bar:focus-visible {
+  outline: 2px solid var(--primary, #673de6);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.billing-freemium-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.billing-freemium-collapsed-summary {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--primary, #673de6);
+  background: var(--primary-light, #f0ecfc);
+  border: 1px solid var(--primary-border, #dcd2f9);
+  padding: 0.15rem 0.6rem;
+  border-radius: 9999px;
+  margin-left: 0.25rem;
+}
+
+.billing-freemium-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.billing-freemium-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e3e5e8);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-muted, #5f6368);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.billing-freemium-toggle-btn:hover {
+  background: var(--primary-light, #f0ecfc);
+  border-color: var(--primary-border, #dcd2f9);
+  color: var(--primary, #673de6);
+}
+
+.billing-freemium-body {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #e3e5e8);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  animation: freemiumFadeIn 0.2s ease-in-out;
+}
+
+@keyframes freemiumFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .billing-freemium-left {

@@ -6,6 +6,8 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   CreditCard,
   Crown,
   Eye,
@@ -1395,6 +1397,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
     fixedTickers: [],
   });
   const [noPlanBusy, setNoPlanBusy] = useState(false);
+  const [freemiumExpanded, setFreemiumExpanded] = useState(false);
 
   const load = useCallback(async () => {
     const access = getAccessToken();
@@ -1741,16 +1744,69 @@ function PlansPanel({ writable }: { writable: boolean }) {
         const picks = np?.watchlistPicks ?? 1;
         const fixed = np?.fixedTickers ?? [];
         return (
-          <div className="billing-freemium-card" style={{ marginBottom: '1.5rem' }}>
-            <div className="billing-freemium-left">
-              <div className="billing-freemium-icon-wrap">
-                <Sparkles size={20} />
-              </div>
-              <div className="billing-freemium-info">
+          <div
+            className={`billing-freemium-card ${freemiumExpanded ? 'is-expanded' : 'is-collapsed'}`}
+            style={{ marginBottom: '1.5rem' }}
+          >
+            {/* Linha de cabeçalho principal (clicável para expandir/recolher) */}
+            <div
+              className="billing-freemium-header-bar"
+              onClick={() => setFreemiumExpanded((prev) => !prev)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setFreemiumExpanded((prev) => !prev);
+                }
+              }}
+              aria-expanded={freemiumExpanded}
+            >
+              <div className="billing-freemium-header-left">
+                <div className="billing-freemium-icon-wrap">
+                  <Sparkles size={18} />
+                </div>
                 <div className="billing-freemium-title-row">
                   <h3 className="billing-freemium-title">Degustação Freemium (Sem Assinatura Ativa)</h3>
                   <span className="billing-freemium-badge">Padrão do Sistema</span>
+                  {!freemiumExpanded && (
+                    <span className="billing-freemium-collapsed-summary">
+                      {slots} slots ({picks} livre{picks !== 1 ? 's' : ''} • {fixed.length} fixo{fixed.length !== 1 ? 's' : ''})
+                    </span>
+                  )}
                 </div>
+              </div>
+
+              <div className="billing-freemium-header-actions" onClick={(e) => e.stopPropagation()}>
+                {writable && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-pill btn-sm"
+                    onClick={openEditNoPlan}
+                  >
+                    <Settings2 size={14} style={{ marginRight: '0.35rem' }} />
+                    Editar Cotas Freemium
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="billing-freemium-toggle-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFreemiumExpanded((prev) => !prev);
+                  }}
+                  aria-label={freemiumExpanded ? 'Recolher degustação freemium' : 'Expandir degustação freemium'}
+                  title={freemiumExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
+                >
+                  {freemiumExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Corpo expandido com detalhes e métricas completas */}
+            {freemiumExpanded && (
+              <div className="billing-freemium-body">
                 <p className="billing-freemium-desc">
                   Limites de mercado aplicados automaticamente aos usuários sem plano ativo ou após o cancelamento da assinatura.
                 </p>
@@ -1777,19 +1833,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-
-            {writable && (
-              <div className="billing-freemium-actions">
-                <button
-                  type="button"
-                  className="btn btn-outline btn-pill btn-sm"
-                  onClick={openEditNoPlan}
-                >
-                  <Settings2 size={14} style={{ marginRight: '0.35rem' }} />
-                  Editar Cotas Freemium
-                </button>
               </div>
             )}
           </div>
