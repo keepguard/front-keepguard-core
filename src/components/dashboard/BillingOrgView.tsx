@@ -1374,6 +1374,21 @@ function TickerPicker({
   );
 }
 
+interface WorkflowStep {
+  id: string;
+  isNoPlan: boolean;
+  code: string;
+  name: string;
+  level: number;
+  minMonthlyCents: number;
+  slots: number;
+  picks: number;
+  fixedTickers: string[];
+  trialDays: number;
+  prices: Array<{ interval: string; amountCents: number; currency: string }>;
+  planRef?: BillingPlan;
+}
+
 function PlansPanel({ writable }: { writable: boolean }) {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
@@ -1400,23 +1415,22 @@ function PlansPanel({ writable }: { writable: boolean }) {
   const [noPlanBusy, setNoPlanBusy] = useState(false);
   const [freemiumExpanded, setFreemiumExpanded] = useState(false);
   const [workflowExpanded, setWorkflowExpanded] = useState(false);
+  const [hoveredWorkflowStep, setHoveredWorkflowStep] = useState<{
+    step: WorkflowStep;
+    prevStep: WorkflowStep | null;
+    rect: DOMRect;
+  } | null>(null);
+  const workflowHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const workflowSteps = useMemo(() => {
-    interface WorkflowStep {
-      id: string;
-      isNoPlan: boolean;
-      code: string;
-      name: string;
-      level: number;
-      minMonthlyCents: number;
-      slots: number;
-      picks: number;
-      fixedTickers: string[];
-      trialDays: number;
-      prices: Array<{ interval: string; amountCents: number; currency: string }>;
-      planRef?: BillingPlan;
-    }
+  useEffect(() => {
+    const handleScroll = () => {
+      if (hoveredWorkflowStep) setHoveredWorkflowStep(null);
+    };
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [hoveredWorkflowStep]);
 
+  const workflowSteps = useMemo<WorkflowStep[]>(() => {
     const steps: WorkflowStep[] = [];
 
     // 1. Degustação Freemium (Sem assinatura ativa, Nível 0)
@@ -1893,8 +1907,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
             <div className="billing-workflow-track">
               {workflowSteps.map((step, index) => {
                 const prevStep = index > 0 ? workflowSteps[index - 1] : null;
-                const slotDiff = prevStep ? step.slots - prevStep.slots : 0;
-                const pickDiff = prevStep ? step.picks - prevStep.picks : 0;
 
                 return (
                   <React.Fragment key={step.id}>
@@ -1912,7 +1924,23 @@ function PlansPanel({ writable }: { writable: boolean }) {
                       </div>
                     )}
 
-                    <div className={`billing-workflow-card ${step.isNoPlan ? 'is-freemium' : ''}`}>
+                    <div
+                      className={`billing-workflow-card ${step.isNoPlan ? 'is-freemium' : ''}`}
+                      onMouseEnter={(e) => {
+                        if (workflowHoverTimer.current) clearTimeout(workflowHoverTimer.current);
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setHoveredWorkflowStep({
+                          step,
+                          prevStep,
+                          rect: r,
+                        });
+                      }}
+                      onMouseLeave={() => {
+                        workflowHoverTimer.current = setTimeout(() => {
+                          setHoveredWorkflowStep(null);
+                        }, 120);
+                      }}
+                    >
                       <div className="billing-workflow-card-header">
                         <span className="billing-workflow-level-badge">
                           {step.isNoPlan ? 'Nível 0' : `Nível ${step.level}`}
@@ -1948,81 +1976,118 @@ function PlansPanel({ writable }: { writable: boolean }) {
                           </span>
                         )}
                       </div>
-
-                      {/* Hover / Handover Popover com detalhes completos */}
-                      <div className="billing-workflow-hover-popover">
-                        <div className="billing-workflow-popover-title">
-                          <strong>{step.name}</strong>
-                          <span>{step.isNoPlan ? 'Nível 0' : `Nível ${step.level}`}</span>
-                        </div>
-
-                        <div className="billing-workflow-popover-section">
-                          <span className="billing-workflow-popover-label">Ciclos e Faturamento</span>
-                          {step.isNoPlan ? (
-                            <span className="billing-workflow-popover-value-muted">
-                              Degustação perpétua sem cobrança
-                            </span>
-                          ) : step.prices.length === 0 ? (
-                            <span className="billing-workflow-popover-value-muted">Nenhum ciclo ativo</span>
-                          ) : (
-                            <div className="billing-workflow-popover-prices">
-                              {step.prices.map((pr) => {
-                                const cfg = INTERVALS.find((c) => c.value === pr.interval);
-                                return (
-                                  <div key={pr.interval} className="billing-workflow-popover-price-row">
-                                    <span>{cfg?.label || pr.interval}:</span>
-                                    <strong>{formatMoney(pr.amountCents, pr.currency)}</strong>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="billing-workflow-popover-section">
-                          <span className="billing-workflow-popover-label">Capacidade da Carteira</span>
-                          <div className="billing-workflow-popover-quotas">
-                            <span>• Slots Totais: <strong>{step.slots}</strong></span>
-                            <span>• Picks Livres: <strong>{step.picks}</strong></span>
-                            <span>• Ativos Fixos: <strong>{step.fixedTickers.length}</strong></span>
-                          </div>
-                          {step.fixedTickers.length > 0 && (
-                            <div className="billing-tickers-chips-wrap" style={{ marginTop: '0.35rem' }}>
-                              {step.fixedTickers.map((t) => (
-                                <span key={t} className="billing-ticker-mini-tag is-freemium" style={{ fontSize: '0.72rem' }}>
-                                  {t}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {prevStep && (
-                          <div className="billing-workflow-popover-diff">
-                            <span className="billing-workflow-diff-title">Evolução sobre {prevStep.name}:</span>
-                            <span>
-                              {slotDiff >= 0 ? `+${slotDiff}` : slotDiff} slots {pickDiff >= 0 ? `(+${pickDiff} picks)` : ''}
-                            </span>
-                          </div>
-                        )}
-
-                        {step.planRef && writable && (
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-pill btn-xs"
-                            style={{ marginTop: '0.5rem', width: '100%', justifyContent: 'center' }}
-                            onClick={() => openEditPlan(step.planRef!)}
-                          >
-                            <Settings2 size={12} style={{ marginRight: '0.25rem' }} />
-                            Editar Plano
-                          </button>
-                        )}
-                      </div>
                     </div>
                   </React.Fragment>
                 );
               })}
             </div>
+
+            {/* Popover flutuante desacoplado via Portal (nunca provoca scroll dentro do painel) */}
+            {hoveredWorkflowStep && typeof document !== 'undefined' && createPortal(
+              (() => {
+                const { step, prevStep, rect } = hoveredWorkflowStep;
+                const slotDiff = prevStep ? step.slots - prevStep.slots : 0;
+                const pickDiff = prevStep ? step.picks - prevStep.picks : 0;
+
+                const popoverWidth = 270;
+                const estimatedHeight = 310;
+                const showAbove = rect.bottom + estimatedHeight > window.innerHeight && rect.top > estimatedHeight;
+                const top = showAbove ? rect.top - 8 : rect.bottom + 8;
+                const rawLeft = rect.left + rect.width / 2;
+                const safeLeft = Math.max(popoverWidth / 2 + 16, Math.min(window.innerWidth - popoverWidth / 2 - 16, rawLeft));
+
+                return (
+                  <div
+                    className="billing-workflow-portal-popover"
+                    style={{
+                      position: 'fixed',
+                      top: `${top}px`,
+                      left: `${safeLeft}px`,
+                      transform: showAbove ? 'translateX(-50%) translateY(-100%)' : 'translateX(-50%)',
+                      width: `${popoverWidth}px`,
+                      zIndex: 99999,
+                    }}
+                    onMouseEnter={() => {
+                      if (workflowHoverTimer.current) clearTimeout(workflowHoverTimer.current);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredWorkflowStep(null);
+                    }}
+                  >
+                    <div className="billing-workflow-popover-title">
+                      <strong>{step.name}</strong>
+                      <span>{step.isNoPlan ? 'Nível 0' : `Nível ${step.level}`}</span>
+                    </div>
+
+                    <div className="billing-workflow-popover-section">
+                      <span className="billing-workflow-popover-label">Ciclos e Faturamento</span>
+                      {step.isNoPlan ? (
+                        <span className="billing-workflow-popover-value-muted">
+                          Degustação perpétua sem cobrança
+                        </span>
+                      ) : step.prices.length === 0 ? (
+                        <span className="billing-workflow-popover-value-muted">Nenhum ciclo ativo</span>
+                      ) : (
+                        <div className="billing-workflow-popover-prices">
+                          {step.prices.map((pr) => {
+                            const cfg = INTERVALS.find((c) => c.value === pr.interval);
+                            return (
+                              <div key={pr.interval} className="billing-workflow-popover-price-row">
+                                <span>{cfg?.label || pr.interval}:</span>
+                                <strong>{formatMoney(pr.amountCents, pr.currency)}</strong>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="billing-workflow-popover-section">
+                      <span className="billing-workflow-popover-label">Capacidade da Carteira</span>
+                      <div className="billing-workflow-popover-quotas">
+                        <span>• Slots Totais: <strong>{step.slots}</strong></span>
+                        <span>• Picks Livres: <strong>{step.picks}</strong></span>
+                        <span>• Ativos Fixos: <strong>{step.fixedTickers.length}</strong></span>
+                      </div>
+                      {step.fixedTickers.length > 0 && (
+                        <div className="billing-tickers-chips-wrap" style={{ marginTop: '0.35rem' }}>
+                          {step.fixedTickers.map((t) => (
+                            <span key={t} className="billing-ticker-mini-tag is-freemium" style={{ fontSize: '0.72rem' }}>
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {prevStep && (
+                      <div className="billing-workflow-popover-diff">
+                        <span className="billing-workflow-diff-title">Evolução sobre {prevStep.name}:</span>
+                        <span>
+                          {slotDiff >= 0 ? `+${slotDiff}` : slotDiff} slots {pickDiff >= 0 ? `(+${pickDiff} picks)` : ''}
+                        </span>
+                      </div>
+                    )}
+
+                    {step.planRef && writable && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-pill btn-xs"
+                        style={{ marginTop: '0.5rem', width: '100%', justifyContent: 'center' }}
+                        onClick={() => {
+                          setHoveredWorkflowStep(null);
+                          openEditPlan(step.planRef!);
+                        }}
+                      >
+                        <Settings2 size={12} style={{ marginRight: '0.25rem' }} />
+                        Editar Plano
+                      </button>
+                    )}
+                  </div>
+                );
+              })(),
+              document.body
+            )}
           </div>
         )}
       </div>
