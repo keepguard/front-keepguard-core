@@ -7826,6 +7826,13 @@ textarea.form-input {
   border: 1px solid rgba(245, 158, 11, 0.32);
 }
 
+.billing-level-tag.is-vip {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  gap: 0.25rem;
+}
+
 .billing-code-pill {
   display: inline-block;
   padding: 0.18rem 0.5rem;

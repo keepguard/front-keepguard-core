@@ -1157,7 +1157,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
     setPlanModal({
       code: plan.code,
       name: plan.name,
-      level: plan.level ?? 0,
+      level: plan.isLifetime ? 999 : (plan.level ?? 0),
       enabled: plan.enabled,
       isPublic: plan.isPublic ?? true,
       isLifetime: plan.isLifetime ?? false,
@@ -1191,7 +1191,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
         ...planModal,
         code: planModal.code.trim(),
         name: planModal.name.trim(),
-        level: planModal.level ?? 0,
+        level: planModal.isLifetime ? 999 : (planModal.level ?? 0),
         prices: planModal.isLifetime ? [] : planModal.prices,
       };
 
@@ -1203,10 +1203,18 @@ function PlansPanel({ writable }: { writable: boolean }) {
       setPlanModal(null);
       setEditingCode(null);
       setPlanStep('general');
-      addToast({ type: 'success', title: 'Plano', description: editingCode ? 'Plano atualizado com sucesso.' : 'Plano cadastrado com sucesso.' });
+      addToast({
+        type: 'success',
+        title: editingCode ? 'Plano atualizado' : 'Plano criado',
+        description: `O plano "${payload.name}" foi salvo com sucesso.`,
+      });
       await load();
-    } catch (error) {
-      addToast({ type: 'error', title: 'Plano', description: errorMessage(error) });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Erro ao salvar plano',
+        description: err.message || 'Falha ao comunicar com o servidor de billing.',
+      });
     } finally {
       setBusy(false);
     }
@@ -1237,7 +1245,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
         <table className="hpanel-table billing-plans-table">
           <thead>
             <tr>
-              <th style={{ width: '90px' }}>Nível</th>
+              <th style={{ width: '100px' }}>Nível</th>
               <th style={{ width: '120px' }}>Código</th>
               <th style={{ minWidth: '190px' }}>Nome</th>
               <th style={{ width: '110px' }}>Status</th>
@@ -1253,9 +1261,16 @@ function PlansPanel({ writable }: { writable: boolean }) {
             ) : plans.map((plan) => (
               <tr key={plan.id}>
                 <td>
-                  <span className={`billing-level-tag level-${plan.level ?? 0}`}>
-                    Nível {plan.level ?? 0}
-                  </span>
+                  {plan.isLifetime || (plan.level != null && plan.level >= 999) ? (
+                    <span className="billing-level-tag is-vip" title="Acesso Vitalício Especial (Nível 999)">
+                      <Crown size={11} style={{ marginRight: '0.25rem' }} />
+                      <span>Vitalício</span>
+                    </span>
+                  ) : (
+                    <span className={`billing-level-tag level-${plan.level ?? 0}`}>
+                      Nível {plan.level ?? 0}
+                    </span>
+                  )}
                 </td>
                 <td>
                   <code className="billing-code-pill">{plan.code}</code>
@@ -1263,12 +1278,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 <td>
                   <div className="billing-plan-name-cell">
                     <span className="billing-plan-name-text">{plan.name}</span>
-                    {plan.isLifetime && (
-                      <span className="billing-tag-meta is-vip" title="Acesso vitalício com isenção de gateway">
-                        <Crown size={11} />
-                        <span>Vitalício</span>
-                      </span>
-                    )}
                     {plan.isPublic === false && (
                       <span className="billing-tag-meta is-private" title="Plano privado (oculto da vitrine pública de contratação)">
                         <Lock size={10} />
@@ -1474,14 +1483,18 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 <div className="billing-form-grid-2" style={{ marginTop: '1rem' }}>
                   <div className="billing-field">
                     <label className="billing-field-label" htmlFor="plan-level-input">
-                      Nível de Hierarquia
+                      <span>Nível de Hierarquia</span>
+                      {planModal.isLifetime && (
+                        <span className="billing-tag-readonly">Nível 999 Fixo (Vitalício)</span>
+                      )}
                     </label>
                     <input
                       id="plan-level-input"
                       className="form-input"
                       type="number"
                       min={0}
-                      value={planModal.level ?? 0}
+                      value={planModal.isLifetime ? 999 : (planModal.level ?? 0)}
+                      disabled={planModal.isLifetime}
                       onChange={(event) =>
                         setPlanModal({
                           ...planModal,
@@ -1490,7 +1503,11 @@ function PlansPanel({ writable }: { writable: boolean }) {
                       }
                       required
                     />
-                    <span className="billing-field-hint">0 = Básico/Free, 1 = Pro, 2 = Pro+, 3 = VIP. Ordem de upgrade.</span>
+                    <span className="billing-field-hint">
+                      {planModal.isLifetime
+                        ? 'Nível especial 999 reservado para acesso vitalício total (fora da escada comercial regular).'
+                        : '0 = Básico/Free, 1 = Pro, 2 = Pro+, 3 = Enterprise. Ordem de upgrade.'}
+                    </span>
                   </div>
 
                   <div className="billing-field">
@@ -1553,6 +1570,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                         setPlanModal({
                           ...planModal,
                           isLifetime,
+                          level: isLifetime ? 999 : (planModal.level === 999 ? 0 : (planModal.level ?? 0)),
                           isPublic: isLifetime ? false : (planModal.isPublic ?? true),
                           prices: isLifetime
                             ? []
