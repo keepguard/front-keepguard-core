@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -1199,12 +1200,15 @@ function TickerPicker({
   onAdd,
   onRemove,
   disabled,
-  placeholder = 'Buscar ticker no catálogo (ex: PETR4, HGLG11)...',
+  placeholder = 'Buscar ativo no catálogo (ex: PETR4, HGLG11)...',
   id = 'ticker-search-input',
 }: TickerPickerProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
 
   const remaining = Math.max(0, maxCount - selectedTickers.length);
   const isMaxReached = remaining === 0;
@@ -1216,15 +1220,45 @@ function TickerPicker({
     return available.filter((t) => t.includes(q)).slice(0, 20);
   }, [knownTickers, query, selectedTickers]);
 
+  const updateCoords = useCallback(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, []);
+
   useEffect(() => {
+    if (!isOpen) return;
+    updateCoords();
+
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        popoverRef.current && !popoverRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+
+    const handleScrollOrResize = () => {
+      updateCoords();
+    };
+
+    document.addEventListener('mousedown', handleClickOutside, true);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [isOpen, updateCoords]);
 
   const handleAdd = (ticker: string) => {
     const clean = ticker.trim().toUpperCase();
@@ -1241,7 +1275,7 @@ function TickerPicker({
           <label className="billing-field-label" htmlFor={id} style={{ margin: 0 }}>
             Ativos Fixos Recomendados da Plataforma
           </label>
-          <InfoHelpTooltip text={`Defina os ${maxCount} ticker(s) fixo(s) obrigatórios para completar a carteira deste plano.`} />
+          <InfoHelpTooltip text={`Defina os ${maxCount} ativo(s) fixo(s) obrigatório(s) para completar a carteira deste plano.`} />
         </div>
         <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isMaxReached ? 'var(--success, #00b090)' : 'var(--text-muted)' }}>
           {selectedTickers.length} de {maxCount} adicionados
@@ -1251,17 +1285,21 @@ function TickerPicker({
       <div className="billing-ticker-picker-input-group">
         <Search size={15} className="billing-ticker-input-icon" />
         <input
+          ref={inputRef}
           id={id}
           className="form-input billing-ticker-picker-input"
           value={query}
           disabled={disabled || isMaxReached}
-          placeholder={isMaxReached ? `Meta atingida (${maxCount} tickers fixados)` : placeholder}
+          placeholder={isMaxReached ? `Meta atingida (${maxCount} ativos fixados)` : placeholder}
           onChange={(e) => {
             setQuery(e.target.value.toUpperCase());
             setIsOpen(true);
           }}
           onFocus={() => {
-            if (!isMaxReached) setIsOpen(true);
+            if (!isMaxReached) {
+              updateCoords();
+              setIsOpen(true);
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -1288,8 +1326,19 @@ function TickerPicker({
         </button>
       </div>
 
-      {isOpen && !isMaxReached && (
-        <div className="billing-ticker-picker-popover" role="listbox">
+      {isOpen && !isMaxReached && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={popoverRef}
+          className="billing-ticker-picker-popover"
+          role="listbox"
+          style={{
+            position: 'fixed',
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            zIndex: 99999,
+          }}
+        >
           {filtered.length === 0 ? (
             <div className="billing-ticker-popover-empty">
               {query.trim() ? `Nenhum ativo encontrado para "${query}"` : 'Nenhum ativo disponível'}
@@ -1307,7 +1356,8 @@ function TickerPicker({
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body
       )}
 
       {selectedTickers.length > 0 ? (
@@ -1481,8 +1531,8 @@ function PlansPanel({ writable }: { writable: boolean }) {
     if (noPlanDraft.fixedTickers.length !== reqFixed) {
       addToast({
         type: 'warning',
-        title: 'Tickers Fixos Incompletos',
-        description: `O plano freemium exige exatamente ${reqFixed} ticker(s) fixo(s) obrigatório(s). Foram adicionados ${noPlanDraft.fixedTickers.length}.`,
+        title: 'Ativos Fixos Incompletos',
+        description: `O plano freemium exige exatamente ${reqFixed} ativo(s) fixo(s) obrigatório(s). Foram adicionados ${noPlanDraft.fixedTickers.length}.`,
       });
       return;
     }
@@ -1523,7 +1573,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
     const ticker = raw.trim().toUpperCase();
     if (!ticker) return;
     if (planModal.quotaFixedTickers.includes(ticker)) {
-      addToast({ type: 'info', title: 'Ticker já adicionado', description: `${ticker} já está na lista fixa deste plano.` });
+      addToast({ type: 'info', title: 'Ativo já adicionado', description: `${ticker} já está na lista fixa deste plano.` });
       return;
     }
     const req = planModal.quotaSlots - planModal.quotaPicks;
@@ -1531,7 +1581,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
       addToast({
         type: 'warning',
         title: 'Limite atingido',
-        description: `Este plano requer apenas ${req} ticker(s) fixo(s). Ajuste os slots ou picks se desejar adicionar mais.`,
+        description: `Este plano requer apenas ${req} ativo(s) fixo(s). Ajuste os slots ou picks se desejar adicionar mais.`,
       });
       return;
     }
@@ -1553,7 +1603,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
     const ticker = raw.trim().toUpperCase();
     if (!ticker) return;
     if (noPlanDraft.fixedTickers.includes(ticker)) {
-      addToast({ type: 'info', title: 'Ticker já adicionado', description: `${ticker} já está na lista fixa freemium.` });
+      addToast({ type: 'info', title: 'Ativo já adicionado', description: `${ticker} já está na lista fixa freemium.` });
       return;
     }
     const req = noPlanDraft.watchlistSlots - noPlanDraft.watchlistPicks;
@@ -1561,7 +1611,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
       addToast({
         type: 'warning',
         title: 'Limite atingido',
-        description: `O freemium requer apenas ${req} ticker(s) fixo(s). Ajuste os slots ou picks se desejar adicionar mais.`,
+        description: `O freemium requer apenas ${req} ativo(s) fixo(s). Ajuste os slots ou picks se desejar adicionar mais.`,
       });
       return;
     }
@@ -1609,8 +1659,8 @@ function PlansPanel({ writable }: { writable: boolean }) {
     if (planModal.quotaFixedTickers.length !== requiredFixed) {
       addToast({
         type: 'warning',
-        title: 'Tickers Fixos Incompletos',
-        description: `Este plano exige exatamente ${requiredFixed} ticker(s) fixo(s) obrigatório(s) (Slots: ${planModal.quotaSlots} - Picks: ${planModal.quotaPicks}). Foram adicionados ${planModal.quotaFixedTickers.length}.`,
+        title: 'Ativos Fixos Incompletos',
+        description: `Este plano exige exatamente ${requiredFixed} ativo(s) fixo(s) obrigatório(s) (Slots: ${planModal.quotaSlots} - Picks: ${planModal.quotaPicks}). Foram adicionados ${planModal.quotaFixedTickers.length}.`,
       });
       setPlanStep('quotas');
       return;
@@ -1722,7 +1772,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                   <div className="billing-freemium-metric-divider" />
                   <div className="billing-freemium-metric-item">
                     <span className="billing-freemium-metric-num">{fixed.length}</span>
-                    <span className="billing-freemium-metric-label">Tickers Fixos</span>
+                    <span className="billing-freemium-metric-label">Ativos Fixos</span>
                   </div>
                   {fixed.length > 0 && (
                     <div className="billing-freemium-fixed-tickers">
@@ -2825,7 +2875,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                         <div className="billing-freemium-metric-divider" />
                         <div className="billing-detail-quota-stat">
                           <span className="billing-detail-quota-num">{(q.fixedTickers || []).length}</span>
-                          <span className="billing-detail-quota-label">Tickers Fixos</span>
+                          <span className="billing-detail-quota-label">Ativos Fixos</span>
                         </div>
                       </div>
 
