@@ -9043,34 +9043,142 @@ textarea.form-input {
   flex-wrap: wrap;
 }
 
-/* Quotas Form & Inputs */
+/* Quotas Form & Intro */
 .billing-quotas-form-intro {
-  margin-bottom: 1.15rem;
+  margin-bottom: 0.85rem;
 }
 
-.billing-quotas-form-intro h4 {
-  margin: 0 0 0.25rem;
+.billing-title-with-tooltip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: help;
+}
+
+.billing-title-with-tooltip h4 {
+  margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-main, #1d2129);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(95, 99, 104, 0.4);
+  transition: text-decoration-color 0.15s ease;
 }
 
-.billing-quotas-form-intro p {
-  margin: 0;
-  font-size: 0.82rem;
+.billing-title-with-tooltip:hover h4 {
+  text-decoration-color: var(--primary, #673de6);
+}
+
+.billing-title-with-tooltip label {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(95, 99, 104, 0.4);
+  transition: text-decoration-color 0.15s ease;
+}
+
+.billing-title-with-tooltip:hover label {
+  text-decoration-color: var(--primary, #673de6);
+}
+
+.billing-info-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
   color: var(--text-muted, #5f6368);
+  transition: color 0.15s ease;
+  vertical-align: middle;
+  outline: none;
 }
 
-.billing-quotas-form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.billing-info-tooltip:hover,
+.billing-info-tooltip:focus-visible,
+.billing-title-with-tooltip:hover .billing-info-tooltip,
+.billing-equation-lbl-wrap:hover .billing-info-tooltip {
+  color: var(--primary, #673de6);
 }
 
-@media (max-width: 640px) {
-  .billing-quotas-form-grid {
-    grid-template-columns: 1fr;
-  }
+.billing-info-tooltip-icon {
+  flex-shrink: 0;
+}
+
+.billing-info-tooltip-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  min-width: 14rem;
+  max-width: 22rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text-main, #1d2129);
+  border: 1px solid var(--border, #e3e5e8);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 6px 10px -4px rgba(0, 0, 0, 0.05);
+  white-space: normal;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  z-index: 120;
+}
+
+.billing-info-tooltip-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #ffffff;
+}
+
+.billing-info-tooltip:hover .billing-info-tooltip-bubble,
+.billing-info-tooltip:focus-visible .billing-info-tooltip-bubble,
+.billing-title-with-tooltip:hover .billing-info-tooltip-bubble,
+.billing-equation-lbl-wrap:hover .billing-info-tooltip-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.billing-info-tooltip-start .billing-info-tooltip-bubble {
+  left: 0;
+  transform: translateY(4px);
+}
+.billing-info-tooltip-start .billing-info-tooltip-bubble::after {
+  left: 8px;
+  transform: none;
+}
+.billing-info-tooltip-start:hover .billing-info-tooltip-bubble,
+.billing-info-tooltip-start:focus-visible .billing-info-tooltip-bubble,
+.billing-title-with-tooltip:hover .billing-info-tooltip-start .billing-info-tooltip-bubble,
+.billing-equation-lbl-wrap:hover .billing-info-tooltip-start .billing-info-tooltip-bubble {
+  transform: translateY(0);
+}
+
+.billing-info-tooltip-end .billing-info-tooltip-bubble {
+  left: auto;
+  right: 0;
+  transform: translateY(4px);
+}
+.billing-info-tooltip-end .billing-info-tooltip-bubble::after {
+  left: auto;
+  right: 8px;
+  transform: none;
+}
+.billing-info-tooltip-end:hover .billing-info-tooltip-bubble,
+.billing-info-tooltip-end:focus-visible .billing-info-tooltip-bubble,
+.billing-title-with-tooltip:hover .billing-info-tooltip-end .billing-info-tooltip-bubble,
+.billing-equation-lbl-wrap:hover .billing-info-tooltip-end .billing-info-tooltip-bubble {
+  transform: translateY(0);
 }
 
 /* Composition Equation Card */
@@ -9079,7 +9187,7 @@ textarea.form-input {
   border: 1px solid var(--border, #e3e5e8);
   border-radius: 10px;
   padding: 0.85rem 1rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .billing-quotas-equation {
@@ -9094,12 +9202,18 @@ textarea.form-input {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.5rem 0.85rem;
+  padding: 0.45rem 0.75rem;
   border-radius: 8px;
   background: #ffffff;
   border: 1px solid var(--border, #e3e5e8);
-  min-width: 100px;
+  min-width: 115px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: var(--transition-smooth);
+}
+
+.billing-equation-box:focus-within {
+  border-color: var(--primary, #673de6);
+  box-shadow: 0 0 0 3px rgba(103, 61, 230, 0.12);
 }
 
 .billing-equation-box.is-total {
@@ -9108,14 +9222,49 @@ textarea.form-input {
 }
 
 .billing-equation-val {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   font-weight: 800;
   color: var(--text-main, #1d2129);
   line-height: 1.2;
 }
 
-.billing-equation-box.is-total .billing-equation-val {
+.billing-equation-input {
+  font-size: 1.35rem;
+  font-weight: 800;
+  text-align: center;
+  width: 72px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.1rem 0.2rem;
   color: var(--text-main, #1d2129);
+  font-family: inherit;
+  transition: var(--transition-smooth);
+  margin-bottom: 2px;
+}
+
+.billing-equation-input:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.billing-equation-input:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: var(--primary, #673de6);
+}
+
+.billing-equation-input.is-picks {
+  color: var(--primary, #673de6);
+}
+
+.billing-equation-input::-webkit-outer-spin-button,
+.billing-equation-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.billing-equation-input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 .billing-equation-box.is-picks {
@@ -9123,30 +9272,38 @@ textarea.form-input {
   background: var(--primary-light, #f0ecfc);
 }
 
-.billing-equation-box.is-picks .billing-equation-val {
-  color: var(--primary, #673de6);
-}
-
 .billing-equation-box.is-fixed {
   border-color: var(--warning-border, #fde68a);
   background: var(--warning-light, #fef3c7);
 }
 
-.billing-equation-box.is-fixed .billing-equation-val {
-  color: var(--warning, #b45309);
+.billing-equation-lbl-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 2px;
+  cursor: help;
 }
 
 .billing-equation-lbl {
   font-size: 0.68rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-muted, #5f6368);
-  margin-top: 2px;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(95, 99, 104, 0.35);
+  transition: text-decoration-color 0.15s ease;
+}
+
+.billing-equation-lbl-wrap:hover .billing-equation-lbl {
+  text-decoration-color: var(--primary, #673de6);
 }
 
 .billing-equation-op {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: var(--text-muted, #5f6368);
 }

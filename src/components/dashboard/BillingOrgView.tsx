@@ -8,6 +8,7 @@ import {
   CreditCard,
   Crown,
   Eye,
+  Info,
   Loader2,
   Lock,
   Pencil,
@@ -1158,6 +1159,28 @@ function EntitlementTable({
   );
 }
 
+function InfoHelpTooltip({
+  text,
+  align = 'center',
+}: {
+  text: string;
+  align?: 'start' | 'center' | 'end';
+}) {
+  return (
+    <span
+      className={`billing-info-tooltip billing-info-tooltip-${align}`}
+      tabIndex={0}
+      role="button"
+      aria-label={text}
+    >
+      <Info size={13} className="billing-info-tooltip-icon" />
+      <span className="billing-info-tooltip-bubble" role="tooltip">
+        {text}
+      </span>
+    </span>
+  );
+}
+
 interface TickerPickerProps {
   knownTickers: string[];
   selectedTickers: string[];
@@ -1214,9 +1237,12 @@ function TickerPicker({
   return (
     <div className="billing-ticker-picker" ref={containerRef}>
       <div className="billing-ticker-picker-label-row">
-        <label className="billing-field-label" htmlFor={id} style={{ margin: 0 }}>
-          Ativos Fixos Recomendados da Plataforma
-        </label>
+        <div className="billing-title-with-tooltip">
+          <label className="billing-field-label" htmlFor={id} style={{ margin: 0 }}>
+            Ativos Fixos Recomendados da Plataforma
+          </label>
+          <InfoHelpTooltip text={`Defina os ${maxCount} ticker(s) fixo(s) obrigatórios para completar a carteira deste plano.`} />
+        </div>
         <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isMaxReached ? 'var(--success, #00b090)' : 'var(--text-muted)' }}>
           {selectedTickers.length} de {maxCount} adicionados
         </span>
@@ -1449,7 +1475,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
 
   const saveNoPlanQuota = async () => {
     if (noPlanDraft.watchlistSlots < 1) {
-      addToast({ type: 'warning', title: 'Cotas Freemium', description: 'A watchlist deve ter ao menos 1 slot de ativo.' });
+      addToast({ type: 'warning', title: 'Cotas Freemium', description: 'A carteira deve ter ao menos 1 slot de ativo.' });
       return;
     }
     if (noPlanDraft.watchlistPicks < 0 || noPlanDraft.watchlistPicks > noPlanDraft.watchlistSlots) {
@@ -1575,7 +1601,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
     }
 
     if (planModal.quotaSlots < 1) {
-      addToast({ type: 'warning', title: 'Cotas do Plano', description: 'A watchlist deve ter ao menos 1 slot de ativo.' });
+      addToast({ type: 'warning', title: 'Cotas do Plano', description: 'A carteira deve ter ao menos 1 slot de ativo.' });
       setPlanStep('quotas');
       return;
     }
@@ -1691,7 +1717,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 <div className="billing-freemium-metrics">
                   <div className="billing-freemium-metric-item">
                     <span className="billing-freemium-metric-num">{slots}</span>
-                    <span className="billing-freemium-metric-label">Slots na Watchlist</span>
+                    <span className="billing-freemium-metric-label">Slots na Carteira</span>
                   </div>
                   <div className="billing-freemium-metric-divider" />
                   <div className="billing-freemium-metric-item">
@@ -1738,7 +1764,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
               <th style={{ width: '120px' }}>Código</th>
               <th style={{ minWidth: '170px' }}>Nome</th>
               <th style={{ width: '100px' }}>Status</th>
-              <th style={{ width: '160px' }}>Cotas Watchlist</th>
+              <th style={{ width: '160px' }}>Cotas da Carteira</th>
               <th>Preços por Ciclo</th>
               <th style={{ width: writable ? '120px' : '50px', textAlign: 'right' }}>Ações</th>
             </tr>
@@ -1791,7 +1817,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     return (
                       <div className="billing-quota-cell">
                         <div className="billing-quota-badges">
-                          <span className="billing-quota-chip" title="Total de slots disponíveis na watchlist">
+                          <span className="billing-quota-chip" title="Total de slots disponíveis na carteira">
                             <strong>{q.watchlistSlots}</strong> slots
                           </span>
                           <span className="billing-quota-chip is-picks" title="Picks de livre escolha do usuário">
@@ -2325,71 +2351,9 @@ function PlansPanel({ writable }: { writable: boolean }) {
             {planStep === 'quotas' && (
               <div className="billing-step-content">
                 <div className="billing-quotas-form-intro">
-                  <h4>Capacidade da Watchlist e Carteira de Mercado</h4>
-                  <p>
-                    Defina o tamanho da carteira que o assinante pode acompanhar e quantos ativos ele escolhe livremente.
-                  </p>
-                </div>
-
-                <div className="billing-form-grid-2">
-                  <div className="billing-field">
-                    <label className="billing-field-label" htmlFor="plan-quota-slots">
-                      Capacidade Total da Carteira (Slots)
-                    </label>
-                    <div className="billing-input-group">
-                      <input
-                        id="plan-quota-slots"
-                        className="billing-input-group-field"
-                        type="number"
-                        min={1}
-                        max={200}
-                        value={planModal.quotaSlots}
-                        onChange={(e) => {
-                          const slots = Math.max(1, parseInt(e.target.value, 10) || 1);
-                          setPlanModal({
-                            ...planModal,
-                            quotaSlots: slots,
-                            quotaPicks: Math.min(planModal.quotaPicks, slots),
-                          });
-                        }}
-                        required
-                      />
-                      <span className="billing-input-group-addon">ativos</span>
-                    </div>
-                    <span className="billing-field-hint">
-                      Limite máximo de ativos monitorados pelo usuário.
-                    </span>
-                  </div>
-
-                  <div className="billing-field">
-                    <label className="billing-field-label" htmlFor="plan-quota-picks">
-                      Picks de Escolha Livre
-                    </label>
-                    <div className="billing-input-group">
-                      <input
-                        id="plan-quota-picks"
-                        className="billing-input-group-field"
-                        type="number"
-                        min={0}
-                        max={planModal.quotaSlots}
-                        value={planModal.quotaPicks}
-                        onChange={(e) => {
-                          const picks = Math.min(
-                            planModal.quotaSlots,
-                            Math.max(0, parseInt(e.target.value, 10) || 0)
-                          );
-                          setPlanModal({
-                            ...planModal,
-                            quotaPicks: picks,
-                          });
-                        }}
-                        required
-                      />
-                      <span className="billing-input-group-addon">livres</span>
-                    </div>
-                    <span className="billing-field-hint">
-                      Ativos que o cliente escolhe livremente no catálogo.
-                    </span>
+                  <div className="billing-title-with-tooltip">
+                    <h4>Capacidade da Carteira de Mercado</h4>
+                    <InfoHelpTooltip text="Defina o tamanho da carteira que o assinante pode acompanhar e quantos ativos ele escolhe livremente." />
                   </div>
                 </div>
 
@@ -2401,23 +2365,77 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     : 100;
 
                   return (
-                    <div style={{ marginTop: '1rem' }}>
-                      {/* Equação Visual da Carteira */}
+                    <div>
+                      {/* Equação Visual Interativa da Carteira */}
                       <div className="billing-quotas-composition-card">
                         <div className="billing-quotas-equation">
                           <div className="billing-equation-box is-total">
-                            <span className="billing-equation-val">{planModal.quotaSlots}</span>
-                            <span className="billing-equation-lbl">Slots Totais</span>
+                            <input
+                              id="plan-quota-slots"
+                              type="number"
+                              min={1}
+                              max={200}
+                              className="billing-equation-input"
+                              value={planModal.quotaSlots}
+                              onChange={(e) => {
+                                const s = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                const p = Math.min(planModal.quotaPicks, s);
+                                setPlanModal({
+                                  ...planModal,
+                                  quotaSlots: s,
+                                  quotaPicks: p,
+                                  quotaFixedTickers: planModal.quotaFixedTickers.slice(0, s - p),
+                                });
+                              }}
+                              title="Capacidade máxima de ativos monitorados pelo usuário"
+                              required
+                            />
+                            <div className="billing-equation-lbl-wrap">
+                              <span className="billing-equation-lbl">Slots Totais</span>
+                              <InfoHelpTooltip text="Limite máximo de ativos monitorados pelo usuário nesta carteira." />
+                            </div>
                           </div>
+
                           <span className="billing-equation-op">=</span>
+
                           <div className="billing-equation-box is-picks">
-                            <span className="billing-equation-val">{planModal.quotaPicks}</span>
-                            <span className="billing-equation-lbl">Livre Escolha</span>
+                            <input
+                              id="plan-quota-picks"
+                              type="number"
+                              min={0}
+                              max={planModal.quotaSlots}
+                              className="billing-equation-input is-picks"
+                              value={planModal.quotaPicks}
+                              onChange={(e) => {
+                                const p = Math.min(
+                                  planModal.quotaSlots,
+                                  Math.max(0, parseInt(e.target.value, 10) || 0)
+                                );
+                                setPlanModal({
+                                  ...planModal,
+                                  quotaPicks: p,
+                                  quotaFixedTickers: planModal.quotaFixedTickers.slice(0, planModal.quotaSlots - p),
+                                });
+                              }}
+                              title="Ativos que o cliente escolhe livremente no catálogo"
+                              required
+                            />
+                            <div className="billing-equation-lbl-wrap">
+                              <span className="billing-equation-lbl" style={{ color: 'var(--primary, #673de6)' }}>Livre Escolha</span>
+                              <InfoHelpTooltip text="Ativos que o cliente escolhe livremente no catálogo de mercado." />
+                            </div>
                           </div>
+
                           <span className="billing-equation-op">+</span>
+
                           <div className="billing-equation-box is-fixed">
-                            <span className="billing-equation-val">{requiredFixed}</span>
-                            <span className="billing-equation-lbl">Fixos da Plataforma</span>
+                            <span className="billing-equation-val" style={{ color: 'var(--warning, #b45309)' }}>
+                              {requiredFixed}
+                            </span>
+                            <div className="billing-equation-lbl-wrap">
+                              <span className="billing-equation-lbl" style={{ color: 'var(--warning, #b45309)' }}>Fixos da Plataforma</span>
+                              <InfoHelpTooltip text="Ativos fixos recomendados obrigatórios configurados pela plataforma (Total menos Livre Escolha)." />
+                            </div>
                           </div>
                         </div>
 
@@ -2505,62 +2523,10 @@ function PlansPanel({ writable }: { writable: boolean }) {
         )}
       >
         <div className="billing-freemium-edit-dialog">
-          <p className="dashboard-subtitle" style={{ margin: '0 0 1.25rem' }}>
-            Usuários que ainda não assinaram ou que cancelaram terão estas cotas aplicadas à sua watchlist.
-          </p>
-
-          <div className="billing-form-grid-2">
-            <div className="billing-field">
-              <label className="billing-field-label" htmlFor="noplan-slots-input">
-                Capacidade Total da Carteira (Slots)
-              </label>
-              <div className="billing-input-group">
-                <input
-                  id="noplan-slots-input"
-                  className="billing-input-group-field"
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={noPlanDraft.watchlistSlots}
-                  onChange={(e) => {
-                    const s = Math.max(1, parseInt(e.target.value, 10) || 1);
-                    setNoPlanDraft({
-                      ...noPlanDraft,
-                      watchlistSlots: s,
-                      watchlistPicks: Math.min(noPlanDraft.watchlistPicks, s),
-                    });
-                  }}
-                  required
-                />
-                <span className="billing-input-group-addon">ativos</span>
-              </div>
-              <span className="billing-field-hint">Total de ativos na carteira gratuita.</span>
-            </div>
-
-            <div className="billing-field">
-              <label className="billing-field-label" htmlFor="noplan-picks-input">
-                Picks de Livre Escolha
-              </label>
-              <div className="billing-input-group">
-                <input
-                  id="noplan-picks-input"
-                  className="billing-input-group-field"
-                  type="number"
-                  min={0}
-                  max={noPlanDraft.watchlistSlots}
-                  value={noPlanDraft.watchlistPicks}
-                  onChange={(e) => {
-                    const p = Math.min(noPlanDraft.watchlistSlots, Math.max(0, parseInt(e.target.value, 10) || 0));
-                    setNoPlanDraft({
-                      ...noPlanDraft,
-                      watchlistPicks: p,
-                    });
-                  }}
-                  required
-                />
-                <span className="billing-input-group-addon">livres</span>
-              </div>
-              <span className="billing-field-hint">Quantos ativos o usuário escolhe livremente.</span>
+          <div className="billing-quotas-form-intro" style={{ marginBottom: '1rem' }}>
+            <div className="billing-title-with-tooltip">
+              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Cotas da Carteira Freemium</h4>
+              <InfoHelpTooltip text="Configuração padrão de capacidade e picks aplicada aos usuários sem assinatura ativa ou após cancelamento." />
             </div>
           </div>
 
@@ -2572,22 +2538,73 @@ function PlansPanel({ writable }: { writable: boolean }) {
               : 100;
 
             return (
-              <div style={{ marginTop: '1rem' }}>
+              <div>
                 <div className="billing-quotas-composition-card">
                   <div className="billing-quotas-equation">
                     <div className="billing-equation-box is-total">
-                      <span className="billing-equation-val">{noPlanDraft.watchlistSlots}</span>
-                      <span className="billing-equation-lbl">Slots Totais</span>
+                      <input
+                        id="noplan-slots-input"
+                        type="number"
+                        min={1}
+                        max={50}
+                        className="billing-equation-input"
+                        value={noPlanDraft.watchlistSlots}
+                        onChange={(e) => {
+                          const s = Math.max(1, parseInt(e.target.value, 10) || 1);
+                          const p = Math.min(noPlanDraft.watchlistPicks, s);
+                          setNoPlanDraft({
+                            ...noPlanDraft,
+                            watchlistSlots: s,
+                            watchlistPicks: p,
+                            fixedTickers: noPlanDraft.fixedTickers.slice(0, s - p),
+                          });
+                        }}
+                        title="Total de ativos na carteira gratuita"
+                        required
+                      />
+                      <div className="billing-equation-lbl-wrap">
+                        <span className="billing-equation-lbl">Slots Totais</span>
+                        <InfoHelpTooltip text="Limite máximo de ativos na carteira gratuita sem assinatura." />
+                      </div>
                     </div>
+
                     <span className="billing-equation-op">=</span>
+
                     <div className="billing-equation-box is-picks">
-                      <span className="billing-equation-val">{noPlanDraft.watchlistPicks}</span>
-                      <span className="billing-equation-lbl">Livre Escolha</span>
+                      <input
+                        id="noplan-picks-input"
+                        type="number"
+                        min={0}
+                        max={noPlanDraft.watchlistSlots}
+                        className="billing-equation-input is-picks"
+                        value={noPlanDraft.watchlistPicks}
+                        onChange={(e) => {
+                          const p = Math.min(noPlanDraft.watchlistSlots, Math.max(0, parseInt(e.target.value, 10) || 0));
+                          setNoPlanDraft({
+                            ...noPlanDraft,
+                            watchlistPicks: p,
+                            fixedTickers: noPlanDraft.fixedTickers.slice(0, noPlanDraft.watchlistSlots - p),
+                          });
+                        }}
+                        title="Quantos ativos o usuário escolhe livremente"
+                        required
+                      />
+                      <div className="billing-equation-lbl-wrap">
+                        <span className="billing-equation-lbl" style={{ color: 'var(--primary, #673de6)' }}>Livre Escolha</span>
+                        <InfoHelpTooltip text="Quantidade de ativos que o usuário sem assinatura pode escolher livremente no catálogo." />
+                      </div>
                     </div>
+
                     <span className="billing-equation-op">+</span>
+
                     <div className="billing-equation-box is-fixed">
-                      <span className="billing-equation-val">{reqFixed}</span>
-                      <span className="billing-equation-lbl">Fixos Degustação</span>
+                      <span className="billing-equation-val" style={{ color: 'var(--warning, #b45309)' }}>
+                        {reqFixed}
+                      </span>
+                      <div className="billing-equation-lbl-wrap">
+                        <span className="billing-equation-lbl" style={{ color: 'var(--warning, #b45309)' }}>Fixos Degustação</span>
+                        <InfoHelpTooltip text="Ativos fixos recomendados e obrigatórios incluídos automaticamente na degustação." />
+                      </div>
                     </div>
                   </div>
 
@@ -2793,7 +2810,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
               const q = quotasMap[viewingPlan.code];
               return (
                 <div className="billing-detail-section" style={{ marginTop: '1.25rem' }}>
-                  <span className="billing-detail-section-title">Limites de Mercado (Watchlist)</span>
+                  <span className="billing-detail-section-title">Limites da Carteira de Mercado</span>
                   {!q ? (
                     <div className="table-cell-muted" style={{ padding: '1rem', background: 'var(--bg-surface-elevated)', borderRadius: '8px' }}>
                       Nenhuma cota específica configurada para este plano. O sistema aplicará os padrões globais.
@@ -2803,7 +2820,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                       <div className="billing-detail-quotas-stats">
                         <div className="billing-detail-quota-stat">
                           <span className="billing-detail-quota-num">{q.watchlistSlots}</span>
-                          <span className="billing-detail-quota-label">Slots na Watchlist</span>
+                          <span className="billing-detail-quota-label">Slots na Carteira</span>
                         </div>
                         <div className="billing-freemium-metric-divider" />
                         <div className="billing-detail-quota-stat">
