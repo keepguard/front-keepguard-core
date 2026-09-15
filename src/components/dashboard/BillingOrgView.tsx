@@ -1306,8 +1306,6 @@ function TickerPicker({
               e.preventDefault();
               if (filtered.length > 0 && query.trim()) {
                 handleAdd(filtered[0]);
-              } else if (query.trim()) {
-                handleAdd(query);
               }
             } else if (e.key === 'Escape') {
               setIsOpen(false);
@@ -1315,15 +1313,6 @@ function TickerPicker({
           }}
           autoComplete="off"
         />
-        <button
-          type="button"
-          className="btn btn-outline btn-pill"
-          disabled={disabled || isMaxReached || !query.trim()}
-          onClick={() => handleAdd(query)}
-        >
-          <Plus size={15} style={{ marginRight: '0.25rem' }} />
-          Adicionar
-        </button>
       </div>
 
       {isOpen && !isMaxReached && typeof document !== 'undefined' && createPortal(

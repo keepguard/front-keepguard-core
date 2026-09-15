@@ -9345,8 +9345,15 @@ textarea.form-input {
 .billing-ticker-picker-input-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   position: relative;
+  width: 70%;
+  max-width: 480px;
+}
+
+@media (max-width: 640px) {
+  .billing-ticker-picker-input-group {
+    width: 100%;
+  }
 }
 
 .billing-ticker-input-icon {
@@ -9358,7 +9365,7 @@ textarea.form-input {
 
 .billing-ticker-picker-input {
   padding-left: 2.25rem !important;
-  flex: 1 1 auto;
+  width: 100%;
 }
 
 .billing-ticker-picker-popover {
