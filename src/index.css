@@ -4118,6 +4118,7 @@ textarea.form-input {
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   padding-right: 0.35rem;
 }
@@ -7435,6 +7436,8 @@ textarea.form-input {
   border: 1px solid var(--border, #e3e5e8);
   transition: var(--transition-smooth);
   min-height: 138px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .billing-cycle-box.is-selected {
@@ -7453,7 +7456,9 @@ textarea.form-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem;
   margin-bottom: 0.35rem;
+  min-width: 0;
 }
 
 .billing-cycle-check {
@@ -7461,6 +7466,7 @@ textarea.form-input {
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
+  min-width: 0;
 }
 
 .billing-cycle-check input[type="checkbox"] {
@@ -7468,12 +7474,14 @@ textarea.form-input {
   height: 16px;
   accent-color: var(--primary, #673de6);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .billing-cycle-label {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-main, #1d2129);
+  white-space: nowrap;
 }
 
 .billing-cycle-badge-active {
@@ -7485,6 +7493,8 @@ textarea.form-input {
   border-radius: 12px;
   background: var(--success-light, #e6f7f3);
   color: var(--success, #00b090);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .billing-cycle-desc {
@@ -7570,14 +7580,18 @@ textarea.form-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   margin-top: 0.35rem;
   padding: 0 0.15rem;
+  min-width: 0;
 }
 
 .billing-cycle-calc-monthly {
   font-size: 0.74rem;
   color: var(--primary, #673de6);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .billing-cycle-discount-tag {
@@ -7588,6 +7602,8 @@ textarea.form-input {
   background: #ecfdf5;
   color: #059669;
   border: 1px solid #a7f3d0;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .billing-modal-footer {

@@ -1309,7 +1309,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
             ? `Configuração do plano "${planModal?.name || editingCode}" (${planModal?.code || editingCode})`
             : 'Defina os dados fundamentais do plano e seus ciclos de faturamento'
         }
-        maxWidth="660px"
+        maxWidth="800px"
         footer={(
           <div className="billing-modal-footer">
             <button
