@@ -8858,6 +8858,494 @@ textarea.form-input {
   background: var(--danger-light, #fee2e2);
 }
 
+/* ==========================================================================
+   Workflow / Trilha de Planos (Upgrade / Downgrade)
+   ========================================================================== */
+.billing-workflow-panel {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e3e5e8);
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: padding 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.billing-workflow-panel:hover {
+  border-color: #dcd2f9;
+}
+
+.billing-workflow-panel.is-expanded {
+  padding: 1.15rem 1.25rem;
+}
+
+.billing-workflow-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  cursor: pointer;
+  user-select: none;
+}
+
+.billing-workflow-header-bar:focus-visible {
+  outline: 2px solid var(--primary, #673de6);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.billing-workflow-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.billing-workflow-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--primary-light, #f0ecfc);
+  border: 1px solid var(--primary-border, #dcd2f9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary, #673de6);
+  flex-shrink: 0;
+}
+
+.billing-workflow-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.billing-workflow-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main, #1d2129);
+}
+
+.billing-workflow-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--bg-muted, #f8f9fa);
+  border: 1px solid var(--border, #e3e5e8);
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-workflow-compact-chain {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.25rem;
+  overflow-x: auto;
+  max-width: 550px;
+  scrollbar-width: none;
+}
+
+.billing-workflow-compact-chain::-webkit-scrollbar {
+  display: none;
+}
+
+.billing-workflow-chain-step {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-main, #1d2129);
+  background: var(--bg-muted, #f8f9fa);
+  border: 1px solid var(--border, #e3e5e8);
+  padding: 0.12rem 0.5rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.billing-workflow-chain-step.is-freemium {
+  color: var(--primary, #673de6);
+  background: var(--primary-light, #f0ecfc);
+  border-color: var(--primary-border, #dcd2f9);
+}
+
+.billing-workflow-chain-step small {
+  font-weight: 500;
+  color: var(--text-muted, #5f6368);
+  margin-left: 0.2rem;
+}
+
+.billing-workflow-chain-sep {
+  color: var(--primary, #673de6);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.billing-workflow-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.billing-workflow-body {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #e3e5e8);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: freemiumFadeIn 0.2s ease-in-out;
+}
+
+.billing-workflow-intro-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.billing-workflow-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted, #5f6368);
+  line-height: 1.4;
+  max-width: 680px;
+}
+
+.billing-workflow-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-workflow-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.billing-workflow-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.billing-workflow-legend-dot.is-up {
+  background: var(--primary, #673de6);
+}
+
+.billing-workflow-legend-dot.is-down {
+  background: var(--warning, #b45309);
+}
+
+/* Track horizontal com scroll */
+.billing-workflow-track {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  padding: 0.5rem 0.25rem 1.25rem;
+  scrollbar-width: thin;
+}
+
+.billing-workflow-track::-webkit-scrollbar {
+  height: 6px;
+}
+
+.billing-workflow-track::-webkit-scrollbar-thumb {
+  background: var(--border, #e3e5e8);
+  border-radius: 9999px;
+}
+
+/* Conectores */
+.billing-workflow-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.billing-workflow-arrow-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.billing-workflow-arrow-wire {
+  width: 48px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--border, #e3e5e8), var(--primary-border, #dcd2f9), var(--border, #e3e5e8));
+  border-radius: 2px;
+}
+
+.billing-workflow-arrow-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.billing-workflow-arrow-tag.is-up {
+  color: var(--primary, #673de6);
+}
+
+.billing-workflow-arrow-tag.is-down {
+  color: var(--warning, #b45309);
+}
+
+/* Card individual da esteira */
+.billing-workflow-card {
+  position: relative;
+  width: 220px;
+  min-width: 220px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e3e5e8);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.billing-workflow-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary, #673de6);
+  box-shadow: 0 6px 18px rgba(103, 61, 230, 0.12);
+  z-index: 60;
+}
+
+.billing-workflow-card.is-freemium {
+  background: linear-gradient(180deg, #ffffff 0%, var(--bg-muted, #f8f9fa) 100%);
+}
+
+.billing-workflow-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.billing-workflow-level-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary, #673de6);
+  background: var(--primary-light, #f0ecfc);
+  border: 1px solid var(--primary-border, #dcd2f9);
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.billing-workflow-code-badge {
+  font-family: monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-workflow-plan-name {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main, #1d2129);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.billing-workflow-price-box {
+  margin-top: 0.15rem;
+}
+
+.billing-workflow-price-free {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--success, #00b090);
+}
+
+.billing-workflow-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+}
+
+.billing-workflow-price-val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary, #673de6);
+}
+
+.billing-workflow-price-unit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-workflow-quotas-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--border, #e3e5e8);
+}
+
+.billing-workflow-quota-pill {
+  font-size: 0.72rem;
+  color: var(--text-muted, #5f6368);
+  background: var(--bg-muted, #f8f9fa);
+  border: 1px solid var(--border, #e3e5e8);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.billing-workflow-quota-pill strong {
+  color: var(--text-main, #1d2129);
+}
+
+.billing-workflow-quota-pill.is-picks strong {
+  color: var(--primary, #673de6);
+}
+
+.billing-workflow-quota-pill.is-fixed strong {
+  color: var(--warning, #b45309);
+}
+
+/* Handover Popover on Hover */
+.billing-workflow-hover-popover {
+  position: absolute;
+  top: 102%;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  width: 250px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e3e5e8);
+  border-radius: 12px;
+  padding: 0.9rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.billing-workflow-card:hover .billing-workflow-hover-popover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.billing-workflow-popover-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border, #e3e5e8);
+  font-size: 0.85rem;
+  color: var(--text-main, #1d2129);
+}
+
+.billing-workflow-popover-title span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--primary, #673de6);
+  background: var(--primary-light, #f0ecfc);
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+}
+
+.billing-workflow-popover-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.billing-workflow-popover-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-workflow-popover-value-muted {
+  font-size: 0.78rem;
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-workflow-popover-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.billing-workflow-popover-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.billing-workflow-popover-price-row span {
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-workflow-popover-price-row strong {
+  color: var(--primary, #673de6);
+}
+
+.billing-workflow-popover-quotas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.76rem;
+  color: var(--text-muted, #5f6368);
+}
+
+.billing-workflow-popover-quotas strong {
+  color: var(--text-main, #1d2129);
+}
+
+.billing-workflow-popover-diff {
+  background: var(--bg-muted, #f8f9fa);
+  border: 1px solid var(--border, #e3e5e8);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.74rem;
+  color: var(--success, #00b090);
+  font-weight: 600;
+}
+
+.billing-workflow-diff-title {
+  font-size: 0.68rem;
+  color: var(--text-muted, #5f6368);
+  font-weight: 500;
+}
+
 /* Freemium Card & Quotas Configuration */
 .billing-freemium-card {
   background: var(--bg-card, #ffffff);

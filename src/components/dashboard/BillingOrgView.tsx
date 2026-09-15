@@ -19,6 +19,7 @@ import {
   Search,
   Settings2,
   Sparkles,
+  TrendingUp,
   Trash2,
   X,
 } from 'lucide-react';
@@ -1398,6 +1399,82 @@ function PlansPanel({ writable }: { writable: boolean }) {
   });
   const [noPlanBusy, setNoPlanBusy] = useState(false);
   const [freemiumExpanded, setFreemiumExpanded] = useState(false);
+  const [workflowExpanded, setWorkflowExpanded] = useState(false);
+
+  const workflowSteps = useMemo(() => {
+    interface WorkflowStep {
+      id: string;
+      isNoPlan: boolean;
+      code: string;
+      name: string;
+      level: number;
+      minMonthlyCents: number;
+      slots: number;
+      picks: number;
+      fixedTickers: string[];
+      trialDays: number;
+      prices: Array<{ interval: string; amountCents: number; currency: string }>;
+      planRef?: BillingPlan;
+    }
+
+    const steps: WorkflowStep[] = [];
+
+    // 1. Degustação Freemium (Sem assinatura ativa, Nível 0)
+    const npQuota = quotasMap[NO_PLAN_CODE];
+    steps.push({
+      id: '__NO_PLAN__',
+      isNoPlan: true,
+      code: 'sem-plano',
+      name: 'Degustação Freemium',
+      level: 0,
+      minMonthlyCents: 0,
+      slots: npQuota?.watchlistSlots ?? 5,
+      picks: npQuota?.watchlistPicks ?? 1,
+      fixedTickers: npQuota?.fixedTickers ?? [],
+      trialDays: 0,
+      prices: [],
+    });
+
+    // 2. Planos Pagos Ativos (ordenados por level crescente, excluindo vitalício e VIP)
+    const eligiblePlans = plans
+      .filter((p) => p.enabled && !p.isLifetime && p.code?.toUpperCase() !== 'VIP' && (p.level ?? 0) < 999)
+      .sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+
+    for (const p of eligiblePlans) {
+      const q = quotasMap[p.code];
+      let minMonthly = 0;
+      if (p.prices && p.prices.length > 0) {
+        const monthPrice = p.prices.find((pr) => pr.interval === 'month');
+        if (monthPrice) {
+          minMonthly = monthPrice.amountCents;
+        } else {
+          const monthlyRates = p.prices.map((pr) => {
+            const cfg = INTERVALS.find((c) => c.value === pr.interval);
+            const months = cfg?.months || 1;
+            return Math.round(pr.amountCents / months);
+          });
+          minMonthly = Math.min(...monthlyRates);
+        }
+      }
+
+      steps.push({
+        id: p.code,
+        isNoPlan: false,
+        code: p.code,
+        name: p.name,
+        level: p.level ?? 0,
+        minMonthlyCents: minMonthly,
+        slots: q?.watchlistSlots ?? 10,
+        picks: q?.watchlistPicks ?? 10,
+        fixedTickers: q?.fixedTickers ?? [],
+        trialDays: p.trialDays ?? 0,
+        prices: p.prices ?? [],
+        planRef: p,
+      });
+    }
+
+    return steps;
+  }, [plans, quotasMap]);
 
   const load = useCallback(async () => {
     const access = getAccessToken();
@@ -1734,6 +1811,219 @@ function PlansPanel({ writable }: { writable: boolean }) {
             <Plus size={15} />
             <span>Novo plano</span>
           </button>
+        )}
+      </div>
+
+      {/* Painel Trilha de Planos Ativos (Workflow de Upgrade / Downgrade) */}
+      <div
+        className={`billing-workflow-panel ${workflowExpanded ? 'is-expanded' : 'is-collapsed'}`}
+        style={{ marginBottom: '1.25rem' }}
+      >
+        {/* Header da Trilha (clicável para expandir/recolher) */}
+        <div
+          className="billing-workflow-header-bar"
+          onClick={() => setWorkflowExpanded((prev) => !prev)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setWorkflowExpanded((prev) => !prev);
+            }
+          }}
+          aria-expanded={workflowExpanded}
+        >
+          <div className="billing-workflow-header-left">
+            <div className="billing-workflow-icon-wrap">
+              <TrendingUp size={18} />
+            </div>
+            <div className="billing-workflow-title-row">
+              <h3 className="billing-workflow-title">Trilha de Níveis e Planos (Upgrade / Downgrade)</h3>
+              <span className="billing-workflow-badge">
+                {workflowSteps.length} nível{workflowSteps.length !== 1 ? 'eis' : ''} ativo{workflowSteps.length !== 1 ? 's' : ''}
+              </span>
+              {!workflowExpanded && (
+                <div className="billing-workflow-compact-chain">
+                  {workflowSteps.map((step, idx) => (
+                    <React.Fragment key={step.id}>
+                      {idx > 0 && <span className="billing-workflow-chain-sep">›</span>}
+                      <span className={`billing-workflow-chain-step ${step.isNoPlan ? 'is-freemium' : ''}`}>
+                        {step.name} <small>(Nív. {step.level})</small>
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="billing-workflow-header-actions" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="billing-freemium-toggle-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setWorkflowExpanded((prev) => !prev);
+              }}
+              aria-label={workflowExpanded ? 'Recolher trilha de planos' : 'Expandir trilha de planos'}
+              title={workflowExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
+            >
+              {workflowExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Conteúdo Expandido */}
+        {workflowExpanded && (
+          <div className="billing-workflow-body">
+            <div className="billing-workflow-intro-row">
+              <p className="billing-workflow-desc">
+                Mapeamento sequencial do ciclo de vida do assinante. Visualização do fluxo de <strong>Upgrade</strong> (progressão de níveis) e <strong>Downgrade</strong> (redução de limites) entre os planos ativos da organização.
+              </p>
+              <div className="billing-workflow-legend">
+                <span className="billing-workflow-legend-item">
+                  <span className="billing-workflow-legend-dot is-up" /> Upgrade ➔
+                </span>
+                <span className="billing-workflow-legend-item">
+                  <span className="billing-workflow-legend-dot is-down" /> ⮌ Downgrade
+                </span>
+              </div>
+            </div>
+
+            <div className="billing-workflow-track">
+              {workflowSteps.map((step, index) => {
+                const prevStep = index > 0 ? workflowSteps[index - 1] : null;
+                const slotDiff = prevStep ? step.slots - prevStep.slots : 0;
+                const pickDiff = prevStep ? step.picks - prevStep.picks : 0;
+
+                return (
+                  <React.Fragment key={step.id}>
+                    {index > 0 && (
+                      <div className="billing-workflow-connector">
+                        <div className="billing-workflow-arrow-line">
+                          <span className="billing-workflow-arrow-tag is-up">
+                            Upgrade ➔
+                          </span>
+                          <div className="billing-workflow-arrow-wire" />
+                          <span className="billing-workflow-arrow-tag is-down">
+                            ⮌ Downgrade
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`billing-workflow-card ${step.isNoPlan ? 'is-freemium' : ''}`}>
+                      <div className="billing-workflow-card-header">
+                        <span className="billing-workflow-level-badge">
+                          {step.isNoPlan ? 'Nível 0' : `Nível ${step.level}`}
+                        </span>
+                        <span className="billing-workflow-code-badge">{step.code}</span>
+                      </div>
+
+                      <h4 className="billing-workflow-plan-name" title={step.name}>{step.name}</h4>
+
+                      <div className="billing-workflow-price-box">
+                        {step.isNoPlan ? (
+                          <span className="billing-workflow-price-free">Grátis</span>
+                        ) : (
+                          <div className="billing-workflow-price-row">
+                            <span className="billing-workflow-price-val">
+                              {formatMoney(step.minMonthlyCents)}
+                            </span>
+                            <span className="billing-workflow-price-unit">/mês</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="billing-workflow-quotas-row">
+                        <span className="billing-workflow-quota-pill">
+                          <strong>{step.slots}</strong> slots
+                        </span>
+                        <span className="billing-workflow-quota-pill is-picks">
+                          <strong>{step.picks}</strong> livres
+                        </span>
+                        {step.fixedTickers.length > 0 && (
+                          <span className="billing-workflow-quota-pill is-fixed">
+                            <strong>{step.fixedTickers.length}</strong> fixos
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Hover / Handover Popover com detalhes completos */}
+                      <div className="billing-workflow-hover-popover">
+                        <div className="billing-workflow-popover-title">
+                          <strong>{step.name}</strong>
+                          <span>{step.isNoPlan ? 'Nível 0' : `Nível ${step.level}`}</span>
+                        </div>
+
+                        <div className="billing-workflow-popover-section">
+                          <span className="billing-workflow-popover-label">Ciclos e Faturamento</span>
+                          {step.isNoPlan ? (
+                            <span className="billing-workflow-popover-value-muted">
+                              Degustação perpétua sem cobrança
+                            </span>
+                          ) : step.prices.length === 0 ? (
+                            <span className="billing-workflow-popover-value-muted">Nenhum ciclo ativo</span>
+                          ) : (
+                            <div className="billing-workflow-popover-prices">
+                              {step.prices.map((pr) => {
+                                const cfg = INTERVALS.find((c) => c.value === pr.interval);
+                                return (
+                                  <div key={pr.interval} className="billing-workflow-popover-price-row">
+                                    <span>{cfg?.label || pr.interval}:</span>
+                                    <strong>{formatMoney(pr.amountCents, pr.currency)}</strong>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="billing-workflow-popover-section">
+                          <span className="billing-workflow-popover-label">Capacidade da Carteira</span>
+                          <div className="billing-workflow-popover-quotas">
+                            <span>• Slots Totais: <strong>{step.slots}</strong></span>
+                            <span>• Picks Livres: <strong>{step.picks}</strong></span>
+                            <span>• Ativos Fixos: <strong>{step.fixedTickers.length}</strong></span>
+                          </div>
+                          {step.fixedTickers.length > 0 && (
+                            <div className="billing-tickers-chips-wrap" style={{ marginTop: '0.35rem' }}>
+                              {step.fixedTickers.map((t) => (
+                                <span key={t} className="billing-ticker-mini-tag is-freemium" style={{ fontSize: '0.72rem' }}>
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {prevStep && (
+                          <div className="billing-workflow-popover-diff">
+                            <span className="billing-workflow-diff-title">Evolução sobre {prevStep.name}:</span>
+                            <span>
+                              {slotDiff >= 0 ? `+${slotDiff}` : slotDiff} slots {pickDiff >= 0 ? `(+${pickDiff} picks)` : ''}
+                            </span>
+                          </div>
+                        )}
+
+                        {step.planRef && writable && (
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-pill btn-xs"
+                            style={{ marginTop: '0.5rem', width: '100%', justifyContent: 'center' }}
+                            onClick={() => openEditPlan(step.planRef!)}
+                          >
+                            <Settings2 size={12} style={{ marginRight: '0.25rem' }} />
+                            Editar Plano
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
 
