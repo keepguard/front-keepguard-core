@@ -1327,12 +1327,7 @@ function TickerPicker({
             </span>
           ))}
         </div>
-      ) : (
-        <div className="billing-tickers-empty-hint">
-          <AlertCircle size={15} />
-          <span>Defina os {remaining} ticker(s) fixo(s) obrigatórios para completar a carteira deste plano.</span>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

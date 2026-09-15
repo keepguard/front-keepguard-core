@@ -9060,26 +9060,10 @@ textarea.form-input {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-main, #1d2129);
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-  text-decoration-color: rgba(95, 99, 104, 0.4);
-  transition: text-decoration-color 0.15s ease;
-}
-
-.billing-title-with-tooltip:hover h4 {
-  text-decoration-color: var(--primary, #673de6);
 }
 
 .billing-title-with-tooltip label {
   cursor: help;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-  text-decoration-color: rgba(95, 99, 104, 0.4);
-  transition: text-decoration-color 0.15s ease;
-}
-
-.billing-title-with-tooltip:hover label {
-  text-decoration-color: var(--primary, #673de6);
 }
 
 .billing-info-tooltip {
@@ -9292,14 +9276,6 @@ textarea.form-input {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-muted, #5f6368);
-  text-decoration: underline dotted;
-  text-underline-offset: 2px;
-  text-decoration-color: rgba(95, 99, 104, 0.35);
-  transition: text-decoration-color 0.15s ease;
-}
-
-.billing-equation-lbl-wrap:hover .billing-equation-lbl {
-  text-decoration-color: var(--primary, #673de6);
 }
 
 .billing-equation-op {
