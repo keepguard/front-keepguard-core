@@ -1042,7 +1042,7 @@ function EntitlementTable({
                 <td>{entitlementLabel(row.status)}</td>
                 <td>
                   {row.interval === 'lifetime' || (!row.currentPeriodEnd && row.planCode?.toUpperCase() === 'VIP') ? (
-                    <span style={{ color: 'var(--success, #10b981)', fontWeight: 600 }}>
+                    <span style={{ color: 'var(--success, #00b090)', fontWeight: 600 }}>
                       Vitalício (Sem expiração)
                     </span>
                   ) : (
@@ -1217,7 +1217,7 @@ function TickerPicker({
         <label className="billing-field-label" htmlFor={id} style={{ margin: 0 }}>
           Ativos Fixos Recomendados da Plataforma
         </label>
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isMaxReached ? 'var(--accent-success, #22c55e)' : 'var(--text-muted)' }}>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isMaxReached ? 'var(--success, #00b090)' : 'var(--text-muted)' }}>
           {selectedTickers.length} de {maxCount} adicionados
         </span>
       </div>
@@ -2440,7 +2440,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                       </div>
 
                       {is100Free ? (
-                        <div className="billing-tickers-empty-hint" style={{ background: 'rgba(34, 197, 94, 0.08)', borderColor: 'rgba(34, 197, 94, 0.25)', color: '#22c55e', marginTop: '1rem' }}>
+                        <div className="billing-tickers-empty-hint is-success" style={{ marginTop: '1rem' }}>
                           <CheckCircle2 size={16} />
                           <span>100% Livre Escolha: O assinante poderá escolher todos os {planModal.quotaSlots} ativos livremente.</span>
                         </div>
@@ -2610,7 +2610,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 </div>
 
                 {is100Free ? (
-                  <div className="billing-tickers-empty-hint" style={{ background: 'rgba(34, 197, 94, 0.08)', borderColor: 'rgba(34, 197, 94, 0.25)', color: '#22c55e', marginTop: '1rem' }}>
+                  <div className="billing-tickers-empty-hint is-success" style={{ marginTop: '1rem' }}>
                     <CheckCircle2 size={16} />
                     <span>100% Livre Escolha: Usuários sem plano poderão escolher todos os {noPlanDraft.watchlistSlots} ativos da sua carteira.</span>
                   </div>
