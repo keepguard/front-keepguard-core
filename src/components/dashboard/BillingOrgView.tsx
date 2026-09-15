@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -1158,6 +1158,159 @@ function EntitlementTable({
   );
 }
 
+interface TickerPickerProps {
+  knownTickers: string[];
+  selectedTickers: string[];
+  maxCount: number;
+  onAdd: (ticker: string) => void;
+  onRemove: (ticker: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  id?: string;
+}
+
+function TickerPicker({
+  knownTickers,
+  selectedTickers,
+  maxCount,
+  onAdd,
+  onRemove,
+  disabled,
+  placeholder = 'Buscar ticker no catálogo (ex: PETR4, HGLG11)...',
+  id = 'ticker-search-input',
+}: TickerPickerProps) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const remaining = Math.max(0, maxCount - selectedTickers.length);
+  const isMaxReached = remaining === 0;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toUpperCase();
+    const available = knownTickers.filter((t) => !selectedTickers.includes(t));
+    if (!q) return available.slice(0, 20);
+    return available.filter((t) => t.includes(q)).slice(0, 20);
+  }, [knownTickers, query, selectedTickers]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleAdd = (ticker: string) => {
+    const clean = ticker.trim().toUpperCase();
+    if (!clean || isMaxReached) return;
+    onAdd(clean);
+    setQuery('');
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="billing-ticker-picker" ref={containerRef}>
+      <div className="billing-ticker-picker-label-row">
+        <label className="billing-field-label" htmlFor={id} style={{ margin: 0 }}>
+          Ativos Fixos Recomendados da Plataforma
+        </label>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isMaxReached ? 'var(--accent-success, #22c55e)' : 'var(--text-muted)' }}>
+          {selectedTickers.length} de {maxCount} adicionados
+        </span>
+      </div>
+
+      <div className="billing-ticker-picker-input-group">
+        <Search size={15} className="billing-ticker-input-icon" />
+        <input
+          id={id}
+          className="form-input billing-ticker-picker-input"
+          value={query}
+          disabled={disabled || isMaxReached}
+          placeholder={isMaxReached ? `Meta atingida (${maxCount} tickers fixados)` : placeholder}
+          onChange={(e) => {
+            setQuery(e.target.value.toUpperCase());
+            setIsOpen(true);
+          }}
+          onFocus={() => {
+            if (!isMaxReached) setIsOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (filtered.length > 0 && query.trim()) {
+                handleAdd(filtered[0]);
+              } else if (query.trim()) {
+                handleAdd(query);
+              }
+            } else if (e.key === 'Escape') {
+              setIsOpen(false);
+            }
+          }}
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          className="btn btn-outline btn-pill"
+          disabled={disabled || isMaxReached || !query.trim()}
+          onClick={() => handleAdd(query)}
+        >
+          <Plus size={15} style={{ marginRight: '0.25rem' }} />
+          Adicionar
+        </button>
+      </div>
+
+      {isOpen && !isMaxReached && (
+        <div className="billing-ticker-picker-popover" role="listbox">
+          {filtered.length === 0 ? (
+            <div className="billing-ticker-popover-empty">
+              {query.trim() ? `Nenhum ativo encontrado para "${query}"` : 'Nenhum ativo disponível'}
+            </div>
+          ) : (
+            filtered.map((ticker) => (
+              <button
+                key={ticker}
+                type="button"
+                className="billing-ticker-popover-item"
+                onClick={() => handleAdd(ticker)}
+              >
+                <span className="billing-ticker-popover-code">{ticker}</span>
+                <span className="billing-ticker-popover-badge">+ Selecionar</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      {selectedTickers.length > 0 ? (
+        <div className="billing-tickers-chips-wrap">
+          {selectedTickers.map((ticker) => (
+            <span key={ticker} className="billing-ticker-chip">
+              <span>{ticker}</span>
+              <button
+                type="button"
+                className="billing-ticker-chip-remove"
+                title={`Remover ${ticker}`}
+                onClick={() => onRemove(ticker)}
+                disabled={disabled}
+              >
+                <X size={13} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="billing-tickers-empty-hint">
+          <AlertCircle size={15} />
+          <span>Defina os {remaining} ticker(s) fixo(s) obrigatórios para completar a carteira deste plano.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlansPanel({ writable }: { writable: boolean }) {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
@@ -1169,7 +1322,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
   const [planModal, setPlanModal] = useState<PlanFormState | null>(null);
   const [planStep, setPlanStep] = useState<'general' | 'pricing' | 'quotas'>('general');
   const [editingCode, setEditingCode] = useState<string | null>(null);
-  const [tickerInput, setTickerInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [viewingPlan, setViewingPlan] = useState<BillingPlan | null>(null);
   const [deletingPlan, setDeletingPlan] = useState<BillingPlan | null>(null);
@@ -1182,7 +1334,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
     watchlistPicks: 1,
     fixedTickers: [],
   });
-  const [noPlanTickerInput, setNoPlanTickerInput] = useState('');
   const [noPlanBusy, setNoPlanBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -1263,7 +1414,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
     setEditingCode(null);
     setPlanStep('general');
     setPlanModal({ ...EMPTY_PLAN_FORM });
-    setTickerInput('');
   };
 
   const openEditPlan = (plan: BillingPlan) => {
@@ -1285,7 +1435,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
       quotaPicks: existingQuota?.watchlistPicks ?? 10,
       quotaFixedTickers: existingQuota?.fixedTickers ? [...existingQuota.fixedTickers] : [],
     });
-    setTickerInput('');
   };
 
   const openEditNoPlan = () => {
@@ -1295,7 +1444,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
       watchlistPicks: np?.watchlistPicks ?? 1,
       fixedTickers: np?.fixedTickers ? [...np.fixedTickers] : [],
     });
-    setNoPlanTickerInput('');
     setEditingNoPlan(true);
   };
 
@@ -1370,7 +1518,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
       ...planModal,
       quotaFixedTickers: [...planModal.quotaFixedTickers, ticker],
     });
-    setTickerInput('');
   };
 
   const removePlanFixedTicker = (ticker: string) => {
@@ -1401,7 +1548,6 @@ function PlansPanel({ writable }: { writable: boolean }) {
       ...noPlanDraft,
       fixedTickers: [...noPlanDraft.fixedTickers, ticker],
     });
-    setNoPlanTickerInput('');
   };
 
   const removeNoPlanFixedTicker = (ticker: string) => {
@@ -1824,12 +1970,10 @@ function PlansPanel({ writable }: { writable: boolean }) {
               >
                 <span className="billing-stepper-num">1</span>
                 <div className="billing-stepper-text">
-                  <strong>1. Dados do Plano</strong>
-                  <span>Código, nome, nível e tipo</span>
+                  <strong>1. Dados Gerais</strong>
+                  <span>Identificação e nível</span>
                 </div>
               </button>
-
-              <div className="billing-stepper-divider" />
 
               <button
                 type="button"
@@ -1844,12 +1988,10 @@ function PlansPanel({ writable }: { writable: boolean }) {
               >
                 <span className="billing-stepper-num">2</span>
                 <div className="billing-stepper-text">
-                  <strong>2. Ciclos e Preços</strong>
-                  <span>{planModal.isLifetime ? 'Isento (Vitalício)' : `${planModal.prices.length} ciclo(s) ativo(s)`}</span>
+                  <strong>2. Ciclos & Preços</strong>
+                  <span>{planModal.isLifetime ? 'Vitalício (Isento)' : `${planModal.prices.length} ciclo(s)`}</span>
                 </div>
               </button>
-
-              <div className="billing-stepper-divider" />
 
               <button
                 type="button"
@@ -1865,7 +2007,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 <span className="billing-stepper-num">3</span>
                 <div className="billing-stepper-text">
                   <strong>3. Cotas de Mercado</strong>
-                  <span>{planModal.quotaSlots} slots ({planModal.quotaPicks} picks)</span>
+                  <span>{planModal.quotaSlots} slots ({planModal.quotaPicks} livres)</span>
                 </div>
               </button>
             </div>
@@ -2183,64 +2325,70 @@ function PlansPanel({ writable }: { writable: boolean }) {
             {planStep === 'quotas' && (
               <div className="billing-step-content">
                 <div className="billing-quotas-form-intro">
-                  <h4>Regras de Watchlist e Carteira de Mercado</h4>
+                  <h4>Capacidade da Watchlist e Carteira de Mercado</h4>
                   <p>
-                    Defina o tamanho total da carteira que o assinante deste plano pode acompanhar e quantos ativos ele escolhe livremente.
+                    Defina o tamanho da carteira que o assinante pode acompanhar e quantos ativos ele escolhe livremente.
                   </p>
                 </div>
 
                 <div className="billing-form-grid-2">
                   <div className="billing-field">
                     <label className="billing-field-label" htmlFor="plan-quota-slots">
-                      Slots Totais na Watchlist
+                      Capacidade Total da Carteira (Slots)
                     </label>
-                    <input
-                      id="plan-quota-slots"
-                      className="form-input"
-                      type="number"
-                      min={1}
-                      max={200}
-                      value={planModal.quotaSlots}
-                      onChange={(e) => {
-                        const slots = Math.max(1, parseInt(e.target.value, 10) || 1);
-                        setPlanModal({
-                          ...planModal,
-                          quotaSlots: slots,
-                          quotaPicks: Math.min(planModal.quotaPicks, slots),
-                        });
-                      }}
-                      required
-                    />
+                    <div className="billing-input-group">
+                      <input
+                        id="plan-quota-slots"
+                        className="billing-input-group-field"
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={planModal.quotaSlots}
+                        onChange={(e) => {
+                          const slots = Math.max(1, parseInt(e.target.value, 10) || 1);
+                          setPlanModal({
+                            ...planModal,
+                            quotaSlots: slots,
+                            quotaPicks: Math.min(planModal.quotaPicks, slots),
+                          });
+                        }}
+                        required
+                      />
+                      <span className="billing-input-group-addon">ativos</span>
+                    </div>
                     <span className="billing-field-hint">
-                      Capacidade máxima de ativos monitorados na watchlist do assinante.
+                      Limite máximo de ativos monitorados pelo usuário.
                     </span>
                   </div>
 
                   <div className="billing-field">
                     <label className="billing-field-label" htmlFor="plan-quota-picks">
-                      Picks de Livre Escolha
+                      Picks de Escolha Livre
                     </label>
-                    <input
-                      id="plan-quota-picks"
-                      className="form-input"
-                      type="number"
-                      min={0}
-                      max={planModal.quotaSlots}
-                      value={planModal.quotaPicks}
-                      onChange={(e) => {
-                        const picks = Math.min(
-                          planModal.quotaSlots,
-                          Math.max(0, parseInt(e.target.value, 10) || 0)
-                        );
-                        setPlanModal({
-                          ...planModal,
-                          quotaPicks: picks,
-                        });
-                      }}
-                      required
-                    />
+                    <div className="billing-input-group">
+                      <input
+                        id="plan-quota-picks"
+                        className="billing-input-group-field"
+                        type="number"
+                        min={0}
+                        max={planModal.quotaSlots}
+                        value={planModal.quotaPicks}
+                        onChange={(e) => {
+                          const picks = Math.min(
+                            planModal.quotaSlots,
+                            Math.max(0, parseInt(e.target.value, 10) || 0)
+                          );
+                          setPlanModal({
+                            ...planModal,
+                            quotaPicks: picks,
+                          });
+                        }}
+                        required
+                      />
+                      <span className="billing-input-group-addon">livres</span>
+                    </div>
                     <span className="billing-field-hint">
-                      Quantos ativos o próprio cliente escolhe livremente no catálogo.
+                      Ativos que o cliente escolhe livremente no catálogo.
                     </span>
                   </div>
                 </div>
@@ -2248,96 +2396,64 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 {(() => {
                   const requiredFixed = planModal.quotaSlots - planModal.quotaPicks;
                   const is100Free = requiredFixed === 0;
+                  const percentComplete = requiredFixed > 0
+                    ? Math.min(100, Math.round((planModal.quotaFixedTickers.length / requiredFixed) * 100))
+                    : 100;
 
                   return (
-                    <div style={{ marginTop: '1.25rem' }}>
-                      {is100Free ? (
-                        <div className="billing-quotas-rule-alert is-ok">
-                          <CheckCircle2 size={20} className="billing-quotas-rule-icon" />
-                          <div className="billing-quotas-rule-body">
-                            <strong>100% Livre Escolha</strong>
-                            <p>
-                              O assinante deste plano pode escolher livremente todos os <strong>{planModal.quotaSlots} ativos</strong> da sua watchlist. Nenhum ticker fixo é obrigatório.
-                            </p>
+                    <div style={{ marginTop: '1rem' }}>
+                      {/* Equação Visual da Carteira */}
+                      <div className="billing-quotas-composition-card">
+                        <div className="billing-quotas-equation">
+                          <div className="billing-equation-box is-total">
+                            <span className="billing-equation-val">{planModal.quotaSlots}</span>
+                            <span className="billing-equation-lbl">Slots Totais</span>
                           </div>
+                          <span className="billing-equation-op">=</span>
+                          <div className="billing-equation-box is-picks">
+                            <span className="billing-equation-val">{planModal.quotaPicks}</span>
+                            <span className="billing-equation-lbl">Livre Escolha</span>
+                          </div>
+                          <span className="billing-equation-op">+</span>
+                          <div className="billing-equation-box is-fixed">
+                            <span className="billing-equation-val">{requiredFixed}</span>
+                            <span className="billing-equation-lbl">Fixos da Plataforma</span>
+                          </div>
+                        </div>
+
+                        {requiredFixed > 0 && (
+                          <div className="billing-quotas-progress-box">
+                            <div className="billing-quotas-progress-header">
+                              <span className="billing-quotas-progress-title">Composição dos Fixos Obrigatórios</span>
+                              <span className="billing-quotas-progress-counter">
+                                {planModal.quotaFixedTickers.length} de {requiredFixed} cadastrados ({percentComplete}%)
+                              </span>
+                            </div>
+                            <div className="billing-quotas-progress-track">
+                              <div
+                                className={`billing-quotas-progress-bar ${percentComplete === 100 ? 'is-complete' : ''}`}
+                                style={{ width: `${percentComplete}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {is100Free ? (
+                        <div className="billing-tickers-empty-hint" style={{ background: 'rgba(34, 197, 94, 0.08)', borderColor: 'rgba(34, 197, 94, 0.25)', color: '#22c55e', marginTop: '1rem' }}>
+                          <CheckCircle2 size={16} />
+                          <span>100% Livre Escolha: O assinante poderá escolher todos os {planModal.quotaSlots} ativos livremente.</span>
                         </div>
                       ) : (
-                        <div className="billing-quotas-rule-alert is-fixed">
-                          <AlertCircle size={20} className="billing-quotas-rule-icon" />
-                          <div className="billing-quotas-rule-body">
-                            <strong>Tickers Fixos Obrigatórios: {requiredFixed} ativo(s)</strong>
-                            <p>
-                              Diferença entre slots totais ({planModal.quotaSlots}) e picks livres ({planModal.quotaPicks}).
-                              O sistema exige que a equipe defina exatamente <strong>{requiredFixed} ticker(s)</strong> para compor a carteira recomendada do plano.
-                              Cadastrados: <strong>{planModal.quotaFixedTickers.length} de {requiredFixed}</strong>.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {requiredFixed > 0 && (
-                        <div className="billing-tickers-manager" style={{ marginTop: '1rem' }}>
-                          <label className="billing-field-label" htmlFor="plan-ticker-input">
-                            Adicionar Tickers Fixos da Plataforma ({planModal.quotaFixedTickers.length}/{requiredFixed})
-                          </label>
-
-                          <div className="billing-tickers-input-row">
-                            <input
-                              id="plan-ticker-input"
-                              className="form-input"
-                              list="plan-known-tickers-datalist"
-                              value={tickerInput}
-                              placeholder="ex: PETR4, VALE3, HGLG11..."
-                              onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  addPlanFixedTicker(tickerInput);
-                                }
-                              }}
-                              disabled={planModal.quotaFixedTickers.length >= requiredFixed}
-                            />
-                            <datalist id="plan-known-tickers-datalist">
-                              {knownTickers
-                                .filter((t) => !planModal.quotaFixedTickers.includes(t))
-                                .map((t) => (
-                                  <option key={t} value={t} />
-                                ))}
-                            </datalist>
-
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-pill"
-                              disabled={!tickerInput.trim() || planModal.quotaFixedTickers.length >= requiredFixed}
-                              onClick={() => addPlanFixedTicker(tickerInput)}
-                            >
-                              <Plus size={15} style={{ marginRight: '0.3rem' }} />
-                              Adicionar
-                            </button>
-                          </div>
-
-                          {planModal.quotaFixedTickers.length > 0 ? (
-                            <div className="billing-tickers-chips-wrap">
-                              {planModal.quotaFixedTickers.map((ticker) => (
-                                <span key={ticker} className="billing-ticker-chip">
-                                  <span>{ticker}</span>
-                                  <button
-                                    type="button"
-                                    className="billing-ticker-chip-remove"
-                                    title={`Remover ${ticker}`}
-                                    onClick={() => removePlanFixedTicker(ticker)}
-                                  >
-                                    <X size={12} />
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="billing-field-hint" style={{ marginTop: '0.5rem', display: 'block', color: 'var(--accent-warning)' }}>
-                              Adicione os {requiredFixed} ticker(s) fixos para liberar o salvamento do plano.
-                            </span>
-                          )}
-                        </div>
+                        <TickerPicker
+                          id="plan-ticker-picker-input"
+                          knownTickers={knownTickers}
+                          selectedTickers={planModal.quotaFixedTickers}
+                          maxCount={requiredFixed}
+                          onAdd={addPlanFixedTicker}
+                          onRemove={removePlanFixedTicker}
+                          placeholder="Buscar ativo no catálogo (ex: PETR4, HGLG11)..."
+                        />
                       )}
                     </div>
                   );
@@ -2353,7 +2469,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
         isOpen={editingNoPlan}
         onClose={() => !noPlanBusy && setEditingNoPlan(false)}
         title="Editar Cotas Freemium (Degustação)"
-        subtitle="Configuração de mercado para visitantes e usuários sem assinatura ativa"
+        subtitle="Configuração padrão aplicada aos usuários sem assinatura ativa ou após cancelamento"
         maxWidth="620px"
         footer={(
           <div className="billing-modal-footer">
@@ -2390,142 +2506,124 @@ function PlansPanel({ writable }: { writable: boolean }) {
       >
         <div className="billing-freemium-edit-dialog">
           <p className="dashboard-subtitle" style={{ margin: '0 0 1.25rem' }}>
-            Usuários que ainda não assinaram ou que tiveram a assinatura cancelada terão essas cotas aplicadas à sua watchlist.
+            Usuários que ainda não assinaram ou que cancelaram terão estas cotas aplicadas à sua watchlist.
           </p>
 
           <div className="billing-form-grid-2">
             <div className="billing-field">
               <label className="billing-field-label" htmlFor="noplan-slots-input">
-                Slots Totais na Watchlist
+                Capacidade Total da Carteira (Slots)
               </label>
-              <input
-                id="noplan-slots-input"
-                className="form-input"
-                type="number"
-                min={1}
-                max={50}
-                value={noPlanDraft.watchlistSlots}
-                onChange={(e) => {
-                  const s = Math.max(1, parseInt(e.target.value, 10) || 1);
-                  setNoPlanDraft({
-                    ...noPlanDraft,
-                    watchlistSlots: s,
-                    watchlistPicks: Math.min(noPlanDraft.watchlistPicks, s),
-                  });
-                }}
-                required
-              />
-              <span className="billing-field-hint">Total de ativos permitidos na carteira gratuita.</span>
+              <div className="billing-input-group">
+                <input
+                  id="noplan-slots-input"
+                  className="billing-input-group-field"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={noPlanDraft.watchlistSlots}
+                  onChange={(e) => {
+                    const s = Math.max(1, parseInt(e.target.value, 10) || 1);
+                    setNoPlanDraft({
+                      ...noPlanDraft,
+                      watchlistSlots: s,
+                      watchlistPicks: Math.min(noPlanDraft.watchlistPicks, s),
+                    });
+                  }}
+                  required
+                />
+                <span className="billing-input-group-addon">ativos</span>
+              </div>
+              <span className="billing-field-hint">Total de ativos na carteira gratuita.</span>
             </div>
 
             <div className="billing-field">
               <label className="billing-field-label" htmlFor="noplan-picks-input">
                 Picks de Livre Escolha
               </label>
-              <input
-                id="noplan-picks-input"
-                className="form-input"
-                type="number"
-                min={0}
-                max={noPlanDraft.watchlistSlots}
-                value={noPlanDraft.watchlistPicks}
-                onChange={(e) => {
-                  const p = Math.min(noPlanDraft.watchlistSlots, Math.max(0, parseInt(e.target.value, 10) || 0));
-                  setNoPlanDraft({
-                    ...noPlanDraft,
-                    watchlistPicks: p,
-                  });
-                }}
-                required
-              />
+              <div className="billing-input-group">
+                <input
+                  id="noplan-picks-input"
+                  className="billing-input-group-field"
+                  type="number"
+                  min={0}
+                  max={noPlanDraft.watchlistSlots}
+                  value={noPlanDraft.watchlistPicks}
+                  onChange={(e) => {
+                    const p = Math.min(noPlanDraft.watchlistSlots, Math.max(0, parseInt(e.target.value, 10) || 0));
+                    setNoPlanDraft({
+                      ...noPlanDraft,
+                      watchlistPicks: p,
+                    });
+                  }}
+                  required
+                />
+                <span className="billing-input-group-addon">livres</span>
+              </div>
               <span className="billing-field-hint">Quantos ativos o usuário escolhe livremente.</span>
             </div>
           </div>
 
           {(() => {
             const reqFixed = noPlanDraft.watchlistSlots - noPlanDraft.watchlistPicks;
+            const is100Free = reqFixed === 0;
+            const percentComplete = reqFixed > 0
+              ? Math.min(100, Math.round((noPlanDraft.fixedTickers.length / reqFixed) * 100))
+              : 100;
+
             return (
-              <div style={{ marginTop: '1.25rem' }}>
-                {reqFixed === 0 ? (
-                  <div className="billing-quotas-rule-alert is-ok">
-                    <CheckCircle2 size={20} className="billing-quotas-rule-icon" />
-                    <div className="billing-quotas-rule-body">
-                      <strong>100% Livre Escolha</strong>
-                      <p>O usuário freemium pode escolher todos os {noPlanDraft.watchlistSlots} ativos livremente.</p>
+              <div style={{ marginTop: '1rem' }}>
+                <div className="billing-quotas-composition-card">
+                  <div className="billing-quotas-equation">
+                    <div className="billing-equation-box is-total">
+                      <span className="billing-equation-val">{noPlanDraft.watchlistSlots}</span>
+                      <span className="billing-equation-lbl">Slots Totais</span>
                     </div>
+                    <span className="billing-equation-op">=</span>
+                    <div className="billing-equation-box is-picks">
+                      <span className="billing-equation-val">{noPlanDraft.watchlistPicks}</span>
+                      <span className="billing-equation-lbl">Livre Escolha</span>
+                    </div>
+                    <span className="billing-equation-op">+</span>
+                    <div className="billing-equation-box is-fixed">
+                      <span className="billing-equation-val">{reqFixed}</span>
+                      <span className="billing-equation-lbl">Fixos Degustação</span>
+                    </div>
+                  </div>
+
+                  {reqFixed > 0 && (
+                    <div className="billing-quotas-progress-box">
+                      <div className="billing-quotas-progress-header">
+                        <span className="billing-quotas-progress-title">Composição dos Fixos de Degustação</span>
+                        <span className="billing-quotas-progress-counter">
+                          {noPlanDraft.fixedTickers.length} de {reqFixed} cadastrados ({percentComplete}%)
+                        </span>
+                      </div>
+                      <div className="billing-quotas-progress-track">
+                        <div
+                          className={`billing-quotas-progress-bar ${percentComplete === 100 ? 'is-complete' : ''}`}
+                          style={{ width: `${percentComplete}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {is100Free ? (
+                  <div className="billing-tickers-empty-hint" style={{ background: 'rgba(34, 197, 94, 0.08)', borderColor: 'rgba(34, 197, 94, 0.25)', color: '#22c55e', marginTop: '1rem' }}>
+                    <CheckCircle2 size={16} />
+                    <span>100% Livre Escolha: Usuários sem plano poderão escolher todos os {noPlanDraft.watchlistSlots} ativos da sua carteira.</span>
                   </div>
                 ) : (
-                  <div className="billing-quotas-rule-alert is-fixed">
-                    <AlertCircle size={20} className="billing-quotas-rule-icon" />
-                    <div className="billing-quotas-rule-body">
-                      <strong>Exige {reqFixed} ticker(s) fixo(s) obrigatório(s)</strong>
-                      <p>
-                        Diferença entre slots ({noPlanDraft.watchlistSlots}) e picks ({noPlanDraft.watchlistPicks}).
-                        Configurados: <strong>{noPlanDraft.fixedTickers.length} de {reqFixed}</strong>.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {reqFixed > 0 && (
-                  <div className="billing-tickers-manager" style={{ marginTop: '1rem' }}>
-                    <label className="billing-field-label" htmlFor="noplan-ticker-input">
-                      Adicionar Tickers Obrigatórios de Degustação ({noPlanDraft.fixedTickers.length}/{reqFixed})
-                    </label>
-
-                    <div className="billing-tickers-input-row">
-                      <input
-                        id="noplan-ticker-input"
-                        className="form-input"
-                        list="noplan-known-tickers-datalist"
-                        value={noPlanTickerInput}
-                        placeholder="ex: PETR4, VALE3, HGLG11..."
-                        onChange={(e) => setNoPlanTickerInput(e.target.value.toUpperCase())}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addNoPlanFixedTicker(noPlanTickerInput);
-                          }
-                        }}
-                        disabled={noPlanDraft.fixedTickers.length >= reqFixed}
-                      />
-                      <datalist id="noplan-known-tickers-datalist">
-                        {knownTickers
-                          .filter((t) => !noPlanDraft.fixedTickers.includes(t))
-                          .map((t) => (
-                            <option key={t} value={t} />
-                          ))}
-                      </datalist>
-
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-pill"
-                        disabled={!noPlanTickerInput.trim() || noPlanDraft.fixedTickers.length >= reqFixed}
-                        onClick={() => addNoPlanFixedTicker(noPlanTickerInput)}
-                      >
-                        <Plus size={15} style={{ marginRight: '0.3rem' }} />
-                        Adicionar
-                      </button>
-                    </div>
-
-                    {noPlanDraft.fixedTickers.length > 0 && (
-                      <div className="billing-tickers-chips-wrap">
-                        {noPlanDraft.fixedTickers.map((ticker) => (
-                          <span key={ticker} className="billing-ticker-chip">
-                            <span>{ticker}</span>
-                            <button
-                              type="button"
-                              className="billing-ticker-chip-remove"
-                              title={`Remover ${ticker}`}
-                              onClick={() => removeNoPlanFixedTicker(ticker)}
-                            >
-                              <X size={12} />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <TickerPicker
+                    id="noplan-ticker-picker-input"
+                    knownTickers={knownTickers}
+                    selectedTickers={noPlanDraft.fixedTickers}
+                    maxCount={reqFixed}
+                    onAdd={addNoPlanFixedTicker}
+                    onRemove={removeNoPlanFixedTicker}
+                    placeholder="Buscar ativo no catálogo (ex: PETR4, HGLG11)..."
+                  />
                 )}
               </div>
             );
