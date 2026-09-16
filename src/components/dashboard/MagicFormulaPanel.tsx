@@ -54,23 +54,26 @@ function fScoreLabel(row: AnalystMagicRanked): string {
   if (row.piotroskiPossible == null || row.piotroskiPossible <= 0 || row.piotroskiScore == null) {
     return '—';
   }
-  return `${row.piotroskiScore}/${row.piotroskiPossible}`;
+  const pct = Math.round((row.piotroskiScore / row.piotroskiPossible) * 100);
+  return `${pct}% (${row.piotroskiScore}/${row.piotroskiPossible})`;
 }
 
-function shortSector(row: AnalystMagicRanked): string {
-  const label = row.sectorLabel ?? '';
-  if (!label) {
-    return '—';
-  }
-  const sep = ' — ';
-  const i = label.indexOf(sep);
-  return i >= 0 ? label.slice(i + sep.length) : label;
+function formatSector(row: AnalystMagicRanked): string {
+  return row.sectorLabel || '—';
+}
+
+function daysBetween(d1: string, d2: string): number {
+  const t1 = new Date(d1 + 'T12:00:00Z').getTime();
+  const t2 = new Date(d2 + 'T12:00:00Z').getTime();
+  return Math.round(Math.abs(t2 - t1) / (1000 * 3600 * 24));
 }
 
 function PendingTodayNotice({ asOfDate }: { asOfDate: string }) {
+  const today = businessDateBRT();
+  const diff = daysBetween(asOfDate, today);
   return (
     <p className="market-magic-pending" role="status">
-      Ranking de {formatIsoDatePt(asOfDate)}. O de hoje ainda não foi processado — o lote diário
+      Ranking de {formatIsoDatePt(asOfDate)}{diff > 1 ? ` (${diff} dias sem novo fechamento)` : ''}. O de hoje ainda não foi processado — o lote diário
       roda às 21:30 (dias úteis).
     </p>
   );
@@ -157,7 +160,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
                       <span className="table-cell-title">{row.ticker}</span>
                     </td>
                     <td className="market-magic-col-sector">
-                      <span className="table-cell-muted">{shortSector(row)}</span>
+                      <span className="table-cell-muted">{formatSector(row)}</span>
                     </td>
                     <td className="market-magic-col-num">{row.combined}</td>
                     <td className="market-magic-col-num">{num(row.eyPct)}</td>
@@ -223,7 +226,7 @@ export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRan
                 </span>
                 <span className="badge-role">Soma {row.combined} · F-Score {fScoreLabel(row)}</span>
               </div>
-              <div className="mobile-card-subinfo">{shortSector(row)}</div>
+              <div className="mobile-card-subinfo">{formatSector(row)}</div>
               <div className="mobile-card-meta">
                 EY {num(row.eyPct)}% · ROIC {num(row.roicPct)}%
               </div>

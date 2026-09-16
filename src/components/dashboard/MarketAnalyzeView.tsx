@@ -345,7 +345,17 @@ export const MarketAnalyzeView: React.FC = () => {
           </div>
           {analysis.gaps.length > 0 ? (
             <p className="text-muted">
-              Lacunas: {analysis.gaps.map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${GAP_REASON_LABEL[g.reason] || g.reason})`).join(', ')}
+              Lacunas: {(() => {
+                const seen = new Set<string>();
+                return analysis.gaps
+                  .filter((g) => {
+                    if (seen.has(g.metric)) return false;
+                    seen.add(g.metric);
+                    return true;
+                  })
+                  .map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${GAP_REASON_LABEL[g.reason] || g.reason})`)
+                  .join(', ');
+              })()}
             </p>
           ) : null}
           <div className="market-narrative" aria-live="polite">{analysis.narrative}</div>

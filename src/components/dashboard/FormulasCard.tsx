@@ -91,7 +91,9 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
               <span className="market-formulas-label">Piotroski F-Score</span>
               {' '}
               <strong className="market-formulas-emphasis">
-                {piotroski.score}/{piotroski.possible}
+                {piotroski.possible > 0
+                  ? `${Math.round((piotroski.score / piotroski.possible) * 100)}% (${piotroski.score}/${piotroski.possible})`
+                  : `${piotroski.score}/${piotroski.possible}`}
               </strong>
               <span className="text-muted"> (de {piotroski.of})</span>
               {piotroski.partial

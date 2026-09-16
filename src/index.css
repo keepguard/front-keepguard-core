@@ -6450,6 +6450,48 @@ textarea.form-input {
   color: #92400e;
 }
 
+.market-freshness-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.2;
+  width: fit-content;
+}
+
+.market-freshness-badge.is-fresh {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.market-freshness-badge.is-warning {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.market-changes .desktop-table-view {
+  display: block;
+}
+
+.market-changes .mobile-cards-container {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .market-changes .desktop-table-view {
+    display: none !important;
+  }
+
+  .market-changes .mobile-cards-container {
+    display: flex !important;
+  }
+}
+
 .market-desk-tickers {
   display: flex;
   flex-wrap: wrap;

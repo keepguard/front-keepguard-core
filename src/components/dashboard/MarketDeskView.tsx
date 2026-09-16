@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowUpDown, LineChart, Lock, Plus, Search, Sparkles, Star } from 'lucide-react';
+import { ArrowUpDown, Clock, LineChart, Lock, Plus, Search, Sparkles, Star } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -373,6 +373,13 @@ export const MarketDeskView: React.FC = () => {
   const collectedAt = freshestCollectedAt(latest);
   const runSources = uniqueSources(latest);
   const series = detail?.inputs?.series;
+  const isBank = Boolean(latest?.formulas?.context?.bank);
+  const assetType = latest ? catalogMap.get(latest.ticker)?.assetType : undefined;
+  const isFii = assetType === 'FII' || Boolean(latest?.ticker.endsWith('11') && !['SANB11', 'KLBN11', 'TAEE11', 'ALUP11', 'SAPR11', 'TIET11', 'CPLE11', 'BPAC11'].includes(latest?.ticker || ''));
+  const analysisAgeHours = latest?.analyzedAt
+    ? (Date.now() - new Date(latest.analyzedAt).getTime()) / (1000 * 3600)
+    : 0;
+  const analysisDaysAgo = Math.floor(analysisAgeHours / 24);
   const news = detail?.news ?? [];
   const visibleNews = [...news]
     .sort((a, b) => (b.collectedAt || '').localeCompare(a.collectedAt || ''))
@@ -1097,9 +1104,26 @@ export const MarketDeskView: React.FC = () => {
       {latest && !loading ? (
         <div className="hpanel-table-card market-analysis-card">
           <div className="market-desk-header">
-            <h2 className="market-analyze-title">
-              {latest.displayName || latest.ticker} · {latest.ticker}
-            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <h2 className="market-analyze-title">
+                {latest.displayName || latest.ticker} · {latest.ticker}
+              </h2>
+              {latest.analyzedAt ? (
+                <div
+                  className={`market-freshness-badge ${analysisDaysAgo >= 1 ? 'is-warning' : 'is-fresh'}`}
+                  title={`Análise processada em ${formatWhen(latest.analyzedAt)}`}
+                >
+                  <Clock size={13} />
+                  <span>
+                    {analysisDaysAgo === 0
+                      ? `Análise de hoje (${formatWhen(latest.analyzedAt)})`
+                      : analysisDaysAgo === 1
+                      ? `Análise de ontem (${formatWhen(latest.analyzedAt)})`
+                      : `Análise de ${analysisDaysAgo} dias atrás (${formatWhen(latest.analyzedAt)})`}
+                  </span>
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
               className={`market-fav-btn${isFavorite ? ' is-on' : ''}`}
@@ -1146,20 +1170,33 @@ export const MarketDeskView: React.FC = () => {
                 currentValue={signalValue(latest, 'price')}
                 emptyMessage="Sem série de preço neste run. Rode uma análise nova se o Yahoo já coletou cotações."
               />
-              <SeriesChart
-                title="P/L"
-                periodHint="ano"
-                points={series?.pl}
-                currentValue={signalValue(latest, 'pl')}
-                emptyMessage="Sem histórico anual de P/L neste run."
-              />
-              <SeriesChart
-                title="EV/EBITDA"
-                periodHint="ano"
-                points={series?.ev_ebitda}
-                currentValue={signalValue(latest, 'ev_ebitda')}
-                emptyMessage="Sem histórico anual de EV/EBITDA neste run."
-              />
+              {series?.pvp && series.pvp.length > 0 ? (
+                <SeriesChart
+                  title="P/VP"
+                  periodHint="ano"
+                  points={series.pvp}
+                  currentValue={signalValue(latest, 'pvp')}
+                  emptyMessage="Sem histórico anual de P/VP neste run."
+                />
+              ) : null}
+              {!isFii ? (
+                <SeriesChart
+                  title="P/L"
+                  periodHint="ano"
+                  points={series?.pl}
+                  currentValue={signalValue(latest, 'pl')}
+                  emptyMessage="Sem histórico anual de P/L neste run."
+                />
+              ) : null}
+              {!isBank && !isFii ? (
+                <SeriesChart
+                  title="EV/EBITDA"
+                  periodHint="ano"
+                  points={series?.ev_ebitda}
+                  currentValue={signalValue(latest, 'ev_ebitda')}
+                  emptyMessage="Sem histórico anual de EV/EBITDA neste run."
+                />
+              ) : null}
             </div>
           </section>
           <section className="market-signals-section" aria-labelledby={`${instanceId}-signals`}>
@@ -1180,16 +1217,29 @@ export const MarketDeskView: React.FC = () => {
             </div>
             {latest.gaps.length > 0 ? (
               <ul className="market-gaps">
-                {latest.gaps.map((gap) => (
-                  <li key={`${gap.metric}-${gap.reason}`}>
-                    {METRIC_LABEL[gap.metric] || gap.metric}: {GAP_REASON_LABEL[gap.reason] || gap.reason}
-                  </li>
-                ))}
+                {(() => {
+                  const seen = new Set<string>();
+                  const deduped = latest.gaps.filter((gap) => {
+                    if (seen.has(gap.metric)) return false;
+                    seen.add(gap.metric);
+                    return true;
+                  });
+                  return deduped.map((gap) => (
+                    <li key={`${gap.metric}-${gap.reason}`}>
+                      {METRIC_LABEL[gap.metric] || gap.metric}: {GAP_REASON_LABEL[gap.reason] || gap.reason}
+                    </li>
+                  ));
+                })()}
               </ul>
             ) : null}
           </section>
           <section className="market-macro" aria-labelledby={`${instanceId}-macro`}>
-            <h3 id={`${instanceId}-macro`} className="market-section-title">Contexto macro</h3>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.65rem' }}>
+              <h3 id={`${instanceId}-macro`} className="market-section-title" style={{ margin: 0 }}>Contexto macro</h3>
+              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                Referência da análise: {formatWhen(latest.analyzedAt)}
+              </span>
+            </div>
             {macroItems.length > 0 ? (
               <>
                 <dl className="market-macro-grid">
@@ -1302,7 +1352,7 @@ export const MarketDeskView: React.FC = () => {
             </table>
           </div>
 
-          <div className="mobile-cards-container">
+          <div className="mobile-cards-container market-changes-mobile">
             <header className="market-mobile-header">
               <h3 className="market-section-title">Mudanças de veredito</h3>
             </header>
@@ -1313,7 +1363,7 @@ export const MarketDeskView: React.FC = () => {
                 <div className="mobile-card-top">
                   <span className="mobile-domain-name">{selectedTicker}</span>
                 </div>
-                <div className="mobile-card-meta">Ainda não há mudança de veredito neste ativo.</div>
+                <div className="mobile-card-meta">Ainda não há mudança de veredito em {selectedTicker}.</div>
               </div>
             ) : (
               changes.map((item) => (
