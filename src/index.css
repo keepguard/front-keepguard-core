@@ -5361,6 +5361,445 @@ textarea.form-input {
   font-size: 0.8rem;
 }
 
+/* ==========================================================================
+   BazinCard — Preço Teto e Checklist de Dividendos (RFC-004)
+   ========================================================================== */
+.bazin-group {
+  margin-top: 1rem;
+}
+
+.bazin-card {
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card, #ffffff);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.bazin-card:focus-visible {
+  outline: 2px solid var(--primary, #0284c7);
+  outline-offset: 2px;
+}
+
+/* Estados de Veredito com Contraste WCAG (AA >= 4.5:1) */
+.bazin-card--cheap {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.bazin-card--fair {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.bazin-card--expensive {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.bazin-card--gap {
+  background: var(--bg-muted, #f8f9fa);
+  border-color: var(--border, #e2e8f0);
+}
+
+.bazin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding-bottom: 0.65rem;
+}
+
+.bazin-title-container {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.bazin-icon {
+  color: var(--primary, #0284c7);
+  flex-shrink: 0;
+}
+
+.bazin-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text, #1e293b);
+}
+
+.bazin-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  display: block;
+}
+
+.bazin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bazin-verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.bazin-verdict--cheap {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.bazin-verdict--fair {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.bazin-verdict--expensive {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.bazin-verdict--gap {
+  background: #e2e8f0;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+/* Botão e Popover Acessível */
+.bazin-popover-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.bazin-help-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.bazin-help-btn:hover {
+  color: var(--text, #1e293b);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.bazin-help-btn:focus-visible {
+  outline: 2px solid var(--primary, #0284c7);
+  outline-offset: 2px;
+}
+
+.bazin-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 300px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  z-index: 100;
+  animation: bazinFadeIn 0.15s ease-out;
+}
+
+@keyframes bazinFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bazin-popover-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: var(--text, #1e293b);
+}
+
+.bazin-popover-text {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text, #334155);
+  margin: 0 0 0.5rem;
+}
+
+.bazin-popover-footnote {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  margin: 0.5rem 0 0;
+  border-top: 1px solid var(--border, #e2e8f0);
+  padding-top: 0.4rem;
+}
+
+.bazin-popover-footnote kbd {
+  background: var(--bg-muted, #f1f5f9);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 0.7rem;
+}
+
+/* Grid de Métricas Principais */
+.bazin-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.65rem;
+  margin: 0 0 0.85rem;
+}
+
+.bazin-metric-item {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.bazin-metric-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+  font-weight: 600;
+  margin: 0;
+}
+
+.bazin-metric-value {
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--text, #1e293b);
+  margin: 0.2rem 0 0;
+  line-height: 1.2;
+}
+
+.bazin-metric-value--primary {
+  color: #0369a1;
+}
+
+.bazin-mos-value--cheap {
+  color: #15803d;
+}
+
+.bazin-mos-value--fair {
+  color: #b45309;
+}
+
+.bazin-mos-value--expensive {
+  color: #b91c1c;
+}
+
+/* Histórico de Proventos */
+.bazin-history-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+  font-size: 0.8rem;
+}
+
+.bazin-history-label {
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+
+.bazin-history-tags {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.bazin-history-tag {
+  background: var(--bg, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.78rem;
+  color: var(--text, #334155);
+}
+
+/* Seção do Checklist */
+.bazin-checklist-section {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 0.75rem;
+}
+
+.bazin-checklist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.bazin-checklist-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text, #1e293b);
+}
+
+.bazin-checklist-score {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+.bazin-checklist-score strong {
+  color: var(--text, #1e293b);
+}
+
+.bazin-checklist-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.bazin-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.bazin-check-status {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bazin-check-status.is-pass {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.bazin-check-status.is-fail {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.bazin-check-status.is-exempt {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.bazin-check-details {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.bazin-check-name {
+  font-weight: 500;
+  color: var(--text, #1e293b);
+}
+
+.bazin-bank-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+/* Estado de Gap */
+.bazin-gap-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.bazin-gap-icon {
+  color: var(--warning, #f59e0b);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.bazin-gap-content {
+  flex: 1;
+}
+
+.bazin-gap-message {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text, #1e293b);
+}
+
+.bazin-gap-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+}
+
+/* Skeleton Loading */
+.bazin-card--loading .bazin-skeleton-header {
+  height: 24px;
+  width: 50%;
+  background: #e2e8f0;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  animation: bazinPulse 1.5s infinite;
+}
+
+.bazin-card--loading .bazin-skeleton-metric {
+  height: 48px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  animation: bazinPulse 1.5s infinite;
+}
+
+.bazin-card--loading .bazin-skeleton-checklist {
+  height: 80px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  margin-top: 0.75rem;
+  animation: bazinPulse 1.5s infinite;
+}
+
+@keyframes bazinPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 .market-magic-tab .agent-test-result {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,6 @@
 import type { AnalystFormulas } from '../../services/analystService';
 import { MAGIC_FORMULA_MIN_UNIVERSE } from '../../services/analystService';
+import { BazinCard } from './BazinCard';
 
 function pct(value: number): string {
   return `${(value * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
@@ -22,8 +23,9 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
   const ey = formulas.earningsYield;
   const magic = formulas.magicFormula;
   const piotroski = formulas.piotroski;
+  const bazin = formulas.bazin;
   const ctx = formulas.context;
-  if (!graham && !ey && !magic && !piotroski && !ctx) return null;
+  if (!graham && !ey && !magic && !piotroski && !bazin && !ctx) return null;
   const sectorName = ctx?.sectorLabel || ctx?.sector || '';
   const magicSignificant =
     magic != null && (magic.universeSize ?? 0) >= MAGIC_FORMULA_MIN_UNIVERSE;
@@ -101,6 +103,12 @@ export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
                 : ''}
             </p>
           ) : null}
+        </div>
+      ) : null}
+
+      {bazin ? (
+        <div className="market-formulas-group bazin-group" aria-label="Preço Teto de Bazin">
+          <BazinCard bazin={bazin} isBank={ctx?.bank} />
         </div>
       ) : null}
 

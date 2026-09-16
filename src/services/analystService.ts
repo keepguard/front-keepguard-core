@@ -149,11 +149,60 @@ export interface AnalystFormulaContext {
   concentration?: AnalystFormulaConcentration;
 }
 
+export interface AnalystBazinHistoryYear {
+  year: number;
+  dpa: number;
+}
+
+export interface AnalystBazinChecklistYield {
+  pass: boolean;
+  valuePct: number;
+  thresholdPct: number;
+}
+
+export interface AnalystBazinChecklistDebt {
+  pass: boolean;
+  valueRatio?: number;
+  maxRatio: number;
+  applicable: boolean;
+  status?: string;
+  gap?: string;
+  isBank?: boolean;
+}
+
+export interface AnalystBazinChecklistRegularity {
+  pass: boolean;
+  yearsPaid: number;
+  yearsRequired: number;
+}
+
+export interface AnalystBazinChecklist {
+  currentYieldAdequate: AnalystBazinChecklistYield;
+  averageYieldAdequate: AnalystBazinChecklistYield;
+  healthyDebt: AnalystBazinChecklistDebt;
+  dividendRegularity: AnalystBazinChecklistRegularity;
+}
+
+export interface AnalystBazinFormula {
+  available: boolean;
+  reason?: string;
+  ceilingPrice?: number;
+  currentPrice?: number;
+  averageDpa?: number;
+  requiredYieldPct?: number;
+  marginOfSafetyPct?: number;
+  verdict?: 'CHEAP' | 'FAIR' | 'EXPENSIVE' | string;
+  historyYears?: AnalystBazinHistoryYear[];
+  checklist?: AnalystBazinChecklist;
+  checklistScore?: string;
+}
+
 export interface AnalystFormulas {
   graham?: AnalystGrahamFormula;
   earningsYield?: AnalystEarningsYieldFormula;
   magicFormula?: AnalystMagicFormulaPosition;
   piotroski?: AnalystPiotroskiFormula;
+  bazin?: AnalystBazinFormula;
   context?: AnalystFormulaContext;
 }
 

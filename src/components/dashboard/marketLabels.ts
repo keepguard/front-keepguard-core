@@ -31,6 +31,7 @@ export const METRIC_LABEL: Record<string, string> = {
   graham_number: 'Número de Graham',
   earnings_yield: 'Earnings yield',
   piotroski_f_score: 'Piotroski F-Score',
+  bazin_ceiling_price: 'Preço Teto de Bazin',
   lpa: 'LPA',
   vpa: 'VPA',
   ev_ebit: 'EV/EBIT',
