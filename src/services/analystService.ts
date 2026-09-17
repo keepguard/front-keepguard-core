@@ -98,6 +98,30 @@ export interface AnalystFiiDetails {
   cashPercentage?: number;
 }
 
+/** Preço, risco e liquidez das classes avaliadas só por preço (RFC-008 Bloco 3). Campo ausente = histórico insuficiente. */
+export interface AnalystPriceDetails {
+  currentPrice?: number;
+  return1M?: number;
+  return6M?: number;
+  return12M?: number;
+  volatility30D?: number;
+  volatility1Y?: number;
+  volatilityClass?: 'BAIXA' | 'MODERADA' | 'ALTA' | string;
+  high52W?: number;
+  low52W?: number;
+  drawdown52W?: number;
+  range52WPositionPct?: number;
+  /** Volume médio em cotas (21 pregões). */
+  averageDailyVolume?: number;
+  /** Valor médio negociado por dia em R$ (21 pregões). */
+  averageDailyTradedValue?: number;
+  tradingDays: number;
+}
+
+export interface AnalystEtfDetails {
+  benchmark?: string;
+}
+
 export interface AnalystAnalysis {
   runId?: string;
   ticker: string;
@@ -105,6 +129,8 @@ export interface AnalystAnalysis {
   analysisDate: string;
   assetType?: AssetClassType | string;
   fiiDetails?: AnalystFiiDetails;
+  priceDetails?: AnalystPriceDetails;
+  etfDetails?: AnalystEtfDetails;
   /** Números oficiais — use este array; não parseie a narrativa. */
   signals: AnalystSignal[];
   gaps: { metric: string; reason: string }[];
@@ -341,6 +367,8 @@ export interface AnalystRun {
   displayName: string;
   assetType?: AssetClassType | string;
   fiiDetails?: AnalystFiiDetails;
+  priceDetails?: AnalystPriceDetails;
+  etfDetails?: AnalystEtfDetails;
   analyzedAt: string;
   trigger: string;
   signals: AnalystSignal[];

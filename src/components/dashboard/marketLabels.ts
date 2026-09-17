@@ -48,6 +48,12 @@ export const METRIC_LABEL: Record<string, string> = {
   roa_pct: 'ROA',
   margem_bruta_pct: 'Margem bruta',
   giro_ativos: 'Giro de ativos',
+  return_1m: 'Retorno 1 mês',
+  return_6m: 'Retorno 6 meses',
+  return_12m: 'Retorno 12 meses',
+  volatility_30d: 'Volatilidade 30 dias',
+  volatility_1y: 'Volatilidade 12 meses',
+  daily_traded_value: 'Liquidez média diária',
 };
 
 export const GAP_REASON_LABEL: Record<string, string> = {
@@ -229,6 +235,14 @@ export function isEtfAsset(assetType?: string, ticker?: string): boolean {
   if (assetType && assetType !== 'ETF') return false;
   const code = ticker?.trim().toUpperCase() ?? '';
   return ETF_TICKERS.has(code);
+}
+
+/** Classes avaliadas só por preço, risco e liquidez (RFC-008): sem métricas corporativas. */
+const PRICE_ONLY_ASSET_TYPES = new Set(['ETF', 'BDR', 'FIAGRO', 'FI_INFRA']);
+
+export function isPriceOnlyAsset(assetType?: string, ticker?: string): boolean {
+  if (assetType) return PRICE_ONLY_ASSET_TYPES.has(assetType);
+  return isEtfAsset(undefined, ticker);
 }
 
 export function isFiiAsset(assetType?: string, ticker?: string): boolean {

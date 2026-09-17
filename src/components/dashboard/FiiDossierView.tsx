@@ -5,6 +5,8 @@ import type {
   AnalystInputPoint,
   AnalystSignal,
 } from '../../services/analystService';
+import { dash, formatCompactBrl, formatCount, formatMoney, formatPct } from './dossierFormat';
+import { MetricRow } from './DossierMetricRow';
 
 const PVP_SCALE_MIN = 0.7;
 const PVP_JUSTO_START = 0.9;
@@ -62,32 +64,6 @@ function formatPlainRatio(value: number): string {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function formatMoney(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function formatCompactBrl(value: number): string {
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000_000) {
-    return `R$ ${(value / 1_000_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} bilhões`;
-  }
-  if (abs >= 1_000_000) {
-    return `R$ ${(value / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} M`;
-  }
-  if (abs >= 1_000) {
-    return `R$ ${(value / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} mil`;
-  }
-  return formatMoney(value);
-}
-
-function formatPct(value: number, digits = 2): string {
-  return `${value.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
-}
-
-function formatCount(value: number): string {
-  return Math.round(value).toLocaleString('pt-BR');
-}
-
 function formatSpreadPp(value: number): string {
   const abs = Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (value > 0) return `+${abs} pp`;
@@ -131,25 +107,12 @@ function pvpAriaLabel(pvp: number): string {
   return `Preço sobre valor patrimonial em ${shown}, em linha com o valor patrimonial`;
 }
 
-function dash(value: string | null | undefined): string {
-  return value && value.trim() ? value : '—';
-}
-
 function liquidityToneLabel(verdict?: string): { label: string; tone: string } | null {
   if (!verdict || verdict === 'MISSING') return null;
   if (verdict === 'HEALTHY') return { label: 'Alta', tone: 'HEALTHY' };
   if (verdict === 'RISKY') return { label: 'Baixa', tone: 'RISKY' };
   if (verdict === 'NEUTRAL' || verdict === 'FAIR') return { label: 'Moderada', tone: 'NEUTRAL' };
   return { label: verdict, tone: verdict };
-}
-
-function MetricRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="fii-dossier-metric">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
 }
 
 function PvpGauge({ pvp }: { pvp: number }) {
