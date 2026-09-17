@@ -60,6 +60,9 @@ export const GAP_REASON_LABEL: Record<string, string> = {
   VPA_NOT_POSITIVE: 'VPA não positivo',
   NOT_APPLICABLE_FOR_FII: 'Não se aplica a FII',
   NOT_APPLICABLE_FOR_ETF: 'Não se aplica a ETF',
+  NOT_APPLICABLE_FOR_BDR: 'Não se aplica a BDR',
+  NOT_APPLICABLE_FOR_FIAGRO: 'Não se aplica a FIAGRO',
+  NOT_APPLICABLE_FOR_FI_INFRA: 'Não se aplica a FI-Infra',
 };
 
 export const THESIS_LABEL: Record<string, string> = {
