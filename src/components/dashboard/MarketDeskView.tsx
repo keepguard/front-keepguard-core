@@ -39,6 +39,7 @@ import { onBillingEntitlement } from '../../services/billingService';
 import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
+import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
 import { FormulasCard } from './FormulasCard';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
 import { PickTickersModal } from './PickTickersModal';
@@ -1071,6 +1072,7 @@ export const MarketDeskView: React.FC = () => {
       {loading ? (
         <div className="hpanel-table-card market-analysis-card" aria-busy="true" aria-live="polite">
           <div className="market-skeleton market-skeleton-title" />
+          <ExecutiveFlagsPanel loading={true} />
           <div className="market-charts">
             <div className="market-skeleton" />
             <div className="market-skeleton" />
@@ -1159,6 +1161,7 @@ export const MarketDeskView: React.FC = () => {
             </p>
           ) : null}
           {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
+          {latest.flags ? <ExecutiveFlagsPanel flags={latest.flags} /> : null}
           {latest.formulas ? <FormulasCard formulas={latest.formulas} /> : null}
           <section className="market-trajectory" aria-labelledby={`${instanceId}-traj`}>
             <h3 id={`${instanceId}-traj`} className="market-section-title">Trajetória</h3>

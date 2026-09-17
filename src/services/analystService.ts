@@ -49,6 +49,38 @@ export interface AnalystThesis {
   components?: AnalystThesisComponent[];
 }
 
+export type AnalystFlagCategory =
+  | 'VALUATION'
+  | 'RENTABILIDADE'
+  | 'SAÚDE_FINANCEIRA'
+  | 'CRESCIMENTO'
+  | 'DIVIDENDOS'
+  | 'GOVERNANÇA'
+  | 'QUALIDADE_LUCRO'
+  | string;
+
+export type AnalystFlagSeverity = 'HIGH' | 'MEDIUM' | 'LOW' | string;
+export type AnalystRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | string;
+
+export interface AnalystFlagItem {
+  code: string;
+  category: AnalystFlagCategory;
+  severity: AnalystFlagSeverity;
+  title: string;
+  description: string;
+  relatedSignal?: string;
+}
+
+export interface AnalystFlagsSummary {
+  riskLevel: AnalystRiskLevel;
+  totalGreenFlags: number;
+  totalRedFlags: number;
+  greenFlags?: AnalystFlagItem[];
+  redFlags?: AnalystFlagItem[];
+  emptyGreenState?: string;
+  emptyRedState?: string;
+}
+
 export interface AnalystAnalysis {
   runId?: string;
   ticker: string;
@@ -65,6 +97,7 @@ export interface AnalystAnalysis {
   /** Conclusão determinística (código); não extraia números daqui. */
   thesis?: AnalystThesis;
   formulas?: AnalystFormulas;
+  flags?: AnalystFlagsSummary;
 }
 
 export interface AnalystGrahamFormula {
@@ -293,6 +326,7 @@ export interface AnalystRun {
   staleFacts?: boolean;
   thesis?: AnalystThesis;
   formulas?: AnalystFormulas;
+  flags?: AnalystFlagsSummary;
 }
 
 export interface AnalystInputPoint {

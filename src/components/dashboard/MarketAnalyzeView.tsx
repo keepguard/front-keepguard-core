@@ -18,6 +18,7 @@ import {
 } from '../../services/analystService';
 import { METRIC_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial } from './marketLabels';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
+import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
 import { FormulasCard } from './FormulasCard';
 import { MagicFormulaPanel } from './MagicFormulaPanel';
 
@@ -315,6 +316,7 @@ export const MarketAnalyzeView: React.FC = () => {
 
       {analyzing ? (
         <div className="market-signals" aria-busy="true" aria-live="polite">
+          <ExecutiveFlagsPanel loading={true} />
           <div className="market-skeleton" />
           <div className="market-skeleton" />
           <div className="market-skeleton" />
@@ -328,6 +330,7 @@ export const MarketAnalyzeView: React.FC = () => {
             {analysis.displayName || analysis.ticker} · {analysis.ticker}
           </h2>
           {THESIS_CARD_PUBLISHED && analysis.thesis ? <ThesisCard thesis={analysis.thesis} /> : null}
+          {analysis.flags ? <ExecutiveFlagsPanel flags={analysis.flags} /> : null}
           {analysis.formulas ? <FormulasCard formulas={analysis.formulas} /> : null}
           <div className="market-signals">
             {analysis.signals.map((signal) => (

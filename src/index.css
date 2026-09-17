@@ -5299,6 +5299,491 @@ textarea.form-input {
   border-color: #d97706;
 }
 
+/* =============================================================================
+   🎯 EXECUTIVE FLAGS PANEL (RFC-005) — Síntese de Riscos e Oportunidades
+   ============================================================================= */
+
+.executive-flags-panel {
+  border-radius: 12px;
+  padding: 1.25rem 1.35rem;
+  margin: 0 0 1.35rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: var(--transition-smooth);
+}
+
+.executive-flags-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.15rem;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+}
+
+.executive-flags-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.executive-flags-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.executive-flags-sparkle-icon {
+  color: var(--primary);
+}
+
+.executive-flags-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+/* Badge de Risco Geral */
+.executive-risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: var(--transition-smooth);
+}
+
+.risk-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.risk-badge--low {
+  background: var(--success-light, #e6f7f3);
+  border-color: var(--success-border, #b3ebd9);
+  color: #065f46;
+}
+.risk-badge--low .risk-badge-dot {
+  background: #059669;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.risk-badge--medium {
+  background: var(--warning-light, #fef3c7);
+  border-color: var(--warning-border, #fde68a);
+  color: #92400e;
+}
+.risk-badge--medium .risk-badge-dot {
+  background: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.risk-badge--high {
+  background: var(--danger-light, #fee2e2);
+  border-color: var(--danger-border, #fca5a5);
+  color: #991b1b;
+}
+.risk-badge--high .risk-badge-dot {
+  background: #dc2626;
+  box-shadow: 0 0 0 2px rgba(235, 30, 58, 0.2);
+}
+
+[data-theme="dark"] .risk-badge--low {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+[data-theme="dark"] .risk-badge--medium {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+[data-theme="dark"] .risk-badge--high {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.risk-badge-label {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.risk-badge-value {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Grid de 2 Colunas */
+.executive-flags-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .executive-flags-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+.executive-flags-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.executive-flags-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.35rem;
+}
+
+.executive-flags-col-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.col-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.col-header-icon--green {
+  background: var(--success-light, #e6f7f3);
+  color: var(--success-hover, #00967a);
+}
+
+.col-header-icon--red {
+  background: var(--danger-light, #fee2e2);
+  color: var(--danger, #eb1e3a);
+}
+
+[data-theme="dark"] .col-header-icon--green {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+}
+
+[data-theme="dark"] .col-header-icon--red {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+.executive-flags-col-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.flags-count-chip {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 12px;
+}
+
+.flags-count-chip--green {
+  background: var(--success-light, #e6f7f3);
+  color: #065f46;
+  border: 1px solid var(--success-border, #b3ebd9);
+}
+
+.flags-count-chip--red {
+  background: var(--danger-light, #fee2e2);
+  color: #991b1b;
+  border: 1px solid var(--danger-border, #fca5a5);
+}
+
+[data-theme="dark"] .flags-count-chip--green {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .flags-count-chip--red {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Lista de Cards */
+.flags-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.flag-card {
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  cursor: default;
+  outline: none;
+}
+
+.flag-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+.flag-card:focus-visible {
+  outline: 2px solid var(--border-focus, #673de6);
+  outline-offset: 2px;
+}
+
+.flag-card--green {
+  border-left: 4px solid #059669;
+  background: linear-gradient(to right, rgba(16, 185, 129, 0.03), transparent);
+}
+
+.flag-card--red {
+  border-left: 4px solid #dc2626;
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.03), transparent);
+}
+
+[data-theme="dark"] .flag-card--green {
+  border-left-color: #10b981;
+  background: linear-gradient(to right, rgba(16, 185, 129, 0.06), var(--bg-card));
+}
+
+[data-theme="dark"] .flag-card--red {
+  border-left-color: #ef4444;
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.06), var(--bg-card));
+}
+
+.flag-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  gap: 0.5rem;
+}
+
+.flag-category-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+}
+
+.flag-category-badge--green {
+  background: var(--success-light, #e6f7f3);
+  color: #065f46;
+}
+
+.flag-category-badge--red {
+  background: var(--danger-light, #fee2e2);
+  color: #991b1b;
+}
+
+[data-theme="dark"] .flag-category-badge--green {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+[data-theme="dark"] .flag-category-badge--red {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.flag-severity-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  opacity: 0.85;
+}
+
+.flag-severity-badge--high {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.flag-severity-badge--medium {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+
+.flag-severity-badge--low {
+  background: rgba(75, 85, 99, 0.1);
+  color: #4b5563;
+}
+
+[data-theme="dark"] .flag-severity-badge--high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .flag-severity-badge--medium {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .flag-severity-badge--low {
+  background: rgba(156, 163, 175, 0.2);
+  color: #d1d5db;
+}
+
+.flag-card-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.3;
+}
+
+.flag-card-description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-body, #3c4043);
+  line-height: 1.45;
+}
+
+[data-theme="dark"] .flag-card-description {
+  color: #c9d1d9;
+}
+
+/* Estado Vazio */
+.flag-empty-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: var(--bg-muted, #f8f9fa);
+  transition: var(--transition-smooth);
+}
+
+.flag-empty-state:focus-visible {
+  outline: 2px solid var(--border-focus, #673de6);
+  outline-offset: 2px;
+}
+
+.flag-empty-state--positive {
+  background: var(--success-light, #e6f7f3);
+  border-color: var(--success-border, #b3ebd9);
+  border-style: solid;
+}
+
+.flag-empty-icon--positive {
+  color: #059669;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.flag-empty-icon--neutral {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+[data-theme="dark"] .flag-empty-state--positive {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .flag-empty-icon--positive {
+  color: #34d399;
+}
+
+.flag-empty-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.flag-empty-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.flag-empty-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-body);
+  line-height: 1.4;
+}
+
+/* Skeletons */
+.executive-flags-panel--loading {
+  pointer-events: none;
+}
+
+.executive-flags-skeleton-title,
+.executive-flags-skeleton-badge,
+.executive-flags-skeleton-col-header,
+.executive-flags-skeleton-card {
+  background: linear-gradient(90deg, #eee, #f7f7f7, #eee);
+  background-size: 200% 100%;
+  animation: market-shimmer 1.2s infinite;
+}
+
+[data-theme="dark"] .executive-flags-skeleton-title,
+[data-theme="dark"] .executive-flags-skeleton-badge,
+[data-theme="dark"] .executive-flags-skeleton-col-header,
+[data-theme="dark"] .executive-flags-skeleton-card {
+  background: linear-gradient(90deg, #1c1f27, #262a35, #1c1f27);
+  background-size: 200% 100%;
+}
+
+.executive-flags-skeleton-title {
+  width: 220px;
+  height: 22px;
+  border-radius: 6px;
+}
+
+.executive-flags-skeleton-badge {
+  width: 140px;
+  height: 28px;
+  border-radius: 20px;
+}
+
+.executive-flags-skeleton-col-header {
+  width: 180px;
+  height: 18px;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.executive-flags-skeleton-card {
+  height: 84px;
+  border-radius: 8px;
+}
+
 .market-formulas {
   border-radius: 10px;
   padding: 1rem 1.1rem;

@@ -147,3 +147,34 @@ export function displayIsMaterial(item: {
   }
   return item.isMaterial;
 }
+
+export const FLAG_CATEGORY_LABEL: Record<string, string> = {
+  VALUATION: 'Valuation',
+  RENTABILIDADE: 'Rentabilidade',
+  SAÚDE_FINANCEIRA: 'Saúde Financeira',
+  CRESCIMENTO: 'Crescimento',
+  DIVIDENDOS: 'Dividendos',
+  GOVERNANÇA: 'Governança',
+  QUALIDADE_LUCRO: 'Qualidade do Lucro',
+};
+
+export const RISK_LEVEL_LABEL: Record<string, string> = {
+  LOW: 'Baixo',
+  MEDIUM: 'Médio',
+  HIGH: 'Alto',
+};
+
+export const SEVERITY_LABEL: Record<string, string> = {
+  HIGH: 'Alta',
+  MEDIUM: 'Média',
+  LOW: 'Baixa',
+};
+
+export function flagCategoryLabel(cat: string): string {
+  return FLAG_CATEGORY_LABEL[cat] || cat;
+}
+
+export function riskLevelLabel(level: string): string {
+  return RISK_LEVEL_LABEL[level] || level;
+}
+
