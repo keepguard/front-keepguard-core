@@ -5847,6 +5847,398 @@ textarea.form-input {
 }
 
 /* ==========================================================================
+   FiiDossierView — Dossiê Imobiliário (RFC-007)
+   ========================================================================== */
+.fii-dossier {
+  margin: 0 0 1.25rem;
+}
+
+.fii-dossier-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.fii-dossier-heading .market-section-title {
+  margin-bottom: 0.15rem;
+}
+
+.fii-dossier-identity {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.fii-segment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  max-width: 100%;
+  padding: 0.38rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--success-border, #b3ebd9);
+  background: var(--success-light, #e6f7f3);
+  color: #065f46;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+.fii-segment-badge span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fii-segment-missing {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.fii-dossier-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.85rem;
+  margin: 0 0 0.9rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-muted, #f8f9fa);
+}
+
+.fii-dossier-kpis div {
+  min-width: 0;
+}
+
+.fii-dossier-kpis dt {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.fii-dossier-kpis dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+.fii-dossier-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.fii-dossier-card {
+  min-width: 0;
+  margin: 0;
+  padding: 0.9rem 1rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card, #ffffff);
+}
+
+.fii-dossier-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.65rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.fii-dossier-card-lead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 0.7rem;
+  font-size: 1.2rem;
+  color: var(--text-main);
+}
+
+.fii-dossier-metrics {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.7rem 0 0;
+}
+
+.fii-dossier-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.fii-dossier-metric dt {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.fii-dossier-metric dd {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--text-body);
+  text-align: right;
+}
+
+.fii-dossier-empty {
+  margin: 0;
+}
+
+.fii-tone-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.48rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.fii-tone-pill--discount,
+.fii-tone-pill.HEALTHY {
+  background: var(--success-light, #e6f7f3);
+  color: #065f46;
+}
+
+.fii-tone-pill--fair,
+.fii-tone-pill.NEUTRAL,
+.fii-tone-pill.FAIR {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.fii-tone-pill--premium,
+.fii-tone-pill.RISKY {
+  background: var(--warning-light, #fef3c7);
+  color: #92400e;
+}
+
+.fii-pvp-gauge {
+  margin-top: 0.15rem;
+}
+
+.fii-pvp-meter {
+  outline: none;
+}
+
+.fii-pvp-track {
+  position: relative;
+  display: flex;
+  height: 14px;
+  margin-top: 1.55rem;
+  overflow: visible;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-muted, #f8f9fa);
+}
+
+.fii-pvp-zone {
+  display: block;
+  height: 100%;
+}
+
+.fii-pvp-zone--discount {
+  border-radius: 999px 0 0 999px;
+  background: #6ee7b7;
+}
+
+.fii-pvp-zone--fair {
+  background: #c7d2fe;
+}
+
+.fii-pvp-zone--premium {
+  border-radius: 0 999px 999px 0;
+  background: #fcd34d;
+}
+
+.fii-pvp-marker {
+  position: absolute;
+  top: -1.35rem;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.fii-pvp-marker-value {
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: var(--text-main, #1d2129);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.fii-pvp-marker-stem {
+  width: 2px;
+  height: 18px;
+  background: var(--text-main, #1d2129);
+}
+
+.fii-pvp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+.fii-pvp-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.fii-pvp-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.fii-pvp-swatch--discount {
+  background: #6ee7b7;
+}
+
+.fii-pvp-swatch--fair {
+  background: #c7d2fe;
+}
+
+.fii-pvp-swatch--premium {
+  background: #fcd34d;
+}
+
+.fii-dossier-skeleton-badge {
+  width: min(16rem, 70%);
+  height: 1.7rem;
+  margin-bottom: 0.85rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eee, #f7f7f7, #eee);
+  background-size: 200% 100%;
+  animation: market-shimmer 1.2s infinite;
+}
+
+.fii-dossier-skeleton-kpi {
+  height: 3.1rem;
+}
+
+.fii-dossier-skeleton-card {
+  height: 11.5rem;
+}
+
+@media (min-width: 720px) {
+  .fii-dossier-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .fii-dossier-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 719px) {
+  .fii-dossier-header {
+    flex-direction: column;
+  }
+
+  .fii-segment-badge {
+    align-self: flex-start;
+  }
+
+  .fii-dossier-kpis dd {
+    font-size: 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fii-dossier-skeleton-badge,
+  .fii-dossier-skeleton-kpi,
+  .fii-dossier-skeleton-card {
+    animation: none;
+  }
+}
+
+[data-theme="dark"] .fii-segment-badge {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .fii-tone-pill--discount,
+[data-theme="dark"] .fii-tone-pill.HEALTHY {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .fii-tone-pill--fair,
+[data-theme="dark"] .fii-tone-pill.NEUTRAL,
+[data-theme="dark"] .fii-tone-pill.FAIR {
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
+}
+
+[data-theme="dark"] .fii-tone-pill--premium,
+[data-theme="dark"] .fii-tone-pill.RISKY {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .fii-pvp-zone--discount,
+[data-theme="dark"] .fii-pvp-swatch--discount {
+  background: #059669;
+}
+
+[data-theme="dark"] .fii-pvp-zone--fair,
+[data-theme="dark"] .fii-pvp-swatch--fair {
+  background: #6366f1;
+}
+
+[data-theme="dark"] .fii-pvp-zone--premium,
+[data-theme="dark"] .fii-pvp-swatch--premium {
+  background: #d97706;
+}
+
+[data-theme="dark"] .fii-pvp-marker-value,
+[data-theme="dark"] .fii-pvp-marker-stem {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+[data-theme="dark"] .fii-dossier-skeleton-badge {
+  background: linear-gradient(90deg, #1c1f27 0%, #292d38 50%, #1c1f27 100%);
+  background-size: 200% 100%;
+}
+
+/* ==========================================================================
    BazinCard — Preço Teto e Checklist de Dividendos (RFC-004)
    ========================================================================== */
 .bazin-group {

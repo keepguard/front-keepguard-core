@@ -5,6 +5,7 @@ import {
   compareAssets,
   listCatalogTickers,
   listKnownTickers,
+  type ComparedAsset,
   type ComparisonMatrix,
   type ComparisonMetric,
   type MarketAssetItem,
@@ -34,6 +35,11 @@ const CATEGORY_NAMES: Record<string, string> = {
 
 function formatCategoryTitle(raw: string): string {
   return CATEGORY_NAMES[raw] || raw.replace(/_/g, ' ').toUpperCase();
+}
+
+/** Qualquer status diferente de AVAILABLE significa run ausente para o tenant. */
+function hasNoRun(asset: ComparedAsset): boolean {
+  return asset.status !== 'AVAILABLE';
 }
 
 function formatBRL(value?: number): string {
@@ -265,9 +271,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
   }, [matrix]);
 
   const allAssetsNoData = Boolean(
-    matrix &&
-      matrix.assets.length > 0 &&
-      matrix.assets.every((a) => a.status === 'NO_DATA' || a.status === 'NOT_FOUND'),
+    matrix && matrix.assets.length > 0 && matrix.assets.every(hasNoRun),
   );
 
   return (
@@ -334,6 +338,15 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
                   onKeyDown={handleKeyDown}
                   autoComplete="off"
                   maxLength={6}
+                  role="combobox"
+                  aria-expanded={isDropdownOpen && filteredSuggestions.length > 0}
+                  aria-controls="market-compare-suggestions"
+                  aria-autocomplete="list"
+                  aria-activedescendant={
+                    highlightedIndex >= 0 && filteredSuggestions[highlightedIndex]
+                      ? `market-compare-option-${filteredSuggestions[highlightedIndex].ticker}`
+                      : undefined
+                  }
                 />
               </div>
             ) : null}
@@ -351,6 +364,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
               {filteredSuggestions.map((item, idx) => (
                 <div
                   key={item.ticker}
+                  id={`market-compare-option-${item.ticker}`}
                   role="option"
                   aria-selected={idx === highlightedIndex}
                   className={`market-compare-dropdown-item${
@@ -564,7 +578,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
                             </span>
                           </div>
                         ) : null}
-                        {asset.status === 'NO_DATA' || asset.status === 'NOT_FOUND' ? (
+                        {hasNoRun(asset) ? (
                           <div className="market-compare-asset-not-found">
                             Sem run recente gravado
                           </div>

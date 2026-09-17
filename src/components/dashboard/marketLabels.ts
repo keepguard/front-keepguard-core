@@ -31,6 +31,10 @@ export const METRIC_LABEL: Record<string, string> = {
   graham_number: 'Número de Graham',
   earnings_yield: 'Earnings yield',
   piotroski_f_score: 'Piotroski F-Score',
+  fii_pvp: 'P/VP (FII)',
+  fii_dividend_yield: 'Dividend yield 12M (FII)',
+  fii_daily_liquidity: 'Liquidez média diária',
+  fii_cash_reserve: 'Reserva de caixa',
   bazin_ceiling_price: 'Preço Teto de Bazin',
   lpa: 'LPA',
   vpa: 'VPA',
@@ -54,10 +58,12 @@ export const GAP_REASON_LABEL: Record<string, string> = {
   FINANCIAL: 'Não se aplica a banco',
   LPA_NOT_POSITIVE: 'LPA não positivo',
   VPA_NOT_POSITIVE: 'VPA não positivo',
+  NOT_APPLICABLE_FOR_FII: 'Não se aplica a FII',
 };
 
 export const THESIS_LABEL: Record<string, string> = {
   OPORTUNIDADE: 'Oportunidade',
+  OPORTUNIDADE_IMOBILIARIA: 'Oportunidade imobiliária',
   QUALIDADE_A_PRECO_JUSTO: 'Qualidade a preço justo',
   BOA_MAS_CARA: 'Boa, mas cara',
   POSSIVEL_VALOR: 'Possível valor',
@@ -94,7 +100,9 @@ export function thesisDisplayLabel(code: string): string {
 
 export function thesisTone(code: string): 'good' | 'bad' | 'warn' {
   const base = code.endsWith('_COM_RISCO') ? code.slice(0, -'_COM_RISCO'.length) : code;
-  if (base === 'OPORTUNIDADE' || base === 'QUALIDADE_A_PRECO_JUSTO') return 'good';
+  if (base === 'OPORTUNIDADE' || base === 'OPORTUNIDADE_IMOBILIARIA' || base === 'QUALIDADE_A_PRECO_JUSTO') {
+    return 'good';
+  }
   if (
     base === 'ARMADILHA_DE_VALOR' ||
     base === 'EVITAR' ||
@@ -109,6 +117,7 @@ export function thesisTone(code: string): 'good' | 'bad' | 'warn' {
 
 export const SOURCE_LABEL: Record<string, string> = {
   'status-invest': 'Status Invest',
+  'status-invest-fii': 'Status Invest (FIIs)',
   'yahoo-finance': 'Yahoo Finance',
   'bcb-sgs': 'Banco Central (SGS)',
   infomoney: 'InfoMoney',
@@ -156,6 +165,7 @@ export const FLAG_CATEGORY_LABEL: Record<string, string> = {
   DIVIDENDOS: 'Dividendos',
   GOVERNANÇA: 'Governança',
   QUALIDADE_LUCRO: 'Qualidade do Lucro',
+  LIQUIDEZ: 'Liquidez',
 };
 
 export const RISK_LEVEL_LABEL: Record<string, string> = {
@@ -176,5 +186,25 @@ export function flagCategoryLabel(cat: string): string {
 
 export function riskLevelLabel(level: string): string {
   return RISK_LEVEL_LABEL[level] || level;
+}
+
+/** Unidades B3 que terminam em 11 mas não são FII. */
+const UNIT_TICKERS = new Set([
+  'SANB11',
+  'KLBN11',
+  'TAEE11',
+  'ALUP11',
+  'SAPR11',
+  'TIET11',
+  'CPLE11',
+  'BPAC11',
+]);
+
+export function isFiiAsset(assetType?: string, ticker?: string): boolean {
+  if (assetType === 'FII') return true;
+  if (assetType && assetType !== 'FII') return false;
+  const code = ticker?.trim().toUpperCase() ?? '';
+  if (!code.endsWith('11') || code.length < 6) return false;
+  return !UNIT_TICKERS.has(code);
 }
 

@@ -36,11 +36,12 @@ interface SearchSuggestion {
   isDirectAction?: boolean;
 }
 import { onBillingEntitlement } from '../../services/billingService';
-import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial } from './marketLabels';
+import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
 import { FormulasCard } from './FormulasCard';
+import { FiiDossierView } from './FiiDossierView';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
 import { PickTickersModal } from './PickTickersModal';
 
@@ -182,12 +183,42 @@ function renderAssetTypeBadge(assetType?: AssetClassType) {
 }
 
 function signalValue(run: AnalystRun | null, metric: string): number | undefined {
-  const value = run?.signals.find((s) => s.metric === metric)?.grounding?.valueNum;
-  return typeof value === 'number' ? value : undefined;
+  const signal = run?.signals.find((s) => s.metric === metric || s.code === metric);
+  if (typeof signal?.valueNum === 'number') return signal.valueNum;
+  const grounded = signal?.grounding?.valueNum;
+  return typeof grounded === 'number' ? grounded : undefined;
 }
 
 function macroPoint(detail: AnalystRunDetail | null, metric: string): AnalystInputPoint | undefined {
   return detail?.inputs?.macro?.[metric];
+}
+
+/**
+ * Ordena os pares do mesmo setor por comparabilidade. O catálogo não expõe valor
+ * de mercado, então o critério é: mesmo tipo de ativo (não mistura ação com FII),
+ * análise já gravada na frente de quem não tem, mesmo segmento na frente de quem
+ * só divide o setor, e ticker como desempate estável.
+ */
+function rankSectorPeers(current: MarketAssetItem, items: MarketAssetItem[]): string[] {
+  const currentTicker = current.ticker.toUpperCase();
+  return items
+    .filter(
+      (item) =>
+        item.sectorId === current.sectorId &&
+        item.assetType === current.assetType &&
+        item.ticker.toUpperCase() !== currentTicker,
+    )
+    .sort((a, b) => {
+      const byRuns = Number(Boolean(b.hasRuns)) - Number(Boolean(a.hasRuns));
+      if (byRuns !== 0) return byRuns;
+      if (current.segment) {
+        const bySegment =
+          Number(b.segment === current.segment) - Number(a.segment === current.segment);
+        if (bySegment !== 0) return bySegment;
+      }
+      return a.ticker.localeCompare(b.ticker);
+    })
+    .map((item) => item.ticker);
 }
 
 interface MarketDeskViewProps {
@@ -220,16 +251,15 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
     const currentItem = catalogItems.find(
       (item) => item.ticker.toUpperCase() === upper,
     );
-    let peers: string[] = [];
-    if (currentItem?.sectorId) {
-      peers = catalogItems
-        .filter(
-          (item) =>
-            item.sectorId === currentItem.sectorId &&
-            item.ticker.toUpperCase() !== upper,
-        )
-        .map((item) => item.ticker)
-        .slice(0, 2);
+    const peers = currentItem?.sectorId
+      ? rankSectorPeers(currentItem, catalogItems).slice(0, 2)
+      : [];
+    if (peers.length === 0) {
+      addToast({
+        type: 'info',
+        title: 'Sem pares no mesmo setor',
+        description: `Não encontramos outro ativo do mesmo setor de ${upper} no catálogo. Adicione os concorrentes manualmente no comparador.`,
+      });
     }
     const tickersToCompare = [upper, ...peers];
     if (onNavigateToCompare) {
@@ -242,7 +272,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
         return next;
       });
     }
-  }, [selectedTicker, appliedQuery, query, catalogItems, onNavigateToCompare, setSearchParams]);
+  }, [selectedTicker, appliedQuery, query, catalogItems, onNavigateToCompare, setSearchParams, addToast]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -410,8 +440,12 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   const runSources = uniqueSources(latest);
   const series = detail?.inputs?.series;
   const isBank = Boolean(latest?.formulas?.context?.bank);
-  const assetType = latest ? catalogMap.get(latest.ticker)?.assetType : undefined;
-  const isFii = assetType === 'FII' || Boolean(latest?.ticker.endsWith('11') && !['SANB11', 'KLBN11', 'TAEE11', 'ALUP11', 'SAPR11', 'TIET11', 'CPLE11', 'BPAC11'].includes(latest?.ticker || ''));
+  const assetType = (latest?.assetType || (latest ? catalogMap.get(latest.ticker)?.assetType : undefined)) as AssetClassType | undefined;
+  const isFii = isFiiAsset(assetType, latest?.ticker);
+  const loadingLooksFii = isFiiAsset(
+    catalogMap.get(selectedTicker ?? '')?.assetType,
+    selectedTicker ?? undefined,
+  );
   const analysisAgeHours = latest?.analyzedAt
     ? (Date.now() - new Date(latest.analyzedAt).getTime()) / (1000 * 3600)
     : 0;
@@ -1108,11 +1142,15 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
         <div className="hpanel-table-card market-analysis-card" aria-busy="true" aria-live="polite">
           <div className="market-skeleton market-skeleton-title" />
           <ExecutiveFlagsPanel loading={true} />
-          <div className="market-charts">
-            <div className="market-skeleton" />
-            <div className="market-skeleton" />
-            <div className="market-skeleton" />
-          </div>
+          {loadingLooksFii ? (
+            <FiiDossierView loading />
+          ) : (
+            <div className="market-charts">
+              <div className="market-skeleton" />
+              <div className="market-skeleton" />
+              <div className="market-skeleton" />
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -1219,7 +1257,18 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           ) : null}
           {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
           {latest.flags ? <ExecutiveFlagsPanel flags={latest.flags} /> : null}
-          {latest.formulas ? <FormulasCard formulas={latest.formulas} /> : null}
+          {isFii ? (
+            <FiiDossierView
+              ticker={latest.ticker}
+              displayName={latest.displayName}
+              fiiDetails={detail?.fiiDetails ?? latest.fiiDetails}
+              signals={latest.signals}
+              currentInputs={detail?.inputs?.current}
+              macroInputs={detail?.inputs?.macro}
+            />
+          ) : latest.formulas ? (
+            <FormulasCard formulas={latest.formulas} />
+          ) : null}
           <section className="market-trajectory" aria-labelledby={`${instanceId}-traj`}>
             <h3 id={`${instanceId}-traj`} className="market-section-title">Trajetória</h3>
             <div className="market-charts">
@@ -1235,7 +1284,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
                   title="P/VP"
                   periodHint="ano"
                   points={series.pvp}
-                  currentValue={signalValue(latest, 'pvp')}
+                  currentValue={signalValue(latest, 'pvp') ?? signalValue(latest, 'fii_pvp')}
                   emptyMessage="Sem histórico anual de P/VP neste run."
                 />
               ) : null}

@@ -16,10 +16,11 @@ import {
   type AnalystVerdictChange,
   type AnalystWatchlist,
 } from '../../services/analystService';
-import { METRIC_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial } from './marketLabels';
+import { METRIC_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset } from './marketLabels';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
 import { FormulasCard } from './FormulasCard';
+import { FiiDossierView } from './FiiDossierView';
 import { MagicFormulaPanel } from './MagicFormulaPanel';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
@@ -317,10 +318,16 @@ export const MarketAnalyzeView: React.FC = () => {
       {analyzing ? (
         <div className="market-signals" aria-busy="true" aria-live="polite">
           <ExecutiveFlagsPanel loading={true} />
-          <div className="market-skeleton" />
-          <div className="market-skeleton" />
-          <div className="market-skeleton" />
-          <div className="market-skeleton" />
+          {isFiiAsset(undefined, normalizedTicker) ? (
+            <FiiDossierView loading />
+          ) : (
+            <>
+              <div className="market-skeleton" />
+              <div className="market-skeleton" />
+              <div className="market-skeleton" />
+              <div className="market-skeleton" />
+            </>
+          )}
         </div>
       ) : null}
 
@@ -331,7 +338,16 @@ export const MarketAnalyzeView: React.FC = () => {
           </h2>
           {THESIS_CARD_PUBLISHED && analysis.thesis ? <ThesisCard thesis={analysis.thesis} /> : null}
           {analysis.flags ? <ExecutiveFlagsPanel flags={analysis.flags} /> : null}
-          {analysis.formulas ? <FormulasCard formulas={analysis.formulas} /> : null}
+          {isFiiAsset(analysis.assetType, analysis.ticker) ? (
+            <FiiDossierView
+              ticker={analysis.ticker}
+              displayName={analysis.displayName}
+              fiiDetails={analysis.fiiDetails}
+              signals={analysis.signals}
+            />
+          ) : analysis.formulas ? (
+            <FormulasCard formulas={analysis.formulas} />
+          ) : null}
           <div className="market-signals">
             {analysis.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>

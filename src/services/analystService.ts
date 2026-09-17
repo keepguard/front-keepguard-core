@@ -15,11 +15,16 @@ export const TICKER_PATTERN = /^[A-Z0-9]{4,6}$/;
 
 export interface AnalystSignal {
   metric: string;
+  code?: string;
+  name?: string;
   verdict: string;
   explanation: string;
+  valueNum?: number;
+  valueText?: string;
   grounding?: {
     dataSource?: string;
     valueNum?: number;
+    valueText?: string;
     observedAt?: string;
   };
 }
@@ -81,11 +86,25 @@ export interface AnalystFlagsSummary {
   emptyRedState?: string;
 }
 
+export interface AnalystFiiDetails {
+  segment?: string;
+  sectorType?: string;
+  adminName?: string;
+  shareCount?: number;
+  shareholderCount?: number;
+  netWorth?: number;
+  vpPerShare?: number;
+  lastDividendValue?: number;
+  cashPercentage?: number;
+}
+
 export interface AnalystAnalysis {
   runId?: string;
   ticker: string;
   displayName: string;
   analysisDate: string;
+  assetType?: AssetClassType | string;
+  fiiDetails?: AnalystFiiDetails;
   /** Números oficiais — use este array; não parseie a narrativa. */
   signals: AnalystSignal[];
   gaps: { metric: string; reason: string }[];
@@ -101,6 +120,8 @@ export interface AnalystAnalysis {
 }
 
 export interface AnalystGrahamFormula {
+  available?: boolean;
+  reason?: string;
   fairPrice?: number;
   price?: number;
   marginOfSafety?: number;
@@ -114,10 +135,12 @@ export interface AnalystEarningsYieldFormula {
 }
 
 export interface AnalystMagicFormulaPosition {
-  asOfDate: string;
-  rank: number;
-  combined: number;
-  universeSize: number;
+  available?: boolean;
+  reason?: string;
+  asOfDate?: string;
+  rank?: number;
+  combined?: number;
+  universeSize?: number;
 }
 
 /** Below this ranked universe, UI omits position/concentration (misleading). */
@@ -160,6 +183,8 @@ export interface AnalystPiotroskiBit {
 }
 
 export interface AnalystPiotroskiFormula {
+  available?: boolean;
+  reason?: string;
   score: number;
   possible: number;
   of: number;
@@ -313,6 +338,8 @@ export interface AnalystRun {
   companyId: string;
   ticker: string;
   displayName: string;
+  assetType?: AssetClassType | string;
+  fiiDetails?: AnalystFiiDetails;
   analyzedAt: string;
   trigger: string;
   signals: AnalystSignal[];
@@ -332,6 +359,7 @@ export interface AnalystRun {
 export interface AnalystInputPoint {
   metric?: string;
   valueNum: number;
+  valueText?: string;
   dataSource?: string;
   observedAt?: string;
   periodType?: string;
@@ -718,7 +746,8 @@ export interface ComparedAsset {
   currentPrice?: number;
   thesisCode?: string;
   riskLevel?: string;
-  status: 'AVAILABLE' | 'NOT_FOUND' | string;
+  /** O ms-analyst-finance emite só AVAILABLE ou NO_DATA (RN-COMP-02). */
+  status: 'AVAILABLE' | 'NO_DATA' | string;
 }
 
 export interface ComparedMetricValue {

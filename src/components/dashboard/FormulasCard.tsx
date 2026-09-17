@@ -18,20 +18,27 @@ function magicReading(rank: number, universeSize: number): string {
   return 'no meio do ranking do dia';
 }
 
+function applicable<T extends { available?: boolean }>(formula?: T): T | undefined {
+  if (!formula || formula.available === false) return undefined;
+  return formula;
+}
+
 export function FormulasCard({ formulas }: { formulas: AnalystFormulas }) {
-  const graham = formulas.graham;
+  const graham = applicable(formulas.graham);
   const ey = formulas.earningsYield;
-  const magic = formulas.magicFormula;
-  const piotroski = formulas.piotroski;
-  const bazin = formulas.bazin;
+  const magic = applicable(formulas.magicFormula);
+  const piotroski = applicable(formulas.piotroski);
+  const bazin = applicable(formulas.bazin);
   const ctx = formulas.context;
   if (!graham && !ey && !magic && !piotroski && !bazin && !ctx) return null;
   const sectorName = ctx?.sectorLabel || ctx?.sector || '';
   const magicSignificant =
-    magic != null && (magic.universeSize ?? 0) >= MAGIC_FORMULA_MIN_UNIVERSE;
+    magic != null && (magic.universeSize ?? 0) >= MAGIC_FORMULA_MIN_UNIVERSE && magic.rank != null;
   const showConcentration = magicSignificant && ctx?.concentration != null;
   const magicHint =
-    magicSignificant && magic ? magicReading(magic.rank, magic.universeSize) : '';
+    magicSignificant && magic?.rank != null && magic.universeSize != null
+      ? magicReading(magic.rank, magic.universeSize)
+      : '';
 
   return (
     <article className="market-formulas" aria-label="Fórmulas">
