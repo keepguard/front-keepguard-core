@@ -36,7 +36,7 @@ interface SearchSuggestion {
   isDirectAction?: boolean;
 }
 import { onBillingEntitlement } from '../../services/billingService';
-import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset } from './marketLabels';
+import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset, isEtfAsset, CORPORATE_STOCK_METRICS } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
@@ -440,8 +440,13 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   const runSources = uniqueSources(latest);
   const series = detail?.inputs?.series;
   const isBank = Boolean(latest?.formulas?.context?.bank);
-  const assetType = (latest?.assetType || (latest ? catalogMap.get(latest.ticker)?.assetType : undefined)) as AssetClassType | undefined;
-  const isFii = isFiiAsset(assetType, latest?.ticker);
+  const catalogAssetType = latest
+    ? catalogMap.get(latest.ticker)?.assetType
+    : (selectedTicker ? catalogMap.get(selectedTicker)?.assetType : undefined);
+  const assetType = (catalogAssetType || latest?.assetType) as AssetClassType | undefined;
+  const currentTicker = latest?.ticker || selectedTicker || undefined;
+  const isFii = isFiiAsset(assetType, currentTicker);
+  const isEtf = isEtfAsset(assetType, currentTicker);
   const loadingLooksFii = isFiiAsset(
     catalogMap.get(selectedTicker ?? '')?.assetType,
     selectedTicker ?? undefined,
@@ -1266,6 +1271,15 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               currentInputs={detail?.inputs?.current}
               macroInputs={detail?.inputs?.macro}
             />
+          ) : isEtf ? (
+            <article className="market-formulas market-etf-notice" aria-label="Estrutura do Fundo de Índice (ETF)">
+              <span className="market-thesis-kicker">Estrutura do Ativo</span>
+              <p className="market-formulas-line" style={{ marginTop: '0.5rem', lineHeight: '1.5' }}>
+                <strong>Fundo de Índice (ETF):</strong> Este ativo replica uma carteira teórica de ativos/títulos de mercado.
+                Métricas corporativas tradicionais de DRE e Balanço (como P/L, ROE, EBITDA, Margens) e modelos de valuation empresarial
+                (Graham e Bazin) não se aplicam a veículos coletivos como ETFs.
+              </p>
+            </article>
           ) : latest.formulas ? (
             <FormulasCard formulas={latest.formulas} />
           ) : null}
@@ -1288,7 +1302,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
                   emptyMessage="Sem histórico anual de P/VP neste run."
                 />
               ) : null}
-              {!isFii ? (
+              {!isFii && !isEtf ? (
                 <SeriesChart
                   title="P/L"
                   periodHint="ano"
@@ -1297,7 +1311,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
                   emptyMessage="Sem histórico anual de P/L neste run."
                 />
               ) : null}
-              {!isBank && !isFii ? (
+              {!isBank && !isFii && !isEtf ? (
                 <SeriesChart
                   title="EV/EBITDA"
                   periodHint="ano"
@@ -1325,21 +1339,27 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               ))}
             </div>
             {latest.gaps.length > 0 ? (
-              <ul className="market-gaps">
-                {(() => {
-                  const seen = new Set<string>();
-                  const deduped = latest.gaps.filter((gap) => {
-                    if (seen.has(gap.metric)) return false;
-                    seen.add(gap.metric);
-                    return true;
-                  });
-                  return deduped.map((gap) => (
-                    <li key={`${gap.metric}-${gap.reason}`}>
-                      {METRIC_LABEL[gap.metric] || gap.metric}: {GAP_REASON_LABEL[gap.reason] || gap.reason}
-                    </li>
-                  ));
-                })()}
-              </ul>
+              (() => {
+                const seen = new Set<string>();
+                const deduped = latest.gaps.filter((gap) => {
+                  if (isEtf && CORPORATE_STOCK_METRICS.has(gap.metric)) {
+                    return false;
+                  }
+                  if (seen.has(gap.metric)) return false;
+                  seen.add(gap.metric);
+                  return true;
+                });
+                if (deduped.length === 0) return null;
+                return (
+                  <ul className="market-gaps">
+                    {deduped.map((gap) => (
+                      <li key={`${gap.metric}-${gap.reason}`}>
+                        {METRIC_LABEL[gap.metric] || gap.metric}: {gap.reason === 'NOT_APPLICABLE_FOR_ETF' ? 'Não se aplica a ETF' : (GAP_REASON_LABEL[gap.reason] || gap.reason)}
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()
             ) : null}
           </section>
           <section className="market-macro" aria-labelledby={`${instanceId}-macro`}>

@@ -15,7 +15,7 @@ import {
   type AnalystVerdictChange,
   type MarketAssetItem,
 } from '../../services/analystService';
-import { METRIC_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset } from './marketLabels';
+import { METRIC_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset, isEtfAsset, CORPORATE_STOCK_METRICS } from './marketLabels';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
 import { FormulasCard } from './FormulasCard';
@@ -391,6 +391,15 @@ export const MarketAnalyzeView: React.FC = () => {
               fiiDetails={analysis.fiiDetails}
               signals={analysis.signals}
             />
+          ) : isEtfAsset(analysis.assetType, analysis.ticker) ? (
+            <article className="market-formulas market-etf-notice" aria-label="Estrutura do Fundo de Índice (ETF)">
+              <span className="market-thesis-kicker">Estrutura do Ativo</span>
+              <p className="market-formulas-line" style={{ marginTop: '0.5rem', lineHeight: '1.5' }}>
+                <strong>Fundo de Índice (ETF):</strong> Este ativo replica uma carteira teórica de ativos/títulos de mercado.
+                Métricas corporativas tradicionais de DRE e Balanço (como P/L, ROE, EBITDA, Margens) e modelos de valuation empresarial
+                (Graham e Bazin) não se aplicam a veículos coletivos como ETFs.
+              </p>
+            </article>
           ) : analysis.formulas ? (
             <FormulasCard formulas={analysis.formulas} />
           ) : null}
@@ -409,19 +418,24 @@ export const MarketAnalyzeView: React.FC = () => {
             ))}
           </div>
           {analysis.gaps.length > 0 ? (
-            <p className="text-muted">
-              Lacunas: {(() => {
-                const seen = new Set<string>();
-                return analysis.gaps
-                  .filter((g) => {
-                    if (seen.has(g.metric)) return false;
-                    seen.add(g.metric);
-                    return true;
-                  })
-                  .map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${GAP_REASON_LABEL[g.reason] || g.reason})`)
-                  .join(', ');
-              })()}
-            </p>
+            (() => {
+              const isEtf = isEtfAsset(analysis.assetType, analysis.ticker);
+              const seen = new Set<string>();
+              const filteredGaps = analysis.gaps.filter((g) => {
+                if (isEtf && CORPORATE_STOCK_METRICS.has(g.metric)) return false;
+                if (seen.has(g.metric)) return false;
+                seen.add(g.metric);
+                return true;
+              });
+              if (filteredGaps.length === 0) return null;
+              return (
+                <p className="text-muted">
+                  Lacunas: {filteredGaps
+                    .map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${g.reason === 'NOT_APPLICABLE_FOR_ETF' ? 'Não se aplica a ETF' : (GAP_REASON_LABEL[g.reason] || g.reason)})`)
+                    .join(', ')}
+                </p>
+              );
+            })()
           ) : null}
           <div className="market-narrative" aria-live="polite">{analysis.narrative}</div>
           {analysis.sources.length > 0 ? (

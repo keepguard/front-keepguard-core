@@ -59,6 +59,7 @@ export const GAP_REASON_LABEL: Record<string, string> = {
   LPA_NOT_POSITIVE: 'LPA não positivo',
   VPA_NOT_POSITIVE: 'VPA não positivo',
   NOT_APPLICABLE_FOR_FII: 'Não se aplica a FII',
+  NOT_APPLICABLE_FOR_ETF: 'Não se aplica a ETF',
 };
 
 export const THESIS_LABEL: Record<string, string> = {
@@ -200,11 +201,71 @@ const UNIT_TICKERS = new Set([
   'BPAC11',
 ]);
 
+/** ETFs listados na B3 que terminam em 11. */
+const ETF_TICKERS = new Set([
+  'LFTB11',
+  'BOVA11',
+  'IVVB11',
+  'SMAL11',
+  'B5P211',
+  'IMAB11',
+  'HASH11',
+  'XINA11',
+  'NASD11',
+  'SPXI11',
+  'GOLD11',
+  'DIVO11',
+  'BRAX11',
+  'MATB11',
+  'FIND11',
+  'ISUS11',
+]);
+
+export function isEtfAsset(assetType?: string, ticker?: string): boolean {
+  if (assetType === 'ETF') return true;
+  if (assetType && assetType !== 'ETF') return false;
+  const code = ticker?.trim().toUpperCase() ?? '';
+  return ETF_TICKERS.has(code);
+}
+
 export function isFiiAsset(assetType?: string, ticker?: string): boolean {
   if (assetType === 'FII') return true;
   if (assetType && assetType !== 'FII') return false;
   const code = ticker?.trim().toUpperCase() ?? '';
   if (!code.endsWith('11') || code.length < 6) return false;
-  return !UNIT_TICKERS.has(code);
+  return !UNIT_TICKERS.has(code) && !ETF_TICKERS.has(code);
 }
+
+/** Métricas corporativas de DRE e Balanço de empresas (inaplicáveis a fundos de índice/ETFs). */
+export const CORPORATE_STOCK_METRICS = new Set([
+  'pl',
+  'dy_pct',
+  'dividaliquida_ebitda',
+  'roe_pct',
+  'roic_pct',
+  'margem_liquida_pct',
+  'liquidezcorrente',
+  'dividaliquida_patrimonioliquido',
+  'receitas_cagr5_pct',
+  'lucros_cagr5_pct',
+  'ev_ebitda',
+  'consistencia_roic',
+  'consistencia_margem',
+  'roic_spread_selic',
+  'graham_number',
+  'earnings_yield',
+  'piotroski_f_score',
+  'bazin_ceiling_price',
+  'lpa',
+  'vpa',
+  'ev_ebit',
+  'fco',
+  'fco_vs_lucro',
+  'divida_lp',
+  'n_acoes',
+  'lucro_liquido',
+  'roa_pct',
+  'margem_bruta_pct',
+  'giro_ativos',
+]);
 
