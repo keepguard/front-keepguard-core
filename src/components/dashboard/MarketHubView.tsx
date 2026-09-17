@@ -288,6 +288,7 @@ export const MarketHubView: React.FC<MarketHubViewProps> = ({ defaultTab }) => {
           <PeerComparisonTable
             initialTickers={compareTickers}
             onTickersChange={handleCompareTickersChange}
+            onSelectTicker={handleSelectTickerFromSector}
           />
         ) : null}
 

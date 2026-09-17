@@ -11510,5 +11510,36 @@ textarea.form-input {
   font-weight: 600;
 }
 
+.market-compare-asset-link-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.market-compare-asset-link-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.market-compare-asset-link-btn:focus-visible {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: 2px;
+}
+
+.market-compare-tie-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.15);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+
 
 

@@ -14,6 +14,7 @@ import { thesisDisplayLabel, thesisTone } from './marketLabels';
 interface PeerComparisonTableProps {
   initialTickers?: string[];
   onTickersChange?: (tickers: string[]) => void;
+  onSelectTicker?: (ticker: string) => void;
 }
 
 const PRESET_COMPARISONS: ReadonlyArray<{ label: string; tickers: string[] }> = [
@@ -43,6 +44,7 @@ function formatBRL(value?: number): string {
 export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
   initialTickers,
   onTickersChange,
+  onSelectTicker,
 }) => {
   const { addToast } = useToast();
   const searchInputId = useId();
@@ -262,6 +264,12 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
     return grouped;
   }, [matrix]);
 
+  const allAssetsNoData = Boolean(
+    matrix &&
+      matrix.assets.length > 0 &&
+      matrix.assets.every((a) => a.status === 'NO_DATA' || a.status === 'NOT_FOUND'),
+  );
+
   return (
     <div className="market-compare-container">
       {/* SELETOR DE TICKERS E CHIPS */}
@@ -479,8 +487,40 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
         </div>
       ) : null}
 
+      {/* ESTADO TODOS ATIVOS SEM DADOS (NO_DATA) */}
+      {!loading && !error && allAssetsNoData ? (
+        <div className="hpanel-table-card market-compare-empty-card" role="status">
+          <div className="market-compare-empty-icon-box" style={{ background: '#fef3c7' }}>
+            <AlertTriangle size={32} style={{ color: '#d97706' }} aria-hidden="true" />
+          </div>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.5rem', color: '#92400e' }}>
+            Nenhum dos ativos possui dados recentes
+          </h3>
+          <p className="text-muted" style={{ maxWidth: '480px', margin: '0 auto 1.25rem' }}>
+            Os ativos selecionados ({selectedTickers.join(', ')}) não possuem relatórios de análise recentes gravados no sistema.
+            Selecione outros ativos da sua watchlist ou utilize uma das comparações recomendadas abaixo:
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary btn-pill"
+              onClick={() => updateTickers(['ITUB4', 'BBAS3'])}
+            >
+              <Plus size={14} /> Comparar ITUB4 vs BBAS3
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-pill"
+              onClick={() => updateTickers(['PETR4', 'PRIO3'])}
+            >
+              <Plus size={14} /> Comparar PETR4 vs PRIO3
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* TABELA COMPARATIVA LADO A LADO */}
-      {!loading && !error && matrix && matrix.assets.length > 0 ? (
+      {!loading && !error && matrix && matrix.assets.length > 0 && !allAssetsNoData ? (
         <div className="hpanel-table-card market-compare-table-card">
           <div className="market-compare-scroll-wrapper" tabIndex={0} aria-label="Tabela de comparação com rolagem horizontal">
             <table className="market-compare-table">
@@ -493,7 +533,14 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
                     <th key={asset.ticker} scope="col" className="market-compare-th-asset">
                       <div className="market-compare-asset-header">
                         <div className="market-compare-asset-ticker-row">
-                          <span className="market-compare-asset-ticker">{asset.ticker}</span>
+                          <button
+                            type="button"
+                            className="market-compare-asset-link-btn"
+                            onClick={() => onSelectTicker?.(asset.ticker)}
+                            title={`Abrir Dossiê de ${asset.ticker}`}
+                          >
+                            <span className="market-compare-asset-ticker">{asset.ticker}</span>
+                          </button>
                           {asset.sectorLabel ? (
                             <span className="market-compare-asset-sector" title={`Setor: ${asset.sectorLabel}`}>
                               {asset.sectorLabel}
@@ -517,7 +564,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
                             </span>
                           </div>
                         ) : null}
-                        {asset.status === 'NOT_FOUND' ? (
+                        {asset.status === 'NO_DATA' || asset.status === 'NOT_FOUND' ? (
                           <div className="market-compare-asset-not-found">
                             Sem run recente gravado
                           </div>
@@ -542,55 +589,78 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
                     </tr>
 
                     {/* LINHAS DE MÉTRICAS */}
-                    {metrics.map((metric) => (
-                      <tr key={metric.metricCode} className="market-compare-metric-row">
-                        <th
-                          scope="row"
-                          className="market-compare-td-metric market-compare-sticky-col"
-                          title={metric.description || metric.name}
-                        >
-                          <span className="market-compare-metric-name">{metric.name}</span>
-                          {metric.unit ? (
-                            <span className="market-compare-metric-unit">({metric.unit})</span>
-                          ) : null}
-                        </th>
+                    {metrics.map((metric) => {
+                      const bestCount = matrix.assets.filter(
+                        (a) => metric.values?.[a.ticker]?.isBest,
+                      ).length;
+                      const isTie = bestCount > 1;
 
-                        {matrix.assets.map((asset) => {
-                          const val = metric.values?.[asset.ticker];
-                          if (!val || val.text === '—') {
+                      return (
+                        <tr key={metric.metricCode} className="market-compare-metric-row">
+                          <th
+                            scope="row"
+                            className="market-compare-td-metric market-compare-sticky-col"
+                            title={metric.description || metric.name}
+                          >
+                            <span className="market-compare-metric-name">{metric.name}</span>
+                            {metric.unit ? (
+                              <span className="market-compare-metric-unit">({metric.unit})</span>
+                            ) : null}
+                          </th>
+
+                          {matrix.assets.map((asset) => {
+                            const val = metric.values?.[asset.ticker];
+                            if (!val || val.text === '—') {
+                              return (
+                                <td key={asset.ticker} className="market-compare-td-val is-empty">
+                                  <span
+                                    className="market-compare-val-text text-muted"
+                                    title={val?.gap ? `Motivo: ${val.gap}` : 'Sem dados recentes'}
+                                  >
+                                    —
+                                  </span>
+                                </td>
+                              );
+                            }
+
                             return (
-                              <td key={asset.ticker} className="market-compare-td-val is-empty">
-                                <span
-                                  className="market-compare-val-text text-muted"
-                                  title={val?.gap ? `Motivo: ${val.gap}` : 'Sem dados recentes'}
-                                >
-                                  —
-                                </span>
+                              <td
+                                key={asset.ticker}
+                                className={`market-compare-td-val${val.isBest ? ' is-best' : ''}`}
+                              >
+                                {val.isBest ? (
+                                  <div
+                                    className={`market-compare-best-badge${isTie ? ' is-tie' : ''}`}
+                                    title={
+                                      isTie
+                                        ? `Empate técnico: ${asset.ticker} com ${val.text}`
+                                        : `Melhor índice: ${asset.ticker} com ${val.text}`
+                                    }
+                                    aria-label={`${
+                                      isTie ? 'Empate técnico no melhor índice' : 'Melhor índice'
+                                    } da métrica ${metric.name}: ${asset.ticker} com ${val.text}`}
+                                  >
+                                    <Trophy
+                                      size={13}
+                                      className="market-compare-trophy-icon"
+                                      aria-hidden="true"
+                                    />
+                                    <span className="market-compare-val-text font-bold">
+                                      {val.text}
+                                    </span>
+                                    {isTie ? (
+                                      <span className="market-compare-tie-tag">Empate</span>
+                                    ) : null}
+                                  </div>
+                                ) : (
+                                  <span className="market-compare-val-text">{val.text}</span>
+                                )}
                               </td>
                             );
-                          }
-
-                          return (
-                            <td
-                              key={asset.ticker}
-                              className={`market-compare-td-val${val.isBest ? ' is-best' : ''}`}
-                            >
-                              {val.isBest ? (
-                                <div
-                                  className="market-compare-best-badge"
-                                  aria-label={`Melhor índice da métrica ${metric.name}: ${asset.ticker} com ${val.text}`}
-                                >
-                                  <Trophy size={13} className="market-compare-trophy-icon" aria-hidden="true" />
-                                  <span className="market-compare-val-text font-bold">{val.text}</span>
-                                </div>
-                              ) : (
-                                <span className="market-compare-val-text">{val.text}</span>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                          })}
+                        </tr>
+                      );
+                    })}
                   </React.Fragment>
                 ))}
               </tbody>
