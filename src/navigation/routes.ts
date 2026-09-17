@@ -88,6 +88,13 @@ const TAB_ALIASES: Record<string, AppTab> = {
   overview: 'market',
 };
 
+/** Só abas de rota legada (`?tab=sessions` etc.). Painéis internos (`desk`, `analyze`, `jobs`) não entram. */
+export function isLegacyAppTab(tab: string | null | undefined): boolean {
+  if (!tab) return false;
+  if (tab in TAB_ALIASES) return true;
+  return PATH_BY_TAB.has(tab);
+}
+
 export function pathFromTab(tab: string | null | undefined): string {
   if (!tab) return PATHS.market;
   const canonical = TAB_ALIASES[tab] || (tab as AppTab);

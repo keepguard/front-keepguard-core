@@ -9,12 +9,13 @@ import { useToast } from '../context/ToastContext';
 import { DEFAULT_TENANT_ID } from '../services/api';
 import { termsSyncService, type CheckTermsResult } from '../services/termsSyncService';
 import { BillingEntitlementBanner } from '../components/dashboard/BillingView';
-import { PATHS, pathFromTab, routeMetaFromPath } from './routes';
+import { PATHS, isLegacyAppTab, pathFromTab, routeMetaFromPath } from './routes';
 
 const LegacyTabRedirect: React.FC = () => {
   const [searchParams] = useSearchParams();
   const tab = searchParams.get('tab');
-  if (!tab) return null;
+  // Não interceptar painéis in-page (Mercado: desk/magic/compare; Catálogo: catalog/analyze/jobs).
+  if (!isLegacyAppTab(tab)) return null;
 
   const targetPath = pathFromTab(tab);
   const next = new URLSearchParams(searchParams);
