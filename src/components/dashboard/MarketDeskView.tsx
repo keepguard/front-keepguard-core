@@ -1280,6 +1280,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               segment={catalogMap.get(latest.ticker)?.segment || catalogMap.get(latest.ticker)?.sectorLabel}
               priceDetails={detail?.priceDetails ?? latest.priceDetails}
               etfDetails={detail?.etfDetails ?? latest.etfDetails}
+              creditDetails={detail?.creditDetails ?? latest.creditDetails}
             />
           ) : latest.formulas ? (
             <FormulasCard formulas={latest.formulas} />

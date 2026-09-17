@@ -1,12 +1,14 @@
 import { useId } from 'react';
 import { Activity, Info, LineChart, MoveVertical } from 'lucide-react';
-import type { AnalystEtfDetails, AnalystPriceDetails } from '../../services/analystService';
+import type { AnalystCreditFundDetails, AnalystEtfDetails, AnalystPriceDetails } from '../../services/analystService';
+import { CreditFundCards } from './CreditFundCards';
 import {
   dash,
   formatCompactBrl,
   formatCompactCount,
   formatMoney,
   formatPct,
+  formatRatio,
   formatSignedPct,
 } from './dossierFormat';
 import { MetricRow } from './DossierMetricRow';
@@ -32,12 +34,10 @@ const CLASS_COPY: Record<PriceOnlyClass, { kicker: string; name: string; pending
   FIAGRO: {
     kicker: 'Dossiê do fundo de crédito',
     name: 'Fiagro',
-    pending: 'P/VP, dividend yield e yield equivalente tributado ainda não estão disponíveis para esta classe.',
   },
   FI_INFRA: {
     kicker: 'Dossiê do fundo de crédito',
     name: 'FI-Infra',
-    pending: 'P/VP, dividend yield e yield equivalente tributado ainda não estão disponíveis para esta classe.',
   },
 };
 
@@ -106,6 +106,7 @@ export interface PriceDossierViewProps {
   segment?: string;
   priceDetails?: AnalystPriceDetails | null;
   etfDetails?: AnalystEtfDetails | null;
+  creditDetails?: AnalystCreditFundDetails | null;
 }
 
 /**
@@ -119,6 +120,7 @@ export function PriceDossierView({
   segment,
   priceDetails,
   etfDetails,
+  creditDetails,
 }: PriceDossierViewProps) {
   const sectionId = useId();
   const copy = CLASS_COPY[assetType as PriceOnlyClass] ?? CLASS_COPY.ETF;
@@ -127,6 +129,7 @@ export function PriceDossierView({
   const volatility = d?.volatilityClass ? VOLATILITY_TONE[d.volatilityClass] : undefined;
   const benchmark = etfDetails?.benchmark;
   const badge = benchmark ? `Replica: ${benchmark}` : segment;
+  const credit = assetType === 'FIAGRO' || assetType === 'FI_INFRA' ? creditDetails : null;
 
   return (
     <section className="fii-dossier" aria-labelledby={`${sectionId}-title`}>
@@ -152,106 +155,130 @@ export function PriceDossierView({
         ) : null}
       </header>
 
-      {!d ? (
+      {d ? (
+        <dl className="fii-dossier-kpis">
+          <div>
+            <dt>Cotação</dt>
+            <dd>{dash(d.currentPrice != null ? formatMoney(d.currentPrice) : null)}</dd>
+          </div>
+          {credit ? (
+            <>
+              <div>
+                <dt>DY 12M</dt>
+                <dd>{dash(credit.dividendYield12M != null ? formatPct(credit.dividendYield12M) : null)}</dd>
+              </div>
+              <div>
+                <dt>P/VP</dt>
+                <dd>
+                  {credit.pvpPublished
+                    ? dash(credit.pvp != null ? formatRatio(credit.pvp) : null)
+                    : 'não divulgado'}
+                </dd>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <dt>Retorno 12M</dt>
+                <dd>{dash(d.return12M != null ? formatSignedPct(d.return12M) : null)}</dd>
+              </div>
+              <div>
+                <dt>Volatilidade 30D</dt>
+                <dd>{dash(d.volatility30D != null ? formatPct(d.volatility30D, 1) : null)}</dd>
+              </div>
+            </>
+          )}
+          <div>
+            <dt>Negociado/dia</dt>
+            <dd>{dash(d.averageDailyTradedValue != null ? formatCompactBrl(d.averageDailyTradedValue) : null)}</dd>
+          </div>
+        </dl>
+      ) : (
         <p className="text-muted fii-dossier-empty" role="status">
           Métricas de preço, risco e liquidez aparecem a partir da próxima análise deste ativo.
         </p>
-      ) : (
-        <>
-          <dl className="fii-dossier-kpis">
-            <div>
-              <dt>Cotação</dt>
-              <dd>{dash(d.currentPrice != null ? formatMoney(d.currentPrice) : null)}</dd>
-            </div>
-            <div>
-              <dt>Retorno 12M</dt>
-              <dd>{dash(d.return12M != null ? formatSignedPct(d.return12M) : null)}</dd>
-            </div>
-            <div>
-              <dt>Volatilidade 30D</dt>
-              <dd>{dash(d.volatility30D != null ? formatPct(d.volatility30D, 1) : null)}</dd>
-            </div>
-            <div>
-              <dt>Negociado/dia</dt>
-              <dd>{dash(d.averageDailyTradedValue != null ? formatCompactBrl(d.averageDailyTradedValue) : null)}</dd>
-            </div>
-          </dl>
-
-          <div className="fii-dossier-cards">
-            <article className="fii-dossier-card" aria-labelledby={`${sectionId}-range`}>
-              <h4 id={`${sectionId}-range`} className="fii-dossier-card-title">
-                <MoveVertical size={16} aria-hidden="true" />
-                Faixa de 52 semanas
-              </h4>
-              {d.range52WPositionPct != null ? (
-                <>
-                  <p className="fii-dossier-card-lead">
-                    <strong>{formatPct(d.range52WPositionPct, 0)}</strong>
-                    <span className="text-muted">{rangeZoneLabel(d.range52WPositionPct)}</span>
-                  </p>
-                  <RangeGauge position={d.range52WPositionPct} />
-                </>
-              ) : (
-                <p className="text-muted fii-dossier-empty">Preço estável no período: sem faixa para comparar.</p>
-              )}
-              <dl className="fii-dossier-metrics">
-                <MetricRow label="Mínima" value={dash(d.low52W != null ? formatMoney(d.low52W) : null)} />
-                <MetricRow label="Máxima" value={dash(d.high52W != null ? formatMoney(d.high52W) : null)} />
-                <MetricRow
-                  label="Queda desde a máxima"
-                  value={dash(d.drawdown52W != null ? formatSignedPct(d.drawdown52W) : null)}
-                />
-              </dl>
-            </article>
-
-            <article className="fii-dossier-card" aria-labelledby={`${sectionId}-returns`}>
-              <h4 id={`${sectionId}-returns`} className="fii-dossier-card-title">
-                <LineChart size={16} aria-hidden="true" />
-                Retornos
-              </h4>
-              <dl className="fii-dossier-metrics">
-                <MetricRow label="1 mês" value={returnValue(d.return1M)} />
-                <MetricRow label="6 meses" value={returnValue(d.return6M)} />
-                <MetricRow label="12 meses" value={returnValue(d.return12M)} />
-              </dl>
-              <p className="text-muted fii-dossier-empty">
-                Variação da cota em {d.tradingDays} pregões coletados.
-                {benchmark ? ' Comparação com o índice ainda não disponível.' : ''}
-              </p>
-            </article>
-
-            <article className="fii-dossier-card" aria-labelledby={`${sectionId}-risk`}>
-              <h4 id={`${sectionId}-risk`} className="fii-dossier-card-title">
-                <Activity size={16} aria-hidden="true" />
-                Risco &amp; liquidez
-              </h4>
-              <dl className="fii-dossier-metrics">
-                <div className="fii-dossier-metric">
-                  <dt>Volatilidade 30 dias</dt>
-                  <dd>
-                    {d.volatility30D != null ? formatPct(d.volatility30D, 1) : INSUFFICIENT}
-                    {volatility ? (
-                      <span className={`fii-tone-pill ${volatility.tone}`}>{volatility.label}</span>
-                    ) : null}
-                  </dd>
-                </div>
-                <MetricRow
-                  label="Volatilidade 12 meses"
-                  value={d.volatility1Y != null ? formatPct(d.volatility1Y, 1) : INSUFFICIENT}
-                />
-                <MetricRow
-                  label="Valor negociado/dia"
-                  value={d.averageDailyTradedValue != null ? formatCompactBrl(d.averageDailyTradedValue) : INSUFFICIENT}
-                />
-                <MetricRow
-                  label="Volume médio/dia"
-                  value={d.averageDailyVolume != null ? `${formatCompactCount(d.averageDailyVolume)} cotas` : INSUFFICIENT}
-                />
-              </dl>
-            </article>
-          </div>
-        </>
       )}
+
+      {d || credit ? (
+        <div className="fii-dossier-cards">
+          {credit ? <CreditFundCards sectionId={sectionId} details={credit} /> : null}
+          {d ? (
+            <>
+              <article className="fii-dossier-card" aria-labelledby={`${sectionId}-range`}>
+                <h4 id={`${sectionId}-range`} className="fii-dossier-card-title">
+                  <MoveVertical size={16} aria-hidden="true" />
+                  Faixa de 52 semanas
+                </h4>
+                {d.range52WPositionPct != null ? (
+                  <>
+                    <p className="fii-dossier-card-lead">
+                      <strong>{formatPct(d.range52WPositionPct, 0)}</strong>
+                      <span className="text-muted">{rangeZoneLabel(d.range52WPositionPct)}</span>
+                    </p>
+                    <RangeGauge position={d.range52WPositionPct} />
+                  </>
+                ) : (
+                  <p className="text-muted fii-dossier-empty">Preço estável no período: sem faixa para comparar.</p>
+                )}
+                <dl className="fii-dossier-metrics">
+                  <MetricRow label="Mínima" value={dash(d.low52W != null ? formatMoney(d.low52W) : null)} />
+                  <MetricRow label="Máxima" value={dash(d.high52W != null ? formatMoney(d.high52W) : null)} />
+                  <MetricRow
+                    label="Queda desde a máxima"
+                    value={dash(d.drawdown52W != null ? formatSignedPct(d.drawdown52W) : null)}
+                  />
+                </dl>
+              </article>
+
+              <article className="fii-dossier-card" aria-labelledby={`${sectionId}-returns`}>
+                <h4 id={`${sectionId}-returns`} className="fii-dossier-card-title">
+                  <LineChart size={16} aria-hidden="true" />
+                  Retornos
+                </h4>
+                <dl className="fii-dossier-metrics">
+                  <MetricRow label="1 mês" value={returnValue(d.return1M)} />
+                  <MetricRow label="6 meses" value={returnValue(d.return6M)} />
+                  <MetricRow label="12 meses" value={returnValue(d.return12M)} />
+                </dl>
+                <p className="text-muted fii-dossier-empty">
+                  Variação da cota em {d.tradingDays} pregões coletados.
+                  {benchmark ? ' Comparação com o índice ainda não disponível.' : ''}
+                </p>
+              </article>
+
+              <article className="fii-dossier-card" aria-labelledby={`${sectionId}-risk`}>
+                <h4 id={`${sectionId}-risk`} className="fii-dossier-card-title">
+                  <Activity size={16} aria-hidden="true" />
+                  Risco &amp; liquidez
+                </h4>
+                <dl className="fii-dossier-metrics">
+                  <div className="fii-dossier-metric">
+                    <dt>Volatilidade 30 dias</dt>
+                    <dd>
+                      {d.volatility30D != null ? formatPct(d.volatility30D, 1) : INSUFFICIENT}
+                      {volatility ? (
+                        <span className={`fii-tone-pill ${volatility.tone}`}>{volatility.label}</span>
+                      ) : null}
+                    </dd>
+                  </div>
+                  <MetricRow
+                    label="Volatilidade 12 meses"
+                    value={d.volatility1Y != null ? formatPct(d.volatility1Y, 1) : INSUFFICIENT}
+                  />
+                  <MetricRow
+                    label="Valor negociado/dia"
+                    value={d.averageDailyTradedValue != null ? formatCompactBrl(d.averageDailyTradedValue) : INSUFFICIENT}
+                  />
+                  <MetricRow
+                    label="Volume médio/dia"
+                    value={d.averageDailyVolume != null ? `${formatCompactCount(d.averageDailyVolume)} cotas` : INSUFFICIENT}
+                  />
+                </dl>
+              </article>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <p className="text-muted fii-dossier-empty">
         <Info size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: '0.3rem' }} />

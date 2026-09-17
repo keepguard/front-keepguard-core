@@ -54,6 +54,8 @@ export const METRIC_LABEL: Record<string, string> = {
   volatility_30d: 'Volatilidade 30 dias',
   volatility_1y: 'Volatilidade 12 meses',
   daily_traded_value: 'Liquidez média diária',
+  credit_pvp: 'P/VP (fundo de crédito)',
+  credit_dividend_yield: 'Dividend yield 12M (isento)',
 };
 
 export const GAP_REASON_LABEL: Record<string, string> = {

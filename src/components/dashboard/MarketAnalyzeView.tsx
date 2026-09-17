@@ -399,6 +399,7 @@ export const MarketAnalyzeView: React.FC = () => {
               displayName={analysis.displayName}
               priceDetails={analysis.priceDetails}
               etfDetails={analysis.etfDetails}
+              creditDetails={analysis.creditDetails}
             />
           ) : analysis.formulas ? (
             <FormulasCard formulas={analysis.formulas} />

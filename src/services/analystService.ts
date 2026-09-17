@@ -122,6 +122,25 @@ export interface AnalystEtfDetails {
   benchmark?: string;
 }
 
+/** Dossiê de Fiagro / FI-Infra (RFC-008 Bloco 5). pvpPublished=false: a fonte não divulga P/VP da classe. */
+export interface AnalystCreditFundDetails {
+  pvp?: number;
+  pvpPublished: boolean;
+  vpPerShare?: number;
+  netWorth?: number;
+  cashPercentage?: number;
+  shareholderCount?: number;
+  dividendYield12M?: number;
+  /** DY equivalente a uma aplicação tributada (gross-up pela alíquota grossUpTaxRatePct). */
+  grossUpYield12M?: number;
+  grossUpTaxRatePct: number;
+  /** Taxa de referência anual usada na comparação (CDI anualizado ou Selic). */
+  referenceRatePct: number;
+  dividends12M?: number;
+  payments12M: number;
+  lastDividendValue?: number;
+}
+
 export interface AnalystAnalysis {
   runId?: string;
   ticker: string;
@@ -131,6 +150,7 @@ export interface AnalystAnalysis {
   fiiDetails?: AnalystFiiDetails;
   priceDetails?: AnalystPriceDetails;
   etfDetails?: AnalystEtfDetails;
+  creditDetails?: AnalystCreditFundDetails;
   /** Números oficiais — use este array; não parseie a narrativa. */
   signals: AnalystSignal[];
   gaps: { metric: string; reason: string }[];
@@ -369,6 +389,7 @@ export interface AnalystRun {
   fiiDetails?: AnalystFiiDetails;
   priceDetails?: AnalystPriceDetails;
   etfDetails?: AnalystEtfDetails;
+  creditDetails?: AnalystCreditFundDetails;
   analyzedAt: string;
   trigger: string;
   signals: AnalystSignal[];

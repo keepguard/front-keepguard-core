@@ -18,6 +18,10 @@ export function formatCompactBrl(value: number): string {
   return formatMoney(value);
 }
 
+export function formatRatio(value: number): string {
+  return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x`;
+}
+
 export function formatPct(value: number, digits = 2): string {
   return `${value.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
 }
