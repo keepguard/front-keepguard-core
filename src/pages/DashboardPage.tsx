@@ -20,7 +20,7 @@ import { ClientSystemView } from '../components/dashboard/ClientSystemView';
 import { AgentsHubView } from '../components/dashboard/AgentsHubView';
 import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
-import { MarketAnalyzeView } from '../components/dashboard/MarketAnalyzeView';
+import { MarketOpsHubView } from '../components/dashboard/MarketOpsHubView';
 import { MarketHubView } from '../components/dashboard/MarketHubView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
@@ -386,14 +386,14 @@ export const MarketAnalyzePage: React.FC = () => (
       <div className="dashboard-title-group">
         <h1 className="dashboard-title">
           <LineChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Analisar ativo
+          Catálogo e lote
         </h1>
         <p className="dashboard-subtitle">
-          Watchlist do lote diário, análise sob demanda e mudanças de veredito. Análise, não recomendação de investimento.
+          Cadastro de ativos, análise sob demanda e jobs do analista. Análise, não recomendação de investimento.
         </p>
       </div>
     </div>
-    <MarketAnalyzeView />
+    <MarketOpsHubView />
   </DashboardShell>
 );
 

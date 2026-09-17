@@ -69,7 +69,7 @@ export const ROUTES: RouteMeta[] = [
   { path: PATHS.agentIncidents, tab: 'agent-incidents', title: 'Incidentes' },
   { path: PATHS.dataSources, tab: 'data-sources', title: 'Fontes de dados' },
   { path: PATHS.knowledge, tab: 'knowledge', title: 'Conhecimento' },
-  { path: PATHS.marketAnalyze, tab: 'market-analyze', title: 'Analisar ativo' },
+  { path: PATHS.marketAnalyze, tab: 'market-analyze', title: 'Catálogo e lote' },
   { path: PATHS.audits, tab: 'audits', title: 'Auditoria' },
   { path: PATHS.llm, tab: 'llm', title: 'LLM' },
   { path: PATHS.billing, tab: 'billing', title: 'Planos' },

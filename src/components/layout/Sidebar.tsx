@@ -152,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {canSeeMarketOps && (
                 <SidebarLink
                   to={PATHS.marketAnalyze}
-                  label="Analisar ativo"
+                  label="Catálogo e lote"
                   icon={<LineChart size={18} className="sidebar-icon" />}
                   onCloseMobile={onCloseMobile}
                 />

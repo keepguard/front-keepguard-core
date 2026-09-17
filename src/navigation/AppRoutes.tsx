@@ -145,7 +145,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path={PATHS.marketAnalyze}
           element={(
-            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM analisam ativos.">
+            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM gerenciam o catálogo e os jobs do analista.">
               <MarketAnalyzePage />
             </RequireAccess>
           )}

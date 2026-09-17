@@ -77,6 +77,7 @@ export const MarketAnalyzeView: React.FC = () => {
   const [watchLoading, setWatchLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [refreshDerived, setRefreshDerived] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [analysis, setAnalysis] = useState<AnalystAnalysis | null>(null);
@@ -150,11 +151,16 @@ export const MarketAnalyzeView: React.FC = () => {
   }, [fromQuery, loadWatchlist, loadChanges]);
 
   function syncQuery(next: string | null) {
-    if (next) {
-      setSearchParams({ ticker: next }, { replace: true });
-    } else {
-      setSearchParams({}, { replace: true });
-    }
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set('tab', 'analyze');
+      if (next) {
+        params.set('ticker', next);
+      } else {
+        params.delete('ticker');
+      }
+      return params;
+    }, { replace: true });
   }
 
   function selectTicker(next: string | null) {
@@ -194,7 +200,7 @@ export const MarketAnalyzeView: React.FC = () => {
     setAnalysis(null);
     setAnalyzing(true);
     try {
-      setAnalysis(await analyzeTicker(normalizedTicker));
+      setAnalysis(await analyzeTicker(normalizedTicker, { refreshDerived }));
       syncQuery(normalizedTicker);
     } catch (err) {
       setError(mapAnalystError(err, 'Falha ao analisar'));
@@ -291,6 +297,14 @@ export const MarketAnalyzeView: React.FC = () => {
           </span>
         </div>
         <div className="audits-filter-row audits-filter-row-sort market-desk-filter-actions">
+          <label className="market-catalog-toggle">
+            <input
+              type="checkbox"
+              checked={refreshDerived}
+              onChange={(e) => setRefreshDerived(e.target.checked)}
+            />
+            <span>Regenerar memória derivada</span>
+          </label>
           <button
             type="submit"
             className="btn btn-secondary btn-pill audits-filter-submit"

@@ -305,9 +305,10 @@ export function isValidTicker(raw: string): boolean {
   return TICKER_PATTERN.test(raw.trim().toUpperCase());
 }
 
-export function analyzeTicker(ticker: string): Promise<AnalystAnalysis> {
+export function analyzeTicker(ticker: string, options?: { refreshDerived?: boolean }): Promise<AnalystAnalysis> {
+  const qs = options?.refreshDerived ? '?refreshDerived=true' : '';
   return customFetch<AnalystAnalysis>(
-    `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}/analyze`,
+    `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}/analyze${qs}`,
     { method: 'POST' },
     token(),
   );
@@ -435,6 +436,7 @@ export interface MarketAssetItem {
   sectorId: string;
   sectorLabel: string;
   segment?: string;
+  isActive?: boolean;
   hasRuns?: boolean;
 }
 
@@ -495,6 +497,80 @@ export function listCatalogTickers(options?: { assetType?: string; query?: strin
   if (options?.query) params.set('query', options.query);
   const qs = params.toString() ? `?${params.toString()}` : '';
   return customFetch<AnalystCatalogResponse>(`${ANALYST_BASE}/catalog${qs}`, { method: 'GET' }, token());
+}
+
+export interface CatalogAssetWrite {
+  ticker: string;
+  displayName?: string;
+  assetType: AssetClassType | string;
+  sectorId?: string;
+  sectorLabel?: string;
+  segment?: string;
+  issuerGroup?: string;
+  isActive?: boolean;
+  hasRuns?: boolean;
+}
+
+export function createCatalogAsset(body: CatalogAssetWrite): Promise<MarketAssetItem> {
+  return customFetch<MarketAssetItem>(
+    `${ANALYST_BASE}/catalog/assets`,
+    { method: 'POST', body: JSON.stringify(body) },
+    token(),
+  );
+}
+
+export function updateCatalogAsset(ticker: string, body: Partial<CatalogAssetWrite>): Promise<MarketAssetItem> {
+  return customFetch<MarketAssetItem>(
+    `${ANALYST_BASE}/catalog/assets/${encodeURIComponent(ticker)}`,
+    { method: 'PUT', body: JSON.stringify(body) },
+    token(),
+  );
+}
+
+export interface CatalogReloadResult {
+  status: string;
+  message: string;
+  total: number;
+}
+
+export function reloadCatalog(): Promise<CatalogReloadResult> {
+  return customFetch<CatalogReloadResult>(
+    `${ANALYST_BASE}/catalog/reload`,
+    { method: 'POST' },
+    token(),
+  );
+}
+
+export interface ProactiveTickerResult {
+  ticker: string;
+  result: string;
+  runId?: string;
+  error?: string;
+  staleFacts?: boolean;
+}
+
+export interface ProactiveReport {
+  force: boolean;
+  lockAcquired: boolean;
+  businessDate: string;
+  collectionReady: boolean;
+  collectionWaitAttempts?: number;
+  items: ProactiveTickerResult[];
+}
+
+export function runProactiveJob(options?: { force?: boolean; skipWait?: boolean }): Promise<ProactiveReport> {
+  const params = new URLSearchParams();
+  if (options?.force) params.set('force', 'true');
+  if (options?.skipWait) {
+    params.set('wait', 'false');
+    params.set('skip_wait', 'true');
+  }
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return customFetch<ProactiveReport>(
+    `${ANALYST_BASE}/jobs/proactive-run${qs}`,
+    { method: 'POST' },
+    token(),
+  );
 }
 
 export function getAssetDetail(ticker: string): Promise<AssetDetailResponse> {
