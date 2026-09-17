@@ -1134,7 +1134,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
 
       {!selectedTicker && !loading ? (
         <p className="text-muted market-desk-hint">
-          Busque um ticker já conhecido nesta organização. O dossiê lê a última análise gravada — o lote diário é definido na watchlist da organização.
+          Busque um ticker já conhecido nesta organização. O dossiê lê a última análise gravada — o lote diário é definido em <code>market_assets</code> com <strong>hasRuns</strong>.
         </p>
       ) : null}
 
@@ -1182,7 +1182,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
             </div>
           </div>
           <p className="text-muted">
-            Ainda não há análise neste ativo. Ele entra no lote se estiver na watchlist da organização; o usuário não dispara análise.
+            Ainda não há análise neste ativo. Ele entra no lote se estiver em <code>market_assets</code> com <strong>hasRuns=true</strong>; o usuário não dispara análise.
           </p>
         </div>
       ) : null}

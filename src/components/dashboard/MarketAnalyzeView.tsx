@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LineChart, Plus, Search } from 'lucide-react';
 import { RefreshCombo } from '../common/RefreshCombo';
@@ -6,15 +6,14 @@ import { useToast } from '../../context/ToastContext';
 import {
   analyzeTicker,
   getLatestMagicFormulaRanking,
-  getWatchlist,
   isValidTicker,
+  listCatalogTickers,
   listChanges,
-  saveWatchlist,
-  WATCHLIST_MAX_TICKERS,
+  updateCatalogAsset,
   type AnalystAnalysis,
   type AnalystMagicFormulaRanking,
   type AnalystVerdictChange,
-  type AnalystWatchlist,
+  type MarketAssetItem,
 } from '../../services/analystService';
 import { METRIC_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset } from './marketLabels';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
@@ -33,11 +32,11 @@ function tickerFromQuery(raw: string | null): string | null {
 function mapAnalystError(err: unknown, fallback: string): string {
   const status = (err as { status?: number }).status;
   const data = (err as { data?: { error?: string; message?: string } }).data;
-  if (data?.error === 'WATCHLIST_TOO_LARGE') {
-    return `A watchlist aceita no máximo ${WATCHLIST_MAX_TICKERS} ativos.`;
-  }
   if (data?.error === 'NO_MARKET_DATA' || status === 404) {
     return 'Ainda não há fatos deste ticker nesta organização. Confira os agents de coleta.';
+  }
+  if (data?.error === 'ASSET_NOT_FOUND') {
+    return 'Ticker não está no catálogo (market_assets). Cadastre-o na aba Catálogo.';
   }
   if (data?.error === 'INVALID_TICKER' || status === 400) {
     return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4, HGLG11).';
@@ -73,8 +72,8 @@ export const MarketAnalyzeView: React.FC = () => {
   const [ticker, setTicker] = useState(() => fromQuery || '');
   const [appliedQuery, setAppliedQuery] = useState(fromQuery);
 
-  const [list, setList] = useState<AnalystWatchlist | null>(null);
-  const [watchLoading, setWatchLoading] = useState(true);
+  const [catalog, setCatalog] = useState<MarketAssetItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [refreshDerived, setRefreshDerived] = useState(false);
@@ -94,14 +93,24 @@ export const MarketAnalyzeView: React.FC = () => {
     }
   }
 
-  const tickers = list?.tickers ?? [];
-  const maxTickers = list?.maxTickers || WATCHLIST_MAX_TICKERS;
-  const enabled = list?.enabled ?? true;
-  const atCap = tickers.length >= maxTickers;
-  const busy = watchLoading || saving || analyzing;
+  const batchTickers = useMemo(
+    () => catalog.filter((item) => item.isActive !== false && item.hasRuns).map((item) => item.ticker),
+    [catalog],
+  );
+  const catalogByTicker = useMemo(() => {
+    const map = new Map<string, MarketAssetItem>();
+    for (const item of catalog) {
+      map.set(item.ticker.toUpperCase(), item);
+    }
+    return map;
+  }, [catalog]);
+
+  const busy = catalogLoading || saving || analyzing;
   const normalizedTicker = ticker.trim().toUpperCase();
   const tickerOk = isValidTicker(normalizedTicker);
-  const alreadyWatched = tickers.includes(normalizedTicker);
+  const catalogItem = catalogByTicker.get(normalizedTicker);
+  const inBatch = Boolean(catalogItem?.hasRuns);
+  const inCatalog = Boolean(catalogItem);
 
   const loadChanges = useCallback(async (nextTicker?: string | null) => {
     setChangesLoading(true);
@@ -115,19 +124,19 @@ export const MarketAnalyzeView: React.FC = () => {
     }
   }, []);
 
-  const loadWatchlist = useCallback(async () => {
-    setWatchLoading(true);
+  const loadCatalog = useCallback(async () => {
+    setCatalogLoading(true);
     try {
-      const [wl, magic] = await Promise.all([
-        getWatchlist(),
+      const [res, magic] = await Promise.all([
+        listCatalogTickers(),
         getLatestMagicFormulaRanking(),
       ]);
-      setList(wl);
+      setCatalog(res.items ?? []);
       setRanking(magic);
     } catch (err) {
-      setError(mapAnalystError(err, 'Falha ao carregar a watchlist'));
+      setError(mapAnalystError(err, 'Falha ao carregar o catálogo'));
     } finally {
-      setWatchLoading(false);
+      setCatalogLoading(false);
     }
   }, []);
 
@@ -135,20 +144,20 @@ export const MarketAnalyzeView: React.FC = () => {
     setRefreshing(true);
     setError('');
     try {
-      await Promise.all([loadWatchlist(), loadChanges(filterTicker)]);
+      await Promise.all([loadCatalog(), loadChanges(filterTicker)]);
     } finally {
       setRefreshing(false);
     }
-  }, [filterTicker, loadChanges, loadWatchlist]);
+  }, [filterTicker, loadChanges, loadCatalog]);
 
   const bootstrapped = useRef(false);
 
   useEffect(() => {
     if (bootstrapped.current) return;
     bootstrapped.current = true;
-    void loadWatchlist();
+    void loadCatalog();
     void loadChanges(fromQuery);
-  }, [fromQuery, loadWatchlist, loadChanges]);
+  }, [fromQuery, loadCatalog, loadChanges]);
 
   function syncQuery(next: string | null) {
     setSearchParams((prev) => {
@@ -174,22 +183,6 @@ export const MarketAnalyzeView: React.FC = () => {
     void loadChanges(value);
   }
 
-  async function persist(nextTickers: string[], nextEnabled: boolean, changesTicker: string | null = filterTicker): Promise<boolean> {
-    setSaving(true);
-    setError('');
-    try {
-      const saved = await saveWatchlist({ tickers: nextTickers, enabled: nextEnabled });
-      setList(saved);
-      await loadChanges(changesTicker);
-      return true;
-    } catch (err) {
-      setError(mapAnalystError(err, 'Falha ao salvar a watchlist'));
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function onAnalyze(event: React.FormEvent) {
     event.preventDefault();
     if (!tickerOk) {
@@ -209,58 +202,82 @@ export const MarketAnalyzeView: React.FC = () => {
     }
   }
 
-  async function onAddToWatchlist() {
-    if (!list) return;
+  async function onIncludeInBatch() {
     if (!tickerOk) {
       setError('Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).');
       return;
     }
-    if (alreadyWatched) {
-      setError(`${normalizedTicker} já está na watchlist.`);
+    if (!inCatalog) {
+      setError(`${normalizedTicker} não está no catálogo. Cadastre-o na aba Catálogo antes de incluir no lote.`);
       return;
     }
-    if (atCap) {
-      setError(`A watchlist aceita no máximo ${maxTickers} ativos.`);
+    if (inBatch) {
+      setError(`${normalizedTicker} já está no lote diário (hasRuns).`);
       return;
     }
-    const ok = await persist([...tickers, normalizedTicker], enabled);
-    if (ok) {
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateCatalogAsset(normalizedTicker, { hasRuns: true });
+      setCatalog((prev) => prev.map((item) => (item.ticker === updated.ticker ? updated : item)));
       addToast({
         type: 'success',
-        title: `${normalizedTicker} na watchlist`,
-        description: enabled
-          ? 'Entra no lote da manhã. Cada ticker custa uma análise diária.'
-          : 'Salvo. O lote diário está pausado nesta organização.',
+        title: `${normalizedTicker} no lote diário`,
+        description: 'hasRuns=true em market_assets. Garanta collectors e use a aba Jobs para rodar o lote.',
       });
+    } catch (err) {
+      setError(mapAnalystError(err, 'Falha ao incluir no lote'));
+    } finally {
+      setSaving(false);
     }
   }
 
-  async function onToggleEnabled(next: boolean) {
-    const ok = await persist(tickers, next);
-    if (ok) {
+  async function onExcludeFromBatch() {
+    if (!tickerOk || !inBatch) return;
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateCatalogAsset(normalizedTicker, { hasRuns: false });
+      setCatalog((prev) => prev.map((item) => (item.ticker === updated.ticker ? updated : item)));
       addToast({
         type: 'success',
-        title: next ? 'Análise diária ativa' : 'Análise diária pausada',
-        description: next
-          ? `O cron processa até ${tickers.length} ticker(s) de manhã.`
-          : 'O cron ignora esta organização até reativar.',
+        title: `${normalizedTicker} fora do lote`,
+        description: 'hasRuns=false. O cron diário deixa de processar este ticker.',
       });
+    } catch (err) {
+      setError(mapAnalystError(err, 'Falha ao remover do lote'));
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <div className="market-desk">
+      <p className="text-muted" style={{ marginBottom: '1rem' }}>
+        O lote diário usa apenas <code>market_assets</code> com <strong>hasRuns=true</strong>.
+        Cadastro fica na aba Catálogo; collectors no srv-data-collector; disparo na aba Jobs.
+      </p>
+
       <div className="client-system-create-row market-desk-create-row">
         <div className="client-system-create-actions">
           <button
             type="button"
             className="btn btn-primary btn-pill"
-            onClick={() => { void onAddToWatchlist(); }}
-            disabled={busy || !list || !tickerOk || alreadyWatched || atCap}
-            title={atCap ? `Limite de ${maxTickers} ativos` : 'Inclui o ticker no cron diário'}
+            onClick={() => { void onIncludeInBatch(); }}
+            disabled={busy || !tickerOk || !inCatalog || inBatch}
+            title={!inCatalog ? 'Cadastre o ticker no Catálogo primeiro' : 'Marca hasRuns=true no market_assets'}
           >
             <Plus size={15} />
-            <span>Adicionar</span>
+            <span>Incluir no lote</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-pill"
+            onClick={() => { void onExcludeFromBatch(); }}
+            disabled={busy || !tickerOk || !inBatch}
+            title="Marca hasRuns=false"
+          >
+            <span>Remover do lote</span>
           </button>
         </div>
       </div>
@@ -281,20 +298,14 @@ export const MarketAnalyzeView: React.FC = () => {
               aria-label="Ticker"
             />
           </div>
-          <select
-            className="form-input audits-compact-select"
-            value={enabled ? 'true' : 'false'}
-            disabled={busy || !list}
-            onChange={(e) => { void onToggleEnabled(e.target.value === 'true'); }}
-            aria-label="Análise diária automática"
-            title="Pausa o cron sem apagar os tickers. Corta o custo diário desta organização."
-          >
-            <option value="true">Diário ativo</option>
-            <option value="false">Diário pausado</option>
-          </select>
           <span className="connections-summary-chip is-wait" aria-live="polite">
-            {tickers.length} / {maxTickers} no lote
+            {batchTickers.length} no lote (hasRuns)
           </span>
+          {tickerOk ? (
+            <span className={`connections-summary-chip ${inBatch ? 'is-ok' : inCatalog ? 'is-wait' : 'is-error'}`}>
+              {inBatch ? 'No lote' : inCatalog ? 'No catálogo' : 'Fora do catálogo'}
+            </span>
+          ) : null}
         </div>
         <div className="audits-filter-row audits-filter-row-sort market-desk-filter-actions">
           <label className="market-catalog-toggle">
@@ -311,7 +322,7 @@ export const MarketAnalyzeView: React.FC = () => {
             disabled={analyzing || !tickerOk}
           >
             <Search size={15} />
-            <span>{analyzing ? 'Analisando…' : 'Analisar'}</span>
+            <span>{analyzing ? 'Analisando…' : 'Analisar agora'}</span>
           </button>
           <RefreshCombo
             onRefresh={() => { void refreshDesk(); }}
@@ -324,6 +335,27 @@ export const MarketAnalyzeView: React.FC = () => {
       {error ? (
         <div className="agent-test-result is-error" role="alert" style={{ marginBottom: '1rem' }}>
           <p>{error}</p>
+        </div>
+      ) : null}
+
+      {batchTickers.length > 0 ? (
+        <div className="market-desk-tickers" style={{ marginBottom: '1rem' }} aria-label="Tickers no lote diário">
+          <div className="market-desk-tickers-list" role="group">
+            {batchTickers.map((item) => (
+              <span
+                key={item}
+                className={`badge-role market-ticker-chip${filterTicker === item ? ' market-ticker-chip--active' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="market-ticker-chip-label"
+                  onClick={() => selectTicker(item)}
+                >
+                  {item}
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -468,16 +500,16 @@ export const MarketAnalyzeView: React.FC = () => {
             onClick={() => selectTicker(item.ticker)}
             style={{ textAlign: 'left', width: '100%', border: 'none', background: 'inherit' }}
           >
-            <div className="mobile-card-top">
-              <span className="mobile-domain-name">{item.ticker}</span>
+            <div className="mobile-card-header">
+              <strong>{item.ticker}</strong>
               <span className="badge-role" style={materialStyle(displayIsMaterial(item))}>
                 {displayIsMaterial(item) ? 'Material' : 'Leve'}
               </span>
             </div>
-            <div className="mobile-card-subinfo">{formatWhen(item.detectedAt)}</div>
-            <div className="mobile-card-meta">
+            <p className="text-muted">{formatWhen(item.detectedAt)}</p>
+            <p>
               {item.changes.map((delta) => deltaLabel(delta.metric, delta.fromVerdict, delta.toVerdict)).join(' · ') || '—'}
-            </div>
+            </p>
           </button>
         ))}
       </div>
