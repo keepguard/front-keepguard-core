@@ -67,6 +67,7 @@ export const AppRoutes: React.FC = () => {
       <Route element={<AppLayout />}>
         <Route path={PATHS.overview} element={<Navigate to={PATHS.market} replace />} />
         <Route path={PATHS.market} element={<MarketDeskPage />} />
+        <Route path={PATHS.marketCompare} element={<MarketDeskPage defaultTab="compare" />} />
         <Route path={PATHS.sessions} element={<SessionsPage />} />
         <Route path={PATHS.blacklist} element={<UserBlacklistPage />} />
         <Route

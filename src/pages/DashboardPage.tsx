@@ -363,7 +363,7 @@ export const KnowledgePage: React.FC = () => (
   </DashboardShell>
 );
 
-export const MarketDeskPage: React.FC = () => (
+export const MarketDeskPage: React.FC<{ defaultTab?: 'desk' | 'magic' | 'sectors' | 'compare' }> = ({ defaultTab }) => (
   <DashboardShell>
     <div className="dashboard-header">
       <div className="dashboard-title-group">
@@ -372,11 +372,11 @@ export const MarketDeskPage: React.FC = () => (
           Mercado
         </h1>
         <p className="dashboard-subtitle">
-          Dossiê do ativo e ranking da Fórmula Mágica. Análise, não recomendação de investimento.
+          Dossiê do ativo, ranking da Fórmula Mágica e comparador lado a lado. Análise, não recomendação de investimento.
         </p>
       </div>
     </div>
-    <MarketHubView />
+    <MarketHubView defaultTab={defaultTab} />
   </DashboardShell>
 );
 

@@ -11012,4 +11012,503 @@ textarea.form-input {
   border-color: var(--success-border, #b3ebd9);
 }
 
+/* ==========================================================================
+   MARKET PEER COMPARISON (RFC-006)
+   ========================================================================== */
+
+.market-compare-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.market-compare-selector-card {
+  padding: 1.25rem 1.5rem;
+}
+
+.market-compare-selector-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.market-compare-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: var(--text-main, #1d2129);
+}
+
+.market-compare-title-icon {
+  color: var(--primary, #2563eb);
+}
+
+.market-compare-subtitle {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-muted, #5f6368);
+}
+
+.market-compare-count-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: var(--bg-muted, #f1f5f9);
+  color: var(--text-muted, #475569);
+  border: 1px solid var(--border, #e2e8f0);
+  align-self: flex-start;
+}
+
+.market-compare-search-area {
+  position: relative;
+}
+
+.market-compare-chips-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  background: var(--surface, #ffffff);
+  min-height: 46px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.market-compare-chips-input-wrap:focus-within {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.market-compare-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  background: var(--primary-light, #eff6ff);
+  border: 1px solid var(--primary-border, #bfdbfe);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--primary, #1d4ed8);
+}
+
+.market-compare-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  padding: 0;
+  border-radius: 50%;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.market-compare-chip-remove:hover {
+  color: var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.market-compare-input-box {
+  flex: 1;
+  min-width: 180px;
+}
+
+.market-compare-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.88rem;
+  color: var(--text-main, #1d2129);
+}
+
+.market-compare-input::placeholder {
+  color: var(--text-muted, #94a3b8);
+}
+
+.market-compare-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.market-compare-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+  transition: background-color 0.15s ease;
+}
+
+.market-compare-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.market-compare-dropdown-item:hover,
+.market-compare-dropdown-item.is-highlighted {
+  background: var(--bg-muted, #f8fafc);
+}
+
+.market-compare-dropdown-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.market-compare-dropdown-ticker {
+  font-weight: 700;
+  font-family: monospace;
+  font-size: 0.92rem;
+  color: var(--text-main, #0f172a);
+}
+
+.market-compare-dropdown-name {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+.market-compare-dropdown-sector {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  background: var(--bg-muted, #f1f5f9);
+  border-radius: 4px;
+  color: var(--text-muted, #475569);
+}
+
+.market-compare-presets-wrap {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.market-compare-presets-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+
+.market-compare-presets-chips {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.market-compare-preset-btn {
+  font-size: 0.78rem !important;
+  padding: 0.25rem 0.65rem !important;
+}
+
+/* Alerta setorial divergente */
+.market-compare-cross-sector-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.market-compare-alert-icon {
+  color: #d97706;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.market-compare-cross-sector-alert p {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: #b45309;
+}
+
+/* Destaques da Análise */
+.market-compare-highlights-card {
+  padding: 1rem 1.25rem;
+  background: linear-gradient(to right, #f8fafc, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.market-compare-highlights-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: var(--text-main, #1e293b);
+}
+
+.market-compare-highlights-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted, #334155);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.market-compare-highlight-item {
+  line-height: 1.45;
+}
+
+/* Loading & Empty Cards */
+.market-compare-loading-card,
+.market-compare-empty-card {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.market-compare-empty-icon-box {
+  display: inline-flex;
+  padding: 1rem;
+  border-radius: 50%;
+  background: var(--bg-muted, #f1f5f9);
+  margin-bottom: 0.75rem;
+}
+
+/* Tabela Comparativa Lado a Lado */
+.market-compare-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.market-compare-scroll-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.market-compare-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.86rem;
+  min-width: 600px;
+}
+
+/* Sticky column de métricas */
+.market-compare-sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--surface, #ffffff);
+  z-index: 5;
+  box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.08);
+}
+
+/* Sticky headers */
+.market-compare-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface, #ffffff);
+  z-index: 6;
+  border-bottom: 2px solid var(--border, #cbd5e1);
+}
+
+.market-compare-table thead th.market-compare-sticky-col {
+  z-index: 10;
+}
+
+.market-compare-th-metric {
+  width: 220px;
+  min-width: 190px;
+  max-width: 260px;
+  padding: 1rem;
+  text-align: left;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-muted, #475569);
+  vertical-align: bottom;
+}
+
+.market-compare-th-asset {
+  min-width: 160px;
+  padding: 1rem;
+  text-align: center;
+  vertical-align: top;
+}
+
+.market-compare-asset-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.market-compare-asset-ticker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.market-compare-asset-ticker {
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-family: monospace;
+  color: var(--text-main, #0f172a);
+}
+
+.market-compare-asset-sector {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  background: var(--bg-muted, #f1f5f9);
+  color: var(--text-muted, #475569);
+  border-radius: 4px;
+}
+
+.market-compare-asset-name {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  max-width: 145px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.market-compare-asset-price-row {
+  margin-top: 0.1rem;
+}
+
+.market-compare-asset-price {
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: var(--primary, #2563eb);
+}
+
+.market-compare-asset-thesis-row {
+  margin-top: 0.2rem;
+}
+
+.market-compare-asset-not-found {
+  font-size: 0.72rem;
+  color: var(--danger, #ef4444);
+  background: #fef2f2;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Linha de Categoria */
+.market-compare-cat-row .market-compare-cat-cell {
+  background: var(--bg-muted, #f8fafc);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #475569);
+  padding: 0.55rem 1rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+/* Linhas de métricas */
+.market-compare-metric-row {
+  transition: background-color 0.1s ease;
+}
+
+.market-compare-metric-row:hover {
+  background-color: var(--bg-muted, #f8fafc);
+}
+
+.market-compare-metric-row:hover .market-compare-sticky-col {
+  background-color: var(--bg-muted, #f8fafc);
+}
+
+.market-compare-td-metric {
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  color: var(--text-main, #334155);
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.market-compare-metric-name {
+  font-size: 0.84rem;
+}
+
+.market-compare-metric-unit {
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: var(--text-muted, #94a3b8);
+}
+
+.market-compare-td-val {
+  padding: 0.7rem 1rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+  font-size: 0.86rem;
+}
+
+.market-compare-td-val.is-best {
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.market-compare-best-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.market-compare-trophy-icon {
+  color: #d97706;
+  flex-shrink: 0;
+}
+
+.market-compare-val-text {
+  font-family: inherit;
+}
+
+/* Botão de atalho no cabeçalho do Dossiê */
+.market-compare-shortcut-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+
 

@@ -41,6 +41,7 @@ export const PATHS = {
   dataSources: '/fontes',
   knowledge: '/conhecimento',
   market: '/mercado',
+  marketCompare: '/mercado/comparador',
   marketAnalyze: '/mercado/analisar',
   marketWatchlist: '/mercado/watchlist',
   audits: '/auditoria',
@@ -56,6 +57,7 @@ export const PATHS = {
 
 export const ROUTES: RouteMeta[] = [
   { path: PATHS.market, tab: 'market', title: 'Mercado' },
+  { path: PATHS.marketCompare, tab: 'market', title: 'Comparador de Ativos' },
   { path: PATHS.sessions, tab: 'sessions', title: 'Minhas sessões' },
   { path: PATHS.blacklist, tab: 'blacklist', title: 'Meus bloqueios' },
   { path: PATHS.tenantSessions, tab: 'tenant-sessions', title: 'Sessões da organização' },

@@ -710,4 +710,54 @@ export async function getLatestSectorSnapshot(): Promise<AnalystSectorSnapshot |
   return null;
 }
 
+export interface ComparedAsset {
+  ticker: string;
+  companyName: string;
+  sector: string;
+  sectorLabel?: string;
+  currentPrice?: number;
+  thesisCode?: string;
+  riskLevel?: string;
+  status: 'AVAILABLE' | 'NOT_FOUND' | string;
+}
+
+export interface ComparedMetricValue {
+  value?: number | null;
+  text: string;
+  isBest: boolean;
+  gap?: string;
+}
+
+export interface ComparisonMetric {
+  category: string;
+  metricCode: string;
+  name: string;
+  description?: string;
+  unit: string;
+  values: Record<string, ComparedMetricValue>;
+}
+
+export interface ComparisonSummary {
+  highlights?: string[];
+}
+
+export interface ComparisonMatrix {
+  comparedAt: string;
+  crossSectorAlert: boolean;
+  sectorAlertMessage?: string | null;
+  assets: ComparedAsset[];
+  metrics: ComparisonMetric[];
+  summary?: ComparisonSummary;
+}
+
+export function compareAssets(tickers: string[]): Promise<ComparisonMatrix> {
+  const query = `?tickers=${encodeURIComponent(tickers.join(','))}`;
+  return customFetch<ComparisonMatrix>(
+    `${ANALYST_BASE}/compare${query}`,
+    { method: 'GET' },
+    token(),
+  );
+}
+
+
 

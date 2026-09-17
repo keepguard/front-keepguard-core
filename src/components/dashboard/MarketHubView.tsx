@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -9,17 +9,28 @@ import {
 } from '../../services/analystService';
 import { MagicFormulaPanel } from './MagicFormulaPanel';
 import { MarketDeskView } from './MarketDeskView';
+import { PeerComparisonTable } from './PeerComparisonTable';
 import { SectorsPanel } from './SectorsPanel';
 
-type Panel = 'desk' | 'magic' | 'sectors';
+export type MarketPanel = 'desk' | 'magic' | 'compare' | 'sectors';
 
-const MARKET_TABS: ReadonlyArray<{ id: Panel; label: string; tabId: string; panelId: string }> = [
+interface MarketHubViewProps {
+  defaultTab?: MarketPanel;
+}
+
+const MARKET_TABS: ReadonlyArray<{ id: MarketPanel; label: string; tabId: string; panelId: string }> = [
   { id: 'desk', label: 'Dossiê', tabId: 'market-tab-desk', panelId: 'market-panel-desk' },
   {
     id: 'magic',
     label: 'Fórmula Mágica',
     tabId: 'market-tab-magic',
     panelId: 'market-panel-magic',
+  },
+  {
+    id: 'compare',
+    label: 'Comparador',
+    tabId: 'market-tab-compare',
+    panelId: 'market-panel-compare',
   },
   {
     id: 'sectors',
@@ -45,13 +56,40 @@ function mapServiceError(err: unknown, fallback: string): string {
 
 /**
  * Hub Mercado no mesmo padrão de abas da LLM / Agents:
- * Dossiê (conteúdo atual) + Fórmula Mágica (ranking do dia) + Setores (agregação macro factual).
+ * Dossiê + Fórmula Mágica + Comparador (lado a lado) + Setores.
  */
-export const MarketHubView: React.FC = () => {
+export const MarketHubView: React.FC<MarketHubViewProps> = ({ defaultTab }) => {
   const { addToast } = useToast();
-  const [, setSearchParams] = useSearchParams();
-  const [panel, setPanel] = useState<Panel>('desk');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromQuery = searchParams.get('tab') as MarketPanel | null;
+  const initialPanel: MarketPanel =
+    tabFromQuery && ['desk', 'magic', 'compare', 'sectors'].includes(tabFromQuery)
+      ? tabFromQuery
+      : defaultTab || 'desk';
+
+  const [panel, setPanel] = useState<MarketPanel>(initialPanel);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Tickers para o comparador a partir da URL
+  const tickersFromQuery = useMemo(() => {
+    const raw = searchParams.get('tickers');
+    if (!raw) return [];
+    return raw.split(',').map((t) => t.trim().toUpperCase()).filter(Boolean);
+  }, [searchParams]);
+
+  const [compareTickers, setCompareTickers] = useState<string[]>(tickersFromQuery);
+
+  useEffect(() => {
+    if (tabFromQuery && ['desk', 'magic', 'compare', 'sectors'].includes(tabFromQuery)) {
+      setPanel(tabFromQuery);
+    }
+  }, [tabFromQuery]);
+
+  useEffect(() => {
+    if (tickersFromQuery.length > 0) {
+      setCompareTickers(tickersFromQuery);
+    }
+  }, [tickersFromQuery]);
 
   // Estado da Fórmula Mágica
   const [ranking, setRanking] = useState<AnalystMagicFormulaRanking | null>(null);
@@ -113,11 +151,48 @@ export const MarketHubView: React.FC = () => {
     }
   }, [panel, rankingLoading, sectorsLoading, loadRanking, loadSectors]);
 
-  const selectPanel = (id: Panel, focus = false) => {
+  const selectPanel = (id: MarketPanel, focus = false) => {
     setPanel(id);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (id === 'desk') {
+        next.delete('tab');
+      } else {
+        next.set('tab', id);
+      }
+      return next;
+    });
     if (!focus) return;
     const index = MARKET_TABS.findIndex((tab) => tab.id === id);
     if (index >= 0) tabRefs.current[index]?.focus();
+  };
+
+  const handleCompareTickersChange = (newTickers: string[]) => {
+    setCompareTickers(newTickers);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (newTickers.length > 0) {
+          next.set('tab', 'compare');
+          next.set('tickers', newTickers.join(','));
+        } else {
+          next.delete('tickers');
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  const handleNavigateToCompare = (tickers: string[]) => {
+    setCompareTickers(tickers);
+    setPanel('compare');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'compare');
+      next.set('tickers', tickers.join(','));
+      return next;
+    });
   };
 
   const handleTabKeyDown = (event: React.KeyboardEvent, index: number) => {
@@ -175,7 +250,7 @@ export const MarketHubView: React.FC = () => {
         aria-labelledby={activeTab.tabId}
         className="llm-panel-tabpanel"
       >
-        {panel === 'desk' ? <MarketDeskView /> : null}
+        {panel === 'desk' ? <MarketDeskView onNavigateToCompare={handleNavigateToCompare} /> : null}
 
         {panel === 'magic' ? (
           <div className="market-magic-tab">
@@ -207,6 +282,13 @@ export const MarketHubView: React.FC = () => {
             ) : null}
             {ranking ? <MagicFormulaPanel ranking={ranking} /> : null}
           </div>
+        ) : null}
+
+        {panel === 'compare' ? (
+          <PeerComparisonTable
+            initialTickers={compareTickers}
+            onTickersChange={handleCompareTickersChange}
+          />
         ) : null}
 
         {panel === 'sectors' ? (

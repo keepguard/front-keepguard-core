@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowUpDown, Clock, LineChart, Lock, Plus, Search, Sparkles, Star } from 'lucide-react';
+import { ArrowUpDown, Clock, LineChart, Lock, Plus, Scale, Search, Sparkles, Star } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -190,7 +190,11 @@ function macroPoint(detail: AnalystRunDetail | null, metric: string): AnalystInp
   return detail?.inputs?.macro?.[metric];
 }
 
-export const MarketDeskView: React.FC = () => {
+interface MarketDeskViewProps {
+  onNavigateToCompare?: (tickers: string[]) => void;
+}
+
+export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToCompare }) => {
   const { user } = useAuth();
   const isAdmin = Boolean(
     user?.roles?.some((r) => r === 'ROLE_ADMIN' || r === 'ROLE_OPS')
@@ -208,6 +212,37 @@ export const MarketDeskView: React.FC = () => {
   const [userWatchlist, setUserWatchlist] = useState<AnalystUserWatchlist | null>(null);
   const [openList, setOpenList] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  const handleCompareWithPeers = useCallback(() => {
+    const target = selectedTicker || appliedQuery || query;
+    if (!target) return;
+    const upper = target.trim().toUpperCase();
+    const currentItem = catalogItems.find(
+      (item) => item.ticker.toUpperCase() === upper,
+    );
+    let peers: string[] = [];
+    if (currentItem?.sectorId) {
+      peers = catalogItems
+        .filter(
+          (item) =>
+            item.sectorId === currentItem.sectorId &&
+            item.ticker.toUpperCase() !== upper,
+        )
+        .map((item) => item.ticker)
+        .slice(0, 2);
+    }
+    const tickersToCompare = [upper, ...peers];
+    if (onNavigateToCompare) {
+      onNavigateToCompare(tickersToCompare);
+    } else {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', 'compare');
+        next.set('tickers', tickersToCompare.join(','));
+        return next;
+      });
+    }
+  }, [selectedTicker, appliedQuery, query, catalogItems, onNavigateToCompare, setSearchParams]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -1085,17 +1120,28 @@ export const MarketDeskView: React.FC = () => {
         <div className="hpanel-table-card market-analysis-card">
           <div className="market-desk-header">
             <h2 className="market-analyze-title">{selectedTicker}</h2>
-            <button
-              type="button"
-              className={`market-fav-btn${isFavorite ? ' is-on' : ''}`}
-              onClick={() => { void toggleFavorite(); }}
-              disabled={savingFav}
-              aria-pressed={isFavorite}
-              aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-              title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-            >
-              <Star size={18} fill={isFavorite ? 'currentColor' : 'none'} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-pill market-compare-shortcut-btn"
+                onClick={handleCompareWithPeers}
+                title={`Comparar ${selectedTicker} com pares do mesmo setor`}
+              >
+                <Scale size={15} aria-hidden="true" />
+                <span>Comparar com Pares</span>
+              </button>
+              <button
+                type="button"
+                className={`market-fav-btn${isFavorite ? ' is-on' : ''}`}
+                onClick={() => { void toggleFavorite(); }}
+                disabled={savingFav}
+                aria-pressed={isFavorite}
+                aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+              >
+                <Star size={18} fill={isFavorite ? 'currentColor' : 'none'} />
+              </button>
+            </div>
           </div>
           <p className="text-muted">
             Ainda não há análise neste ativo. Ele entra no lote se estiver na watchlist da organização; o usuário não dispara análise.
@@ -1126,17 +1172,28 @@ export const MarketDeskView: React.FC = () => {
                 </div>
               ) : null}
             </div>
-            <button
-              type="button"
-              className={`market-fav-btn${isFavorite ? ' is-on' : ''}`}
-              onClick={() => { void toggleFavorite(); }}
-              disabled={savingFav}
-              aria-pressed={isFavorite}
-              aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-              title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-            >
-              <Star size={18} fill={isFavorite ? 'currentColor' : 'none'} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-pill market-compare-shortcut-btn"
+                onClick={handleCompareWithPeers}
+                title={`Comparar ${latest.ticker} com pares do setor`}
+              >
+                <Scale size={15} aria-hidden="true" />
+                <span>Comparar com Pares</span>
+              </button>
+              <button
+                type="button"
+                className={`market-fav-btn${isFavorite ? ' is-on' : ''}`}
+                onClick={() => { void toggleFavorite(); }}
+                disabled={savingFav}
+                aria-pressed={isFavorite}
+                aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+              >
+                <Star size={18} fill={isFavorite ? 'currentColor' : 'none'} />
+              </button>
+            </div>
           </div>
           <dl className="market-desk-meta">
             <div>
