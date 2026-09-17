@@ -1281,6 +1281,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               priceDetails={detail?.priceDetails ?? latest.priceDetails}
               etfDetails={detail?.etfDetails ?? latest.etfDetails}
               creditDetails={detail?.creditDetails ?? latest.creditDetails}
+              bdrDetails={detail?.bdrDetails ?? latest.bdrDetails}
             />
           ) : latest.formulas ? (
             <FormulasCard formulas={latest.formulas} />

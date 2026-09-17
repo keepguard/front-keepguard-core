@@ -6001,6 +6001,42 @@ textarea.form-input {
   margin: 0;
 }
 
+.fii-dossier-fx-scroll {
+  overflow-x: auto;
+}
+
+.fii-dossier-fx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fii-dossier-fx-table th,
+.fii-dossier-fx-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fii-dossier-fx-table th:first-child {
+  text-align: left;
+}
+
+.fii-dossier-fx-table thead th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+.fii-dossier-fx-table caption {
+  caption-side: bottom;
+  padding-top: 0.5rem;
+  font-size: 0.75rem;
+  text-align: left;
+}
+
 .fii-tone-pill {
   display: inline-flex;
   align-items: center;

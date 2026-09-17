@@ -56,6 +56,10 @@ export const METRIC_LABEL: Record<string, string> = {
   daily_traded_value: 'Liquidez média diária',
   credit_pvp: 'P/VP (fundo de crédito)',
   credit_dividend_yield: 'Dividend yield 12M (isento)',
+  bdr_pl: 'P/L (empresa estrangeira)',
+  bdr_psr: 'P/Receita (empresa estrangeira)',
+  bdr_quality: 'Qualidade (ROIC e margem)',
+  bdr_revenue_growth: 'Crescimento da receita (5 anos)',
 };
 
 export const GAP_REASON_LABEL: Record<string, string> = {

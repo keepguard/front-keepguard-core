@@ -141,6 +141,37 @@ export interface AnalystCreditFundDetails {
   lastDividendValue?: number;
 }
 
+export interface AnalystBdrFxWindow {
+  window: string;
+  tradingDays: number;
+  bdrReturnPct: number;
+  usdReturnPct: number;
+  /** Retorno aproximado em dólar: (1 + BDR) / (1 + USD) − 1. */
+  usdTermsReturnPct: number;
+}
+
+/** Dossiê do BDR (RFC-008 Bloco 6): múltiplos da empresa estrangeira e câmbio. */
+export interface AnalystBdrDetails {
+  pe?: number;
+  priceToSales?: number;
+  pvp?: number;
+  evEbit?: number;
+  dividendYield?: number;
+  roe?: number;
+  roic?: number;
+  grossMargin?: number;
+  netMargin?: number;
+  revenueCagr5?: number;
+  earningsCagr5?: number;
+  netDebtToEbit?: number;
+  currentRatio?: number;
+  marketValue?: number;
+  sector?: string;
+  segment?: string;
+  usdBrl?: number;
+  fxWindows?: AnalystBdrFxWindow[];
+}
+
 export interface AnalystAnalysis {
   runId?: string;
   ticker: string;
@@ -151,6 +182,7 @@ export interface AnalystAnalysis {
   priceDetails?: AnalystPriceDetails;
   etfDetails?: AnalystEtfDetails;
   creditDetails?: AnalystCreditFundDetails;
+  bdrDetails?: AnalystBdrDetails;
   /** Números oficiais — use este array; não parseie a narrativa. */
   signals: AnalystSignal[];
   gaps: { metric: string; reason: string }[];
@@ -390,6 +422,7 @@ export interface AnalystRun {
   priceDetails?: AnalystPriceDetails;
   etfDetails?: AnalystEtfDetails;
   creditDetails?: AnalystCreditFundDetails;
+  bdrDetails?: AnalystBdrDetails;
   analyzedAt: string;
   trigger: string;
   signals: AnalystSignal[];

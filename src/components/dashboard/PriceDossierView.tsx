@@ -1,6 +1,12 @@
 import { useId } from 'react';
 import { Activity, Info, LineChart, MoveVertical } from 'lucide-react';
-import type { AnalystCreditFundDetails, AnalystEtfDetails, AnalystPriceDetails } from '../../services/analystService';
+import type {
+  AnalystBdrDetails,
+  AnalystCreditFundDetails,
+  AnalystEtfDetails,
+  AnalystPriceDetails,
+} from '../../services/analystService';
+import { BdrCards } from './BdrCards';
 import { CreditFundCards } from './CreditFundCards';
 import {
   dash,
@@ -29,7 +35,7 @@ const CLASS_COPY: Record<PriceOnlyClass, { kicker: string; name: string; pending
   BDR: {
     kicker: 'Dossiê do BDR',
     name: 'BDR',
-    pending: 'Múltiplos da empresa estrangeira (P/L, P/L projetado, P/Receita) e efeito do câmbio ainda não estão disponíveis.',
+    pending: 'Os múltiplos acima são da empresa estrangeira, calculados sobre o preço do BDR em reais.',
   },
   FIAGRO: {
     kicker: 'Dossiê do fundo de crédito',
@@ -107,6 +113,7 @@ export interface PriceDossierViewProps {
   priceDetails?: AnalystPriceDetails | null;
   etfDetails?: AnalystEtfDetails | null;
   creditDetails?: AnalystCreditFundDetails | null;
+  bdrDetails?: AnalystBdrDetails | null;
 }
 
 /**
@@ -121,6 +128,7 @@ export function PriceDossierView({
   priceDetails,
   etfDetails,
   creditDetails,
+  bdrDetails,
 }: PriceDossierViewProps) {
   const sectionId = useId();
   const copy = CLASS_COPY[assetType as PriceOnlyClass] ?? CLASS_COPY.ETF;
@@ -130,6 +138,7 @@ export function PriceDossierView({
   const benchmark = etfDetails?.benchmark;
   const badge = benchmark ? `Replica: ${benchmark}` : segment;
   const credit = assetType === 'FIAGRO' || assetType === 'FI_INFRA' ? creditDetails : null;
+  const bdr = assetType === 'BDR' ? bdrDetails : null;
 
   return (
     <section className="fii-dossier" aria-labelledby={`${sectionId}-title`}>
@@ -161,7 +170,18 @@ export function PriceDossierView({
             <dt>Cotação</dt>
             <dd>{dash(d.currentPrice != null ? formatMoney(d.currentPrice) : null)}</dd>
           </div>
-          {credit ? (
+          {bdr ? (
+            <>
+              <div>
+                <dt>P/L</dt>
+                <dd>{dash(bdr.pe != null && bdr.pe > 0 ? formatRatio(bdr.pe) : null)}</dd>
+              </div>
+              <div>
+                <dt>P/Receita</dt>
+                <dd>{dash(bdr.priceToSales != null && bdr.priceToSales > 0 ? formatRatio(bdr.priceToSales) : null)}</dd>
+              </div>
+            </>
+          ) : credit ? (
             <>
               <div>
                 <dt>DY 12M</dt>
@@ -199,9 +219,10 @@ export function PriceDossierView({
         </p>
       )}
 
-      {d || credit ? (
+      {d || credit || bdr ? (
         <div className="fii-dossier-cards">
           {credit ? <CreditFundCards sectionId={sectionId} details={credit} /> : null}
+          {bdr ? <BdrCards sectionId={sectionId} details={bdr} /> : null}
           {d ? (
             <>
               <article className="fii-dossier-card" aria-labelledby={`${sectionId}-range`}>
