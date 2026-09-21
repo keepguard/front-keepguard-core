@@ -1,14 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
+  Ban,
   ChevronDown,
   ChevronsUpDown,
   ChevronUp,
+  Copy,
   FlaskConical,
+  KeyRound,
   Pencil,
   Power,
   PowerOff,
   Search,
   Sparkles,
+  Star,
 } from 'lucide-react';
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
@@ -19,18 +24,23 @@ import { useAppliedListUrl } from '../../hooks/useAppliedListUrl';
 import {
   completeLlm,
   createLlmAlertRule,
+  createLlmClientApiKey,
   createLlmProvider,
   getLlmUsage,
   listLlmAlertFirings,
   listLlmAlertRules,
+  listLlmClientApiKeys,
   listLlmProviders,
   searchLlmUsage,
   setLlmAlertRuleEnabled,
+  setLlmClientApiKeyEnabled,
+  setLlmProviderDefault,
   setLlmProviderEnabled,
   updateLlmAlertRule,
   updateLlmProvider,
   type LlmAlertFiring,
   type LlmAlertRule,
+  type LlmClientApiKey,
   type LlmProvider,
   type LlmUsage,
   type UpsertLlmAlertRule,
@@ -43,7 +53,7 @@ if (visibilityFailures.length > 0 && import.meta.env.DEV) {
   console.warn('canReadLlm:', visibilityFailures);
 }
 
-type Panel = 'usage' | 'providers' | 'alerts' | 'firings';
+type Panel = 'usage' | 'providers' | 'apikeys' | 'alerts' | 'firings';
 type SortKey = 'occurredAt' | 'feature' | 'providerType' | 'model' | 'outcome' | 'totalTokens' | 'sourceService';
 type SortDir = 'asc' | 'desc';
 
@@ -115,7 +125,7 @@ const EMPTY_PROVIDER: UpsertLlmProvider = {
   providerType: 'openai',
   baseUrl: '',
   modelDefault: '',
-  apiKeyEnvRef: 'OPENAI_KEEPGUARD_API_KEY',
+  apiKey: '',
   enabled: true,
 };
 
@@ -273,6 +283,7 @@ function inLocalRange(iso: string | undefined, fromLocal: string, toLocal: strin
 const LLM_TABS: ReadonlyArray<{ id: Panel; label: string; tabId: string; panelId: string }> = [
   { id: 'usage', label: 'Uso', tabId: 'llm-tab-usage', panelId: 'llm-panel-usage' },
   { id: 'providers', label: 'Provedores', tabId: 'llm-tab-providers', panelId: 'llm-panel-providers' },
+  { id: 'apikeys', label: 'Chaves de acesso', tabId: 'llm-tab-apikeys', panelId: 'llm-panel-apikeys' },
   { id: 'alerts', label: 'Alertas', tabId: 'llm-tab-alerts', panelId: 'llm-panel-alerts' },
   { id: 'firings', label: 'Disparos', tabId: 'llm-tab-firings', panelId: 'llm-panel-firings' },
 ];
@@ -345,6 +356,9 @@ export const LlmView: React.FC = () => {
         ) : null}
         {panel === 'providers' ? (
           <ProvidersPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
+        ) : null}
+        {panel === 'apikeys' ? (
+          <ClientApiKeysPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
         ) : null}
         {panel === 'alerts' ? (
           <AlertsPanel writable={writable} isAuthenticated={isAuthenticated} getAccessToken={getAccessToken} addToast={addToast} />
@@ -721,6 +735,20 @@ function ProvidersPanel({
     }
   };
 
+  const makeDefault = async (item: LlmProvider) => {
+    const token = getAccessToken();
+    if (!token) return;
+    try {
+      await setLlmProviderDefault(item.id, token);
+      addToast({ type: 'success', title: 'Provedor padrão atualizado', description: `${item.name} agora é o padrão.` });
+      await load();
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Falha ao definir padrão', description: err?.message || 'Tente novamente.' });
+    }
+  };
+
+  const hasDefault = items.some((item) => item.isDefault);
+
   const testComplete = async (item: LlmProvider) => {
     const token = getAccessToken();
     if (!token) return;
@@ -754,6 +782,19 @@ function ProvidersPanel({
 
   return (
     <div>
+      {!loading && !forbidden && !hasDefault ? (
+        <div
+          role="alert"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            background: '#fff3cd', color: '#664d03', border: '1px solid #ffe69c',
+            borderRadius: '8px', padding: '0.65rem 1rem', marginBottom: '0.75rem',
+          }}
+        >
+          <AlertTriangle size={16} />
+          <span>Nenhum provedor LLM está marcado como padrão. Requisições sem <code>model</code> informado vão falhar até você definir um.</span>
+        </div>
+      ) : null}
       {writable ? (
         <div className="client-system-create-row">
           <button type="button" className="btn btn-secondary btn-pill" onClick={() => { setEditingId(null); setForm({ ...EMPTY_PROVIDER }); }}>
@@ -803,7 +844,7 @@ function ProvidersPanel({
               <th>Nome</th>
               <th>Tipo</th>
               <th>Modelo padrão</th>
-              <th>Env da key</th>
+              <th>API key</th>
               <th>Status</th>
               {writable ? <th className="cell-actions">Ações</th> : null}
             </tr>
@@ -819,10 +860,17 @@ function ProvidersPanel({
               </tr>
             ) : displayed.map((item) => (
               <tr key={item.id}>
-                <td><span className="table-cell-title">{item.name}</span></td>
+                <td>
+                  <span className="table-cell-title">{item.name}</span>
+                  {item.isDefault ? (
+                    <span className="badge-role" style={{ marginLeft: '0.4rem', background: '#fff3cd', color: '#664d03' }} title="Provedor padrão">
+                      <Star size={12} style={{ verticalAlign: '-2px' }} /> padrão
+                    </span>
+                  ) : null}
+                </td>
                 <td>{item.providerType}</td>
                 <td><span className="id-compact">{item.modelDefault || '—'}</span></td>
-                <td><span className="text-mono">{item.apiKeyEnvRef}</span></td>
+                <td><span className="text-mono">{item.hasApiKey ? item.apiKeyMasked : '— não definida —'}</span></td>
                 <td><span className="badge-role" style={outcomeStyle(item.enabled ? 'SUCCESS' : 'FAILURE')}>{item.enabled ? 'Ativo' : 'Inativo'}</span></td>
                 {writable ? (
                   <td className="cell-actions">
@@ -853,15 +901,23 @@ function ProvidersPanel({
                               providerType: item.providerType,
                               baseUrl: item.baseUrl || '',
                               modelDefault: item.modelDefault || '',
-                              apiKeyEnvRef: item.apiKeyEnvRef,
+                              apiKey: '',
                               enabled: item.enabled,
                             });
                           },
                         },
                         {
+                          id: 'default',
+                          label: item.isDefault ? 'Já é o padrão' : 'Tornar padrão',
+                          icon: <Star size={15} />,
+                          disabled: item.isDefault || !item.enabled,
+                          onSelect: () => { void makeDefault(item); },
+                        },
+                        {
                           id: 'toggle',
-                          label: item.enabled ? 'Desativar' : 'Ativar',
+                          label: item.isDefault ? 'Desativar (defina outro padrão antes)' : item.enabled ? 'Desativar' : 'Ativar',
                           icon: item.enabled ? <PowerOff size={15} /> : <Power size={15} />,
+                          disabled: item.isDefault && item.enabled,
                           onSelect: () => { void toggle(item); },
                         },
                       ]}
@@ -880,7 +936,12 @@ function ProvidersPanel({
         title={editingId ? 'Editar provedor' : 'Novo provedor'}
         maxWidth="520px"
         footer={
-          <button type="button" className="btn btn-secondary" disabled={saving || !form?.name || !form?.apiKeyEnvRef} onClick={() => void save()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={saving || !form?.name || (!editingId && form?.providerType !== 'ollama' && !form?.apiKey)}
+            onClick={() => void save()}
+          >
             {saving ? 'Salvando…' : 'Salvar'}
           </button>
         }
@@ -898,9 +959,202 @@ function ProvidersPanel({
             </label>
             <label className="form-label llm-form-field">Base URL<input className="form-input" value={form.baseUrl || ''} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} placeholder="opcional" /></label>
             <label className="form-label llm-form-field">Modelo padrão<input className="form-input" value={form.modelDefault || ''} onChange={(e) => setForm({ ...form, modelDefault: e.target.value })} /></label>
-            <label className="form-label llm-form-field">Env da API key<input className="form-input" value={form.apiKeyEnvRef} onChange={(e) => setForm({ ...form, apiKeyEnvRef: e.target.value })} placeholder="OPENAI_KEEPGUARD_API_KEY" /></label>
+            <label className="form-label llm-form-field">
+              API key{editingId ? ' (deixe em branco para manter a atual)' : ''}
+              <input
+                className="form-input"
+                type="password"
+                value={form.apiKey || ''}
+                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                placeholder={form.providerType === 'ollama' ? 'não necessário para ollama' : 'sk-...'}
+              />
+            </label>
           </div>
         ) : null}
+      </Modal>
+    </div>
+  );
+}
+
+function ClientApiKeysPanel({
+  writable,
+  isAuthenticated,
+  getAccessToken,
+  addToast,
+}: {
+  writable: boolean;
+  isAuthenticated: boolean;
+  getAccessToken: () => string | null;
+  addToast: ToastFn;
+}) {
+  const [items, setItems] = useState<LlmClientApiKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const { openId, setOpenId, menuRef, dropdownRef, run } = useRowActionsMenu();
+
+  const load = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token) return;
+    setLoading(true);
+    try {
+      const result = await listLlmClientApiKeys(token);
+      setForbidden(false);
+      setItems(Array.isArray(result) ? result : []);
+    } catch (err: any) {
+      if (isForbidden(err)) {
+        setForbidden(true);
+        setItems([]);
+        addToast({ type: 'error', title: 'Acesso restrito', description: 'Sem permissão para listar chaves de acesso.' });
+        return;
+      }
+      addToast({ type: 'error', title: 'Falha ao listar chaves', description: err?.message || 'Tente novamente.' });
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, getAccessToken]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void load();
+  }, [isAuthenticated, load]);
+
+  const create = async () => {
+    const token = getAccessToken();
+    if (!token || !newName.trim()) return;
+    setSaving(true);
+    try {
+      const result = await createLlmClientApiKey(newName.trim(), token);
+      setCreatedKey(result.apiKey);
+      setCreating(false);
+      setNewName('');
+      await load();
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Falha ao criar chave', description: err?.message || 'Tente novamente.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggle = async (item: LlmClientApiKey) => {
+    const token = getAccessToken();
+    if (!token) return;
+    try {
+      await setLlmClientApiKeyEnabled(item.id, !item.enabled, token);
+      await load();
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Falha ao alterar chave', description: err?.message || 'Tente novamente.' });
+    }
+  };
+
+  const copyCreatedKey = async () => {
+    if (!createdKey) return;
+    try {
+      await navigator.clipboard.writeText(createdKey);
+      addToast({ type: 'success', title: 'Chave copiada' });
+    } catch {
+      addToast({ type: 'error', title: 'Não foi possível copiar', description: 'Copie manualmente o valor exibido.' });
+    }
+  };
+
+  const emptyMessage = forbidden
+    ? 'Sem permissão llm:read para ver chaves de acesso.'
+    : 'Nenhuma chave cadastrada.';
+
+  return (
+    <div>
+      <p style={{ color: '#5f6368', marginTop: 0 }}>
+        Chaves usadas por aplicações que consomem o <code>/complete</code> diretamente (header <code>X-Api-Key</code>), sem passar pelo login do backoffice.
+      </p>
+      {writable ? (
+        <div className="client-system-create-row">
+          <button type="button" className="btn btn-secondary btn-pill" onClick={() => setCreating(true)}>
+            <KeyRound size={15} /> Nova chave
+          </button>
+        </div>
+      ) : null}
+
+      <div className={`hpanel-table-card desktop-table-view${writable ? ' has-sticky-actions' : ''}`}>
+        <table className="hpanel-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Prefixo</th>
+              <th>Status</th>
+              <th>Último uso</th>
+              {writable ? <th className="cell-actions">Ações</th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={writable ? 5 : 4} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>Carregando chaves...</td></tr>
+            ) : items.length === 0 ? (
+              <tr>
+                <td colSpan={writable ? 5 : 4} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : items.map((item) => (
+              <tr key={item.id}>
+                <td><span className="table-cell-title">{item.name}</span></td>
+                <td><span className="text-mono">{item.keyPrefix}…</span></td>
+                <td><span className="badge-role" style={outcomeStyle(item.enabled ? 'SUCCESS' : 'FAILURE')}>{item.enabled ? 'Ativa' : 'Revogada'}</span></td>
+                <td><span className="id-compact">{item.lastUsedAt ? new Date(item.lastUsedAt).toLocaleString('pt-BR') : 'nunca'}</span></td>
+                {writable ? (
+                  <td className="cell-actions">
+                    <RowActionsMenu
+                      id={item.id}
+                      ariaLabel={`Ações da chave ${item.name}`}
+                      openId={openId}
+                      setOpenId={setOpenId}
+                      menuRef={menuRef}
+                      dropdownRef={dropdownRef}
+                      run={run}
+                      items={[
+                        {
+                          id: 'toggle',
+                          label: item.enabled ? 'Revogar' : 'Reativar',
+                          icon: item.enabled ? <Ban size={15} /> : <Power size={15} />,
+                          onSelect: () => { void toggle(item); },
+                        },
+                      ]}
+                    />
+                  </td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Modal isOpen={creating} onClose={() => setCreating(false)} title="Nova chave de acesso" maxWidth="480px"
+        footer={
+          <button type="button" className="btn btn-secondary" disabled={saving || !newName.trim()} onClick={() => void create()}>
+            {saving ? 'Criando…' : 'Criar'}
+          </button>
+        }
+      >
+        <label className="form-label llm-form-field">
+          Nome (identifica a aplicação consumidora)
+          <input className="form-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="ex: ms-knowledge" />
+        </label>
+      </Modal>
+
+      <Modal isOpen={!!createdKey} onClose={() => setCreatedKey(null)} title="Chave criada" maxWidth="560px"
+        footer={
+          <button type="button" className="btn btn-secondary" onClick={() => setCreatedKey(null)}>Fechar</button>
+        }
+      >
+        <p>Copie esta chave agora — ela não será exibida novamente.</p>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <code className="text-mono" style={{ wordBreak: 'break-all', flex: 1 }}>{createdKey}</code>
+          <button type="button" className="btn btn-secondary" onClick={() => void copyCreatedKey()} title="Copiar">
+            <Copy size={15} />
+          </button>
+        </div>
       </Modal>
     </div>
   );
