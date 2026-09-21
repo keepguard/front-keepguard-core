@@ -69,21 +69,6 @@ export interface UpsertLlmProvider {
   enabled?: boolean;
 }
 
-export interface LlmClientApiKey {
-  id: string;
-  name: string;
-  keyPrefix: string;
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-  lastUsedAt?: string;
-  revokedAt?: string;
-}
-
-export interface LlmClientApiKeyCreated extends LlmClientApiKey {
-  apiKey: string;
-}
-
 export interface LlmAlertRule {
   id: string;
   name: string;
@@ -191,27 +176,6 @@ export function setLlmProviderEnabled(id: string, enabled: boolean, token: strin
 export function setLlmProviderDefault(id: string, token: string): Promise<LlmProvider> {
   return customFetch<LlmProvider>(
     `${LLM_BASE}/providers/${encodeURIComponent(id)}/default`,
-    { method: 'POST' },
-    token
-  );
-}
-
-export function listLlmClientApiKeys(token: string): Promise<LlmClientApiKey[]> {
-  return customFetch<LlmClientApiKey[]>(`${LLM_BASE}/api-keys`, { method: 'GET' }, token);
-}
-
-export function createLlmClientApiKey(name: string, token: string): Promise<LlmClientApiKeyCreated> {
-  return customFetch<LlmClientApiKeyCreated>(
-    `${LLM_BASE}/api-keys`,
-    { method: 'POST', body: JSON.stringify({ name }) },
-    token
-  );
-}
-
-export function setLlmClientApiKeyEnabled(id: string, enabled: boolean, token: string): Promise<LlmClientApiKey> {
-  const action = enabled ? 'enable' : 'disable';
-  return customFetch<LlmClientApiKey>(
-    `${LLM_BASE}/api-keys/${encodeURIComponent(id)}/${action}`,
     { method: 'POST' },
     token
   );
