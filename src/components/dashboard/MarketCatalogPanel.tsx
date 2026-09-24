@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, RefreshCw, Search } from 'lucide-react';
+import { Check, ListChecks, Plus, Power, RefreshCw, Search, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../../services/analystService';
 import { ASSET_TYPE_OPTIONS } from '../../utils/assetValidators';
 import { hasAdminRole } from '../../utils/roles';
+import { Tooltip } from '../common/Tooltip';
 import { AssetOnboardingWizard, type WizardStartStep } from './AssetOnboardingWizard';
 
 function mapCatalogError(err: unknown, fallback: string): string {
@@ -239,25 +240,53 @@ export const MarketCatalogPanel: React.FC = () => {
     const st = statusByTicker.get(item.ticker.toUpperCase());
     const incomplete = needsCompletion(st?.completeness) && st?.completeness !== 'AWAITING_DATA';
     return (
-      <div className="market-catalog-confirm">
-        {canOnboard && incomplete ? (
-          <button type="button" className="btn btn-primary btn-pill" disabled={busyRow} onClick={() => openEdit(item, 'collectors')}>
-            Completar cadastro
-          </button>
+      <div className="table-actions-group">
+        {canOnboard ? (
+          <Tooltip label="Completar cadastro" description="Abre o assistente na etapa de coletores para ligar o que falta.">
+            <button
+              type="button"
+              className={`btn-table-icon${incomplete ? '' : ' table-actions-placeholder'}`}
+              aria-label={`Completar cadastro de ${item.ticker}`}
+              aria-hidden={incomplete ? undefined : true}
+              tabIndex={incomplete ? undefined : -1}
+              disabled={busyRow || !incomplete}
+              onClick={() => openEdit(item, 'collectors')}
+            >
+              <ListChecks size={15} />
+            </button>
+          </Tooltip>
         ) : null}
         {pendingOff === item.ticker ? (
           <>
-            <button type="button" className="btn btn-primary btn-pill" disabled={busyRow} onClick={() => { void deactivate(item.ticker); }}>
-              Confirmar desativar
-            </button>
-            <button type="button" className="btn btn-secondary btn-pill" onClick={() => setPendingOff(null)}>
-              Cancelar
-            </button>
+            <Tooltip label="Confirmar" description={`Desativa ${item.ticker} do catálogo.`}>
+              <button
+                type="button"
+                className="btn-table-icon is-danger"
+                aria-label={`Confirmar desativação de ${item.ticker}`}
+                disabled={busyRow}
+                onClick={() => { void deactivate(item.ticker); }}
+              >
+                <Check size={15} />
+              </button>
+            </Tooltip>
+            <Tooltip label="Cancelar">
+              <button type="button" className="btn-table-icon" aria-label="Cancelar desativação" onClick={() => setPendingOff(null)}>
+                <X size={15} />
+              </button>
+            </Tooltip>
           </>
         ) : (
-          <button type="button" className="btn btn-secondary btn-pill" disabled={busyRow} onClick={() => setPendingOff(item.ticker)}>
-            Desativar
-          </button>
+          <Tooltip label="Desativar" description="Sai da busca e dos picks. Coletores e MT5 seguem ligados.">
+            <button
+              type="button"
+              className="btn-table-icon is-danger"
+              aria-label={`Desativar ${item.ticker}`}
+              disabled={busyRow}
+              onClick={() => setPendingOff(item.ticker)}
+            >
+              <Power size={15} />
+            </button>
+          </Tooltip>
         )}
       </div>
     );
@@ -282,20 +311,6 @@ export const MarketCatalogPanel: React.FC = () => {
 
   return (
     <div className="market-ops-catalog">
-      <p className="text-muted market-desk-hint">
-        Cadastro grava em <code>market_assets</code>, cria os coletores e habilita o MT5 de uma vez. Disponível no catálogo ≠ entra no lote diário:
-        a análise só liga quando os primeiros dados chegam.
-      </p>
-
-      {canOnboard ? (
-        <div className="market-catalog-form-actions" style={{ marginBottom: '1rem' }}>
-          <button type="button" className="btn btn-primary btn-pill" onClick={openNew}>
-            <Plus size={15} />
-            <span>Novo ativo</span>
-          </button>
-        </div>
-      ) : null}
-
       {error ? (
         <div className="agent-test-result is-error" role="alert">
           <p>{error}</p>
@@ -317,7 +332,7 @@ export const MarketCatalogPanel: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="audits-filter-row audits-filter-row-primary market-desk-toolbar-primary">
+      <div className="market-catalog-toolbar">
         <div className="search-input-wrapper audits-search-field">
           <Search size={16} className="search-icon" />
           <input
@@ -353,15 +368,23 @@ export const MarketCatalogPanel: React.FC = () => {
         <span className="connections-summary-chip is-wait" aria-live="polite">
           {inBatch} no lote · {items.length} no catálogo{health ? ` · ${pendingCount} com pendências` : ''}
         </span>
-        <button
-          type="button"
-          className="btn btn-secondary btn-pill"
-          onClick={() => { void loadAll(); }}
-          disabled={loading}
-        >
-          <RefreshCw size={15} />
-          <span>{loading ? 'Atualizando…' : 'Atualizar lista'}</span>
-        </button>
+        <Tooltip label="Atualizar lista">
+          <button
+            type="button"
+            className="btn-table-icon"
+            onClick={() => { void loadAll(); }}
+            disabled={loading}
+            aria-label={loading ? 'Atualizando lista' : 'Atualizar lista'}
+          >
+            <RefreshCw size={15} className={loading ? 'spin' : undefined} />
+          </button>
+        </Tooltip>
+        {canOnboard ? (
+          <button type="button" className="btn btn-primary btn-pill market-catalog-toolbar-cta" onClick={openNew}>
+            <Plus size={15} />
+            <span>Novo ativo</span>
+          </button>
+        ) : null}
       </div>
 
       <div className="hpanel-table-card desktop-table-view">
@@ -373,8 +396,8 @@ export const MarketCatalogPanel: React.FC = () => {
               <th>Tipo</th>
               <th>Setor</th>
               <th>Cadastro</th>
-              <th>Lote diário</th>
-              <th>Ações</th>
+              <th className="market-catalog-col-batch">Lote diário</th>
+              <th className="cell-actions" style={{ textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -409,7 +432,7 @@ export const MarketCatalogPanel: React.FC = () => {
                       {item.segment ? <span className="text-muted"> · {item.segment}</span> : null}
                     </td>
                     <td><CompletenessBadge status={statusByTicker.get(item.ticker.toUpperCase())} loaded={health !== null} /></td>
-                    <td>
+                    <td className="market-catalog-col-batch">
                       <label className={`switch-wrapper${busyRow ? ' switch-wrapper-disabled' : ''}`}>
                         <input
                           className="switch-input"
@@ -422,7 +445,7 @@ export const MarketCatalogPanel: React.FC = () => {
                         <span className="switch-slider" />
                       </label>
                     </td>
-                    <td>{rowActions(item, busyRow)}</td>
+                    <td className="cell-actions">{rowActions(item, busyRow)}</td>
                   </tr>
                 );
               })
@@ -454,7 +477,7 @@ export const MarketCatalogPanel: React.FC = () => {
               />
               <span>Lote diário</span>
             </label>
-            <div style={{ marginTop: '0.5rem' }}>{rowActions(item, toggling === item.ticker)}</div>
+            <div className="mobile-card-actions" style={{ marginTop: '0.5rem' }}>{rowActions(item, toggling === item.ticker)}</div>
           </article>
         ))}
       </div>
