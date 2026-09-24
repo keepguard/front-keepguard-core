@@ -751,17 +751,38 @@ export interface ProactiveReport {
   items: ProactiveTickerResult[];
 }
 
-export function runProactiveJob(options?: { force?: boolean; skipWait?: boolean }): Promise<ProactiveReport> {
-  const params = new URLSearchParams();
+export type ProactiveJobState = 'IDLE' | 'RUNNING' | 'DONE' | 'FAILED';
+
+/** Andamento do último lote disparado por HTTP (estado em memória do analista). */
+export interface ProactiveJobStatus {
+  status: ProactiveJobState;
+  force?: boolean;
+  startedAt?: string;
+  finishedAt?: string;
+  report?: ProactiveReport;
+  errorCode?: string;
+  error?: string;
+}
+
+/** Dispara o lote em segundo plano (202) e devolve o estado inicial; acompanhe com getProactiveJobStatus. */
+export function runProactiveJob(options?: { force?: boolean; skipWait?: boolean }): Promise<ProactiveJobStatus> {
+  const params = new URLSearchParams({ async: 'true' });
   if (options?.force) params.set('force', 'true');
   if (options?.skipWait) {
     params.set('wait', 'false');
     params.set('skip_wait', 'true');
   }
-  const qs = params.toString() ? `?${params.toString()}` : '';
-  return customFetch<ProactiveReport>(
-    `${ANALYST_BASE}/jobs/proactive-run${qs}`,
+  return customFetch<ProactiveJobStatus>(
+    `${ANALYST_BASE}/jobs/proactive-run?${params.toString()}`,
     { method: 'POST' },
+    token(),
+  );
+}
+
+export function getProactiveJobStatus(): Promise<ProactiveJobStatus> {
+  return customFetch<ProactiveJobStatus>(
+    `${ANALYST_BASE}/jobs/proactive-run/status`,
+    { method: 'GET' },
     token(),
   );
 }

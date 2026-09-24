@@ -7487,6 +7487,11 @@ textarea.form-input {
   gap: 0.65rem;
 }
 
+.market-jobs-table-scroll {
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
 .market-jobs-summary {
   margin: 0 0 0.75rem;
   color: var(--text-muted);
