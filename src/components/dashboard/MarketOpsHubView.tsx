@@ -1,27 +1,22 @@
 import React, { useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MarketAnalyzeView } from './MarketAnalyzeView';
 import { MarketCatalogPanel } from './MarketCatalogPanel';
 import { MarketJobsPanel } from './MarketJobsPanel';
 
-export type MarketOpsPanel = 'catalog' | 'analyze' | 'jobs';
+export type MarketOpsPanel = 'catalog' | 'jobs';
 
 const OPS_TABS: ReadonlyArray<{ id: MarketOpsPanel; label: string; tabId: string; panelId: string }> = [
   { id: 'catalog', label: 'Catálogo', tabId: 'market-ops-tab-catalog', panelId: 'market-ops-panel-catalog' },
-  { id: 'analyze', label: 'Análise', tabId: 'market-ops-tab-analyze', panelId: 'market-ops-panel-analyze' },
   { id: 'jobs', label: 'Jobs', tabId: 'market-ops-tab-jobs', panelId: 'market-ops-panel-jobs' },
 ];
 
-function panelFromSearch(tab: string | null, ticker: string | null): MarketOpsPanel {
-  if (tab && OPS_TABS.some((item) => item.id === tab)) {
-    return tab as MarketOpsPanel;
-  }
-  return ticker?.trim() ? 'analyze' : 'catalog';
+function panelFromSearch(tab: string | null): MarketOpsPanel {
+  return tab && OPS_TABS.some((item) => item.id === tab) ? (tab as MarketOpsPanel) : 'catalog';
 }
 
 export const MarketOpsHubView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const panel = panelFromSearch(searchParams.get('tab'), searchParams.get('ticker'));
+  const panel = panelFromSearch(searchParams.get('tab'));
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const selectPanel = (id: MarketOpsPanel, focus = false) => {
@@ -85,7 +80,6 @@ export const MarketOpsHubView: React.FC = () => {
         className="llm-panel-tabpanel"
       >
         {panel === 'catalog' ? <MarketCatalogPanel /> : null}
-        {panel === 'analyze' ? <MarketAnalyzeView /> : null}
         {panel === 'jobs' ? <MarketJobsPanel /> : null}
       </div>
     </div>

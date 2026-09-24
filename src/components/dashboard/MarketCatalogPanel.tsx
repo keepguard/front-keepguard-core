@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ListChecks, Plus, Power, RefreshCw, Search, X } from 'lucide-react';
+import { Check, LineChart, ListChecks, Plus, Power, RefreshCw, Search, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -16,6 +16,7 @@ import {
 import { ASSET_TYPE_OPTIONS } from '../../utils/assetValidators';
 import { hasAdminRole } from '../../utils/roles';
 import { Tooltip } from '../common/Tooltip';
+import { AssetAnalysisModal } from './AssetAnalysisModal';
 import { AssetOnboardingWizard, type WizardStartStep } from './AssetOnboardingWizard';
 
 function mapCatalogError(err: unknown, fallback: string): string {
@@ -114,6 +115,7 @@ export const MarketCatalogPanel: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'' | 'PENDING'>('');
   const [pendingOff, setPendingOff] = useState<string | null>(null);
   const [wizard, setWizard] = useState<WizardState | null>(null);
+  const [analyzing, setAnalyzing] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -241,8 +243,19 @@ export const MarketCatalogPanel: React.FC = () => {
     const incomplete = needsCompletion(st?.completeness) && st?.completeness !== 'AWAITING_DATA';
     return (
       <div className="table-actions-group">
+        <Tooltip label="Analisar" description="Processa o dossiê deste ticker agora." align="end">
+          <button
+            type="button"
+            className="btn-table-icon"
+            aria-label={`Analisar ${item.ticker}`}
+            disabled={busyRow}
+            onClick={() => setAnalyzing(item.ticker)}
+          >
+            <LineChart size={15} />
+          </button>
+        </Tooltip>
         {canOnboard ? (
-          <Tooltip label="Completar cadastro" description="Abre o assistente na etapa de coletores para ligar o que falta.">
+          <Tooltip label="Completar cadastro" description="Abre o assistente na etapa de coletores para ligar o que falta." align="end">
             <button
               type="button"
               className={`btn-table-icon${incomplete ? '' : ' table-actions-placeholder'}`}
@@ -258,7 +271,7 @@ export const MarketCatalogPanel: React.FC = () => {
         ) : null}
         {pendingOff === item.ticker ? (
           <>
-            <Tooltip label="Confirmar" description={`Desativa ${item.ticker} do catálogo.`}>
+            <Tooltip label="Confirmar" description={`Desativa ${item.ticker} do catálogo.`} align="end">
               <button
                 type="button"
                 className="btn-table-icon is-danger"
@@ -269,14 +282,14 @@ export const MarketCatalogPanel: React.FC = () => {
                 <Check size={15} />
               </button>
             </Tooltip>
-            <Tooltip label="Cancelar">
+            <Tooltip label="Cancelar" align="end">
               <button type="button" className="btn-table-icon" aria-label="Cancelar desativação" onClick={() => setPendingOff(null)}>
                 <X size={15} />
               </button>
             </Tooltip>
           </>
         ) : (
-          <Tooltip label="Desativar" description="Sai da busca e dos picks. Coletores e MT5 seguem ligados.">
+          <Tooltip label="Desativar" description="Sai da busca e dos picks. Coletores e MT5 seguem ligados." align="end">
             <button
               type="button"
               className="btn-table-icon is-danger"
@@ -481,6 +494,8 @@ export const MarketCatalogPanel: React.FC = () => {
           </article>
         ))}
       </div>
+
+      {analyzing ? <AssetAnalysisModal ticker={analyzing} onClose={() => setAnalyzing(null)} /> : null}
 
       {wizard ? (
         <AssetOnboardingWizard
