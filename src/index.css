@@ -984,6 +984,14 @@ body {
   margin-bottom: 2rem;
 }
 
+.hpanel-table tbody tr.hpanel-table-row-clickable {
+  cursor: pointer;
+}
+
+.hpanel-table tbody tr.hpanel-table-row-clickable:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
+}
+
 .hpanel-table-card.has-row-action-menus {
   overflow-x: auto;
   overflow-y: visible;

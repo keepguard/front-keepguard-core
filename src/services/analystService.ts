@@ -433,6 +433,8 @@ export interface AnalystRun {
   disclaimer: string;
   newsCount?: number;
   outcome: string;
+  /** Motivo da degradação/falha (ex.: erro do LLM, "sem fatos de mercado para o ticker"). */
+  fallbackReason?: string;
   staleFacts?: boolean;
   thesis?: AnalystThesis;
   formulas?: AnalystFormulas;
@@ -552,6 +554,42 @@ export interface AnalystTickers {
 export function listRuns(ticker: string, limit = 20): Promise<AnalystRun[]> {
   return customFetch<AnalystRun[]>(
     `${ANALYST_BASE}/assets/${encodeURIComponent(ticker)}/runs?limit=${Math.max(1, limit)}`,
+    { method: 'GET' },
+    token(),
+  );
+}
+
+export type AnalystRunTrigger = 'ON_DEMAND' | 'SCHEDULED';
+export type AnalystRunOutcome = 'SUCCESS' | 'DEGRADED' | 'FAILED';
+
+export interface ListAllRunsOptions {
+  ticker?: string;
+  trigger?: AnalystRunTrigger;
+  outcome?: AnalystRunOutcome;
+  /** RFC3339 ou YYYY-MM-DD. */
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AnalystRunListResponse {
+  items: AnalystRun[];
+  total: number;
+}
+
+/** Todas as análises do tenant (manual + lote), mais recentes primeiro. */
+export function listAllRuns(options?: ListAllRunsOptions): Promise<AnalystRunListResponse> {
+  const params = new URLSearchParams();
+  if (options?.ticker) params.set('ticker', options.ticker);
+  if (options?.trigger) params.set('trigger', options.trigger);
+  if (options?.outcome) params.set('outcome', options.outcome);
+  if (options?.from) params.set('from', options.from);
+  if (options?.to) params.set('to', options.to);
+  params.set('limit', String(Math.max(1, options?.limit ?? 20)));
+  params.set('offset', String(Math.max(0, options?.offset ?? 0)));
+  return customFetch<AnalystRunListResponse>(
+    `${ANALYST_BASE}/runs?${params.toString()}`,
     { method: 'GET' },
     token(),
   );

@@ -184,6 +184,17 @@ export const FLAG_CATEGORY_LABEL: Record<string, string> = {
   LIQUIDEZ: 'Liquidez',
 };
 
+export const RUN_TRIGGER_LABEL: Record<string, string> = {
+  ON_DEMAND: 'Manual',
+  SCHEDULED: 'Lote',
+};
+
+export const RUN_OUTCOME_LABEL: Record<string, string> = {
+  SUCCESS: 'Sucesso',
+  DEGRADED: 'Degradada',
+  FAILED: 'Falhou',
+};
+
 export const RISK_LEVEL_LABEL: Record<string, string> = {
   LOW: 'Baixo',
   MEDIUM: 'Médio',

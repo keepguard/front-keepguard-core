@@ -2,12 +2,14 @@ import React, { useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MarketCatalogPanel } from './MarketCatalogPanel';
 import { MarketJobsPanel } from './MarketJobsPanel';
+import { MarketRunsPanel } from './MarketRunsPanel';
 
-export type MarketOpsPanel = 'catalog' | 'jobs';
+export type MarketOpsPanel = 'catalog' | 'jobs' | 'runs';
 
 const OPS_TABS: ReadonlyArray<{ id: MarketOpsPanel; label: string; tabId: string; panelId: string }> = [
   { id: 'catalog', label: 'Catálogo', tabId: 'market-ops-tab-catalog', panelId: 'market-ops-panel-catalog' },
   { id: 'jobs', label: 'Jobs', tabId: 'market-ops-tab-jobs', panelId: 'market-ops-panel-jobs' },
+  { id: 'runs', label: 'Análises', tabId: 'market-ops-tab-runs', panelId: 'market-ops-panel-runs' },
 ];
 
 function panelFromSearch(tab: string | null): MarketOpsPanel {
@@ -81,6 +83,7 @@ export const MarketOpsHubView: React.FC = () => {
       >
         {panel === 'catalog' ? <MarketCatalogPanel /> : null}
         {panel === 'jobs' ? <MarketJobsPanel /> : null}
+        {panel === 'runs' ? <MarketRunsPanel /> : null}
       </div>
     </div>
   );
