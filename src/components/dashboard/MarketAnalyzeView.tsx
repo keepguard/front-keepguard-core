@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { LineChart, Plus, Search } from 'lucide-react';
+import { LineChart, Minus, Plus, Search } from 'lucide-react';
+import { Tooltip } from '../common/Tooltip';
 import { RefreshCombo } from '../common/RefreshCombo';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -254,37 +255,8 @@ export const MarketAnalyzeView: React.FC = () => {
 
   return (
     <div className="market-desk">
-      <p className="text-muted" style={{ marginBottom: '1rem' }}>
-        O lote diário usa apenas <code>market_assets</code> com <strong>hasRuns=true</strong>.
-        Cadastro fica na aba Catálogo; collectors no srv-data-collector; disparo na aba Jobs.
-      </p>
-
-      <div className="client-system-create-row market-desk-create-row">
-        <div className="client-system-create-actions">
-          <button
-            type="button"
-            className="btn btn-primary btn-pill"
-            onClick={() => { void onIncludeInBatch(); }}
-            disabled={busy || !tickerOk || !inCatalog || inBatch}
-            title={!inCatalog ? 'Cadastre o ticker no Catálogo primeiro' : 'Marca hasRuns=true no market_assets'}
-          >
-            <Plus size={15} />
-            <span>Incluir no lote</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-pill"
-            onClick={() => { void onExcludeFromBatch(); }}
-            disabled={busy || !tickerOk || !inBatch}
-            title="Marca hasRuns=false"
-          >
-            <span>Remover do lote</span>
-          </button>
-        </div>
-      </div>
-
       <form className="audits-toolbar" onSubmit={onAnalyze}>
-        <div className="audits-filter-row audits-filter-row-primary market-desk-toolbar-primary">
+        <div className="market-catalog-toolbar">
           <div className="search-input-wrapper audits-search-field">
             <Search size={16} className="search-icon" />
             <input
@@ -300,26 +272,56 @@ export const MarketAnalyzeView: React.FC = () => {
             />
           </div>
           <span className="connections-summary-chip is-wait" aria-live="polite">
-            {batchTickers.length} no lote (hasRuns)
+            {batchTickers.length} no lote
           </span>
           {tickerOk ? (
             <span className={`connections-summary-chip ${inBatch ? 'is-ok' : inCatalog ? 'is-wait' : 'is-error'}`}>
               {inBatch ? 'No lote' : inCatalog ? 'No catálogo' : 'Fora do catálogo'}
             </span>
           ) : null}
+          <Tooltip
+            label="Incluir no lote"
+            description={!inCatalog && tickerOk ? 'Cadastre o ticker na aba Catálogo primeiro.' : 'O lote diário passa a analisar este ticker.'}
+          >
+            <button
+              type="button"
+              className="btn-table-icon"
+              onClick={() => { void onIncludeInBatch(); }}
+              disabled={busy || !tickerOk || !inCatalog || inBatch}
+              aria-label="Incluir no lote"
+            >
+              <Plus size={15} />
+            </button>
+          </Tooltip>
+          <Tooltip label="Remover do lote" description="O lote diário deixa de analisar este ticker.">
+            <button
+              type="button"
+              className="btn-table-icon is-danger"
+              onClick={() => { void onExcludeFromBatch(); }}
+              disabled={busy || !tickerOk || !inBatch}
+              aria-label="Remover do lote"
+            >
+              <Minus size={15} />
+            </button>
+          </Tooltip>
         </div>
-        <div className="audits-filter-row audits-filter-row-sort market-desk-filter-actions">
-          <label className="market-catalog-toggle">
-            <input
-              type="checkbox"
-              checked={refreshDerived}
-              onChange={(e) => setRefreshDerived(e.target.checked)}
-            />
-            <span>Regenerar memória derivada</span>
-          </label>
+        <div className="market-catalog-toolbar">
+          <div className="market-toolbar-switch">
+            <label className="switch-wrapper">
+              <input
+                className="switch-input"
+                type="checkbox"
+                checked={refreshDerived}
+                onChange={(e) => setRefreshDerived(e.target.checked)}
+                aria-labelledby="market-refresh-derived-label"
+              />
+              <span className="switch-slider" />
+            </label>
+            <span id="market-refresh-derived-label">Regenerar memória derivada</span>
+          </div>
           <button
             type="submit"
-            className="btn btn-secondary btn-pill audits-filter-submit"
+            className="btn btn-primary btn-pill market-catalog-toolbar-cta"
             disabled={analyzing || !tickerOk}
           >
             <Search size={15} />
@@ -453,7 +455,7 @@ export const MarketAnalyzeView: React.FC = () => {
         <table className="hpanel-table">
           <thead>
             <tr>
-              <th>Quando</th>
+              <th className="market-changes-when">Quando</th>
               <th>Ticker</th>
               <th>Intensidade</th>
               <th>Mudança</th>
@@ -486,7 +488,7 @@ export const MarketAnalyzeView: React.FC = () => {
                   onClick={() => selectTicker(item.ticker)}
                   style={{ cursor: 'pointer' }}
                 >
-                  <td>
+                  <td className="market-changes-when">
                     <time dateTime={item.detectedAt}>{formatWhen(item.detectedAt)}</time>
                   </td>
                   <td>

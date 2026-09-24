@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Play, RefreshCw } from 'lucide-react';
+import { Tooltip } from '../common/Tooltip';
 import { useToast } from '../../context/ToastContext';
 import {
   reloadCatalog,
@@ -96,46 +97,59 @@ export const MarketJobsPanel: React.FC = () => {
 
   return (
     <div className="market-ops-jobs">
-      <p className="text-muted market-desk-hint">
-        O lote analisa tickers com <code>hasRuns</code> no catálogo. Force ignora a idempotência do dia.
-        Pular a espera da coleta dispara mesmo com fatos atrasados.
-      </p>
-
       <form className="market-catalog-form" onSubmit={onRun}>
         <fieldset className="market-jobs-fieldset" disabled={busy}>
           <legend className="form-label">Lote diário</legend>
-          <label className="market-catalog-toggle">
-            <input
-              type="checkbox"
-              checked={force}
-              onChange={(e) => setForce(e.target.checked)}
-            />
-            <span>Forçar mesmo se o lote de hoje já rodou (<code>force=true</code>)</span>
-          </label>
-          <label className="market-catalog-toggle">
-            <input
-              type="checkbox"
-              checked={skipWait}
-              onChange={(e) => setSkipWait(e.target.checked)}
-            />
-            <span>Não esperar a coleta ficar pronta (<code>wait=false</code>)</span>
-          </label>
+          <div className="market-toolbar-switch">
+            <label className="switch-wrapper">
+              <input
+                className="switch-input"
+                type="checkbox"
+                checked={force}
+                onChange={(e) => setForce(e.target.checked)}
+                aria-labelledby="market-job-force-label"
+              />
+              <span className="switch-slider" />
+            </label>
+            <span>
+              <span id="market-job-force-label">Rodar mesmo se o lote de hoje já rodou</span>
+              <span className="text-muted market-catalog-hint"> Ignora a trava de um lote por dia.</span>
+            </span>
+          </div>
+          <div className="market-toolbar-switch">
+            <label className="switch-wrapper">
+              <input
+                className="switch-input"
+                type="checkbox"
+                checked={skipWait}
+                onChange={(e) => setSkipWait(e.target.checked)}
+                aria-labelledby="market-job-wait-label"
+              />
+              <span className="switch-slider" />
+            </label>
+            <span>
+              <span id="market-job-wait-label">Não esperar a coleta ficar pronta</span>
+              <span className="text-muted market-catalog-hint"> Dispara mesmo com fatos atrasados.</span>
+            </span>
+          </div>
         </fieldset>
 
-        <div className="market-catalog-form-actions">
+        <div className="market-catalog-toolbar" style={{ marginBottom: 0 }}>
           <button type="submit" className="btn btn-primary btn-pill" disabled={busy}>
             <Play size={15} />
             <span>{running ? 'Rodando lote…' : 'Rodar lote agora'}</span>
           </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-pill"
-            disabled={busy}
-            onClick={() => { void onReloadCache(); }}
-          >
-            <RefreshCw size={15} />
-            <span>{reloading ? 'Atualizando cache…' : 'Atualizar cache do catálogo'}</span>
-          </button>
+          <Tooltip label="Atualizar cache do catálogo" description="Recarrega os ativos do Mongo para o Redis.">
+            <button
+              type="button"
+              className="btn-table-icon"
+              disabled={busy}
+              onClick={() => { void onReloadCache(); }}
+              aria-label="Atualizar cache do catálogo"
+            >
+              <RefreshCw size={15} className={reloading ? 'spin' : undefined} />
+            </button>
+          </Tooltip>
         </div>
       </form>
 

@@ -6826,7 +6826,8 @@ textarea.form-input {
 }
 
 .market-magic-col-fscore {
-  width: 5.75rem;
+  width: 8rem;
+  padding-right: 1.25rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -7454,6 +7455,20 @@ textarea.form-input {
 
 .market-catalog-toolbar-cta {
   margin-left: auto;
+  white-space: nowrap;
+}
+
+.market-toolbar-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.hpanel-table th.market-changes-when,
+.hpanel-table td.market-changes-when {
+  width: 9.5rem;
   white-space: nowrap;
 }
 
