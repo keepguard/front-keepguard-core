@@ -520,6 +520,10 @@ export interface MarketAssetItem {
   segment?: string;
   isActive?: boolean;
   hasRuns?: boolean;
+  cnpj?: string;
+  isin?: string;
+  /** NONE | PENDING | ACTIVATED — pedido de ativação do lote diário (onboarding de ativo). */
+  runsActivation?: string;
 }
 
 export interface AssetDetailResponse {
@@ -605,6 +609,113 @@ export function updateCatalogAsset(ticker: string, body: Partial<CatalogAssetWri
   return customFetch<MarketAssetItem>(
     `${ANALYST_BASE}/catalog/assets/${encodeURIComponent(ticker)}`,
     { method: 'PUT', body: JSON.stringify(body) },
+    token(),
+  );
+}
+
+// ── Onboarding de ativo (SPEC-001) ───────────────────────────────────────────
+
+export type OnboardingStepName = 'catalog' | 'collectors' | 'mt5' | 'runsActivation';
+export type OnboardingStepStatus = 'OK' | 'FAILED' | 'SKIPPED' | 'PENDING';
+export type OnboardingResult = 'COMPLETED' | 'AWAITING_DATA' | 'PARTIAL' | 'FAILED';
+
+export interface OnboardingRequest {
+  asset: {
+    ticker: string;
+    displayName?: string;
+    assetType: string;
+    sectorLabel?: string;
+    segment?: string;
+    issuerGroup?: string;
+    cnpj?: string;
+    isin?: string;
+    isFinancial?: boolean;
+    isUtility?: boolean;
+    isCyclical?: boolean;
+  };
+  collectors: { dataSourceIds: string[]; runNow: boolean };
+  mt5: { enabled: boolean; symbol?: string; tipo?: string };
+  activateRuns: boolean;
+  /** Retenta só estas etapas (o catálogo sempre roda). Vazio = todas. */
+  steps?: OnboardingStepName[];
+}
+
+export interface OnboardingCollectorItem {
+  dataSourceId: string;
+  dataSourceSlug?: string;
+  agentId?: string;
+  created: boolean;
+  run?: 'QUEUED' | 'FAILED';
+  error?: string;
+}
+
+export interface OnboardingReport {
+  ticker: string;
+  result: OnboardingResult;
+  correlationId: string;
+  steps: {
+    catalog: { status: OnboardingStepStatus; created: boolean; error?: string; message?: string };
+    collectors: { status: OnboardingStepStatus; items?: OnboardingCollectorItem[]; error?: string };
+    mt5: { status: OnboardingStepStatus; symbol?: string; created: boolean; error?: string };
+    runsActivation: { status: OnboardingStepStatus; hasRuns?: boolean; error?: string };
+  };
+}
+
+export type OnboardingCompleteness =
+  | 'COMPLETE' | 'AWAITING_DATA' | 'INCOMPLETE' | 'STUCK' | 'INACTIVE' | 'ORPHAN';
+
+export interface OnboardingStatus {
+  ticker: string;
+  completeness: OnboardingCompleteness;
+  catalog?: { isActive: boolean; hasRuns: boolean; runsActivation: string };
+  collectors: Array<{ slug: string; agentId: string; enabled: boolean; lastExecution?: string; hasOpenIncident?: boolean }>;
+  mt5: { exists: boolean; habilitado: boolean };
+  missing: string[];
+}
+
+export interface OnboardingHealth {
+  total: number;
+  summary: Record<string, number>;
+  items: OnboardingStatus[];
+}
+
+export interface CollectorTypeOption {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  recommended: boolean;
+}
+
+/** O BFF tem orçamento de 30s; o cliente espera um pouco mais para ler a resposta em vez de abortar antes. */
+const ONBOARDING_TIMEOUT_MS = 45_000;
+
+export function onboardAsset(body: OnboardingRequest): Promise<OnboardingReport> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), ONBOARDING_TIMEOUT_MS);
+  return customFetch<OnboardingReport>(
+    `${ANALYST_BASE}/catalog/assets/onboarding`,
+    { method: 'POST', body: JSON.stringify(body), signal: controller.signal },
+    token(),
+  ).finally(() => window.clearTimeout(timer));
+}
+
+export function getOnboardingStatus(ticker: string): Promise<OnboardingStatus> {
+  return customFetch<OnboardingStatus>(
+    `${ANALYST_BASE}/catalog/assets/${encodeURIComponent(ticker)}/onboarding`,
+    { method: 'GET' },
+    token(),
+  );
+}
+
+export function getOnboardingHealth(): Promise<OnboardingHealth> {
+  return customFetch<OnboardingHealth>(`${ANALYST_BASE}/catalog/onboarding/health`, { method: 'GET' }, token());
+}
+
+export function listCollectorTypes(assetType: string): Promise<{ items: CollectorTypeOption[]; total: number }> {
+  return customFetch<{ items: CollectorTypeOption[]; total: number }>(
+    `${ANALYST_BASE}/catalog/collector-types?assetType=${encodeURIComponent(assetType)}`,
+    { method: 'GET' },
     token(),
   );
 }

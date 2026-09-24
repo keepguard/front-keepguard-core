@@ -1,23 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, RefreshCw, Search } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
-  createCatalogAsset,
-  isValidTicker,
+  getOnboardingHealth,
   listCatalogTickers,
   updateCatalogAsset,
   type AssetClassType,
   type MarketAssetItem,
+  type OnboardingCompleteness,
+  type OnboardingHealth,
+  type OnboardingReport,
+  type OnboardingStatus,
 } from '../../services/analystService';
-
-const ASSET_TYPES: ReadonlyArray<{ value: AssetClassType; label: string }> = [
-  { value: 'STOCK', label: 'Ação' },
-  { value: 'FII', label: 'FII' },
-  { value: 'FI_INFRA', label: 'FI-Infra' },
-  { value: 'FIAGRO', label: 'Fiagro' },
-  { value: 'BDR', label: 'BDR' },
-  { value: 'ETF', label: 'ETF' },
-];
+import { ASSET_TYPE_OPTIONS } from '../../utils/assetValidators';
+import { hasAdminRole } from '../../utils/roles';
+import { AssetOnboardingWizard, type WizardStartStep } from './AssetOnboardingWizard';
 
 function mapCatalogError(err: unknown, fallback: string): string {
   const status = (err as { status?: number }).status;
@@ -35,52 +33,128 @@ function mapCatalogError(err: unknown, fallback: string): string {
 }
 
 function assetTypeLabel(type?: string): string {
-  return ASSET_TYPES.find((item) => item.value === type)?.label || type || '—';
+  return ASSET_TYPE_OPTIONS.find((item) => item.value === type)?.label || type || '—';
 }
 
-const emptyForm = {
-  ticker: '',
-  displayName: '',
-  assetType: 'STOCK' as AssetClassType,
-  sectorLabel: '',
-  segment: '',
-  hasRuns: false,
+const MISSING_LABEL: Record<string, string> = {
+  NO_COLLECTORS: 'sem coletores',
+  COLLECTORS_DISABLED: 'coletores desabilitados',
+  MT5_MISSING: 'sem MT5',
+  MT5_DISABLED: 'MT5 desabilitado',
+  RUNS_PENDING: 'aguardando os primeiros dados',
+  RUNS_OFF: 'fora do lote diário',
 };
+
+interface Badge { label: string; tone: 'ok' | 'wait' | 'warn' | 'error' | 'off' }
+
+/** Rótulo do indicador "cadastro completo × incompleto" de uma linha da listagem. */
+function completenessBadge(status?: OnboardingStatus): Badge | null {
+  if (!status) return null;
+  switch (status.completeness) {
+    case 'COMPLETE': return { label: 'Completo', tone: 'ok' };
+    case 'AWAITING_DATA': return { label: 'Aguardando dados', tone: 'wait' };
+    case 'STUCK': return { label: 'Travado', tone: 'error' };
+    case 'INACTIVE': return { label: 'Inativo', tone: 'off' };
+    case 'ORPHAN': return { label: 'Órfão', tone: 'error' };
+    default: {
+      const onlyMt5 = status.missing.length > 0 && status.missing.every((m) => m.startsWith('MT5_'));
+      return onlyMt5 ? { label: 'Sem MT5', tone: 'warn' } : { label: 'Incompleto', tone: 'error' };
+    }
+  }
+}
+
+function missingText(status?: OnboardingStatus): string {
+  if (!status) return '';
+  if (status.completeness === 'STUCK') {
+    return 'Aguardando dados há mais de 3 dias: confira os coletores (falhas ou incidentes abertos).';
+  }
+  if (status.missing.length === 0) return '';
+  return `Falta: ${status.missing.map((m) => MISSING_LABEL[m] ?? m).join(', ')}`;
+}
+
+const CompletenessBadge: React.FC<{ status?: OnboardingStatus; loaded: boolean }> = ({ status, loaded }) => {
+  const badge = completenessBadge(status);
+  if (!badge) {
+    return <span className="text-muted" title={loaded ? 'Sem informação de cadastro' : 'Indicador de cadastro indisponível'}>—</span>;
+  }
+  const hint = missingText(status);
+  return (
+    <span className={`onb-badge-status is-${badge.tone}`} title={hint || undefined}>
+      {badge.label}
+      {hint ? <span className="onb-sr-only">. {hint}</span> : null}
+    </span>
+  );
+};
+
+const COMPLETENESS_FILTERS: ReadonlyArray<{ value: '' | 'PENDING'; label: string }> = [
+  { value: '', label: 'Todos os cadastros' },
+  { value: 'PENDING', label: 'Só com pendências' },
+];
+
+function needsCompletion(c?: OnboardingCompleteness): boolean {
+  return c === 'INCOMPLETE' || c === 'STUCK' || c === 'AWAITING_DATA';
+}
+
+interface WizardState { initial: MarketAssetItem | null; startStep: WizardStartStep }
 
 export const MarketCatalogPanel: React.FC = () => {
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const canOnboard = hasAdminRole(user?.roles);
+
   const [items, setItems] = useState<MarketAssetItem[]>([]);
+  const [health, setHealth] = useState<OnboardingHealth | null>(null);
+  const [healthFailed, setHealthFailed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'' | AssetClassType>('');
-  const [form, setForm] = useState(emptyForm);
+  const [statusFilter, setStatusFilter] = useState<'' | 'PENDING'>('');
   const [pendingOff, setPendingOff] = useState<string | null>(null);
+  const [wizard, setWizard] = useState<WizardState | null>(null);
 
-  const loadCatalog = useCallback(async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     setError('');
-    try {
-      const res = await listCatalogTickers();
-      setItems(res.items ?? []);
-    } catch (err) {
-      setError(mapCatalogError(err, 'Falha ao carregar o catálogo'));
+    // O indicador de cadastro nunca pode derrubar a listagem: falha do health só esconde a coluna.
+    const [catalogRes, healthRes] = await Promise.allSettled([listCatalogTickers(), getOnboardingHealth()]);
+    if (catalogRes.status === 'fulfilled') {
+      setItems(catalogRes.value.items ?? []);
+    } else {
+      setError(mapCatalogError(catalogRes.reason, 'Falha ao carregar o catálogo'));
       setItems([]);
-    } finally {
-      setLoading(false);
     }
+    if (healthRes.status === 'fulfilled') {
+      setHealth(healthRes.value);
+      setHealthFailed(false);
+    } else {
+      setHealth(null);
+      setHealthFailed(true);
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    void loadCatalog();
-  }, [loadCatalog]);
+    void loadAll();
+  }, [loadAll]);
+
+  const statusByTicker = useMemo(() => {
+    const map = new Map<string, OnboardingStatus>();
+    for (const st of health?.items ?? []) map.set(st.ticker.toUpperCase(), st);
+    return map;
+  }, [health]);
+
+  const orphans = useMemo(
+    () => (health?.items ?? []).filter((st) => st.completeness === 'ORPHAN').map((st) => st.ticker),
+    [health],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toUpperCase();
     return items.filter((item) => {
       if (typeFilter && item.assetType !== typeFilter) return false;
+      if (statusFilter === 'PENDING' && !needsCompletion(statusByTicker.get(item.ticker.toUpperCase())?.completeness)) return false;
       if (!q) return true;
       return (
         item.ticker.toUpperCase().includes(q)
@@ -89,11 +163,10 @@ export const MarketCatalogPanel: React.FC = () => {
         || (item.segment || '').toUpperCase().includes(q)
       );
     });
-  }, [items, query, typeFilter]);
+  }, [items, query, typeFilter, statusFilter, statusByTicker]);
 
   const inBatch = items.filter((item) => item.hasRuns).length;
-  const tickerOk = isValidTicker(form.ticker);
-  const canSave = tickerOk && Boolean(form.assetType) && !saving;
+  const pendingCount = items.filter((item) => needsCompletion(statusByTicker.get(item.ticker.toUpperCase())?.completeness)).length;
 
   const sectorHints = useMemo(() => {
     const seen = new Set<string>();
@@ -107,42 +180,16 @@ export const MarketCatalogPanel: React.FC = () => {
     return out.sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [items]);
 
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!canSave) {
-      setError('Informe um ticker válido e o tipo do ativo.');
-      return;
-    }
-    setSaving(true);
-    setError('');
-    const ticker = form.ticker.trim().toUpperCase();
-    const existed = items.some((item) => item.ticker.toUpperCase() === ticker);
-    try {
-      const saved = await createCatalogAsset({
-        ticker,
-        displayName: form.displayName.trim() || ticker,
-        assetType: form.assetType,
-        sectorLabel: form.sectorLabel.trim(),
-        segment: form.segment.trim(),
-        isActive: true,
-        hasRuns: form.hasRuns,
-      });
-      setItems((prev) => {
-        const next = prev.filter((item) => item.ticker.toUpperCase() !== ticker);
-        return [...next, saved].sort((a, b) => a.ticker.localeCompare(b.ticker));
-      });
+  function onReport(report: OnboardingReport) {
+    void loadAll();
+    if (report.result === 'COMPLETED' || report.result === 'AWAITING_DATA') {
       addToast({
         type: 'success',
-        title: existed ? `${ticker} atualizado` : `${ticker} no catálogo`,
-        description: form.hasRuns
-          ? 'Entra no lote diário. Cadastro não coleta fatos — sem agent, a análise falha.'
-          : 'Disponível na busca e nos picks. Não entra no lote até ligar “lote diário”.',
+        title: `${report.ticker} cadastrado`,
+        description: report.result === 'AWAITING_DATA'
+          ? 'A análise diária liga sozinha quando a primeira coleta chegar.'
+          : 'Catálogo, coletores, MT5 e análise diária ligados.',
       });
-      setForm(emptyForm);
-    } catch (err) {
-      setError(mapCatalogError(err, 'Falha ao salvar o ativo'));
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -176,7 +223,7 @@ export const MarketCatalogPanel: React.FC = () => {
       addToast({
         type: 'success',
         title: `${ticker} desativado`,
-        description: 'Sai da busca e dos picks. Para reativar, cadastre o ticker de novo.',
+        description: 'Sai da busca e dos picks. Coletores e MT5 continuam ligados até serem desativados à parte.',
       });
     } catch (err) {
       setError(mapCatalogError(err, 'Falha ao desativar o ativo'));
@@ -185,117 +232,88 @@ export const MarketCatalogPanel: React.FC = () => {
     }
   }
 
-  function fillForm(item: MarketAssetItem) {
-    setForm({
-      ticker: item.ticker,
-      displayName: item.displayName || '',
-      assetType: (item.assetType || 'STOCK') as AssetClassType,
-      sectorLabel: item.sectorLabel || '',
-      segment: item.segment || '',
-      hasRuns: Boolean(item.hasRuns),
-    });
+  const openNew = () => setWizard({ initial: null, startStep: 'identification' });
+  const openEdit = (item: MarketAssetItem, startStep: WizardStartStep) => setWizard({ initial: item, startStep });
+
+  function rowActions(item: MarketAssetItem, busyRow: boolean) {
+    const st = statusByTicker.get(item.ticker.toUpperCase());
+    const incomplete = needsCompletion(st?.completeness) && st?.completeness !== 'AWAITING_DATA';
+    return (
+      <div className="market-catalog-confirm">
+        {canOnboard && incomplete ? (
+          <button type="button" className="btn btn-primary btn-pill" disabled={busyRow} onClick={() => openEdit(item, 'collectors')}>
+            Completar cadastro
+          </button>
+        ) : null}
+        {pendingOff === item.ticker ? (
+          <>
+            <button type="button" className="btn btn-primary btn-pill" disabled={busyRow} onClick={() => { void deactivate(item.ticker); }}>
+              Confirmar desativar
+            </button>
+            <button type="button" className="btn btn-secondary btn-pill" onClick={() => setPendingOff(null)}>
+              Cancelar
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn btn-secondary btn-pill" disabled={busyRow} onClick={() => setPendingOff(item.ticker)}>
+            Desativar
+          </button>
+        )}
+      </div>
+    );
   }
+
+  const tickerButton = (item: MarketAssetItem) => (
+    canOnboard ? (
+      <button
+        type="button"
+        className="market-catalog-ticker-btn"
+        onClick={() => openEdit(item, 'identification')}
+        title="Editar cadastro"
+      >
+        {item.ticker}
+      </button>
+    ) : (
+      <strong>{item.ticker}</strong>
+    )
+  );
+
+  const columns = 7;
 
   return (
     <div className="market-ops-catalog">
       <p className="text-muted market-desk-hint">
-        Cadastro grava em <code>market_assets</code>. Disponível no catálogo ≠ entra no lote diário.
-        Fatos vêm dos agents de coleta — sem coleta, analisar falha.
+        Cadastro grava em <code>market_assets</code>, cria os coletores e habilita o MT5 de uma vez. Disponível no catálogo ≠ entra no lote diário:
+        a análise só liga quando os primeiros dados chegam.
       </p>
 
-      <form className="market-catalog-form" onSubmit={onSubmit}>
-        <div className="market-catalog-form-grid">
-          <div className="llm-form-field">
-            <label className="form-label" htmlFor="catalog-ticker">Ticker</label>
-            <input
-              id="catalog-ticker"
-              className="form-input"
-              name="ticker"
-              value={form.ticker}
-              onChange={(e) => setForm((prev) => ({ ...prev, ticker: e.target.value.toUpperCase() }))}
-              maxLength={6}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="PETR4"
-              aria-describedby="catalog-ticker-hint"
-            />
-            <span id="catalog-ticker-hint" className="text-muted market-catalog-hint">4 a 6 caracteres.</span>
-          </div>
-          <div className="llm-form-field">
-            <label className="form-label" htmlFor="catalog-name">Nome</label>
-            <input
-              id="catalog-name"
-              className="form-input"
-              name="displayName"
-              value={form.displayName}
-              onChange={(e) => setForm((prev) => ({ ...prev, displayName: e.target.value }))}
-              placeholder="Petrobras PN"
-            />
-          </div>
-          <div className="llm-form-field">
-            <label className="form-label" htmlFor="catalog-type">Tipo</label>
-            <select
-              id="catalog-type"
-              className="form-input"
-              name="assetType"
-              value={form.assetType}
-              onChange={(e) => setForm((prev) => ({ ...prev, assetType: e.target.value as AssetClassType }))}
-            >
-              {ASSET_TYPES.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="llm-form-field">
-            <label className="form-label" htmlFor="catalog-sector">Setor</label>
-            <input
-              id="catalog-sector"
-              className="form-input"
-              name="sectorLabel"
-              value={form.sectorLabel}
-              onChange={(e) => setForm((prev) => ({ ...prev, sectorLabel: e.target.value }))}
-              list="catalog-sector-list"
-              placeholder="Petróleo e gás"
-            />
-            <datalist id="catalog-sector-list">
-              {sectorHints.map((label) => (
-                <option key={label} value={label} />
-              ))}
-            </datalist>
-          </div>
-          <div className="llm-form-field">
-            <label className="form-label" htmlFor="catalog-segment">Segmento</label>
-            <input
-              id="catalog-segment"
-              className="form-input"
-              name="segment"
-              value={form.segment}
-              onChange={(e) => setForm((prev) => ({ ...prev, segment: e.target.value }))}
-              placeholder="Opcional"
-            />
-          </div>
-        </div>
-
-        <label className="market-catalog-toggle">
-          <input
-            type="checkbox"
-            checked={form.hasRuns}
-            onChange={(e) => setForm((prev) => ({ ...prev, hasRuns: e.target.checked }))}
-          />
-          <span>Entra no lote diário (<code>hasRuns</code>) — custa uma análise por dia útil</span>
-        </label>
-
-        <div className="market-catalog-form-actions">
-          <button type="submit" className="btn btn-primary btn-pill" disabled={!canSave}>
+      {canOnboard ? (
+        <div className="market-catalog-form-actions" style={{ marginBottom: '1rem' }}>
+          <button type="button" className="btn btn-primary btn-pill" onClick={openNew}>
             <Plus size={15} />
-            <span>{saving ? 'Salvando…' : 'Salvar no catálogo'}</span>
+            <span>Novo ativo</span>
           </button>
         </div>
-      </form>
+      ) : null}
 
       {error ? (
         <div className="agent-test-result is-error" role="alert">
           <p>{error}</p>
+        </div>
+      ) : null}
+
+      {healthFailed && !loading ? (
+        <p className="text-muted market-catalog-hint" role="status">
+          O indicador de cadastro completo não está disponível agora (coletores ou MT5 fora do ar). A listagem segue funcionando.
+        </p>
+      ) : null}
+
+      {orphans.length > 0 ? (
+        <div className="agent-test-result is-error" role="status">
+          <p style={{ margin: 0 }}>
+            {orphans.length} ticker(s) com coletor ou MT5 <strong>sem cadastro no catálogo</strong>: {orphans.join(', ')}.
+            Cadastre-os em “Novo ativo” ou desligue os coletores.
+          </p>
         </div>
       ) : null}
 
@@ -318,17 +336,27 @@ export const MarketCatalogPanel: React.FC = () => {
           aria-label="Filtrar por tipo"
         >
           <option value="">Todos os tipos</option>
-          {ASSET_TYPES.map((item) => (
+          {ASSET_TYPE_OPTIONS.map((item) => (
             <option key={item.value} value={item.value}>{item.label}</option>
           ))}
         </select>
+        {health ? (
+          <select
+            className="form-input audits-compact-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as '' | 'PENDING')}
+            aria-label="Filtrar por estado do cadastro"
+          >
+            {COMPLETENESS_FILTERS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+          </select>
+        ) : null}
         <span className="connections-summary-chip is-wait" aria-live="polite">
-          {inBatch} no lote · {items.length} no catálogo
+          {inBatch} no lote · {items.length} no catálogo{health ? ` · ${pendingCount} com pendências` : ''}
         </span>
         <button
           type="button"
           className="btn btn-secondary btn-pill"
-          onClick={() => { void loadCatalog(); }}
+          onClick={() => { void loadAll(); }}
           disabled={loading}
         >
           <RefreshCw size={15} />
@@ -344,6 +372,7 @@ export const MarketCatalogPanel: React.FC = () => {
               <th>Nome</th>
               <th>Tipo</th>
               <th>Setor</th>
+              <th>Cadastro</th>
               <th>Lote diário</th>
               <th>Ações</th>
             </tr>
@@ -351,15 +380,15 @@ export const MarketCatalogPanel: React.FC = () => {
           <tbody>
             {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={columns} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   Carregando catálogo…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={columns} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   {items.length === 0
-                    ? 'Nenhum ativo no catálogo. Cadastre o primeiro ticker acima.'
+                    ? (canOnboard ? 'Nenhum ativo no catálogo. Use “Novo ativo” para cadastrar o primeiro.' : 'Nenhum ativo no catálogo.')
                     : 'Nenhum ativo corresponde ao filtro.'}
                 </td>
               </tr>
@@ -368,15 +397,7 @@ export const MarketCatalogPanel: React.FC = () => {
                 const busyRow = toggling === item.ticker;
                 return (
                   <tr key={item.ticker}>
-                    <td>
-                      <button
-                        type="button"
-                        className="market-catalog-ticker-btn"
-                        onClick={() => fillForm(item)}
-                      >
-                        {item.ticker}
-                      </button>
-                    </td>
+                    <td>{tickerButton(item)}</td>
                     <td>{item.displayName || '—'}</td>
                     <td>
                       <span className={`market-asset-type-badge market-asset-type-badge--${(item.assetType || 'stock').toLowerCase().replace('_', '-')}`}>
@@ -387,6 +408,7 @@ export const MarketCatalogPanel: React.FC = () => {
                       {item.sectorLabel || '—'}
                       {item.segment ? <span className="text-muted"> · {item.segment}</span> : null}
                     </td>
+                    <td><CompletenessBadge status={statusByTicker.get(item.ticker.toUpperCase())} loaded={health !== null} /></td>
                     <td>
                       <label className={`switch-wrapper${busyRow ? ' switch-wrapper-disabled' : ''}`}>
                         <input
@@ -400,36 +422,7 @@ export const MarketCatalogPanel: React.FC = () => {
                         <span className="switch-slider" />
                       </label>
                     </td>
-                    <td>
-                      {pendingOff === item.ticker ? (
-                        <div className="market-catalog-confirm">
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-pill"
-                            disabled={busyRow}
-                            onClick={() => { void deactivate(item.ticker); }}
-                          >
-                            Confirmar
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-pill"
-                            onClick={() => setPendingOff(null)}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-pill"
-                          disabled={busyRow}
-                          onClick={() => setPendingOff(item.ticker)}
-                        >
-                          Desativar
-                        </button>
-                      )}
-                    </td>
+                    <td>{rowActions(item, busyRow)}</td>
                   </tr>
                 );
               })
@@ -442,15 +435,16 @@ export const MarketCatalogPanel: React.FC = () => {
         {filtered.map((item) => (
           <article key={item.ticker} className="mobile-domain-card">
             <div className="mobile-card-top">
-              <button type="button" className="market-catalog-ticker-btn" onClick={() => fillForm(item)}>
-                {item.ticker}
-              </button>
+              {tickerButton(item)}
               <span className={`market-asset-type-badge market-asset-type-badge--${(item.assetType || 'stock').toLowerCase().replace('_', '-')}`}>
                 {assetTypeLabel(item.assetType)}
               </span>
             </div>
             <div className="mobile-card-subinfo">{item.displayName || 'Sem nome'}</div>
             <div className="mobile-card-meta">{item.sectorLabel || 'Sem setor'}</div>
+            <div style={{ marginTop: '0.4rem' }}>
+              <CompletenessBadge status={statusByTicker.get(item.ticker.toUpperCase())} loaded={health !== null} />
+            </div>
             <label className="market-catalog-toggle" style={{ marginTop: '0.75rem' }}>
               <input
                 type="checkbox"
@@ -460,28 +454,21 @@ export const MarketCatalogPanel: React.FC = () => {
               />
               <span>Lote diário</span>
             </label>
-            {pendingOff === item.ticker ? (
-              <div className="market-catalog-confirm" style={{ marginTop: '0.5rem' }}>
-                <button type="button" className="btn btn-primary btn-pill" onClick={() => { void deactivate(item.ticker); }}>
-                  Confirmar desativar
-                </button>
-                <button type="button" className="btn btn-secondary btn-pill" onClick={() => setPendingOff(null)}>
-                  Cancelar
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-secondary btn-pill"
-                style={{ marginTop: '0.5rem' }}
-                onClick={() => setPendingOff(item.ticker)}
-              >
-                Desativar
-              </button>
-            )}
+            <div style={{ marginTop: '0.5rem' }}>{rowActions(item, toggling === item.ticker)}</div>
           </article>
         ))}
       </div>
+
+      {wizard ? (
+        <AssetOnboardingWizard
+          initial={wizard.initial}
+          startStep={wizard.startStep}
+          sectorHints={sectorHints}
+          onReport={onReport}
+          onViewInCatalog={(ticker) => { setQuery(ticker); setStatusFilter(''); setTypeFilter(''); }}
+          onClose={() => setWizard(null)}
+        />
+      ) : null}
     </div>
   );
 };

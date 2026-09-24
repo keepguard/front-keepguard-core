@@ -12070,3 +12070,207 @@ textarea.form-input {
 
 
 
+
+/* ── Onboarding de ativo (wizard no Catálogo) ─────────────────────────────── */
+.onb-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.onb-step {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem 0.3rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.onb-step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: var(--bg-input);
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+.onb-step.is-active {
+  border-color: var(--primary-border);
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.onb-step.is-active .onb-step-num {
+  background: var(--primary);
+  color: #fff;
+}
+
+.onb-step.is-done .onb-step-num {
+  background: var(--success-light);
+  color: var(--success-hover);
+}
+
+.onb-step-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  outline: none;
+}
+
+.onb-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.onb-span-2 {
+  grid-column: 1 / -1;
+}
+
+.onb-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem 0.8rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.onb-field-error,
+.onb-inline-error {
+  color: var(--danger);
+  font-size: 0.78rem;
+  margin: 0.2rem 0 0;
+}
+
+.onb-collector-desc {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.onb-badge {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--success-light);
+  color: var(--success-hover);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.onb-review {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.45rem 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.onb-review dt {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.onb-review dd {
+  margin: 0;
+}
+
+.onb-result-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.onb-result-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.onb-result-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.onb-result-subs {
+  margin: 0.3rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.onb-status-text {
+  margin-left: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.onb-status-text.is-ok { color: var(--success-hover); }
+.onb-status-text.is-failed { color: var(--danger); }
+.onb-status-text.is-pending { color: var(--warning); }
+.onb-status-text.is-skipped { color: var(--text-muted); }
+
+.onb-icon.is-ok { color: var(--success); }
+.onb-icon.is-error { color: var(--danger); }
+.onb-icon.is-wait { color: var(--warning); }
+.onb-icon.is-off { color: var(--text-muted); }
+
+.onb-badge-status {
+  display: inline-block;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.onb-badge-status.is-ok { border-color: var(--success-border); background: var(--success-light); color: var(--success-hover); }
+.onb-badge-status.is-wait { border-color: var(--warning-border); background: var(--warning-light); color: #92400e; }
+.onb-badge-status.is-warn { border-color: var(--warning-border); background: var(--warning-light); color: #92400e; }
+.onb-badge-status.is-error { border-color: var(--danger-border); background: var(--danger-light); color: var(--danger); }
+.onb-badge-status.is-off { color: var(--text-muted); }
+
+.onb-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.onb-spin {
+  animation: onb-spin 0.9s linear infinite;
+}
+
+@keyframes onb-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-spin { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .onb-grid { grid-template-columns: 1fr; }
+  .onb-review { grid-template-columns: 1fr; }
+  .onb-step-label { display: none; }
+  .onb-step.is-active .onb-step-label { display: inline; }
+  .onb-result-row { flex-wrap: wrap; }
+}
