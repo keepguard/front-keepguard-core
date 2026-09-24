@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { RefreshCw, Search } from 'lucide-react';
 import { Tooltip } from '../common/Tooltip';
+import { ListPager } from '../common/ListPager';
 import { RunDetailModal } from './RunDetailModal';
 import { RUN_TRIGGER_LABEL, RUN_OUTCOME_LABEL } from './marketLabels';
 import {
@@ -11,7 +12,24 @@ import {
 } from '../../services/analystService';
 
 const PAGE_SIZE = 20;
-const TICKER_DEBOUNCE_MS = 300;
+
+type Filters = {
+  ticker: string;
+  trigger: '' | AnalystRunTrigger;
+  outcome: '' | AnalystRunOutcome;
+  from: string;
+  to: string;
+};
+
+const EMPTY_FILTERS: Filters = { ticker: '', trigger: '', outcome: '', from: '', to: '' };
+
+/** datetime-local (hora local do navegador) -> RFC3339 para a API. */
+function toIso(localValue: string): string | undefined {
+  if (!localValue) return undefined;
+  const d = new Date(localValue);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
 
 function mapListError(err: unknown): string {
   const status = (err as { status?: number }).status;
@@ -39,33 +57,24 @@ export const MarketRunsPanel: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tickerInput, setTickerInput] = useState('');
-  const [ticker, setTicker] = useState('');
-  const [trigger, setTrigger] = useState<'' | AnalystRunTrigger>('');
-  const [outcome, setOutcome] = useState<'' | AnalystRunOutcome>('');
-  const [offset, setOffset] = useState(0);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS);
+  const [page, setPage] = useState(0);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
-
-  // Debounce só do texto do ticker; os selects já disparam a busca no onChange.
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setTicker(tickerInput.trim().toUpperCase());
-      setOffset(0);
-    }, TICKER_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
-  }, [tickerInput]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError('');
     listAllRuns({
-      ticker: ticker || undefined,
-      trigger: trigger || undefined,
-      outcome: outcome || undefined,
+      ticker: applied.ticker.trim().toUpperCase() || undefined,
+      trigger: applied.trigger || undefined,
+      outcome: applied.outcome || undefined,
+      from: toIso(applied.from),
+      to: toIso(applied.to),
       limit: PAGE_SIZE,
-      offset,
+      offset: page * PAGE_SIZE,
     })
       .then((res) => {
         if (cancelled) return;
@@ -75,62 +84,96 @@ export const MarketRunsPanel: React.FC = () => {
       .catch((err) => { if (!cancelled) setError(mapListError(err)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [ticker, trigger, outcome, offset, reloadTick]);
+  }, [applied, page, reloadTick]);
 
-  const rangeLabel = useMemo(() => {
-    if (total === 0) return '0 de 0';
-    const from = offset + 1;
-    const to = Math.min(offset + items.length, total);
-    return `${from}–${to} de ${total}`;
-  }, [offset, items.length, total]);
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    setApplied(filters);
+    setPage(0);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const filterActions = (
+    <div className="audits-filter-actions">
+      <button type="submit" className="btn btn-secondary btn-pill audits-filter-submit" disabled={loading}>
+        <Search size={15} />
+        <span>Buscar</span>
+      </button>
+      <Tooltip label="Atualizar">
+        <button
+          type="button"
+          className="btn-table-icon"
+          onClick={() => setReloadTick((n) => n + 1)}
+          disabled={loading}
+          aria-label={loading ? 'Atualizando lista' : 'Atualizar lista'}
+        >
+          <RefreshCw size={15} className={loading ? 'spin' : undefined} />
+        </button>
+      </Tooltip>
+    </div>
+  );
 
   return (
     <div className="market-ops-jobs">
-      <div className="market-catalog-toolbar">
-        <div className="search-input-wrapper audits-search-field">
-          <Search size={16} className="search-icon" />
+      <form className="audits-toolbar" onSubmit={handleSearch}>
+        <div className="audits-filter-row audits-filter-row-primary">
           <input
-            className="search-input"
-            value={tickerInput}
-            onChange={(e) => setTickerInput(e.target.value)}
-            placeholder="Filtrar por ticker"
+            className="form-input"
+            type="datetime-local"
+            value={filters.from}
+            onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+            aria-label="De (opcional)"
+            title="De (opcional)"
+          />
+          <input
+            className="form-input"
+            type="datetime-local"
+            value={filters.to}
+            onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+            aria-label="Até (opcional)"
+            title="Até (opcional)"
+          />
+          <select
+            className="form-input audits-compact-select"
+            value={filters.trigger}
+            onChange={(e) => setFilters((f) => ({ ...f, trigger: e.target.value as Filters['trigger'] }))}
+            aria-label="Filtrar por origem"
+          >
+            <option value="">Manual e lote</option>
+            <option value="ON_DEMAND">{RUN_TRIGGER_LABEL.ON_DEMAND}</option>
+            <option value="SCHEDULED">{RUN_TRIGGER_LABEL.SCHEDULED}</option>
+          </select>
+          <select
+            className="form-input audits-compact-select"
+            value={filters.outcome}
+            onChange={(e) => setFilters((f) => ({ ...f, outcome: e.target.value as Filters['outcome'] }))}
+            aria-label="Filtrar por resultado"
+          >
+            <option value="">Todos os resultados</option>
+            <option value="SUCCESS">{RUN_OUTCOME_LABEL.SUCCESS}</option>
+            <option value="DEGRADED">{RUN_OUTCOME_LABEL.DEGRADED}</option>
+            <option value="FAILED">{RUN_OUTCOME_LABEL.FAILED}</option>
+          </select>
+        </div>
+        <div className="audits-filter-row audits-filter-row-secondary">
+          <input
+            className="form-input"
+            placeholder="Ticker"
+            value={filters.ticker}
+            onChange={(e) => setFilters((f) => ({ ...f, ticker: e.target.value }))}
             aria-label="Filtrar por ticker"
           />
         </div>
-        <select
-          className="form-input audits-compact-select"
-          value={trigger}
-          onChange={(e) => { setTrigger(e.target.value as '' | AnalystRunTrigger); setOffset(0); }}
-          aria-label="Filtrar por origem"
-        >
-          <option value="">Manual e lote</option>
-          <option value="ON_DEMAND">{RUN_TRIGGER_LABEL.ON_DEMAND}</option>
-          <option value="SCHEDULED">{RUN_TRIGGER_LABEL.SCHEDULED}</option>
-        </select>
-        <select
-          className="form-input audits-compact-select"
-          value={outcome}
-          onChange={(e) => { setOutcome(e.target.value as '' | AnalystRunOutcome); setOffset(0); }}
-          aria-label="Filtrar por resultado"
-        >
-          <option value="">Todos os resultados</option>
-          <option value="SUCCESS">{RUN_OUTCOME_LABEL.SUCCESS}</option>
-          <option value="DEGRADED">{RUN_OUTCOME_LABEL.DEGRADED}</option>
-          <option value="FAILED">{RUN_OUTCOME_LABEL.FAILED}</option>
-        </select>
-        <span className="connections-summary-chip is-wait" aria-live="polite">{rangeLabel}</span>
-        <Tooltip label="Atualizar lista">
-          <button
-            type="button"
-            className="btn-table-icon"
-            onClick={() => setReloadTick((n) => n + 1)}
-            disabled={loading}
-            aria-label={loading ? 'Atualizando lista' : 'Atualizar lista'}
-          >
-            <RefreshCw size={15} className={loading ? 'spin' : undefined} />
-          </button>
-        </Tooltip>
-      </div>
+        <ListPager
+          loading={loading}
+          page={page}
+          totalPages={totalPages}
+          onPrev={() => setPage((p) => Math.max(0, p - 1))}
+          onNext={() => setPage((p) => p + 1)}
+          leading={filterActions}
+        />
+      </form>
 
       {error ? (
         <div className="agent-test-result is-error" role="alert"><p>{error}</p></div>
@@ -170,27 +213,6 @@ export const MarketRunsPanel: React.FC = () => {
             ) : null}
           </tbody>
         </table>
-      </div>
-
-      <div className="market-catalog-toolbar" style={{ justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          className="btn-table-icon"
-          disabled={loading || offset === 0}
-          onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-          aria-label="Página anterior"
-        >
-          <ChevronLeft size={15} />
-        </button>
-        <button
-          type="button"
-          className="btn-table-icon"
-          disabled={loading || offset + items.length >= total}
-          onClick={() => setOffset((o) => o + PAGE_SIZE)}
-          aria-label="Próxima página"
-        >
-          <ChevronRight size={15} />
-        </button>
       </div>
 
       {selectedRunId ? (
