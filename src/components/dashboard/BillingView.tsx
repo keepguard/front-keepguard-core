@@ -1,6 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Check, Copy, CreditCard, ExternalLink, LoaderCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  Eye,
+  FileText,
+  LoaderCircle,
+  Sparkles,
+} from 'lucide-react';
 import { PixQr } from './PixQr';
+import { InvoiceDetailModal } from './InvoiceDetailModal';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -20,6 +31,7 @@ import {
   type BillingSubscription,
 } from '../../services/billingService';
 import { authService } from '../../services/authService';
+import { getPlanQuotas, type PlanQuotaDTO } from '../../services/analystService';
 import { PATHS } from '../../navigation/routes';
 import {
   assertBillingVisibility,
@@ -86,6 +98,32 @@ function intervalLabel(value?: string | null): string {
   return INTERVALS.find((item) => item.value === value)?.label || value || '—';
 }
 
+const INTERVAL_MONTHS: Record<string, number> = {
+  month: 1,
+  quarter: 3,
+  semiannual: 6,
+  year: 12,
+};
+
+function monthsOf(interval: string): number {
+  return INTERVAL_MONTHS[interval] ?? 1;
+}
+
+function monthlyEquivalentCents(price: BillingPlanPrice): number {
+  return Math.round(price.amountCents / monthsOf(price.interval));
+}
+
+/** Quanto o ciclo longo economiza contra 12x o mensal do mesmo plano. */
+function savingsPercent(plan: BillingPlan, interval: string): number {
+  if (interval === 'month') return 0;
+  const monthly = plan.prices.find((price) => price.interval === 'month');
+  const target = plan.prices.find((price) => price.interval === interval);
+  if (!monthly || !target || monthly.amountCents <= 0) return 0;
+  const full = monthly.amountCents * monthsOf(interval);
+  if (target.amountCents >= full) return 0;
+  return Math.round(((full - target.amountCents) / full) * 100);
+}
+
 function planBenefit(plan: BillingPlan): string {
   return plan.trialDays > 0 ? `${plan.trialDays} dias de avaliação` : '';
 }
@@ -123,6 +161,51 @@ function invoiceStatusLabel(status?: string): string {
     default:
       return status || '—';
   }
+}
+
+function invoiceStatusBadgeClass(status?: string): string {
+  switch ((status || '').toLowerCase()) {
+    case 'paid':
+      return 'billing-status-badge is-paid';
+    case 'pending':
+      return 'billing-status-badge is-pending';
+    case 'overdue':
+      return 'billing-status-badge is-overdue';
+    case 'refunded':
+      return 'billing-status-badge is-refunded';
+    case 'canceled':
+      return 'billing-status-badge is-canceled';
+    default:
+      return 'billing-status-badge';
+  }
+}
+
+function paymentMethodLabel(method?: string | null): string {
+  switch ((method || '').toLowerCase()) {
+    case 'pix':
+      return 'PIX';
+    case 'boleto':
+      return 'Boleto';
+    case 'credit_card':
+    case 'creditcard':
+      return 'Cartão';
+    case 'manual':
+      return 'Manual';
+    default:
+      return method ? method.toUpperCase() : '—';
+  }
+}
+
+/**
+ * Vitrine só vende plano contratável. Vitalício/VIP (nível 999) é concedido pelo
+ * admin em /admin/billing via grant-lifetime — nunca escolhido pelo usuário.
+ */
+function isSellablePlan(plan: BillingPlan): boolean {
+  if (!plan.enabled) return false;
+  if (plan.isLifetime) return false;
+  if ((plan.code || '').toUpperCase() === 'VIP') return false;
+  if ((plan.level ?? 0) >= 999) return false;
+  return plan.prices.length > 0;
 }
 
 function formatDate(value?: string | null): string {
@@ -363,8 +446,9 @@ export const BillingPlansView: React.FC = () => {
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [planCode, setPlanCode] = useState('');
   const [interval, setInterval] = useState('month');
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto' | 'credit_card'>('pix');
-  const [creditCardToken, setCreditCardToken] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>('pix');
+  const [detailInvoice, setDetailInvoice] = useState<BillingInvoice | null>(null);
+  const [quotas, setQuotas] = useState<Record<string, PlanQuotaDTO>>({});
   const [busy, setBusy] = useState(false);
   const [justSubscribed, setJustSubscribed] = useState(false);
   const [hasCpf, setHasCpf] = useState(false);
@@ -423,9 +507,39 @@ export const BillingPlansView: React.FC = () => {
     }
   }, [isAuthenticated, load]);
 
+  /**
+   * Cotas de carteira por plano vivem no bff-invest e são o que diferencia um
+   * plano do outro na vitrine. Falha aqui não pode derrubar a contratação: sem
+   * cota, o card apenas não mostra a linha de capacidade.
+   */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    getPlanQuotas()
+      .then((list) => {
+        if (!active) return;
+        const map: Record<string, PlanQuotaDTO> = {};
+        list.forEach((quota) => {
+          if (quota.planCode) map[quota.planCode] = quota;
+        });
+        setQuotas(map);
+      })
+      .catch(() => {
+        if (active) setQuotas({});
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated]);
+
+  const sellablePlans = useMemo(
+    () => plans.filter(isSellablePlan).sort((a, b) => (a.level ?? 0) - (b.level ?? 0)),
+    [plans],
+  );
+
   const selectedPlan = useMemo(
-    () => plans.find((item) => item.code === planCode && item.enabled) || plans.find((item) => item.enabled),
-    [plans, planCode],
+    () => sellablePlans.find((item) => item.code === planCode) || sellablePlans[0],
+    [sellablePlans, planCode],
   );
 
   useEffect(() => {
@@ -433,6 +547,31 @@ export const BillingPlansView: React.FC = () => {
       setPlanCode(selectedPlan.code);
     }
   }, [planCode, selectedPlan]);
+
+  /**
+   * Cada plano tem seu próprio conjunto de ciclos. Ao trocar de plano, um ciclo
+   * que o plano novo não oferece deixaria o preço sem correspondência — daí o
+   * valor sumir da tela. Cai para o primeiro ciclo disponível do plano novo.
+   */
+  useEffect(() => {
+    const available = selectedPlan?.prices ?? [];
+    if (available.length === 0) return;
+    if (available.some((price) => price.interval === interval)) return;
+    setInterval(available[0].interval);
+  }, [selectedPlan, interval]);
+
+  /** Só os ciclos que ao menos um plano vendável oferece, na ordem canônica. */
+  const cycleOptions = useMemo(
+    () => INTERVALS.filter((item) => sellablePlans.some(
+      (plan) => plan.prices.some((price) => price.interval === item.value),
+    )),
+    [sellablePlans],
+  );
+
+  const topLevel = useMemo(
+    () => sellablePlans.reduce((max, plan) => Math.max(max, plan.level ?? 0), 0),
+    [sellablePlans],
+  );
 
   const pendingInvoice = useMemo(() => {
     const open = invoices.filter((item) => item.status === 'pending' || item.status === 'overdue');
@@ -466,6 +605,13 @@ export const BillingPlansView: React.FC = () => {
 
   const selectedPrice = selectedPlan?.prices.find((price) => price.interval === interval);
   const situation = situationCopy(entitlement, subscription, pendingInvoice);
+  /**
+   * A assinatura nasce com currentPeriodEnd preenchido no ms-billing antes de
+   * qualquer liquidação. Quem confirma o pagamento é o entitlement (webhook do
+   * PSP) ou uma fatura paga — só aí a vigência é real.
+   */
+  const paymentConfirmed = Boolean(entitlement?.allowsProduct)
+    || invoices.some((item) => item.status === 'paid' && item.subscriptionId === subscription?.id);
   const waitingCheckout = justSubscribed || Boolean(pendingInvoice && !hasInstrument);
   const checkoutPlanName = plans.find((plan) => plan.code === subscription?.planCode)?.name
     || subscription?.planCode
@@ -515,7 +661,6 @@ export const BillingPlansView: React.FC = () => {
         interval: string;
         paymentMethod: string;
         payerCpfCnpj?: string;
-        creditCardToken?: string;
       } = {
         planCode,
         interval,
@@ -523,15 +668,6 @@ export const BillingPlansView: React.FC = () => {
       };
       if (!hasCpf) {
         payload.payerCpfCnpj = cpfDigitsOf(cpfDigits);
-      }
-      if (paymentMethod === 'credit_card') {
-        const tokenCard = creditCardToken.trim();
-        if (!tokenCard) {
-          addToast({ type: 'error', title: 'Cartão', description: 'Informe o token do cartão gerado no Asaas.' });
-          setBusy(false);
-          return;
-        }
-        payload.creditCardToken = tokenCard;
       }
       const created = await createBillingSubscription(payload, access);
       setSubscription(created);
@@ -601,15 +737,20 @@ export const BillingPlansView: React.FC = () => {
       />
 
       {!pendingInvoice && (
-        <section className="hpanel-table-card billing-card">
-          <h2>Situação</h2>
-          <p>{situation.title}</p>
-          <p className="table-cell-muted">{situation.detail}</p>
+        <section className="hpanel-table-card billing-card billing-situation">
+          <div className="billing-situation-main">
+            <p className="billing-kicker">Situação</p>
+            <p className="billing-situation-title">{situation.title}</p>
+            <p className="table-cell-muted">{situation.detail}</p>
+          </div>
+          <span className={`billing-status-pill ${entitlement?.allowsProduct ? 'is-ok' : 'is-standby'}`}>
+            {entitlement?.allowsProduct ? 'Produto liberado' : 'Produto bloqueado'}
+          </span>
         </section>
       )}
 
-      <section className="hpanel-table-card billing-card billing-sub">
-        <h2>Minha assinatura</h2>
+      <section className={`hpanel-table-card billing-card${subscription ? ' billing-sub' : ' billing-store-card'}`}>
+        <h2>{subscription ? 'Minha assinatura' : 'Escolha seu plano'}</h2>
         {subscription ? (
           <div className="billing-sub-row">
             <div>
@@ -619,7 +760,11 @@ export const BillingPlansView: React.FC = () => {
                   {' '}· {intervalLabel(subscription.interval)} · {subscription.paymentMethod.toUpperCase()}
                 </span>
               </p>
-              <p className="table-cell-muted">Vigência até {formatDate(subscription.currentPeriodEnd)}</p>
+              {paymentConfirmed ? (
+                <p className="table-cell-muted">Vigência até {formatDate(subscription.currentPeriodEnd)}</p>
+              ) : (
+                <p className="table-cell-muted">Vigência definida após a confirmação do pagamento.</p>
+              )}
             </div>
             {subscription.status !== 'canceled' && (
               <button type="button" className="btn btn-outline btn-pill" disabled={busy} onClick={() => void cancelMine()}>
@@ -628,175 +773,217 @@ export const BillingPlansView: React.FC = () => {
             )}
           </div>
         ) : (
-          <form className="billing-form" onSubmit={subscribe}>
-            {/* 1. Plano */}
-            <div className="billing-form-row">
-              <label htmlFor="billing-plan-select" className="billing-label-title">
-                Plano
-              </label>
-              <div className="billing-field-content">
-                <select
-                  id="billing-plan-select"
-                  className="form-input"
-                  value={planCode}
-                  disabled={busy}
-                  onChange={(event) => setPlanCode(event.target.value)}
-                  required
-                >
-                  <option value="">Selecione</option>
-                  {plans.filter((plan) => plan.enabled).map((plan) => (
-                    <option key={plan.id} value={plan.code}>
-                      {plan.name}{planBenefit(plan) ? ` — ${planBenefit(plan)}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+          <form className="billing-store" onSubmit={subscribe}>
+            {sellablePlans.length === 0 ? (
+              <p className="table-cell-muted">Nenhum plano disponível para contratação no momento.</p>
+            ) : (
+              <>
+                {/* 1. Ciclo de cobrança */}
+                {cycleOptions.length > 1 && (
+                  <div className="billing-cycle-switch" role="group" aria-label="Ciclo de cobrança">
+                    {cycleOptions.map((option) => {
+                      const bestSaving = sellablePlans.reduce(
+                        (max, plan) => Math.max(max, savingsPercent(plan, option.value)),
+                        0,
+                      );
+                      const active = interval === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`billing-cycle-chip${active ? ' is-active' : ''}`}
+                          aria-pressed={active}
+                          disabled={busy}
+                          onClick={() => setInterval(option.value)}
+                        >
+                          {option.label}
+                          {bestSaving > 0 ? (
+                            <span className="billing-cycle-save">-{bestSaving}%</span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-            {/* 2. Ciclo */}
-            <div className="billing-form-row">
-              <label htmlFor="billing-interval-select" className="billing-label-title">
-                Ciclo
-              </label>
-              <div className="billing-field-content">
-                <select
-                  id="billing-interval-select"
-                  className="form-input"
-                  value={interval}
-                  disabled={busy}
-                  onChange={(event) => setInterval(event.target.value)}
-                >
-                  {(selectedPlan?.prices.length ? selectedPlan.prices : INTERVALS.map((item) => ({ interval: item.value } as BillingPlanPrice))).map((price) => (
-                    <option key={price.interval} value={price.interval}>
-                      {intervalLabel(price.interval)}
-                      {'amountCents' in price && price.amountCents ? ` · ${formatMoney(price.amountCents, price.currency)}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                {/* 2. Cards de plano */}
+                <div className="billing-plan-grid">
+                  {sellablePlans.map((plan) => {
+                    const price = plan.prices.find((item) => item.interval === interval);
+                    const quota = quotas[plan.code];
+                    const selected = plan.code === planCode;
+                    const featured = sellablePlans.length > 1 && (plan.level ?? 0) === topLevel;
+                    const saving = savingsPercent(plan, interval);
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        className={[
+                          'billing-plan-card',
+                          selected ? 'is-selected' : '',
+                          featured ? 'is-featured' : '',
+                          price ? '' : 'is-unavailable',
+                        ].filter(Boolean).join(' ')}
+                        aria-pressed={selected}
+                        disabled={busy || !price}
+                        onClick={() => setPlanCode(plan.code)}
+                      >
+                        <span className="billing-plan-card-top">
+                          <span className="billing-plan-level">Nível {plan.level ?? 0}</span>
+                          {featured ? (
+                            <span className="billing-plan-flag">
+                              <Sparkles size={11} aria-hidden />
+                              Mais completo
+                            </span>
+                          ) : null}
+                        </span>
 
-            {/* 3. Pagamento */}
-            <div className="billing-form-row">
-              <label htmlFor="billing-payment-method" className="billing-label-title">
-                Pagamento
-              </label>
-              <div className="billing-field-content">
-                <select
-                  id="billing-payment-method"
-                  className="form-input"
-                  value={paymentMethod}
-                  disabled={busy}
-                  onChange={(event) => setPaymentMethod(event.target.value as 'pix' | 'boleto' | 'credit_card')}
-                >
-                  <option value="pix">PIX</option>
-                  <option value="boleto">Boleto</option>
-                  <option value="credit_card">Cartão</option>
-                </select>
-              </div>
-            </div>
+                        <span className="billing-plan-name">{plan.name}</span>
 
-            {/* Se cartão: Token do cartão */}
-            {paymentMethod === 'credit_card' ? (
-              <div className="billing-form-row">
-                <label htmlFor="billing-credit-card-token" className="billing-label-title">
-                  Token do cartão
-                  <span className="billing-required-tag">Obrigatório</span>
-                </label>
-                <div className="billing-field-content">
-                  <input
-                    id="billing-credit-card-token"
-                    className="form-input"
-                    value={creditCardToken}
-                    onChange={(event) => setCreditCardToken(event.target.value)}
-                    required
-                    disabled={busy}
-                    autoComplete="off"
-                    placeholder="Token Asaas (sem PAN)"
-                    aria-describedby="billing-card-token-hint"
-                  />
-                  <span id="billing-card-token-hint" className="billing-cpf-hint">
-                    Use o SDK/hosted fields Asaas no browser. O KeepGuard não aceita número do cartão.
-                  </span>
+                        {price ? (
+                          <span className="billing-plan-price">
+                            <span className="billing-plan-price-val">
+                              {formatMoney(monthlyEquivalentCents(price), price.currency)}
+                            </span>
+                            <span className="billing-plan-price-unit">/mês</span>
+                          </span>
+                        ) : (
+                          <span className="billing-plan-price-off">Sem {intervalLabel(interval).toLowerCase()}</span>
+                        )}
+
+                        {price && interval !== 'month' ? (
+                          <span className="billing-plan-price-total">
+                            {formatMoney(price.amountCents, price.currency)} a cada {monthsOf(interval)} meses
+                            {saving > 0 ? ` · economia de ${saving}%` : ''}
+                          </span>
+                        ) : null}
+
+                        {quota ? (
+                          <span className="billing-plan-quotas">
+                            <span className="billing-plan-quota-pill">
+                              <strong>{quota.watchlistSlots}</strong> ativos
+                            </span>
+                            <span className="billing-plan-quota-pill is-picks">
+                              <strong>{quota.watchlistPicks}</strong> de livre escolha
+                            </span>
+                          </span>
+                        ) : null}
+
+                        {planBenefit(plan) ? (
+                          <span className="billing-plan-trial">{planBenefit(plan)}</span>
+                        ) : null}
+
+                        <span className="billing-plan-pick">
+                          {selected ? (
+                            <>
+                              <Check size={14} aria-hidden />
+                              Selecionado
+                            </>
+                          ) : (
+                            'Escolher este plano'
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-            ) : null}
 
-            {/* 4. CPF */}
-            <div className="billing-form-row">
-              <label htmlFor="billing-cpf-input" className="billing-label-title">
-                CPF
-                {!hasCpf && <span className="billing-required-tag">Obrigatório</span>}
-              </label>
-              <div className="billing-field-content">
-                <input
-                  id="billing-cpf-input"
-                  ref={cpfInputRef}
-                  className={`form-input${cpfIsInvalid ? ' form-input-error' : ''}`}
-                  value={hasCpf ? maskedCpfLast4(cpfLast4) : formatCpfMask(cpfDigits)}
-                  onChange={(event) => {
-                    setCpfDigits(cpfDigitsOf(event.target.value));
-                    if (cpfError) setCpfError('');
-                  }}
-                  required={!hasCpf}
-                  readOnly={hasCpf}
-                  disabled={busy || hasCpf}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  aria-readonly={hasCpf || undefined}
-                  aria-required={!hasCpf}
-                  aria-invalid={cpfIsInvalid ? true : undefined}
-                  aria-describedby={cpfAriaDescribedBy}
-                  placeholder="000.000.000-00"
-                />
-                <div className="billing-field-feedback">
-                  {hasCpf ? (
-                    <span className="billing-cpf-hint">CPF cadastrado no perfil.</span>
-                  ) : cpfDisplayError ? (
-                    <span id="billing-cpf-error" className="billing-field-error" role="alert">
-                      {cpfDisplayError}
-                    </span>
-                  ) : (
-                    <span id="billing-cpf-hint" className="billing-cpf-hint">
-                      O Asaas usa o CPF do pagador no PIX e no boleto.
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+                {/* 3. Fechamento do pedido */}
+                <div className="billing-checkout-panel">
+                  <div className="billing-checkout-resume">
+                    <p className="billing-kicker">Resumo</p>
+                    <p className="billing-checkout-plan">
+                      {selectedPlan?.name || 'Selecione um plano'}
+                      <span className="billing-sub-meta"> · {intervalLabel(interval)}</span>
+                    </p>
+                    {selectedPrice ? (
+                      <p className="billing-checkout-total">
+                        {formatMoney(selectedPrice.amountCents, selectedPrice.currency)}
+                        <span className="billing-checkout-total-unit"> por ciclo</span>
+                      </p>
+                    ) : null}
+                  </div>
 
-            {/* 5. Valor do ciclo */}
-            {selectedPrice && (
-              <div className="billing-form-row billing-cycle-row">
-                <span className="billing-label-title">Valor do ciclo</span>
-                <div className="billing-cycle-display">
-                  <strong className="billing-cycle-amount">{formatMoney(selectedPrice.amountCents, selectedPrice.currency)}</strong>
-                  {selectedPlan && planBenefit(selectedPlan) ? (
-                    <span className="billing-benefit-tag">{planBenefit(selectedPlan)}</span>
-                  ) : null}
+                  <div className="billing-checkout-form">
+                    <div className="billing-field-block">
+                      <span className="billing-label-title" id="billing-method-label">Pagamento</span>
+                      <div className="billing-method-switch" role="group" aria-labelledby="billing-method-label">
+                        {(['pix', 'boleto'] as const).map((method) => (
+                          <button
+                            key={method}
+                            type="button"
+                            className={`billing-method-chip${paymentMethod === method ? ' is-active' : ''}`}
+                            aria-pressed={paymentMethod === method}
+                            disabled={busy}
+                            onClick={() => setPaymentMethod(method)}
+                          >
+                            {method === 'pix' ? 'PIX' : 'Boleto'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="billing-field-block">
+                      <label htmlFor="billing-cpf-input" className="billing-label-title">
+                        CPF
+                        {!hasCpf && <span className="billing-required-tag">Obrigatório</span>}
+                      </label>
+                      <input
+                        id="billing-cpf-input"
+                        ref={cpfInputRef}
+                        className={`form-input${cpfIsInvalid ? ' form-input-error' : ''}`}
+                        value={hasCpf ? maskedCpfLast4(cpfLast4) : formatCpfMask(cpfDigits)}
+                        onChange={(event) => {
+                          setCpfDigits(cpfDigitsOf(event.target.value));
+                          if (cpfError) setCpfError('');
+                        }}
+                        required={!hasCpf}
+                        readOnly={hasCpf}
+                        disabled={busy || hasCpf}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        aria-readonly={hasCpf || undefined}
+                        aria-required={!hasCpf}
+                        aria-invalid={cpfIsInvalid ? true : undefined}
+                        aria-describedby={cpfAriaDescribedBy}
+                        placeholder="000.000.000-00"
+                      />
+                      <div className="billing-field-feedback">
+                        {hasCpf ? (
+                          <span className="billing-cpf-hint">CPF cadastrado no perfil.</span>
+                        ) : cpfDisplayError ? (
+                          <span id="billing-cpf-error" className="billing-field-error" role="alert">
+                            {cpfDisplayError}
+                          </span>
+                        ) : (
+                          <span id="billing-cpf-hint" className="billing-cpf-hint">
+                            O Asaas usa o CPF do pagador no PIX e no boleto.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    className="btn btn-primary btn-pill billing-submit-btn"
+                    type="submit"
+                    disabled={
+                      busy
+                      || !planCode
+                      || !selectedPrice
+                      || (!hasCpf && (!cpfDigits || !isValidCpf(cpfDigits)))
+                    }
+                  >
+                    <CreditCard size={15} />
+                    {busy ? 'Processando…' : 'Assinar'}
+                  </button>
+
+                  <p className="billing-checkout-footnote">
+                    O acesso libera assim que o pagamento for confirmado pelo banco.
+                  </p>
                 </div>
-              </div>
+              </>
             )}
-
-            {/* 6. Botão assinatura */}
-            <div className="billing-form-row billing-action-row">
-              <div className="billing-action-spacer" aria-hidden="true" />
-              <div className="billing-action-btn-wrap">
-                <button
-                  className="btn btn-primary btn-pill billing-submit-btn"
-                  type="submit"
-                  disabled={
-                    busy
-                    || !planCode
-                    || (!hasCpf && (!cpfDigits || !isValidCpf(cpfDigits)))
-                    || (paymentMethod === 'credit_card' && !creditCardToken.trim())
-                  }
-                >
-                  <CreditCard size={15} />
-                  {busy ? 'Processando…' : 'Assinar'}
-                </button>
-              </div>
-            </div>
           </form>
         )}
       </section>
@@ -822,29 +1009,59 @@ export const BillingPlansView: React.FC = () => {
                   <tr key={invoice.id}>
                     <td>{formatDate(invoice.issuedAt || invoice.dueAt)}</td>
                     <td>{formatMoney(invoice.amountCents, invoice.currency)}</td>
-                    <td>{invoice.status}</td>
-                    <td>{(invoice.paymentMethod || '—').toUpperCase()}</td>
                     <td>
-                      {invoice.bankSlipUrl ? (
-                        <a href={invoice.bankSlipUrl} target="_blank" rel="noreferrer">
-                          Boleto
-                        </a>
-                      ) : null}
-                      {invoice.pixPayload && (invoice.status === 'pending' || invoice.status === 'overdue') ? (
+                      <span className={invoiceStatusBadgeClass(invoice.status)}>
+                        {invoiceStatusLabel(invoice.status)}
+                      </span>
+                    </td>
+                    <td>{paymentMethodLabel(invoice.paymentMethod)}</td>
+                    <td>
+                      <div className="billing-table-actions">
                         <button
                           type="button"
-                          className="btn btn-outline btn-pill"
-                          onClick={() => void copyPix(invoice.pixPayload || '')}
+                          className="btn-table-icon"
+                          title="Ver detalhes da fatura"
+                          aria-label="Ver detalhes da fatura"
+                          onClick={() => setDetailInvoice(invoice)}
                         >
-                          Copiar PIX
+                          <Eye size={15} />
                         </button>
-                      ) : null}
-                      {invoice.nfUrl ? (
-                        <a href={invoice.nfUrl} target="_blank" rel="noreferrer">
-                          Nota fiscal
-                        </a>
-                      ) : null}
-                      {!invoice.bankSlipUrl && !invoice.pixPayload && !invoice.nfUrl ? '—' : null}
+                        {invoice.pixPayload && (invoice.status === 'pending' || invoice.status === 'overdue') ? (
+                          <button
+                            type="button"
+                            className="btn-table-icon"
+                            title="Copiar código PIX"
+                            aria-label="Copiar código PIX"
+                            onClick={() => void copyPix(invoice.pixPayload || '')}
+                          >
+                            <Copy size={15} />
+                          </button>
+                        ) : null}
+                        {invoice.bankSlipUrl ? (
+                          <a
+                            className="btn-table-icon"
+                            href={invoice.bankSlipUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Abrir boleto"
+                            aria-label="Abrir boleto"
+                          >
+                            <ExternalLink size={15} />
+                          </a>
+                        ) : null}
+                        {invoice.nfUrl ? (
+                          <a
+                            className="btn-table-icon"
+                            href={invoice.nfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Abrir nota fiscal"
+                            aria-label="Abrir nota fiscal"
+                          >
+                            <FileText size={15} />
+                          </a>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -853,6 +1070,12 @@ export const BillingPlansView: React.FC = () => {
           </div>
         )}
       </section>
+
+      <InvoiceDetailModal
+        isOpen={detailInvoice !== null}
+        onClose={() => setDetailInvoice(null)}
+        invoice={detailInvoice}
+      />
     </div>
   );
 };
