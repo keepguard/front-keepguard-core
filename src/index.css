@@ -12701,3 +12701,85 @@ textarea.form-input {
     width: 100%;
   }
 }
+
+/* --- Mudança de plano e agendamento --- */
+
+.billing-scheduled {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-left: 3px solid var(--warning);
+}
+
+.billing-scheduled-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.billing-scheduled-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.billing-change-hint {
+  margin: -0.25rem 0 0.9rem;
+  max-width: 62ch;
+}
+
+.billing-plan-card.is-current {
+  border-style: dashed;
+  border-color: var(--border);
+  background: var(--bg-muted);
+  opacity: 1;
+}
+
+.billing-plan-card.is-current .billing-plan-pick {
+  color: var(--text-sub);
+}
+
+.billing-change-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.billing-change-summary p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.billing-change-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.9rem;
+  color: var(--text-body);
+}
+
+.billing-change-line.is-credit {
+  color: var(--success-hover);
+  font-weight: 600;
+}
+
+.billing-change-line.is-total {
+  border-bottom: none;
+  border-top: 1.5px solid var(--border);
+  padding-top: 0.7rem;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.billing-change-line.is-total strong {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}

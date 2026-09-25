@@ -70,6 +70,10 @@ export interface BillingSubscription {
   status: string;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  scheduledPlanCode?: string | null;
+  scheduledInterval?: string | null;
+  scheduledChangeAt?: string | null;
   sessionId?: string | null;
   deviceId?: string | null;
   deviceName?: string | null;
@@ -225,10 +229,69 @@ export function createBillingSubscription(
   }, token);
 }
 
-export function cancelBillingSubscription(id: string, token: string): Promise<BillingSubscription> {
-  return customFetch<BillingSubscription>(`${BILLING_BASE}/subscriptions/${encodeURIComponent(id)}/cancel`, {
-    method: 'POST',
-  }, token);
+/**
+ * Sem `immediate`, o cancelamento é agendado para o fim da vigência já paga — o corte
+ * na hora é privilégio de operação e o bff-core descarta o flag de quem não for admin.
+ */
+export function cancelBillingSubscription(
+  id: string,
+  token: string,
+  immediate = false,
+): Promise<BillingSubscription> {
+  const suffix = immediate ? '?immediate=true' : '';
+  return customFetch<BillingSubscription>(
+    `${BILLING_BASE}/subscriptions/${encodeURIComponent(id)}/cancel${suffix}`,
+    { method: 'POST' },
+    token,
+  );
+}
+
+export interface BillingPlanChangePreview {
+  type: 'upgrade' | 'downgrade' | 'same';
+  currentPlanCode: string;
+  currentInterval: string;
+  targetPlanCode: string;
+  targetInterval: string;
+  targetAmountCents: number;
+  creditCents: number;
+  chargeCents: number;
+  currency: string;
+  effectiveAt?: string | null;
+  immediate: boolean;
+}
+
+export function previewBillingPlanChange(
+  id: string,
+  planCode: string,
+  interval: string,
+  token: string,
+): Promise<BillingPlanChangePreview> {
+  const query = new URLSearchParams({ planCode, interval }).toString();
+  return customFetch<BillingPlanChangePreview>(
+    `${BILLING_BASE}/subscriptions/${encodeURIComponent(id)}/change-preview?${query}`,
+    { method: 'GET' },
+    token,
+  );
+}
+
+export function changeBillingPlan(
+  id: string,
+  body: { planCode: string; interval: string },
+  token: string,
+): Promise<BillingSubscription> {
+  return customFetch<BillingSubscription>(
+    `${BILLING_BASE}/subscriptions/${encodeURIComponent(id)}/change-plan`,
+    { method: 'POST', body: JSON.stringify(body) },
+    token,
+  );
+}
+
+export function clearBillingScheduledChange(id: string, token: string): Promise<BillingSubscription> {
+  return customFetch<BillingSubscription>(
+    `${BILLING_BASE}/subscriptions/${encodeURIComponent(id)}/scheduled-change`,
+    { method: 'DELETE' },
+    token,
+  );
 }
 
 function toQuery(params: Record<string, string | number | boolean | undefined>): string {

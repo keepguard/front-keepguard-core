@@ -12,12 +12,16 @@ import {
 } from 'lucide-react';
 import { PixQr } from './PixQr';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
+import { Modal } from '../common/Modal';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
   cancelBillingSubscription,
+  changeBillingPlan,
+  clearBillingScheduledChange,
   createBillingSubscription,
+  previewBillingPlanChange,
   getBillingEntitlement,
   getBillingSubscription,
   listBillingInvoices,
@@ -27,6 +31,7 @@ import {
   type BillingEntitlement,
   type BillingInvoice,
   type BillingPlan,
+  type BillingPlanChangePreview,
   type BillingPlanPrice,
   type BillingSubscription,
 } from '../../services/billingService';
@@ -436,6 +441,142 @@ const SubscriberCheckout: React.FC<{
   );
 };
 
+type CycleOption = { value: string; label: string };
+
+const CycleSwitch: React.FC<{
+  options: ReadonlyArray<CycleOption>;
+  plans: BillingPlan[];
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}> = ({ options, plans, value, disabled, onChange }) => {
+  if (options.length <= 1) return null;
+  return (
+    <div className="billing-cycle-switch" role="group" aria-label="Ciclo de cobrança">
+      {options.map((option) => {
+        const bestSaving = plans.reduce(
+          (max, plan) => Math.max(max, savingsPercent(plan, option.value)),
+          0,
+        );
+        const active = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            className={`billing-cycle-chip${active ? ' is-active' : ''}`}
+            aria-pressed={active}
+            disabled={disabled}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+            {bestSaving > 0 ? <span className="billing-cycle-save">-{bestSaving}%</span> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const PlanCardGrid: React.FC<{
+  plans: BillingPlan[];
+  quotas: Record<string, PlanQuotaDTO>;
+  interval: string;
+  selectedCode: string;
+  disabled: boolean;
+  ctaLabel: string;
+  currentCode?: string | null;
+  currentInterval?: string | null;
+  onSelect: (code: string) => void;
+}> = ({ plans, quotas, interval, selectedCode, disabled, ctaLabel, currentCode, currentInterval, onSelect }) => {
+  const topLevel = plans.reduce((max, plan) => Math.max(max, plan.level ?? 0), 0);
+  return (
+    <div className="billing-plan-grid">
+      {plans.map((plan) => {
+        const price = plan.prices.find((item) => item.interval === interval);
+        const quota = quotas[plan.code];
+        const selected = plan.code === selectedCode;
+        const isCurrent = plan.code === currentCode && interval === currentInterval;
+        const featured = plans.length > 1 && (plan.level ?? 0) === topLevel;
+        const saving = savingsPercent(plan, interval);
+        return (
+          <button
+            key={plan.id}
+            type="button"
+            className={[
+              'billing-plan-card',
+              selected ? 'is-selected' : '',
+              featured ? 'is-featured' : '',
+              isCurrent ? 'is-current' : '',
+              price ? '' : 'is-unavailable',
+            ].filter(Boolean).join(' ')}
+            aria-pressed={selected}
+            disabled={disabled || !price || isCurrent}
+            onClick={() => onSelect(plan.code)}
+          >
+            <span className="billing-plan-card-top">
+              <span className="billing-plan-level">Nível {plan.level ?? 0}</span>
+              {featured ? (
+                <span className="billing-plan-flag">
+                  <Sparkles size={11} aria-hidden />
+                  Mais completo
+                </span>
+              ) : null}
+            </span>
+
+            <span className="billing-plan-name">{plan.name}</span>
+
+            {price ? (
+              <span className="billing-plan-price">
+                <span className="billing-plan-price-val">
+                  {formatMoney(monthlyEquivalentCents(price), price.currency)}
+                </span>
+                <span className="billing-plan-price-unit">/mês</span>
+              </span>
+            ) : (
+              <span className="billing-plan-price-off">Sem {intervalLabel(interval).toLowerCase()}</span>
+            )}
+
+            {price && interval !== 'month' ? (
+              <span className="billing-plan-price-total">
+                {formatMoney(price.amountCents, price.currency)} a cada {monthsOf(interval)} meses
+                {saving > 0 ? ` · economia de ${saving}%` : ''}
+              </span>
+            ) : null}
+
+            {quota ? (
+              <span className="billing-plan-quotas">
+                <span className="billing-plan-quota-pill">
+                  <strong>{quota.watchlistSlots}</strong> ativos
+                </span>
+                <span className="billing-plan-quota-pill is-picks">
+                  <strong>{quota.watchlistPicks}</strong> de livre escolha
+                </span>
+              </span>
+            ) : null}
+
+            {planBenefit(plan) ? (
+              <span className="billing-plan-trial">{planBenefit(plan)}</span>
+            ) : null}
+
+            <span className="billing-plan-pick">
+              {isCurrent ? (
+                'Plano atual'
+              ) : selected ? (
+                <>
+                  <Check size={14} aria-hidden />
+                  Selecionado
+                </>
+              ) : (
+                ctaLabel
+              )}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 export const BillingPlansView: React.FC = () => {
   const { isAuthenticated, getAccessToken, user } = useAuth();
   const { addToast } = useToast();
@@ -449,6 +590,10 @@ export const BillingPlansView: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>('pix');
   const [detailInvoice, setDetailInvoice] = useState<BillingInvoice | null>(null);
   const [quotas, setQuotas] = useState<Record<string, PlanQuotaDTO>>({});
+  const [changeInterval, setChangeInterval] = useState('month');
+  const [changePreview, setChangePreview] = useState<BillingPlanChangePreview | null>(null);
+  const [changeTarget, setChangeTarget] = useState<{ planCode: string; interval: string } | null>(null);
+  const [changeLoading, setChangeLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [justSubscribed, setJustSubscribed] = useState(false);
   const [hasCpf, setHasCpf] = useState(false);
@@ -568,10 +713,12 @@ export const BillingPlansView: React.FC = () => {
     [sellablePlans],
   );
 
-  const topLevel = useMemo(
-    () => sellablePlans.reduce((max, plan) => Math.max(max, plan.level ?? 0), 0),
-    [sellablePlans],
-  );
+  /** A troca começa mostrando o ciclo que o assinante já tem hoje. */
+  useEffect(() => {
+    if (subscription?.interval) {
+      setChangeInterval(subscription.interval);
+    }
+  }, [subscription?.interval]);
 
   const pendingInvoice = useMemo(() => {
     const open = invoices.filter((item) => item.status === 'pending' || item.status === 'overdue');
@@ -637,6 +784,63 @@ export const BillingPlansView: React.FC = () => {
       ? 'billing-cpf-error'
       : 'billing-cpf-hint';
 
+  const openChangePreview = async (targetPlanCode: string) => {
+    const access = getAccessToken();
+    if (!access || !subscription?.id) return;
+    setChangeTarget({ planCode: targetPlanCode, interval: changeInterval });
+    setChangeLoading(true);
+    setChangePreview(null);
+    try {
+      const preview = await previewBillingPlanChange(subscription.id, targetPlanCode, changeInterval, access);
+      setChangePreview(preview);
+    } catch (error) {
+      setChangeTarget(null);
+      addToast({ type: 'error', title: 'Troca de plano', description: errorMessage(error) });
+    } finally {
+      setChangeLoading(false);
+    }
+  };
+
+  const confirmChange = async () => {
+    const access = getAccessToken();
+    if (!access || !subscription?.id || !changeTarget) return;
+    setBusy(true);
+    try {
+      await changeBillingPlan(subscription.id, changeTarget, access);
+      const upgrade = changePreview?.type === 'upgrade';
+      addToast({
+        type: 'success',
+        title: upgrade ? 'Upgrade solicitado' : 'Downgrade agendado',
+        description: upgrade
+          ? 'Pague a diferença para o plano novo valer. O acesso atual continua até lá.'
+          : 'O plano novo assume quando a vigência atual expirar.',
+      });
+      setChangeTarget(null);
+      setChangePreview(null);
+      if (upgrade) setJustSubscribed(true);
+      await load({ silent: true });
+    } catch (error) {
+      addToast({ type: 'error', title: 'Troca de plano', description: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const undoScheduledChange = async () => {
+    const access = getAccessToken();
+    if (!access || !subscription?.id) return;
+    setBusy(true);
+    try {
+      await clearBillingScheduledChange(subscription.id, access);
+      addToast({ type: 'success', title: 'Assinatura', description: 'Agendamento desfeito.' });
+      await load({ silent: true });
+    } catch (error) {
+      addToast({ type: 'error', title: 'Assinatura', description: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const subscribe = async (event: React.FormEvent) => {
     event.preventDefault();
     const access = getAccessToken();
@@ -700,8 +904,14 @@ export const BillingPlansView: React.FC = () => {
     if (!access || !subscription?.id) return;
     setBusy(true);
     try {
-      await cancelBillingSubscription(subscription.id, access);
-      addToast({ type: 'success', title: 'Assinatura', description: 'Cancelamento solicitado.' });
+      const canceled = await cancelBillingSubscription(subscription.id, access);
+      addToast({
+        type: 'success',
+        title: 'Assinatura',
+        description: canceled.cancelAtPeriodEnd
+          ? 'Cancelamento agendado. O acesso continua até o fim da vigência já paga.'
+          : 'Assinatura cancelada.',
+      });
       await load();
     } catch (error) {
       addToast({ type: 'error', title: 'Cancelar', description: errorMessage(error) });
@@ -766,9 +976,9 @@ export const BillingPlansView: React.FC = () => {
                 <p className="table-cell-muted">Vigência definida após a confirmação do pagamento.</p>
               )}
             </div>
-            {subscription.status !== 'canceled' && (
+            {subscription.status !== 'canceled' && !subscription.cancelAtPeriodEnd && (
               <button type="button" className="btn btn-outline btn-pill" disabled={busy} onClick={() => void cancelMine()}>
-                Cancelar
+                Cancelar assinatura
               </button>
             )}
           </div>
@@ -779,114 +989,24 @@ export const BillingPlansView: React.FC = () => {
             ) : (
               <>
                 {/* 1. Ciclo de cobrança */}
-                {cycleOptions.length > 1 && (
-                  <div className="billing-cycle-switch" role="group" aria-label="Ciclo de cobrança">
-                    {cycleOptions.map((option) => {
-                      const bestSaving = sellablePlans.reduce(
-                        (max, plan) => Math.max(max, savingsPercent(plan, option.value)),
-                        0,
-                      );
-                      const active = interval === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`billing-cycle-chip${active ? ' is-active' : ''}`}
-                          aria-pressed={active}
-                          disabled={busy}
-                          onClick={() => setInterval(option.value)}
-                        >
-                          {option.label}
-                          {bestSaving > 0 ? (
-                            <span className="billing-cycle-save">-{bestSaving}%</span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                <CycleSwitch
+                  options={cycleOptions}
+                  plans={sellablePlans}
+                  value={interval}
+                  disabled={busy}
+                  onChange={setInterval}
+                />
 
                 {/* 2. Cards de plano */}
-                <div className="billing-plan-grid">
-                  {sellablePlans.map((plan) => {
-                    const price = plan.prices.find((item) => item.interval === interval);
-                    const quota = quotas[plan.code];
-                    const selected = plan.code === planCode;
-                    const featured = sellablePlans.length > 1 && (plan.level ?? 0) === topLevel;
-                    const saving = savingsPercent(plan, interval);
-                    return (
-                      <button
-                        key={plan.id}
-                        type="button"
-                        className={[
-                          'billing-plan-card',
-                          selected ? 'is-selected' : '',
-                          featured ? 'is-featured' : '',
-                          price ? '' : 'is-unavailable',
-                        ].filter(Boolean).join(' ')}
-                        aria-pressed={selected}
-                        disabled={busy || !price}
-                        onClick={() => setPlanCode(plan.code)}
-                      >
-                        <span className="billing-plan-card-top">
-                          <span className="billing-plan-level">Nível {plan.level ?? 0}</span>
-                          {featured ? (
-                            <span className="billing-plan-flag">
-                              <Sparkles size={11} aria-hidden />
-                              Mais completo
-                            </span>
-                          ) : null}
-                        </span>
-
-                        <span className="billing-plan-name">{plan.name}</span>
-
-                        {price ? (
-                          <span className="billing-plan-price">
-                            <span className="billing-plan-price-val">
-                              {formatMoney(monthlyEquivalentCents(price), price.currency)}
-                            </span>
-                            <span className="billing-plan-price-unit">/mês</span>
-                          </span>
-                        ) : (
-                          <span className="billing-plan-price-off">Sem {intervalLabel(interval).toLowerCase()}</span>
-                        )}
-
-                        {price && interval !== 'month' ? (
-                          <span className="billing-plan-price-total">
-                            {formatMoney(price.amountCents, price.currency)} a cada {monthsOf(interval)} meses
-                            {saving > 0 ? ` · economia de ${saving}%` : ''}
-                          </span>
-                        ) : null}
-
-                        {quota ? (
-                          <span className="billing-plan-quotas">
-                            <span className="billing-plan-quota-pill">
-                              <strong>{quota.watchlistSlots}</strong> ativos
-                            </span>
-                            <span className="billing-plan-quota-pill is-picks">
-                              <strong>{quota.watchlistPicks}</strong> de livre escolha
-                            </span>
-                          </span>
-                        ) : null}
-
-                        {planBenefit(plan) ? (
-                          <span className="billing-plan-trial">{planBenefit(plan)}</span>
-                        ) : null}
-
-                        <span className="billing-plan-pick">
-                          {selected ? (
-                            <>
-                              <Check size={14} aria-hidden />
-                              Selecionado
-                            </>
-                          ) : (
-                            'Escolher este plano'
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <PlanCardGrid
+                  plans={sellablePlans}
+                  quotas={quotas}
+                  interval={interval}
+                  selectedCode={planCode}
+                  disabled={busy}
+                  ctaLabel="Escolher este plano"
+                  onSelect={setPlanCode}
+                />
 
                 {/* 3. Fechamento do pedido */}
                 <div className="billing-checkout-panel">
@@ -988,6 +1108,68 @@ export const BillingPlansView: React.FC = () => {
         )}
       </section>
 
+      {subscription && subscription.status !== 'canceled' && (
+        <>
+          {(subscription.cancelAtPeriodEnd || subscription.scheduledPlanCode) && (
+            <section className="hpanel-table-card billing-card billing-scheduled">
+              <div className="billing-scheduled-main">
+                <p className="billing-kicker">Agendado</p>
+                <p className="billing-scheduled-title">
+                  {subscription.cancelAtPeriodEnd
+                    ? 'Cancelamento no fim da vigência'
+                    : `Mudança para ${subscription.scheduledPlanCode}`
+                      + (subscription.scheduledInterval ? ` · ${intervalLabel(subscription.scheduledInterval)}` : '')}
+                </p>
+                <p className="table-cell-muted">
+                  {subscription.cancelAtPeriodEnd
+                    ? 'Você mantém o acesso ao que já pagou até '
+                    : 'O plano novo assume em '}
+                  {formatDate(subscription.scheduledChangeAt || subscription.currentPeriodEnd)}.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-pill"
+                disabled={busy}
+                onClick={() => void undoScheduledChange()}
+              >
+                Desfazer
+              </button>
+            </section>
+          )}
+
+          {!subscription.cancelAtPeriodEnd && !subscription.scheduledPlanCode && sellablePlans.length > 1 && (
+            <section className="hpanel-table-card billing-card billing-store-card">
+              <h2>Trocar de plano</h2>
+              <p className="table-cell-muted billing-change-hint">
+                Subir de plano vale na hora e o tempo que sobrou do plano atual vira desconto.
+                Descer só na virada da vigência — nada que você já pagou se perde.
+              </p>
+              <div className="billing-store">
+                <CycleSwitch
+                  options={cycleOptions}
+                  plans={sellablePlans}
+                  value={changeInterval}
+                  disabled={busy || changeLoading}
+                  onChange={setChangeInterval}
+                />
+                <PlanCardGrid
+                  plans={sellablePlans}
+                  quotas={quotas}
+                  interval={changeInterval}
+                  selectedCode={changeTarget?.planCode || ''}
+                  disabled={busy || changeLoading}
+                  ctaLabel="Simular troca"
+                  currentCode={subscription.planCode}
+                  currentInterval={subscription.interval}
+                  onSelect={(code) => void openChangePreview(code)}
+                />
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
       <section className="hpanel-table-card billing-card">
         <h2>Minhas faturas</h2>
         {invoices.length === 0 ? (
@@ -1076,6 +1258,76 @@ export const BillingPlansView: React.FC = () => {
         onClose={() => setDetailInvoice(null)}
         invoice={detailInvoice}
       />
+
+      <Modal
+        isOpen={changeTarget !== null}
+        onClose={() => { setChangeTarget(null); setChangePreview(null); }}
+        title={changePreview?.type === 'downgrade' ? 'Agendar mudança de plano' : 'Confirmar upgrade'}
+        subtitle={changeTarget ? `${changeTarget.planCode} · ${intervalLabel(changeTarget.interval)}` : undefined}
+        footer={changePreview ? (
+          <>
+            <button
+              type="button"
+              className="btn btn-outline btn-pill"
+              disabled={busy}
+              onClick={() => { setChangeTarget(null); setChangePreview(null); }}
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-pill"
+              disabled={busy}
+              onClick={() => void confirmChange()}
+            >
+              {busy
+                ? 'Processando…'
+                : changePreview.type === 'downgrade' ? 'Agendar mudança' : 'Confirmar e pagar'}
+            </button>
+          </>
+        ) : null}
+      >
+        {changeLoading || !changePreview ? (
+          <p className="table-cell-muted">Calculando o valor da troca…</p>
+        ) : changePreview.type === 'downgrade' ? (
+          <div className="billing-change-summary">
+            <p>
+              O plano <strong>{changePreview.targetPlanCode}</strong> ({intervalLabel(changePreview.targetInterval)})
+              assume em <strong>{formatDate(changePreview.effectiveAt)}</strong>.
+            </p>
+            <p className="table-cell-muted">
+              Nada é cobrado agora e você não perde o que já pagou: o plano atual segue
+              valendo até lá.
+            </p>
+            <div className="billing-change-line is-total">
+              <span>A partir de {formatDate(changePreview.effectiveAt)}</span>
+              <strong>{formatMoney(changePreview.targetAmountCents, changePreview.currency)}</strong>
+            </div>
+          </div>
+        ) : (
+          <div className="billing-change-summary">
+            <div className="billing-change-line">
+              <span>{changePreview.targetPlanCode} · {intervalLabel(changePreview.targetInterval)}</span>
+              <span>{formatMoney(changePreview.targetAmountCents, changePreview.currency)}</span>
+            </div>
+            {changePreview.creditCents > 0 ? (
+              <div className="billing-change-line is-credit">
+                <span>Crédito pelo tempo restante do plano atual</span>
+                <span>− {formatMoney(changePreview.creditCents, changePreview.currency)}</span>
+              </div>
+            ) : null}
+            <div className="billing-change-line is-total">
+              <span>A pagar agora</span>
+              <strong>{formatMoney(changePreview.chargeCents, changePreview.currency)}</strong>
+            </div>
+            <p className="table-cell-muted">
+              O plano novo passa a valer quando o pagamento for confirmado. Até lá seu acesso
+              atual continua, e a próxima cobrança do ciclo só vem depois do período que esta
+              pagar.
+            </p>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
