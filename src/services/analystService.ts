@@ -844,6 +844,8 @@ export interface ProactiveReport {
   collectionWaitAttempts?: number;
   /** Sem preço do pregão esperado nos tickers amostrados (feriado): o lote não gravou runs. */
   skippedNoSession?: boolean;
+  /** Análises do lote cuja narrativa saiu em texto padrão (provedor de IA indisponível, pausado ou texto cortado). */
+  narrativeFallbackCount?: number;
   items: ProactiveTickerResult[];
 }
 

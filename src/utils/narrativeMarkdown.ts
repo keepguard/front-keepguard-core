@@ -41,6 +41,9 @@ export function parseInline(raw: string): NarrativeInline[] {
   return out;
 }
 
+/** Textos gravados antes da troca do texto padrão ainda trazem o rótulo interno; o usuário não vê como foi gerado. */
+const INTERNAL_LABEL_RE = /\s*\(sem modelo de linguagem\)/gi;
+
 export function parseNarrative(text?: string): NarrativeBlock[] {
   const blocks: NarrativeBlock[] = [];
   let paragraph: string[] = [];
@@ -55,7 +58,7 @@ export function parseNarrative(text?: string): NarrativeBlock[] {
     list = [];
   };
 
-  for (const rawLine of (text ?? '').replace(/\r\n?/g, '\n').split('\n')) {
+  for (const rawLine of (text ?? '').replace(INTERNAL_LABEL_RE, '').replace(/\r\n?/g, '\n').split('\n')) {
     const line = rawLine.trim();
     if (!line) {
       flushParagraph();

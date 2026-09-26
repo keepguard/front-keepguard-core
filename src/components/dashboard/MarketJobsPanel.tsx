@@ -281,7 +281,7 @@ export const MarketJobsPanel: React.FC = () => {
         <div className="hpanel-table-card">
           <p className="market-jobs-summary">
             {report.lockAcquired
-              ? `Dia ${report.businessDate} · coleta ${report.collectionReady ? 'pronta' : 'não pronta'} · ${report.force ? 'reanálise forçada' : 'lote normal'}${job?.finishedAt ? ` · terminou às ${formatTime(job.finishedAt)}` : ''}`
+              ? `Dia ${report.businessDate} · coleta ${report.collectionReady ? 'pronta' : 'não pronta'} · ${report.force ? 'reanálise forçada' : 'lote normal'}${report.narrativeFallbackCount ? ` · ${report.narrativeFallbackCount} com texto padrão (IA indisponível)` : ''}${job?.finishedAt ? ` · terminou às ${formatTime(job.finishedAt)}` : ''}`
               : `Dia ${report.businessDate} · lock ocupado — lote já em andamento.`}
           </p>
           {report.skippedNoSession ? (

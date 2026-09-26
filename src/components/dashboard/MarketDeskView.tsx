@@ -452,7 +452,8 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   }, [catalog, catalogItems, catalogMap, favoriteTickers, watchlistTickers, lockedTickers, query, isFullAccess]);
 
   const newestRun = runs[0] ?? null;
-  const latest = showOfficial && officialRun ? officialRun : newestRun;
+  // Usuário comum consome sempre a análise oficial do lote; só admin alterna entre ela e as manuais.
+  const latest = (showOfficial || !isAdmin) && officialRun ? officialRun : newestRun;
   const collectedAt = freshestCollectedAt(latest);
   const runSources = uniqueSources(latest);
   const series = detail?.inputs?.series;
@@ -590,9 +591,10 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           .slice(0, LATEST_RUNS_LIMIT),
       );
       setChanges(nextChanges);
-      if (nextRuns[0]?.id) {
+      const shownRun = !isAdmin && nextOfficial ? nextOfficial : nextRuns[0];
+      if (shownRun?.id) {
         try {
-          setDetail(await getRun(nextRuns[0].id));
+          setDetail(await getRun(shownRun.id));
         } catch (err) {
           if (isNotFound(err)) {
             setDetail(null);
@@ -624,7 +626,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
       setLoading(false);
       setChangesLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   /** Alterna entre a análise mais recente e a do lote (a oficial do dia), carregando o detalhe da escolhida. */
   const switchRun = useCallback(async (official: boolean) => {
@@ -1256,6 +1258,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
                   </span>
                 </div>
               ) : null}
+              {isAdmin ? (
               <div className="market-run-source">
                 <span className={`market-trigger-badge ${latest.trigger === 'SCHEDULED' ? 'is-batch' : 'is-manual'}`}>
                   {TRIGGER_BADGE[latest.trigger] || latest.trigger}
@@ -1271,6 +1274,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
                   </button>
                 ) : null}
               </div>
+              ) : null}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <button
@@ -1285,7 +1289,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               <button
                 type="button"
                 className="market-fav-btn market-export-btn"
-                onClick={() => downloadAnalysisHtml(latest, detail)}
+                onClick={() => downloadAnalysisHtml(latest, detail, { showOrigin: isAdmin })}
                 aria-label={`Exportar análise de ${latest.ticker} em HTML`}
                 title="Exportar em HTML"
               >
@@ -1294,7 +1298,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               <button
                 type="button"
                 className="market-fav-btn market-export-btn"
-                onClick={() => printAnalysisPdf(latest, detail)}
+                onClick={() => printAnalysisPdf(latest, detail, { showOrigin: isAdmin })}
                 aria-label={`Exportar análise de ${latest.ticker} em PDF`}
                 title="Exportar em PDF (use Salvar como PDF)"
               >
@@ -1472,7 +1476,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           {latest.narrative ? (
             <section className="market-narrative-section" aria-labelledby={`${instanceId}-narrative`}>
               <h3 id={`${instanceId}-narrative`} className="market-section-title">Narrativa</h3>
-              {latest.outcome === 'DEGRADED' ? (
+              {isAdmin && latest.outcome === 'DEGRADED' ? (
                 <p className="text-muted market-catalog-hint" role="status">
                   Texto padrão: {fallbackReasonLabel(latest.fallbackReason)}. Os números continuam confiáveis.
                 </p>

@@ -24,7 +24,11 @@ function parseFacts(summary: string): { intro: string; facts: MemoryFact[] } {
       introLines.push(line);
     }
   }
-  return { intro: introLines.join(' '), facts };
+  const intro = introLines
+    .join(' ')
+    .replace(/\s*\(sem modelo de linguagem\)/i, '')
+    .replace('Resumo derivado dos fatos de suporte', 'Resumo dos fatos de suporte');
+  return { intro, facts };
 }
 
 function formatFactValue(metric: string, raw: string): string {

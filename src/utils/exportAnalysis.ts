@@ -298,7 +298,12 @@ function section(title: string, content: string): string {
   return `<details open><summary><h2>${esc(title)}</h2></summary><div class="body">${content}</div></details>`;
 }
 
-export function buildAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | null): string {
+export interface ExportOptions {
+  /** Origem da análise (manual ou lote) é detalhe de operação: só entra para quem opera. */
+  showOrigin?: boolean;
+}
+
+export function buildAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | null, options: ExportOptions = {}): string {
   const title = titleWithTicker(run.displayName, run.ticker);
   const merged: AnalystRunDetail = { ...run, ...(detail ?? {}) };
   const series = merged.inputs?.series;
@@ -371,7 +376,7 @@ export function buildAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | n
   <header class="top">
     <div>
       <h1>${esc(title)}</h1>
-      <p class="meta">Analisado em ${esc(formatWhen(run.analyzedAt))} · ${run.trigger === 'SCHEDULED' ? 'Lote diário' : 'Análise manual'} · Exportado em ${esc(formatWhen(new Date().toISOString()))}</p>
+      <p class="meta">Analisado em ${esc(formatWhen(run.analyzedAt))} ${options.showOrigin ? ` · ${run.trigger === 'SCHEDULED' ? 'Lote diário' : 'Análise manual'}` : ''} · Exportado em ${esc(formatWhen(new Date().toISOString()))}</p>
     </div>
     <div class="tools">
       <button type="button" id="toggle-all">Expandir/recolher</button>
@@ -402,8 +407,8 @@ function fileBase(run: AnalystRun): string {
   return `keepguard-${run.ticker.toLowerCase()}-${day}`;
 }
 
-export function downloadAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | null): void {
-  const blob = new Blob([buildAnalysisHtml(run, detail)], { type: 'text/html;charset=utf-8' });
+export function downloadAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | null, options: ExportOptions = {}): void {
+  const blob = new Blob([buildAnalysisHtml(run, detail, options)], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -415,12 +420,12 @@ export function downloadAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail 
 }
 
 /** PDF via impressão do navegador ("Salvar como PDF"), em iframe oculto para não cair em bloqueio de popup. */
-export function printAnalysisPdf(run: AnalystRun, detail?: AnalystRunDetail | null): void {
+export function printAnalysisPdf(run: AnalystRun, detail?: AnalystRunDetail | null, options: ExportOptions = {}): void {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
   iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
   iframe.title = fileBase(run);
-  iframe.srcdoc = buildAnalysisHtml(run, detail);
+  iframe.srcdoc = buildAnalysisHtml(run, detail, options);
   iframe.onload = () => {
     const win = iframe.contentWindow;
     if (!win) return;
