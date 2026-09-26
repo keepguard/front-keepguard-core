@@ -1,12 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarRange, ChevronLeft, ChevronRight, Copy, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { CalendarRange, ChevronLeft, ChevronRight, Copy, RefreshCw, Star, TrendingDown, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { hasAdminRole } from '../../utils/roles';
 import {
+  getFavorites,
+  getUserWatchlist,
   listDigests,
   runDigest,
   type AnalystDigest,
+  type AnalystDigestAsset,
   type AnalystDigestMover,
   type AnalystDigestThesisChange,
   type DigestKind,
@@ -51,7 +54,6 @@ interface ThesisMove {
   from: string;
   to: string;
   count: number;
-  material: boolean;
 }
 
 /** Junta as mudanças de cada ativo no período em uma só: da primeira tese à última. */
@@ -75,7 +77,6 @@ function netThesisMoves(changes: AnalystDigestThesisChange[]): { better: ThesisM
       from: first.fromThesis,
       to: last.toThesis,
       count: list.length,
-      material: list.some((c) => c.isMaterial),
     };
     const delta = TONE_RANK[thesisTone(move.to)] - TONE_RANK[thesisTone(move.from)];
     (delta > 0 ? out.better : delta < 0 ? out.worse : out.other).push(move);
@@ -83,11 +84,61 @@ function netThesisMoves(changes: AnalystDigestThesisChange[]): { better: ThesisM
   return out;
 }
 
+/** Tickers que o usuário acompanha (favoritos e carteira do plano): ganham uma estrela em toda a tela. */
+const MineContext = createContext<Set<string>>(new Set());
+
 function TickerButton({ ticker, name, onSelect }: { ticker: string; name?: string; onSelect: (ticker: string) => void }) {
+  const mine = useContext(MineContext).has(ticker);
   return (
     <button type="button" className="digest-ticker" onClick={() => onSelect(ticker)} title={name ? `${name} · abrir dossiê` : 'Abrir dossiê'}>
       {ticker}
+      {mine ? <Star size={11} className="digest-star" fill="currentColor" aria-label="Você acompanha este ativo" /> : null}
     </button>
+  );
+}
+
+function MyAssets({ assets, hasAny, onSelect }: { assets: AnalystDigestAsset[]; hasAny: boolean; onSelect: (ticker: string) => void }) {
+  const sorted = [...assets].sort((a, b) => (b.returnPct ?? -Infinity) - (a.returnPct ?? -Infinity));
+  const max = Math.max(...sorted.map((a) => Math.abs(a.returnPct ?? 0)), 0.0001);
+  return (
+    <section className="digest-card digest-mine" aria-label="Seus ativos no período">
+      <h3 className="digest-card-title"><Star size={16} aria-hidden="true" /> Seus ativos <span className="digest-count">{sorted.length}</span></h3>
+      {sorted.length === 0 ? (
+        <p className="text-muted">
+          {hasAny
+            ? 'Nenhum dos ativos que você acompanha teve análise neste período.'
+            : 'Você ainda não acompanha ativos. Marque favoritos na aba Dossiê para vê-los aqui.'}
+        </p>
+      ) : (
+        <ul className="digest-mine-list">
+          {sorted.map((a) => {
+            const tone = (a.returnPct ?? 0) >= 0 ? 'up' : 'down';
+            return (
+              <li key={a.ticker} className="digest-mine-row">
+                <span className="digest-mover-id">
+                  <TickerButton ticker={a.ticker} name={a.displayName} onSelect={onSelect} />
+                  <span className="digest-mover-price">{a.displayName || (a.lastClose ? formatMoney(a.lastClose) : '')}</span>
+                </span>
+                {a.returnPct != null ? (
+                  <>
+                    <span className="digest-bar" aria-hidden="true">
+                      <span className={`digest-bar-fill is-${tone}`} style={{ width: `${Math.max(4, (Math.abs(a.returnPct) / max) * 100)}%` }} />
+                    </span>
+                    <strong className={`digest-mover-value is-${tone}`}>{formatSignedPct(a.returnPct)}</strong>
+                  </>
+                ) : (
+                  <span className="text-muted digest-mine-none">sem variação no período</span>
+                )}
+                <span className="digest-mine-tags">
+                  {a.thesis ? <span className="digest-chip">{thesisDisplayLabel(a.thesis)}</span> : null}
+                  {a.risk ? <span className="digest-chip">Risco {(RISK_LEVEL_LABEL[a.risk] || a.risk).toLowerCase()}</span> : null}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -149,7 +200,6 @@ function ThesisGroup({ title, tone, moves, onSelect }: { title: string; tone: 'u
               {thesisDisplayLabel(m.from)} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{thesisDisplayLabel(m.to)}</strong>
             </span>
             {m.count > 1 ? <span className="digest-chip">{m.count} mudanças</span> : null}
-            {m.material ? <span className="digest-chip is-material">Material</span> : null}
           </li>
         ))}
       </ul>
@@ -179,6 +229,20 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [mine, setMine] = useState<Set<string>>(new Set());
+
+  // Os ativos do próprio usuário só servem para destacar; falha aqui não afeta o resumo.
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.allSettled([getFavorites(), getUserWatchlist()]).then(([fav, watch]) => {
+      if (cancelled) return;
+      const tickers = new Set<string>();
+      if (fav.status === 'fulfilled') (fav.value.tickers ?? []).forEach((t) => tickers.add(t.toUpperCase()));
+      if (watch.status === 'fulfilled') (watch.value.tickers ?? []).forEach((t) => tickers.add(t.toUpperCase()));
+      setMine(tickers);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const load = useCallback(async (nextKind: DigestKind, keepKey?: string) => {
     setLoading(true);
@@ -227,12 +291,18 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
     }
   };
 
-  const lead = selected ? selected.summary.replace(/^(Semana|Mês)[^:]*:\s*/, '') : '';
   const market = selected?.market && selected.market.assets > 0 ? selected.market : null;
+  const lead = !selected
+    ? ''
+    : market
+      ? `No período, ${market.up} ativos subiram, ${market.down} caíram e ${market.flat} ficaram estáveis. A variação mediana foi ${formatSignedPct(market.medianReturnPct)}.`
+      : selected.summary.replace(/^(Semana|Mês)[^:]*:\s*/, '');
+  const mineAssets = useMemo(() => (selected?.assets ?? []).filter((a) => mine.has(a.ticker)), [selected, mine]);
   const best = selected?.topGainers[0];
   const worst = selected?.topLosers[0];
 
   return (
+    <MineContext.Provider value={mine}>
     <div className="digest">
       <header className="digest-head">
         <div className="digest-head-main">
@@ -372,6 +442,8 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
             />
           </div>
 
+          <MyAssets assets={mineAssets} hasAny={mine.size > 0} onSelect={onSelectTicker} />
+
           <div className="digest-grid">
             <MoverList title="Maiores altas" icon={<TrendingUp size={16} aria-hidden="true" />} tone="up" items={selected.topGainers} onSelect={onSelectTicker} emptyText="Nenhum ativo subiu no período." />
             <MoverList title="Maiores quedas" icon={<TrendingDown size={16} aria-hidden="true" />} tone="down" items={selected.topLosers} onSelect={onSelectTicker} emptyText="Nenhum ativo caiu no período." />
@@ -456,5 +528,6 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
         </>
       ) : null}
     </div>
+    </MineContext.Provider>
   );
 };

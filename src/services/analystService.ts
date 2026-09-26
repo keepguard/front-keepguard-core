@@ -662,6 +662,16 @@ export interface AnalystDigestMover {
   lastDate: string;
 }
 
+/** Retrato de um ativo no período; returnPct ausente = sem fechamento anterior para comparar. */
+export interface AnalystDigestAsset {
+  ticker: string;
+  displayName?: string;
+  returnPct?: number;
+  lastClose?: number;
+  thesis?: string;
+  risk?: string;
+}
+
 export interface AnalystDigestThesisChange {
   ticker: string;
   displayName?: string;
@@ -704,6 +714,8 @@ export interface AnalystDigest {
     listMinPrice: number;
     lowPriceExcluded: number;
   };
+  /** Todos os ativos do período (vazio em resumos gerados antes deste campo existir). */
+  assets?: AnalystDigestAsset[];
   thesisChanges: AnalystDigestThesisChange[];
   topGainers: AnalystDigestMover[];
   topLosers: AnalystDigestMover[];
