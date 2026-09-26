@@ -52,3 +52,9 @@ export function formatCompactCount(value: number): string {
 export function dash(value: string | null | undefined): string {
   return value && value.trim() ? value : '—';
 }
+
+/** "Nome · TICKER"; sem repetir quando o nome é o próprio ticker (FIIs sem razão social cadastrada). */
+export function titleWithTicker(displayName: string | undefined, ticker: string): string {
+  const name = displayName?.trim();
+  return name && name.toUpperCase() !== ticker.toUpperCase() ? `${name} · ${ticker}` : ticker;
+}

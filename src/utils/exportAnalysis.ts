@@ -1,4 +1,26 @@
-import type { AnalystInputPoint, AnalystRun, AnalystRunDetail } from '../services/analystService';
+import type {
+  AnalystDataFreshness,
+  AnalystInputPoint,
+  AnalystMarketContext,
+  AnalystRun,
+  AnalystRunDetail,
+} from '../services/analystService';
+import {
+  formatCompactBrl,
+  formatCompactCount,
+  formatMoney,
+  formatPct,
+  formatRatio,
+  formatSignedPct,
+  titleWithTicker,
+} from '../components/dashboard/dossierFormat';
+import {
+  FRESHNESS_SOURCE_LABEL,
+  FRESHNESS_STATUS_COPY,
+  formatDayFull,
+  freshnessDetail,
+} from './dataFreshnessText';
+import { parseNarrative, type NarrativeInline } from './narrativeMarkdown';
 import {
   GAP_REASON_LABEL,
   METRIC_LABEL,
@@ -8,6 +30,7 @@ import {
   VERDICT_LABEL,
   AXIS_LABEL,
   flagCategoryLabel,
+  isFiiAsset,
   thesisDisplayLabel,
   thesisTone,
 } from '../components/dashboard/marketLabels';
@@ -39,6 +62,12 @@ function sourceLabel(id?: string): string {
   return (id && SOURCE_LABEL[id]) || id || '—';
 }
 
+const PERIOD_UNIT: Record<string, string> = { DAY: 'pregões', MONTH: 'meses', YEAR: 'anos' };
+
+function pointDay(p?: AnalystInputPoint): string {
+  return formatDayFull(p?.periodStart || p?.observedAt);
+}
+
 function sparkline(title: string, points?: AnalystInputPoint[]): string {
   const values = (points ?? []).map((p) => p.valueNum).filter((v) => Number.isFinite(v));
   if (values.length < 2) return '';
@@ -51,22 +80,136 @@ function sparkline(title: string, points?: AnalystInputPoint[]): string {
     .map((v, i) => `${((i / (values.length - 1)) * w).toFixed(1)},${(h - 4 - ((v - min) / span) * (h - 8)).toFixed(1)}`)
     .join(' ');
   const last = values[values.length - 1];
+  const first = pointDay(points?.[0]);
+  const end = pointDay(points?.[points.length - 1]);
+  const unit = PERIOD_UNIT[points?.[0]?.periodType ?? ''] ?? 'pontos';
+  const period = first !== '—' && end !== '—' ? `${first} → ${end} · ${values.length} ${unit}` : `${values.length} ${unit}`;
   return `<figure class="chart">
     <figcaption>${esc(title)} <strong>${esc(formatNum(last))}</strong></figcaption>
-    <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(`${title}: de ${formatNum(values[0])} a ${formatNum(last)}`)}" preserveAspectRatio="none">
+    <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(`${title}: de ${formatNum(values[0])} a ${formatNum(last)}, ${period}`)}" preserveAspectRatio="none">
       <polyline points="${coords}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/>
     </svg>
     <small>mín ${esc(formatNum(min))} · máx ${esc(formatNum(max))}</small>
+    <small>${esc(period)}</small>
   </figure>`;
 }
 
-function paragraphs(text?: string): string {
-  return (text ?? '')
-    .split(/\n{2,}|\n/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => `<p>${esc(p)}</p>`)
+function inlineHtml(items: NarrativeInline[]): string {
+  return items
+    .map((part) => {
+      if (part.bold) return `<strong>${esc(part.text)}</strong>`;
+      if (part.italic) return `<em>${esc(part.text)}</em>`;
+      return esc(part.text);
+    })
     .join('');
+}
+
+/** Narrativa (markdown mínimo do modelo) em HTML; todo texto passa por esc(). */
+function narrativeHtml(text?: string): string {
+  return `<div class="narrative">${parseNarrative(text)
+    .map((block) => {
+      switch (block.type) {
+        case 'heading':
+          return `<h3 class="narr-heading">${inlineHtml(block.inlines)}</h3>`;
+        case 'list':
+          return `<ul>${block.items.map((item) => `<li>${inlineHtml(item)}</li>`).join('')}</ul>`;
+        case 'rule':
+          return '<hr>';
+        default:
+          return `<p>${inlineHtml(block.inlines)}</p>`;
+      }
+    })
+    .join('')}</div>`;
+}
+
+const NO_DATA = 'sem dado';
+
+function kpi(label: string, value: string): string {
+  return `<div class="kpi"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`;
+}
+
+function signedOrNone(value?: number): string {
+  return value != null ? formatSignedPct(value) : NO_DATA;
+}
+
+function freshnessHtml(f?: AnalystDataFreshness): string {
+  if (!f) return '';
+  const stale = f.sources.some((s) => s.status === 'STALE' && s.source !== 'news');
+  return `<ul class="fresh">${f.sources
+    .map((s) => {
+      const status = FRESHNESS_STATUS_COPY[s.status] ?? FRESHNESS_STATUS_COPY.MISSING;
+      return `<li><span class="fresh-head"><strong>${esc(FRESHNESS_SOURCE_LABEL[s.source] || s.source)}</strong> <span class="badge ${status.cls}">${esc(status.label)}</span></span><span class="fresh-detail">${esc(freshnessDetail(s, f.expectedSession))}</span></li>`;
+    })
+    .join('')}</ul>${stale ? '<p class="note">Há fonte defasada: este dossiê pode não refletir o pregão mais recente.</p>' : ''}<p class="note">Análise feita em ${esc(formatWhen(f.asOf))}.</p>`;
+}
+
+function marketContextHtml(mc?: AnalystMarketContext | null): string {
+  if (!mc) return '';
+  const rv = mc.relativeVolume;
+  const volume =
+    rv != null
+      ? `${formatRatio(rv)} a média (${rv >= 1.5 ? 'acima da média' : rv <= 0.7 ? 'abaixo da média' : 'perto da média'})`
+      : NO_DATA;
+  const gaps = (mc.gaps ?? [])
+    .map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${GAP_REASON_LABEL[g.reason] || g.reason})`)
+    .join(', ');
+  return `<p class="note">Base: fechamento de ${esc(formatDayFull(mc.asOfDay))}. Máximas e mínimas são de fechamento.</p>
+    <dl class="kpis">
+      ${kpi('1 dia', signedOrNone(mc.return1D))}
+      ${kpi('5 dias', signedOrNone(mc.return5D))}
+      ${kpi('1 mês', signedOrNone(mc.return1M))}
+      ${kpi('Volume do último pregão', volume)}
+      ${kpi('Distância da máxima de 20 pregões', signedOrNone(mc.distFromHigh20DPct))}
+      ${kpi('Distância da mínima de 20 pregões', signedOrNone(mc.distFromLow20DPct))}
+      ${kpi('Queda desde a máxima de 52 semanas', signedOrNone(mc.drawdown52WPct))}
+      ${kpi('Cotação vs média de 20 pregões', signedOrNone(mc.priceVsMA20Pct))}
+      ${kpi('Cotação vs média de 50 pregões', signedOrNone(mc.priceVsMA50Pct))}
+      ${kpi('Valor negociado por dia', mc.averageDailyTradedValue != null ? formatCompactBrl(mc.averageDailyTradedValue) : NO_DATA)}
+      ${kpi('Volatilidade 30 dias', mc.volatility30D != null ? formatPct(mc.volatility30D, 1) : NO_DATA)}
+    </dl>
+    ${gaps ? `<p class="note">Sem dado: ${esc(gaps)}.</p>` : ''}
+    <p class="note">Contexto de mercado, não recomendação: não entra na tese nem nos sinais.</p>`;
+}
+
+function signalNum(run: AnalystRunDetail, metric: string): number | undefined {
+  return run.signals.find((sig) => sig.metric === metric)?.grounding?.valueNum;
+}
+
+/** Indicadores imobiliários (mesmos números do dossiê da tela). Só o que existir entra. */
+function fiiHtml(run: AnalystRunDetail): string {
+  if (!isFiiAsset(run.assetType, run.ticker)) return '';
+  const cur = run.inputs?.current;
+  const d = run.fiiDetails;
+  const price = cur?.price?.valueNum;
+  const pvp = cur?.pvp?.valueNum ?? signalNum(run, 'fii_pvp');
+  const dy = cur?.dy_pct?.valueNum ?? signalNum(run, 'fii_dividend_yield');
+  const liquidity = signalNum(run, 'fii_daily_liquidity');
+  const cells: string[] = [];
+  if (price != null) cells.push(kpi('Cotação', formatMoney(price)));
+  if (d?.vpPerShare != null) cells.push(kpi('VP por cota', formatMoney(d.vpPerShare)));
+  if (pvp != null) cells.push(kpi('P/VP', formatRatio(pvp)));
+  if (price != null && d?.vpPerShare) cells.push(kpi('Desconto/ágio sobre o VP', formatSignedPct(((price - d.vpPerShare) / d.vpPerShare) * 100, 1)));
+  if (dy != null) cells.push(kpi('DY 12M', formatPct(dy)));
+  if (d?.lastDividendValue != null) cells.push(kpi('Último rendimento', formatMoney(d.lastDividendValue)));
+  if (liquidity != null) cells.push(kpi('Liquidez média', `${formatCompactBrl(liquidity)}/dia`));
+  if (d?.netWorth != null) cells.push(kpi('Patrimônio', formatCompactBrl(d.netWorth)));
+  if (d?.shareholderCount != null) cells.push(kpi('Base de cotistas', formatCompactCount(d.shareholderCount)));
+  if (d?.cashPercentage != null) cells.push(kpi('Reserva em caixa', formatPct(d.cashPercentage)));
+  if (!cells.length) return '';
+  return `${d?.segment ? `<p class="note">Segmento: ${esc(d.segment)}</p>` : ''}<dl class="kpis">${cells.join('')}</dl>`;
+}
+
+const MACRO_ROWS: [string, string][] = [
+  ['cdi_pct', 'CDI (dia)'],
+  ['selic_meta_pct', 'Selic meta (a.a.)'],
+  ['ipca_mensal_pct', 'IPCA mensal (mês)'],
+];
+
+function macroHtml(run: AnalystRunDetail): string {
+  const macro = run.inputs?.macro;
+  if (!macro) return '';
+  const cells = MACRO_ROWS.filter(([key]) => macro[key]).map(([key, label]) => kpi(label, formatPct(macro[key].valueNum)));
+  return cells.length ? `<dl class="kpis">${cells.join('')}</dl>` : '';
 }
 
 const SCRIPT = `
@@ -100,8 +243,8 @@ const SCRIPT = `
 })();`;
 
 const STYLE = `
-:root{--bg:#f6f7f9;--card:#fff;--text:#1d2330;--muted:#5d6678;--border:#e2e5ec;--primary:#5b3df5;--good:#0b7a46;--good-bg:#e4f6ec;--bad:#b3261e;--bad-bg:#fdeceb;--warn:#8a5a00;--warn-bg:#fff4e0}
-:root[data-theme=dark]{--bg:#12151c;--card:#1b2029;--text:#e8ebf2;--muted:#9aa3b5;--border:#2b3240;--primary:#9d8cff;--good:#5fd39a;--good-bg:#12291f;--bad:#ff8a80;--bad-bg:#2f1917;--warn:#ffc266;--warn-bg:#2d2312}
+:root{--bg:#f6f7f9;--card:#fff;--text:#1d2330;--muted:#5d6678;--border:#e2e5ec;--primary:#5b3df5;--good:#0b7a46;--good-bg:#e4f6ec;--bad:#b3261e;--bad-bg:#fdeceb;--warn:#8a5a00;--warn-bg:#fff4e0;--chip-bg:#eceff4}
+:root[data-theme=dark]{--bg:#12151c;--card:#1b2029;--text:#e8ebf2;--muted:#9aa3b5;--border:#2b3240;--primary:#9d8cff;--good:#5fd39a;--good-bg:#12291f;--bad:#ff8a80;--bad-bg:#2f1917;--warn:#ffc266;--warn-bg:#2d2312;--chip-bg:#262d3a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
 main{max-width:64rem;margin:0 auto;padding:1.5rem 1rem 3rem}
 header.top{display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:flex-start;margin-bottom:1rem}
@@ -115,7 +258,8 @@ details{background:var(--card);border:1px solid var(--border);border-radius:.75r
 summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
 summary::-webkit-details-marker{display:none}summary::after{content:"▾";color:var(--muted)}details:not([open]) summary::after{content:"▸"}
 .body{margin-top:.75rem}
-.badge{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.78rem;font-weight:600;background:var(--warn-bg);color:var(--warn)}
+.badge{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.78rem;font-weight:600;background:var(--chip-bg);color:var(--muted)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
 .badge.good,.v-CHEAP,.v-HEALTHY{background:var(--good-bg);color:var(--good)}
 .badge.bad,.v-EXPENSIVE,.v-RISKY{background:var(--bad-bg);color:var(--bad)}
 .grid{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr))}
@@ -124,17 +268,28 @@ summary::-webkit-details-marker{display:none}summary::after{content:"▾";color:
 .chart{margin:0;border:1px solid var(--border);border-radius:.6rem;padding:.6rem .75rem;color:var(--primary)}
 .chart figcaption{color:var(--text);font-size:.85rem}.chart svg{width:100%;height:4rem}.chart small{color:var(--muted)}
 .axes{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
+.chart small{display:block}
+.kpis{display:grid;gap:.6rem .9rem;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));margin:.4rem 0 0}
+.kpi{border:1px solid var(--border);border-radius:.6rem;padding:.5rem .75rem;margin:0}
+.kpi dt{color:var(--muted);font-size:.75rem;margin:0}.kpi dd{margin:.15rem 0 0;font-weight:700}
+.note{color:var(--muted);font-size:.82rem;margin:.5rem 0 0}
+.fresh{display:grid;gap:.6rem .9rem;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));margin:0;padding:0;list-style:none}
+.fresh li{display:flex;flex-direction:column;gap:.15rem}.fresh-detail{color:var(--muted);font-size:.8rem}
+.narrative p,.narrative ul{margin:0 0 .75rem}.narrative ul{padding-left:1.2rem}.narrative li{margin:0 0 .4rem}
+.narr-heading{font-size:.98rem;margin:1rem 0 .4rem}.narrative hr{border:0;border-top:1px solid var(--border);margin:1rem 0}
 .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem}
 .disclaimer{color:var(--muted);font-size:.8rem;margin-top:1.25rem}
 [hidden]{display:none!important}
 @media print{
-  :root,:root[data-theme=dark]{--bg:#fff;--card:#fff;--text:#111;--muted:#444;--border:#ccc}
+  :root,:root[data-theme=dark]{--bg:#fff;--card:#fff;--text:#111;--muted:#444;--border:#ccc;--chip-bg:#eceff4}
   body{font-size:12px}.tools,.filters{display:none}main{padding:0;max-width:none}
   details{break-inside:avoid;border-color:#ccc}summary::after{content:""}
-  .card,.chart{break-inside:avoid}
+  .card,.chart,.kpi{break-inside:avoid}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @page{margin:14mm}`;
+
+const RISK_TONE: Record<string, string> = { LOW: 'good', MEDIUM: 'warn', HIGH: 'bad' };
 
 function section(title: string, content: string): string {
   if (!content.trim()) return '';
@@ -142,13 +297,13 @@ function section(title: string, content: string): string {
 }
 
 export function buildAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | null): string {
-  const name = run.displayName || run.ticker;
+  const title = titleWithTicker(run.displayName, run.ticker);
   const merged: AnalystRunDetail = { ...run, ...(detail ?? {}) };
   const series = merged.inputs?.series;
 
   const thesis = merged.thesis;
   const thesisHtml = thesis
-    ? `<span class="badge ${thesisTone(thesis.code) === 'warn' ? '' : thesisTone(thesis.code)}">${esc(thesisDisplayLabel(thesis.code))}</span>
+    ? `<span class="badge ${thesisTone(thesis.code)}">${esc(thesisDisplayLabel(thesis.code))}</span>
        <div class="axes">
          <span class="badge">Qualidade: ${esc(AXIS_LABEL[thesis.quality.level] || thesis.quality.level)}</span>
          <span class="badge">Preço: ${esc(AXIS_LABEL[thesis.price.level] || thesis.price.level)}</span>
@@ -160,9 +315,9 @@ export function buildAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | n
   const flagCard = (f: { category: string; severity: string; title: string; description: string }, tone: string) =>
     `<article class="card"><span class="badge ${tone}">${esc(flagCategoryLabel(f.category))} · ${esc(SEVERITY_LABEL[f.severity] || f.severity)}</span><h3>${esc(f.title)}</h3><p>${esc(f.description)}</p></article>`;
   const flagsHtml = flags
-    ? `<p><span class="badge">Risco: ${esc(RISK_LEVEL_LABEL[flags.riskLevel] || flags.riskLevel)}</span>
-       <span class="badge good">${esc(flags.totalGreenFlags)} positivos</span>
-       <span class="badge bad">${esc(flags.totalRedFlags)} alertas</span></p>
+    ? `<p><span class="badge ${RISK_TONE[flags.riskLevel] ?? ''}">Risco: ${esc(RISK_LEVEL_LABEL[flags.riskLevel] || flags.riskLevel)}</span>
+       <span class="badge ${flags.totalGreenFlags > 0 ? 'good' : ''}">${esc(flags.totalGreenFlags)} positivos</span>
+       <span class="badge ${flags.totalRedFlags > 0 ? 'bad' : ''}">${esc(flags.totalRedFlags)} alertas</span></p>
        <div class="grid">${(flags.greenFlags ?? []).map((f) => flagCard(f, 'good')).join('')}${(flags.redFlags ?? []).map((f) => flagCard(f, 'bad')).join('')}</div>`
     : '';
 
@@ -213,7 +368,7 @@ export function buildAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | n
 <main>
   <header class="top">
     <div>
-      <h1>${esc(name)} · ${esc(run.ticker)}</h1>
+      <h1>${esc(title)}</h1>
       <p class="meta">Analisado em ${esc(formatWhen(run.analyzedAt))} · Exportado em ${esc(formatWhen(new Date().toISOString()))}</p>
     </div>
     <div class="tools">
@@ -222,13 +377,17 @@ export function buildAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | n
       <button type="button" onclick="window.print()">Imprimir / PDF</button>
     </div>
   </header>
+  ${section('Fontes deste dossiê', freshnessHtml(merged.dataFreshness))}
   ${section('Tese', thesisHtml)}
-  ${section('Resumo', paragraphs(merged.narrative))}
+  ${section('Resumo', merged.narrative ? narrativeHtml(merged.narrative) : '')}
   ${section('Alertas e pontos positivos', flagsHtml)}
+  ${section('Indicadores imobiliários', fiiHtml(merged))}
+  ${section('Contexto de mercado (curto prazo)', marketContextHtml(merged.marketContext))}
   ${section('Trajetória', charts ? `<div class="grid">${charts}</div>` : '')}
   ${section('Sinais', signalsHtml)}
+  ${section('Contexto macro', macroHtml(merged))}
   ${section('Dados indisponíveis', gapsHtml)}
-  ${section('Fontes', sourcesHtml)}
+  ${section('Fontes consultadas', sourcesHtml)}
   <p class="disclaimer">${esc(merged.disclaimer || 'Conteúdo informativo. Não constitui recomendação de investimento.')}</p>
 </main>
 <script>${SCRIPT}</script>

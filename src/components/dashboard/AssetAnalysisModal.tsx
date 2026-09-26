@@ -11,6 +11,7 @@ import { FiiDossierView } from './FiiDossierView';
 import { PriceDossierView } from './PriceDossierView';
 import { DataFreshnessBar } from './DataFreshnessBar';
 import { MarketContextCard } from './MarketContextCard';
+import { NarrativeText } from './NarrativeText';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -164,7 +165,7 @@ export const AssetAnalysisModal: React.FC<Props> = ({ ticker, onClose }) => {
                 .join(', ')}
             </p>
           ) : null}
-          <div className="market-narrative" aria-live="polite">{analysis.narrative}</div>
+          <NarrativeText text={analysis.narrative} />
           {analysis.sources.length > 0 ? (
             <p className="text-muted">Fontes: {analysis.sources.map((s) => s.dataSource).join(', ')}</p>
           ) : null}

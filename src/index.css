@@ -12850,3 +12850,38 @@ textarea.form-input {
   margin: 0.55rem 0 0;
   font-size: 0.78rem;
 }
+
+/* Narrativa com markdown renderizado (NarrativeText) */
+.market-narrative.narrative-rich {
+  white-space: normal;
+}
+
+.narrative-rich p {
+  margin: 0 0 0.75rem;
+}
+
+.narrative-rich .narrative-heading {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.narrative-rich h5.narrative-heading {
+  font-size: 0.9rem;
+}
+
+.narrative-rich .narrative-list {
+  margin: 0 0 0.75rem;
+  padding-left: 1.2rem;
+}
+
+.narrative-rich .narrative-list li {
+  margin: 0 0 0.45rem;
+}
+
+.narrative-rich .narrative-rule {
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}

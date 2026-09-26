@@ -4,6 +4,7 @@ import type { AnalystMarketContext } from '../../services/analystService';
 import { GAP_REASON_LABEL, METRIC_LABEL } from './marketLabels';
 import { dash, formatCompactBrl, formatPct, formatRatio, formatSignedPct } from './dossierFormat';
 import { MetricRow } from './DossierMetricRow';
+import { formatDayFull } from '../../utils/dataFreshnessText';
 
 const NO_DATA = 'sem dado';
 
@@ -16,12 +17,6 @@ function volumeReading(ratio: number): string {
   if (ratio >= 1.5) return 'acima da média';
   if (ratio <= 0.7) return 'abaixo da média';
   return 'perto da média';
-}
-
-/** dd/MM/aaaa a partir da parte de data do ISO, sem passar pelo fuso do navegador. */
-function formatDay(iso?: string): string {
-  const match = iso?.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : '—';
 }
 
 export interface MarketContextCardProps {
@@ -53,7 +48,7 @@ export function MarketContextCard({ context }: MarketContextCardProps) {
           <h3 id={`${sectionId}-title`} className="market-section-title">
             Curto prazo
           </h3>
-          <p className="text-muted fii-dossier-identity">Base: fechamento de {formatDay(context.asOfDay)}</p>
+          <p className="text-muted fii-dossier-identity">Base: fechamento de {formatDayFull(context.asOfDay)}</p>
         </div>
       </header>
 

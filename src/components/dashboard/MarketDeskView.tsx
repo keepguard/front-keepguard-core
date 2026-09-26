@@ -44,6 +44,10 @@ import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
 import { FormulasCard } from './FormulasCard';
 import { FiiDossierView } from './FiiDossierView';
 import { PriceDossierView } from './PriceDossierView';
+import { DataFreshnessBar } from './DataFreshnessBar';
+import { MarketContextCard } from './MarketContextCard';
+import { NarrativeText } from './NarrativeText';
+import { titleWithTicker } from './dossierFormat';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
 import { PickTickersModal } from './PickTickersModal';
 
@@ -1199,7 +1203,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           <div className="market-desk-header">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <h2 className="market-analyze-title">
-                {latest.displayName || latest.ticker} · {latest.ticker}
+                {titleWithTicker(latest.displayName, latest.ticker)}
               </h2>
               {latest.analyzedAt ? (
                 <div
@@ -1270,12 +1274,14 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               </dd>
             </div>
           </dl>
-          {runSources.length > 0 ? (
+          {runSources.length > 0 && !detail?.dataFreshness ? (
             <p className="text-muted market-desk-sources">
               Fontes: {runSources.map(sourceLabel).join(' · ')}
             </p>
           ) : null}
-          {latest.staleFacts ? (
+          {detail?.dataFreshness ? (
+            <DataFreshnessBar freshness={detail.dataFreshness} />
+          ) : latest.staleFacts && detail ? (
             <p className="market-stale-badge" role="status">
               Fatos de um dia civil anterior à análise (horário de Brasília).
             </p>
@@ -1305,6 +1311,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           ) : latest.formulas ? (
             <FormulasCard formulas={latest.formulas} />
           ) : null}
+          {!isPriceOnly && detail ? <MarketContextCard context={detail.marketContext} /> : null}
           <section className="market-trajectory" aria-labelledby={`${instanceId}-traj`}>
             <h3 id={`${instanceId}-traj`} className="market-section-title">Trajetória</h3>
             <div className="market-charts">
@@ -1414,7 +1421,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           {latest.narrative ? (
             <section className="market-narrative-section" aria-labelledby={`${instanceId}-narrative`}>
               <h3 id={`${instanceId}-narrative`} className="market-section-title">Narrativa</h3>
-              <div className="market-narrative" aria-live="polite">{latest.narrative}</div>
+              <NarrativeText text={latest.narrative} />
             </section>
           ) : null}
           <section className="market-news" aria-labelledby={`${instanceId}-news`}>
