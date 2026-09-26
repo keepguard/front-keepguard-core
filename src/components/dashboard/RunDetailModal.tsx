@@ -10,6 +10,7 @@ import {
   CORPORATE_STOCK_METRICS,
   RUN_TRIGGER_LABEL,
   RUN_OUTCOME_LABEL,
+  fallbackReasonLabel,
 } from './marketLabels';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
@@ -108,7 +109,7 @@ export const RunDetailModal: React.FC<Props> = ({ runId, onClose }) => {
           <DataFreshnessBar freshness={run.dataFreshness} />
           {run.outcome === 'DEGRADED' ? (
             <p className="text-muted market-catalog-hint" role="status">
-              Narrativa degradada: {run.fallbackReason || 'motivo não registrado'}. Os números em signals/formulas continuam confiáveis.
+              Narrativa em texto padrão: {fallbackReasonLabel(run.fallbackReason)}. Os números em signals/formulas continuam confiáveis.
             </p>
           ) : null}
           {THESIS_CARD_PUBLISHED && run.thesis ? <ThesisCard thesis={run.thesis} /> : null}

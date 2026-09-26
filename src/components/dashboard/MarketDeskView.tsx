@@ -38,7 +38,7 @@ interface SearchSuggestion {
   isDirectAction?: boolean;
 }
 import { onBillingEntitlement } from '../../services/billingService';
-import { METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset, isPriceOnlyAsset, CORPORATE_STOCK_METRICS } from './marketLabels';
+import { fallbackReasonLabel, METRIC_LABEL, SOURCE_LABEL, VERDICT_LABEL, GAP_REASON_LABEL, deltaLabel, displayIsMaterial, isFiiAsset, isPriceOnlyAsset, CORPORATE_STOCK_METRICS } from './marketLabels';
 import { SeriesChart } from './SeriesChart';
 import { ThesisCard, THESIS_CARD_PUBLISHED } from './ThesisCard';
 import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
@@ -1472,6 +1472,11 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           {latest.narrative ? (
             <section className="market-narrative-section" aria-labelledby={`${instanceId}-narrative`}>
               <h3 id={`${instanceId}-narrative`} className="market-section-title">Narrativa</h3>
+              {latest.outcome === 'DEGRADED' ? (
+                <p className="text-muted market-catalog-hint" role="status">
+                  Texto padrão: {fallbackReasonLabel(latest.fallbackReason)}. Os números continuam confiáveis.
+                </p>
+              ) : null}
               <NarrativeText text={latest.narrative} />
             </section>
           ) : null}

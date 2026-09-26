@@ -195,6 +195,28 @@ export const FLAG_CATEGORY_LABEL: Record<string, string> = {
   LIQUIDEZ: 'Liquidez',
 };
 
+/** Motivo do fallback da narrativa (fallbackReason do run) em português para a tela. */
+export function fallbackReasonLabel(reason?: string): string {
+  if (!reason) return 'motivo não registrado';
+  if (reason.startsWith('llm_indisponivel')) {
+    return 'o provedor de IA não respondeu (indisponível ou limite de uso excedido)';
+  }
+  switch (reason) {
+    case 'narrativa_truncada':
+      return 'o texto da IA veio cortado';
+    case 'linguagem_de_ordem_de_compra_ou_venda':
+      return 'o texto da IA usava linguagem de ordem de compra ou venda';
+    case 'alvo_de_terceiro_na_narrativa':
+      return 'o texto da IA citava preço-alvo de terceiro';
+    case 'sem_modelo_de_linguagem':
+      return 'a IA está desligada';
+    case 'provedor_indisponivel_ou_fallback':
+      return 'a IA não respondeu';
+    default:
+      return reason;
+  }
+}
+
 export const RUN_TRIGGER_LABEL: Record<string, string> = {
   ON_DEMAND: 'Manual',
   SCHEDULED: 'Lote',
