@@ -12984,3 +12984,129 @@ textarea.form-input {
 .market-narrative-section .market-catalog-hint {
   margin: 0 0 0.6rem;
 }
+
+/* Aba Resumo (semanal e mensal) */
+.digest-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.digest-period {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.digest-period select {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card, #fff);
+  color: var(--text-main);
+  font: inherit;
+}
+
+.digest-admin {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.digest-body {
+  padding-bottom: 1rem;
+}
+
+.digest-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.digest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.digest-card {
+  min-width: 0;
+  margin: 0 0 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card, #fff);
+}
+
+.digest-grid .digest-card {
+  margin: 0;
+}
+
+.digest-card-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.digest-sub {
+  margin: 0.7rem 0 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.digest-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+ol.digest-list {
+  counter-reset: digest;
+}
+
+.digest-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.6rem;
+  font-size: 0.88rem;
+}
+
+.digest-ticker {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--primary, #5b3df5);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.digest-ticker:focus-visible {
+  outline: 2px solid var(--primary, #5b3df5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.digest-up {
+  color: #047857;
+}
+
+.digest-down {
+  color: #b91c1c;
+}
+
+.digest-foot {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+}

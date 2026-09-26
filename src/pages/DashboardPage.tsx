@@ -363,7 +363,7 @@ export const KnowledgePage: React.FC = () => (
   </DashboardShell>
 );
 
-export const MarketDeskPage: React.FC<{ defaultTab?: 'desk' | 'magic' | 'sectors' | 'compare' }> = ({ defaultTab }) => (
+export const MarketDeskPage: React.FC<{ defaultTab?: 'desk' | 'magic' | 'sectors' | 'compare' | 'digest' }> = ({ defaultTab }) => (
   <DashboardShell>
     <div className="dashboard-header">
       <div className="dashboard-title-group">

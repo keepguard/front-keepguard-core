@@ -651,6 +651,79 @@ export function listAllRuns(options?: ListAllRunsOptions): Promise<AnalystRunLis
   );
 }
 
+export type DigestKind = 'WEEKLY' | 'MONTHLY';
+
+export interface AnalystDigestMover {
+  ticker: string;
+  displayName?: string;
+  returnPct: number;
+  lastClose: number;
+  baseDate: string;
+  lastDate: string;
+}
+
+export interface AnalystDigestThesisChange {
+  ticker: string;
+  displayName?: string;
+  fromThesis: string;
+  toThesis: string;
+  isMaterial: boolean;
+  detectedAt: string;
+}
+
+/** Posição 0 = fora do ranking. */
+export interface AnalystDigestRankMove {
+  ticker: string;
+  rankFrom: number;
+  rankTo: number;
+}
+
+export interface AnalystDigestRiskMove {
+  ticker: string;
+  displayName?: string;
+  from: string;
+  to: string;
+}
+
+/** Resumo semanal ou mensal derivado das análises do lote já gravadas. Igual para todos os perfis. */
+export interface AnalystDigest {
+  id: string;
+  kind: DigestKind;
+  periodKey: string;
+  fromDate: string;
+  toDate: string;
+  generatedAt: string;
+  coverage: { assets: number; runs: number; sessionDays: number; narrativeFallback: number };
+  thesisChanges: AnalystDigestThesisChange[];
+  topGainers: AnalystDigestMover[];
+  topLosers: AnalystDigestMover[];
+  magicFormula?: { startDate: string; endDate: string; entered: AnalystDigestRankMove[]; exited: AnalystDigestRankMove[] };
+  riskUp: AnalystDigestRiskMove[];
+  riskDown: AnalystDigestRiskMove[];
+  summary: string;
+}
+
+/** Resumos mais recentes primeiro. */
+export function listDigests(kind: DigestKind, limit = 12): Promise<AnalystDigest[]> {
+  return customFetch<{ items?: AnalystDigest[] }>(
+    `${ANALYST_BASE}/digests?kind=${kind}&limit=${Math.max(1, limit)}`,
+    { method: 'GET' },
+    token(),
+  ).then((res) => res.items ?? []);
+}
+
+/** Só admin/ops: gera (ou refaz, com force) o resumo de um período. Sem period usa o que acabou de fechar. */
+export function runDigest(options: { kind: DigestKind; period?: string; force?: boolean }): Promise<AnalystDigest> {
+  const params = new URLSearchParams({ kind: options.kind });
+  if (options.period) params.set('period', options.period);
+  if (options.force) params.set('force', 'true');
+  return customFetch<AnalystDigest>(
+    `${ANALYST_BASE}/jobs/digest-run?${params.toString()}`,
+    { method: 'POST' },
+    token(),
+  );
+}
+
 export function getRun(runId: string): Promise<AnalystRunDetail> {
   return customFetch<AnalystRunDetail>(
     `${ANALYST_BASE}/runs/${encodeURIComponent(runId)}`,

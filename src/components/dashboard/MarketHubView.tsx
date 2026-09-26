@@ -8,11 +8,14 @@ import {
   type AnalystSectorSnapshot,
 } from '../../services/analystService';
 import { MagicFormulaPanel } from './MagicFormulaPanel';
+import { DigestPanel } from './DigestPanel';
 import { MarketDeskView } from './MarketDeskView';
 import { PeerComparisonTable } from './PeerComparisonTable';
 import { SectorsPanel } from './SectorsPanel';
 
-export type MarketPanel = 'desk' | 'magic' | 'compare' | 'sectors';
+export type MarketPanel = 'desk' | 'magic' | 'compare' | 'sectors' | 'digest';
+
+const PANEL_IDS: ReadonlyArray<MarketPanel> = ['desk', 'magic', 'compare', 'sectors', 'digest'];
 
 interface MarketHubViewProps {
   defaultTab?: MarketPanel;
@@ -38,6 +41,12 @@ const MARKET_TABS: ReadonlyArray<{ id: MarketPanel; label: string; tabId: string
     tabId: 'market-tab-sectors',
     panelId: 'market-panel-sectors',
   },
+  {
+    id: 'digest',
+    label: 'Resumo',
+    tabId: 'market-tab-digest',
+    panelId: 'market-panel-digest',
+  },
 ];
 
 const RANKING_EMPTY =
@@ -56,14 +65,14 @@ function mapServiceError(err: unknown, fallback: string): string {
 
 /**
  * Hub Mercado no mesmo padrão de abas da LLM / Agents:
- * Dossiê + Fórmula Mágica + Comparador (lado a lado) + Setores.
+ * Dossiê + Fórmula Mágica + Comparador (lado a lado) + Setores + Resumo (semanal e mensal).
  */
 export const MarketHubView: React.FC<MarketHubViewProps> = ({ defaultTab }) => {
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromQuery = searchParams.get('tab') as MarketPanel | null;
   const initialPanel: MarketPanel =
-    tabFromQuery && ['desk', 'magic', 'compare', 'sectors'].includes(tabFromQuery)
+    tabFromQuery && PANEL_IDS.includes(tabFromQuery)
       ? tabFromQuery
       : defaultTab || 'desk';
 
@@ -80,7 +89,7 @@ export const MarketHubView: React.FC<MarketHubViewProps> = ({ defaultTab }) => {
   const [compareTickers, setCompareTickers] = useState<string[]>(tickersFromQuery);
 
   useEffect(() => {
-    if (tabFromQuery && ['desk', 'magic', 'compare', 'sectors'].includes(tabFromQuery)) {
+    if (tabFromQuery && PANEL_IDS.includes(tabFromQuery)) {
       setPanel(tabFromQuery);
     }
   }, [tabFromQuery]);
@@ -291,6 +300,8 @@ export const MarketHubView: React.FC<MarketHubViewProps> = ({ defaultTab }) => {
             onSelectTicker={handleSelectTickerFromSector}
           />
         ) : null}
+
+        {panel === 'digest' ? <DigestPanel onSelectTicker={handleSelectTickerFromSector} /> : null}
 
         {panel === 'sectors' ? (
           <div className="market-sectors-tab">
