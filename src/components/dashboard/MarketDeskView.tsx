@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowUpDown, Clock, LineChart, Lock, Plus, Scale, Search, Sparkles, Star } from 'lucide-react';
+import { ArrowUpDown, Clock, Code2, FileText, LineChart, Lock, Plus, Scale, Search, Sparkles, Star } from 'lucide-react';
+import { downloadAnalysisHtml, printAnalysisPdf } from '../../utils/exportAnalysis';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -1225,6 +1226,24 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               >
                 <Scale size={15} aria-hidden="true" />
                 <span>Comparar com Pares</span>
+              </button>
+              <button
+                type="button"
+                className="market-fav-btn market-export-btn"
+                onClick={() => downloadAnalysisHtml(latest, detail)}
+                aria-label={`Exportar análise de ${latest.ticker} em HTML`}
+                title="Exportar em HTML"
+              >
+                <Code2 size={18} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="market-fav-btn market-export-btn"
+                onClick={() => printAnalysisPdf(latest, detail)}
+                aria-label={`Exportar análise de ${latest.ticker} em PDF`}
+                title="Exportar em PDF (use Salvar como PDF)"
+              >
+                <FileText size={18} aria-hidden="true" />
               </button>
               <button
                 type="button"

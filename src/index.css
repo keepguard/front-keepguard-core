@@ -7732,6 +7732,12 @@ textarea.form-input {
   background: #fff4e5;
 }
 
+.market-export-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: transparent;
+}
+
 .market-desk-meta {
   display: grid;
   gap: 0.75rem;
