@@ -694,6 +694,16 @@ export interface AnalystDigest {
   toDate: string;
   generatedAt: string;
   coverage: { assets: number; runs: number; sessionDays: number; narrativeFallback: number };
+  /** Amplitude do mercado no período; assets = 0 em resumos gerados antes deste bloco existir. */
+  market?: {
+    assets: number;
+    up: number;
+    down: number;
+    flat: number;
+    medianReturnPct: number;
+    listMinPrice: number;
+    lowPriceExcluded: number;
+  };
   thesisChanges: AnalystDigestThesisChange[];
   topGainers: AnalystDigestMover[];
   topLosers: AnalystDigestMover[];
