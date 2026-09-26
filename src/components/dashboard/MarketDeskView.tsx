@@ -452,8 +452,8 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   }, [catalog, catalogItems, catalogMap, favoriteTickers, watchlistTickers, lockedTickers, query, isFullAccess]);
 
   const newestRun = runs[0] ?? null;
-  // Usuário comum consome sempre a análise oficial do lote; só admin alterna entre ela e as manuais.
-  const latest = (showOfficial || !isAdmin) && officialRun ? officialRun : newestRun;
+  // Todos os perfis veem a mesma análise (a mais recente). Só o admin pode conferir a do lote pelo atalho.
+  const latest = showOfficial && officialRun ? officialRun : newestRun;
   const collectedAt = freshestCollectedAt(latest);
   const runSources = uniqueSources(latest);
   const series = detail?.inputs?.series;
@@ -578,10 +578,12 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
       const [nextRuns, nextChanges, nextOfficial] = await Promise.all([
         listRuns(ticker, LATEST_RUNS_LIMIT),
         listChanges(20, ticker),
-        // Falha ao buscar a do lote não derruba o dossiê: só some o atalho.
-        listAllRuns({ ticker, trigger: 'SCHEDULED', limit: 3 })
-          .then((res) => res.items.find((item) => item.outcome !== 'FAILED') ?? null)
-          .catch(() => null),
+        // Só o atalho do admin usa a análise do lote. Falha aqui não derruba o dossiê.
+        isAdmin
+          ? listAllRuns({ ticker, trigger: 'SCHEDULED', limit: 3 })
+              .then((res) => res.items.find((item) => item.outcome !== 'FAILED') ?? null)
+              .catch(() => null)
+          : Promise.resolve(null),
       ]);
       setOfficialRun(nextOfficial);
       setShowOfficial(false);
@@ -591,10 +593,9 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           .slice(0, LATEST_RUNS_LIMIT),
       );
       setChanges(nextChanges);
-      const shownRun = !isAdmin && nextOfficial ? nextOfficial : nextRuns[0];
-      if (shownRun?.id) {
+      if (nextRuns[0]?.id) {
         try {
-          setDetail(await getRun(shownRun.id));
+          setDetail(await getRun(nextRuns[0].id));
         } catch (err) {
           if (isNotFound(err)) {
             setDetail(null);
