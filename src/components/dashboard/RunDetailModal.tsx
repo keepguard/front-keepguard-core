@@ -16,6 +16,8 @@ import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
 import { FormulasCard } from './FormulasCard';
 import { FiiDossierView } from './FiiDossierView';
 import { PriceDossierView } from './PriceDossierView';
+import { DataFreshnessBar } from './DataFreshnessBar';
+import { MarketContextCard } from './MarketContextCard';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -102,6 +104,7 @@ export const RunDetailModal: React.FC<Props> = ({ runId, onClose }) => {
 
       {run && !failed ? (
         <div className="market-analysis-card">
+          <DataFreshnessBar freshness={run.dataFreshness} />
           {run.outcome === 'DEGRADED' ? (
             <p className="text-muted market-catalog-hint" role="status">
               Narrativa degradada: {run.fallbackReason || 'motivo não registrado'}. Os números em signals/formulas continuam confiáveis.
@@ -129,6 +132,7 @@ export const RunDetailModal: React.FC<Props> = ({ runId, onClose }) => {
           ) : run.formulas ? (
             <FormulasCard formulas={run.formulas} />
           ) : null}
+          {!isPriceOnlyAsset(run.assetType, run.ticker) ? <MarketContextCard context={run.marketContext} /> : null}
           <div className="market-signals">
             {run.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>

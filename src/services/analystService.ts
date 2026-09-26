@@ -172,6 +172,56 @@ export interface AnalystBdrDetails {
   fxWindows?: AnalystBdrFxWindow[];
 }
 
+/** Status de uma fonte na ficha de fontes do dossiê. */
+export type DataFreshnessStatus = 'FRESH' | 'STALE' | 'MISSING';
+
+export interface AnalystSourceFreshness {
+  /** price | fundamentals | macro | news */
+  source: string;
+  status: DataFreshnessStatus;
+  /** Data do dado (para o preço, o pregão a que ele se refere). */
+  observedAt?: string;
+  /** Só onde a coleta é conhecida (notícias). */
+  collectedAt?: string;
+  ageHours?: number;
+  /** Notícias: itens dentro da janela do último pregão. */
+  items?: number;
+}
+
+/** Com que dado, de quando, o dossiê foi feito. Ausente em runs anteriores à sua criação. */
+export interface AnalystDataFreshness {
+  asOf: string;
+  /** Pregão que o preço já deveria cobrir (YYYY-MM-DD). */
+  expectedSession: string;
+  newsWindowStart: string;
+  sources: AnalystSourceFreshness[];
+}
+
+/**
+ * Contexto de mercado de curto prazo de ações e FIIs. Informativo: não entra na tese nem nos
+ * sinais. Percentuais em %; máximas e mínimas são de fechamento. Campo ausente = sem dado,
+ * explicado em gaps.
+ */
+export interface AnalystMarketContext {
+  asOfDay: string;
+  lastClose?: number;
+  return1D?: number;
+  return5D?: number;
+  return1M?: number;
+  volatility30D?: number;
+  distFromHigh20DPct?: number;
+  distFromLow20DPct?: number;
+  drawdown52WPct?: number;
+  priceVsMA20Pct?: number;
+  priceVsMA50Pct?: number;
+  /** Volume do último pregão ÷ média dos 20 anteriores (1 = igual à média). */
+  relativeVolume?: number;
+  /** Valor médio negociado por dia em R$ (20 pregões anteriores). */
+  averageDailyTradedValue?: number;
+  tradingDays: number;
+  gaps?: { metric: string; reason: string }[];
+}
+
 export interface AnalystAnalysis {
   runId?: string;
   ticker: string;
@@ -195,6 +245,8 @@ export interface AnalystAnalysis {
   thesis?: AnalystThesis;
   formulas?: AnalystFormulas;
   flags?: AnalystFlagsSummary;
+  dataFreshness?: AnalystDataFreshness;
+  marketContext?: AnalystMarketContext;
 }
 
 export interface AnalystGrahamFormula {
@@ -439,6 +491,8 @@ export interface AnalystRun {
   thesis?: AnalystThesis;
   formulas?: AnalystFormulas;
   flags?: AnalystFlagsSummary;
+  dataFreshness?: AnalystDataFreshness;
+  marketContext?: AnalystMarketContext;
 }
 
 export interface AnalystInputPoint {
@@ -457,6 +511,8 @@ export interface AnalystNewsHit {
   content: string;
   dataSource: string;
   collectedAt: string;
+  /** Fora da janela do último pregão: fica no dossiê como contexto, não entra na narrativa. */
+  context?: boolean;
 }
 
 export interface AnalystRunDetail extends AnalystRun {
@@ -786,6 +842,8 @@ export interface ProactiveReport {
   businessDate: string;
   collectionReady: boolean;
   collectionWaitAttempts?: number;
+  /** Sem preço do pregão esperado nos tickers amostrados (feriado): o lote não gravou runs. */
+  skippedNoSession?: boolean;
   items: ProactiveTickerResult[];
 }
 

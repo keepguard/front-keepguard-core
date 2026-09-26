@@ -109,6 +109,14 @@ export const MarketJobsPanel: React.FC = () => {
         addToast({ type: 'info', title: 'Lote já em andamento', description: 'Outro processo segura o lock deste dia útil. Aguarde terminar.' });
         return;
       }
+      if (job.report.skippedNoSession) {
+        addToast({
+          type: 'info',
+          title: `Lote ${job.report.businessDate} não rodou`,
+          description: 'Sem preço do pregão esperado (feriado ou mercado fechado). Use "reanálise forçada" para rodar mesmo assim.',
+        });
+        return;
+      }
       const ok = job.report.items.filter((item) => item.result === 'SUCCESS').length;
       addToast({
         type: 'success',
@@ -276,6 +284,12 @@ export const MarketJobsPanel: React.FC = () => {
               ? `Dia ${report.businessDate} · coleta ${report.collectionReady ? 'pronta' : 'não pronta'} · ${report.force ? 'reanálise forçada' : 'lote normal'}${job?.finishedAt ? ` · terminou às ${formatTime(job.finishedAt)}` : ''}`
               : `Dia ${report.businessDate} · lock ocupado — lote já em andamento.`}
           </p>
+          {report.skippedNoSession ? (
+            <p className="text-muted market-catalog-hint" role="status">
+              Lote não rodou: nenhum ticker amostrado tem o preço do pregão esperado (feriado ou mercado fechado), então nenhuma análise foi gravada.
+              Se o mercado abriu, confira a coleta e rode com reanálise forçada.
+            </p>
+          ) : null}
           {report.items.length > 0 ? (
             <>
               <div className="market-catalog-toolbar" role="group" aria-label="Filtrar resultado do lote" style={{ margin: '0 0 0.75rem' }}>

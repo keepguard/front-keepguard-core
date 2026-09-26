@@ -12783,3 +12783,64 @@ textarea.form-input {
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+
+/* Ficha de fontes do dossiê (DataFreshnessBar) */
+.dossier-freshness {
+  margin: 0 0 0.9rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-muted, #f8f9fa);
+}
+
+.dossier-freshness-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dossier-freshness-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.6rem 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dossier-freshness-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.dossier-freshness-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.dossier-freshness-name {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--text-main);
+}
+
+.dossier-freshness-detail {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dossier-freshness-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+}

@@ -9,6 +9,8 @@ import { ExecutiveFlagsPanel } from './ExecutiveFlagsPanel';
 import { FormulasCard } from './FormulasCard';
 import { FiiDossierView } from './FiiDossierView';
 import { PriceDossierView } from './PriceDossierView';
+import { DataFreshnessBar } from './DataFreshnessBar';
+import { MarketContextCard } from './MarketContextCard';
 
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
@@ -117,6 +119,7 @@ export const AssetAnalysisModal: React.FC<Props> = ({ ticker, onClose }) => {
 
       {analysis ? (
         <div className="market-analysis-card">
+          <DataFreshnessBar freshness={analysis.dataFreshness} />
           {THESIS_CARD_PUBLISHED && analysis.thesis ? <ThesisCard thesis={analysis.thesis} /> : null}
           {analysis.flags ? <ExecutiveFlagsPanel flags={analysis.flags} /> : null}
           {isFiiAsset(analysis.assetType, analysis.ticker) ? (
@@ -139,6 +142,7 @@ export const AssetAnalysisModal: React.FC<Props> = ({ ticker, onClose }) => {
           ) : analysis.formulas ? (
             <FormulasCard formulas={analysis.formulas} />
           ) : null}
+          {!isPriceOnlyAsset(analysis.assetType, analysis.ticker) ? <MarketContextCard context={analysis.marketContext} /> : null}
           <div className="market-signals">
             {analysis.signals.map((signal) => (
               <article className="market-signal" key={signal.metric}>
