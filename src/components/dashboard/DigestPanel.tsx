@@ -185,7 +185,7 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
         <div className="hpanel-table-card market-table-card digest-body">
           <header className="market-table-header">
             <h2 className="market-table-title">{periodLabel(selected)}</h2>
-            <p className="text-muted market-table-subtitle">{selected.summary}</p>
+            <p className="text-muted market-table-subtitle">{selected.summary.replace(/^(Semana|Mês)[^:]*:\s*/, '')}</p>
           </header>
 
           <dl className="fii-dossier-kpis digest-kpis">
