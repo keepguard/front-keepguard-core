@@ -71,7 +71,7 @@ export function MarketContextCard({ context }: MarketContextCardProps) {
         </div>
       </dl>
 
-      <div className="fii-dossier-cards">
+      <div className="fii-dossier-cards market-context-cards">
         <article className="fii-dossier-card" aria-labelledby={`${sectionId}-position`}>
           <h4 id={`${sectionId}-position`} className="fii-dossier-card-title">
             <LineChart size={16} aria-hidden="true" />
@@ -84,7 +84,7 @@ export function MarketContextCard({ context }: MarketContextCardProps) {
             <MetricRow label="Cotação vs média de 20 pregões" value={signed(context.priceVsMA20Pct)} />
             <MetricRow label="Cotação vs média de 50 pregões" value={signed(context.priceVsMA50Pct)} />
           </dl>
-          <p className="text-muted fii-dossier-empty">Máximas e mínimas são de fechamento.</p>
+          <p className="text-muted fii-dossier-empty market-context-note">Máximas e mínimas são de fechamento.</p>
         </article>
 
         <article className="fii-dossier-card" aria-labelledby={`${sectionId}-volume`}>
@@ -113,7 +113,7 @@ export function MarketContextCard({ context }: MarketContextCardProps) {
               value={context.volatility30D != null ? formatPct(context.volatility30D, 1) : NO_DATA}
             />
           </dl>
-          <p className="text-muted fii-dossier-empty">
+          <p className="text-muted fii-dossier-empty market-context-note">
             <Gauge size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: '0.3rem' }} />
             Média dos 20 pregões anteriores ao último.
           </p>
@@ -121,14 +121,14 @@ export function MarketContextCard({ context }: MarketContextCardProps) {
       </div>
 
       {gaps.length > 0 ? (
-        <p className="text-muted fii-dossier-empty">
+        <p className="text-muted fii-dossier-empty market-context-note">
           Sem dado: {gaps
             .map((g) => `${METRIC_LABEL[g.metric] || g.metric} (${GAP_REASON_LABEL[g.reason] || g.reason})`)
             .join(', ')}
         </p>
       ) : null}
 
-      <p className="text-muted fii-dossier-empty">
+      <p className="text-muted fii-dossier-empty market-context-note">
         <Info size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: '0.3rem' }} />
         Contexto de mercado, não recomendação: não entra na tese nem nos sinais.
       </p>

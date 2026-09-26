@@ -47,6 +47,7 @@ import { PriceDossierView } from './PriceDossierView';
 import { DataFreshnessBar } from './DataFreshnessBar';
 import { MarketContextCard } from './MarketContextCard';
 import { NarrativeText } from './NarrativeText';
+import { MemorySummary } from './MemorySummary';
 import { titleWithTicker } from './dossierFormat';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
 import { PickTickersModal } from './PickTickersModal';
@@ -1453,7 +1454,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
             )}
           </section>
           {memory?.summary ? (
-            <p className="text-muted market-memory">Memória derivada (rev. {memory.revision}): {memory.summary}</p>
+            <MemorySummary revision={memory.revision} summary={memory.summary} />
           ) : null}
           <p className="market-disclaimer">{latest.disclaimer || DISCLAIMER}</p>
         </div>

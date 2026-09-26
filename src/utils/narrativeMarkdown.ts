@@ -8,6 +8,7 @@ export interface NarrativeInline {
   text: string;
   bold?: boolean;
   italic?: boolean;
+  code?: boolean;
 }
 
 export type NarrativeBlock =
@@ -16,16 +17,20 @@ export type NarrativeBlock =
   | { type: 'list'; items: NarrativeInline[][] }
   | { type: 'rule' };
 
-const INLINE_RE = /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g;
+const INLINE_RE = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g;
 const HEADING_RE = /^(#{1,6})\s+(.*)$/;
 const RULE_RE = /^(?:-{3,}|\*{3,}|_{3,})$/;
 const BULLET_RE = /^\s*[*\-•]\s+(.*)$/;
+/** O disclaimer já aparece fixo na tela e no export; a cópia colada no fim da narrativa é ruído. */
+const TRAILING_DISCLAIMER_RE = /^\s*análise,? não recomendação de investimento\.?\s*$/i;
 
 export function parseInline(raw: string): NarrativeInline[] {
   const out: NarrativeInline[] = [];
   for (const part of raw.split(INLINE_RE)) {
     if (!part) continue;
-    if (part.length > 4 && part.startsWith('**') && part.endsWith('**')) {
+    if (part.length > 2 && part.startsWith('`') && part.endsWith('`')) {
+      out.push({ text: part.slice(1, -1), code: true });
+    } else if (part.length > 4 && part.startsWith('**') && part.endsWith('**')) {
       out.push({ text: part.slice(2, -2), bold: true });
     } else if (part.length > 2 && part.startsWith('*') && part.endsWith('*')) {
       out.push({ text: part.slice(1, -1), italic: true });
@@ -86,5 +91,9 @@ export function parseNarrative(text?: string): NarrativeBlock[] {
   }
   flushParagraph();
   flushList();
+  const last = blocks[blocks.length - 1];
+  if (last?.type === 'paragraph' && TRAILING_DISCLAIMER_RE.test(last.inlines.map((part) => part.text).join(''))) {
+    blocks.pop();
+  }
   return blocks;
 }

@@ -142,6 +142,9 @@ export function thesisTone(code: string): 'good' | 'bad' | 'warn' {
 export const SOURCE_LABEL: Record<string, string> = {
   'status-invest': 'Status Invest',
   'status-invest-fii': 'Status Invest (FIIs)',
+  'status-invest-fii-batch': 'Status Invest (FIIs)',
+  'status-invest-fii-provents': 'Status Invest (proventos de FIIs)',
+  'ms-analyst-finance': 'Analista KeepGuard',
   'yahoo-finance': 'Yahoo Finance',
   'bcb-sgs': 'Banco Central (SGS)',
   infomoney: 'InfoMoney',

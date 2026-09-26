@@ -97,6 +97,7 @@ function sparkline(title: string, points?: AnalystInputPoint[]): string {
 function inlineHtml(items: NarrativeInline[]): string {
   return items
     .map((part) => {
+      if (part.code) return `<code>${esc(part.text)}</code>`;
       if (part.bold) return `<strong>${esc(part.text)}</strong>`;
       if (part.italic) return `<em>${esc(part.text)}</em>`;
       return esc(part.text);
@@ -276,6 +277,7 @@ summary::-webkit-details-marker{display:none}summary::after{content:"▾";color:
 .fresh{display:grid;gap:.6rem .9rem;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));margin:0;padding:0;list-style:none}
 .fresh li{display:flex;flex-direction:column;gap:.15rem}.fresh-detail{color:var(--muted);font-size:.8rem}
 .narrative p,.narrative ul{margin:0 0 .75rem}.narrative ul{padding-left:1.2rem}.narrative li{margin:0 0 .4rem}
+.narrative code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;background:var(--chip-bg);padding:.05rem .3rem;border-radius:.3rem}
 .narr-heading{font-size:.98rem;margin:1rem 0 .4rem}.narrative hr{border:0;border-top:1px solid var(--border);margin:1rem 0}
 .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem}
 .disclaimer{color:var(--muted);font-size:.8rem;margin-top:1.25rem}

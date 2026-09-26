@@ -5,6 +5,7 @@ function Inlines({ items }: { items: NarrativeInline[] }) {
   return (
     <>
       {items.map((part, index) => {
+        if (part.code) return <code key={index}>{part.text}</code>;
         if (part.bold) return <strong key={index}>{part.text}</strong>;
         if (part.italic) return <em key={index}>{part.text}</em>;
         return <React.Fragment key={index}>{part.text}</React.Fragment>;
