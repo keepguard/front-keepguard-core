@@ -14,6 +14,7 @@ import {
   listCatalogTickers,
   listChanges,
   listKnownTickers,
+  listAllRuns,
   listRuns,
   saveFavorites,
   WATCHLIST_MAX_TICKERS,
@@ -133,6 +134,11 @@ function materialStyle(isMaterial: boolean): React.CSSProperties {
 const MACRO_METRICS = ['cdi_pct', 'selic_meta_pct', 'ipca_mensal_pct'] as const;
 /** Só a análise mais recente alimenta o dossiê; histórico de runs não é exibido. */
 const LATEST_RUNS_LIMIT = 1;
+
+const TRIGGER_BADGE: Record<string, string> = {
+  ON_DEMAND: 'Análise manual',
+  SCHEDULED: 'Lote diário',
+};
 const NEWS_LIMIT = 5;
 
 const MACRO_PERIOD: Record<(typeof MACRO_METRICS)[number], string> = {
@@ -285,6 +291,9 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   const [error, setError] = useState('');
   const [runs, setRuns] = useState<AnalystRun[]>([]);
   const [detail, setDetail] = useState<AnalystRunDetail | null>(null);
+  // Última análise do lote (a oficial do dia) e se a tela está mostrando ela no lugar da mais recente.
+  const [officialRun, setOfficialRun] = useState<AnalystRun | null>(null);
+  const [showOfficial, setShowOfficial] = useState(false);
   const [memory, setMemory] = useState<AnalystMemory | null>(null);
   const [changes, setChanges] = useState<AnalystVerdictChange[]>([]);
   const [changesLoading, setChangesLoading] = useState(false);
@@ -442,7 +451,8 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
     return results;
   }, [catalog, catalogItems, catalogMap, favoriteTickers, watchlistTickers, lockedTickers, query, isFullAccess]);
 
-  const latest = runs[0] ?? null;
+  const newestRun = runs[0] ?? null;
+  const latest = showOfficial && officialRun ? officialRun : newestRun;
   const collectedAt = freshestCollectedAt(latest);
   const runSources = uniqueSources(latest);
   const series = detail?.inputs?.series;
@@ -564,10 +574,16 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
     setChangesLoading(true);
     setError('');
     try {
-      const [nextRuns, nextChanges] = await Promise.all([
+      const [nextRuns, nextChanges, nextOfficial] = await Promise.all([
         listRuns(ticker, LATEST_RUNS_LIMIT),
         listChanges(20, ticker),
+        // Falha ao buscar a do lote não derruba o dossiê: só some o atalho.
+        listAllRuns({ ticker, trigger: 'SCHEDULED', limit: 3 })
+          .then((res) => res.items.find((item) => item.outcome !== 'FAILED') ?? null)
+          .catch(() => null),
       ]);
+      setOfficialRun(nextOfficial);
+      setShowOfficial(false);
       setRuns(
         [...nextRuns]
           .sort((a, b) => (b.analyzedAt || '').localeCompare(a.analyzedAt || ''))
@@ -599,6 +615,8 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
     } catch (err) {
       setError(mapAnalystError(err, 'Falha ao carregar o dossiê'));
       setRuns([]);
+      setOfficialRun(null);
+      setShowOfficial(false);
       setDetail(null);
       setChanges([]);
       setMemory(null);
@@ -607,6 +625,21 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
       setChangesLoading(false);
     }
   }, []);
+
+  /** Alterna entre a análise mais recente e a do lote (a oficial do dia), carregando o detalhe da escolhida. */
+  const switchRun = useCallback(async (official: boolean) => {
+    const target = official ? officialRun : newestRun;
+    if (!target) return;
+    setShowOfficial(official);
+    setDetail(null);
+    try {
+      setDetail(await getRun(target.id));
+    } catch (err) {
+      if (!isNotFound(err)) {
+        addToast({ type: 'error', title: 'Erro ao abrir a análise', description: mapAnalystError(err, 'Falha ao carregar a análise') });
+      }
+    }
+  }, [officialRun, newestRun, addToast]);
 
   useEffect(() => {
     void loadCatalog();
@@ -626,6 +659,8 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   useEffect(() => {
     if (!selectedTicker) {
       setRuns([]);
+      setOfficialRun(null);
+      setShowOfficial(false);
       setDetail(null);
       setMemory(null);
       setChanges([]);
@@ -1221,6 +1256,21 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
                   </span>
                 </div>
               ) : null}
+              <div className="market-run-source">
+                <span className={`market-trigger-badge ${latest.trigger === 'SCHEDULED' ? 'is-batch' : 'is-manual'}`}>
+                  {TRIGGER_BADGE[latest.trigger] || latest.trigger}
+                </span>
+                {latest.trigger !== 'SCHEDULED' && officialRun && officialRun.id !== latest.id ? (
+                  <button type="button" className="market-run-switch" onClick={() => { void switchRun(true); }}>
+                    Ver a análise do lote ({formatWhen(officialRun.analyzedAt)})
+                  </button>
+                ) : null}
+                {showOfficial && officialRun && newestRun && newestRun.id !== officialRun.id ? (
+                  <button type="button" className="market-run-switch" onClick={() => { void switchRun(false); }}>
+                    Voltar para a mais recente ({(TRIGGER_BADGE[newestRun.trigger] || newestRun.trigger).toLowerCase()}, {formatWhen(newestRun.analyzedAt)})
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <button

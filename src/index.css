@@ -12933,3 +12933,49 @@ textarea.form-input {
   font-weight: 650;
   color: var(--text-body);
 }
+
+/* Origem da análise (manual x lote) e atalho para a oficial do dia */
+.market-run-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+}
+
+.market-trigger-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.market-trigger-badge.is-batch {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.market-trigger-badge.is-manual {
+  background: var(--bg-muted, #f0f2f5);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.market-run-switch {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--primary, #5b3df5);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.market-run-switch:focus-visible {
+  outline: 2px solid var(--primary, #5b3df5);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

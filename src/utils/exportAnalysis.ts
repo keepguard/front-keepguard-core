@@ -371,7 +371,7 @@ export function buildAnalysisHtml(run: AnalystRun, detail?: AnalystRunDetail | n
   <header class="top">
     <div>
       <h1>${esc(title)}</h1>
-      <p class="meta">Analisado em ${esc(formatWhen(run.analyzedAt))} · Exportado em ${esc(formatWhen(new Date().toISOString()))}</p>
+      <p class="meta">Analisado em ${esc(formatWhen(run.analyzedAt))} · ${run.trigger === 'SCHEDULED' ? 'Lote diário' : 'Análise manual'} · Exportado em ${esc(formatWhen(new Date().toISOString()))}</p>
     </div>
     <div class="tools">
       <button type="button" id="toggle-all">Expandir/recolher</button>
