@@ -12979,3 +12979,8 @@ textarea.form-input {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Aviso de texto padrão (admin) com respiro antes da narrativa */
+.market-narrative-section .market-catalog-hint {
+  margin: 0 0 0.6rem;
+}
