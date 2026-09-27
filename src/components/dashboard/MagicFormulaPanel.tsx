@@ -260,13 +260,13 @@ export function MagicFormulaPanel({ ranking, onSelectTicker }: MagicFormulaPanel
                     <span className="mf-bar" aria-hidden="true">
                       <span className="mf-bar-fill is-ey" style={{ width: `${barWidth(row.eyPct, maxEy)}%` }} />
                     </span>
-                    <strong>{num(row.eyPct)}%</strong>
+                    <strong><span className="mf-mobile-label">EY </span>{num(row.eyPct)}%</strong>
                   </span>
                   <span className="mf-col-bar">
                     <span className="mf-bar" aria-hidden="true">
                       <span className="mf-bar-fill is-roic" style={{ width: `${barWidth(row.roicPct, maxRoic)}%` }} />
                     </span>
-                    <strong>{num(row.roicPct)}%</strong>
+                    <strong><span className="mf-mobile-label">ROIC </span>{num(row.roicPct)}%</strong>
                   </span>
                   <span className="mf-col-num" title="Soma das posições em EY e ROIC">
                     <span className="mf-mobile-label">Soma</span>{row.combined}

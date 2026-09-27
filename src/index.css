@@ -14884,3 +14884,33 @@ textarea.form-input {
   gap: 0.5rem;
   margin-top: 0.4rem;
 }
+
+/* Tema escuro: alerta e destaques do Comparador e abas de filtro do Dossiê usavam cores fixas claras */
+.market-compare-cross-sector-alert {
+  background: var(--warning-light);
+  border-color: var(--warning-border);
+  color: var(--text-main);
+}
+
+.market-compare-cross-sector-alert p {
+  color: var(--text-body);
+}
+
+.market-compare-highlights-card {
+  background: var(--bg-card);
+}
+
+.market-watchlist-filter-tabs {
+  background: var(--bg-muted);
+}
+
+/* Celular: rótulo do EY e do ROIC no lugar do cabeçalho da coluna; a barra de Var 3M não pode ser espremida pelo rótulo */
+@media (max-width: 860px) {
+  .mf-col-bar {
+    grid-template-columns: minmax(0, 1fr) 6.5rem;
+  }
+
+  .sc-perf::before {
+    grid-column: 1 / -1;
+  }
+}
