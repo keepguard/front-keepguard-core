@@ -4,8 +4,9 @@ import type { TradeItem } from '../../services/tradeService';
 import { PATHS } from '../../navigation/routes';
 import { ageLabel, formatCompactCount, formatMoney, formatSignedPct } from './dossierFormat';
 
+/** Hora de Brasília, sempre: o pregão é da B3 e o fuso do navegador não pode mudar o que o candle diz. */
 function timeLabel(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 }
 
 function tone(value?: number): 'up' | 'down' | 'flat' {
