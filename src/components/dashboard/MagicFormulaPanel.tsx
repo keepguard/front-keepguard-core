@@ -1,16 +1,18 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Star } from 'lucide-react';
 import type { AnalystMagicFormulaRanking, AnalystMagicRanked } from '../../services/analystService';
 import {
   MAGIC_FORMULA_MIN_UNIVERSE,
   businessDateBRT,
   formatIsoDatePt,
+  getFavorites,
+  getUserWatchlist,
 } from '../../services/analystService';
 import { Tooltip } from '../common/Tooltip';
 
+const PAGE_SIZE = 10;
+
 const COLUMN_HELP = {
-  setor: {
-    label: 'Setor',
-    description: 'Setor usado no ranking. Bancos e utilities ficam de fora da Magia.',
-  },
   soma: {
     label: 'Soma',
     description: 'Posição em EY + posição em ROIC. Menor soma = melhor na Magia.',
@@ -30,18 +32,10 @@ const COLUMN_HELP = {
   },
 } as const;
 
-function ColumnHint({
-  help,
-  align = 'center',
-}: {
-  help: (typeof COLUMN_HELP)[keyof typeof COLUMN_HELP];
-  align?: 'start' | 'center' | 'end';
-}) {
+function ColumnHint({ help, align = 'center' }: { help: (typeof COLUMN_HELP)[keyof typeof COLUMN_HELP]; align?: 'start' | 'center' | 'end' }) {
   return (
     <Tooltip label={help.label} description={help.description} align={align}>
-      <span tabIndex={0} className="market-magic-th-tip">
-        {help.label}
-      </span>
+      <span tabIndex={0} className="market-magic-th-tip">{help.label}</span>
     </Tooltip>
   );
 }
@@ -50,16 +44,22 @@ function num(value: number): string {
   return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 }
 
-function fScoreLabel(row: AnalystMagicRanked): string {
-  if (row.piotroskiPossible == null || row.piotroskiPossible <= 0 || row.piotroskiScore == null) {
-    return '—';
-  }
-  const pct = Math.round((row.piotroskiScore / row.piotroskiPossible) * 100);
-  return `${pct}% (${row.piotroskiScore}/${row.piotroskiPossible})`;
+function fScoreRatio(row: AnalystMagicRanked): number | null {
+  if (row.piotroskiPossible == null || row.piotroskiPossible <= 0 || row.piotroskiScore == null) return null;
+  return row.piotroskiScore / row.piotroskiPossible;
 }
 
-function formatSector(row: AnalystMagicRanked): string {
-  return row.sectorLabel || '—';
+/** Só descreve a faixa do checklist; o F-Score não ordena o ranking. */
+function fScoreTone(ratio: number | null): 'high' | 'mid' | 'low' | 'none' {
+  if (ratio == null) return 'none';
+  if (ratio >= 0.7) return 'high';
+  if (ratio >= 0.4) return 'mid';
+  return 'low';
+}
+
+function barWidth(value: number, max: number): number {
+  if (max <= 0) return 0;
+  return 4 + Math.min(1, Math.max(0, value) / max) * 96;
 }
 
 function daysBetween(d1: string, d2: string): number {
@@ -79,164 +79,201 @@ function PendingTodayNotice({ asOfDate }: { asOfDate: string }) {
   );
 }
 
-export function MagicFormulaPanel({ ranking }: { ranking: AnalystMagicFormulaRanking }) {
+function Tile({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+  return (
+    <article className="mf-tile">
+      <span className="mf-tile-label">{label}</span>
+      <strong className="mf-tile-value">{value}</strong>
+      {sub ? <span className="mf-tile-sub">{sub}</span> : null}
+    </article>
+  );
+}
+
+export interface MagicFormulaPanelProps {
+  ranking: AnalystMagicFormulaRanking;
+  onSelectTicker?: (ticker: string) => void;
+}
+
+export function MagicFormulaPanel({ ranking, onSelectTicker }: MagicFormulaPanelProps) {
   const universe = ranking.universeSize ?? 0;
   const significant = universe >= MAGIC_FORMULA_MIN_UNIVERSE;
-  const top = significant ? (ranking.ranked ?? []).slice(0, 10) : [];
+  const ranked = useMemo(() => (significant ? ranking.ranked ?? [] : []), [significant, ranking.ranked]);
   const excluded = ranking.excluded?.length ?? 0;
   const omitted = ranking.omitted?.length ?? 0;
   const pendingToday = ranking.asOfDate !== businessDateBRT();
   const asOfLabel = formatIsoDatePt(ranking.asOfDate);
   const concentration = significant
-    ? (ranking.concentration ?? []).filter((row) => row.count >= 2).slice(0, 2)
+    ? (ranking.concentration ?? []).filter((row) => row.count >= 2).slice(0, 3)
     : [];
-  const meta = `${asOfLabel} · ${universe} no ranking · ${excluded} excluída(s) · ${omitted} omitida(s)`;
-  const blurbDate = pendingToday ? `Ranking de ${asOfLabel}` : 'Ranking do dia';
+
+  const [sector, setSector] = useState('');
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  const [mine, setMine] = useState<Set<string>>(new Set());
+
+  // Os ativos do usuário só servem para destacar; falha aqui não afeta o ranking.
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.allSettled([getFavorites(), getUserWatchlist()]).then(([fav, watch]) => {
+      if (cancelled) return;
+      const tickers = new Set<string>();
+      if (fav.status === 'fulfilled') (fav.value.tickers ?? []).forEach((t) => tickers.add(t.toUpperCase()));
+      if (watch.status === 'fulfilled') (watch.value.tickers ?? []).forEach((t) => tickers.add(t.toUpperCase()));
+      setMine(tickers);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const sectors = useMemo(() => {
+    const seen = new Map<string, string>();
+    ranked.forEach((row) => {
+      if (row.sector) seen.set(row.sector, row.sectorLabel || row.sector);
+    });
+    return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
+  }, [ranked]);
+
+  const filtered = useMemo(
+    () => (sector ? ranked.filter((row) => row.sector === sector) : ranked),
+    [ranked, sector],
+  );
+  const shown = filtered.slice(0, visible);
+  const maxEy = Math.max(...shown.map((r) => r.eyPct), 0);
+  const maxRoic = Math.max(...shown.map((r) => r.roicPct), 0);
+  const best = ranked[0];
+  const mineInRanking = ranked.filter((row) => mine.has(row.ticker.toUpperCase())).length;
 
   return (
-    <section className="market-magic" aria-label="Fórmula Mágica">
-      <div className="hpanel-table-card desktop-table-view market-table-card market-magic-panel">
-        {pendingToday ? <PendingTodayNotice asOfDate={ranking.asOfDate} /> : null}
-        <header className="market-table-header">
-          <h2 className="market-table-title">Fórmula Mágica</h2>
-          <p className="text-muted market-table-subtitle">{meta}</p>
-        </header>
+    <section className="mf" aria-label="Fórmula Mágica">
+      {pendingToday ? <PendingTodayNotice asOfDate={ranking.asOfDate} /> : null}
 
-        <div className="market-magic-intro">
-          <p className="market-magic-blurb">
-            {blurbDate} inspirado em Joel Greenblatt: entre os papéis elegíveis da carteira, quem
-            combina preço atrativo com retorno sobre o capital. Bancos e utilities ficam de fora. Não é
-            recomendação de compra.
-          </p>
-          {!significant ? (
-            <p className="market-magic-insufficient" role="status">
-              Universo insuficiente para ranking significativo: {universe} ativo
-              {universe === 1 ? '' : 's'} (mínimo {MAGIC_FORMULA_MIN_UNIVERSE}). Concentração setorial
-              também fica oculta — amplie a watchlist para interpretar posição e concentração.
-            </p>
-          ) : null}
-          {significant && concentration.length > 0 ? (
-            <ul className="market-magic-concentration">
-              {concentration.map((row) => (
-                <li key={row.sector}>
-                  {row.label} {row.count} de {row.of}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+      <header className="mf-head">
+        <div>
+          <span className="mf-kicker">Fórmula Mágica</span>
+          <h2 className="mf-title">{pendingToday ? `Ranking de ${asOfLabel}` : `Ranking de hoje · ${asOfLabel}`}</h2>
         </div>
+      </header>
 
-        {!significant ? null : top.length === 0 ? (
-          <p className="market-magic-empty text-muted">Ainda não há ativos elegíveis neste dia.</p>
-        ) : (
-          <div className="market-magic-table-wrap">
-            <table className="hpanel-table market-magic-table">
-              <thead>
-                <tr>
-                  <th className="market-magic-col-rank" scope="col">#</th>
-                  <th className="market-magic-col-ticker" scope="col">Ticker</th>
-                  <th className="market-magic-col-sector" scope="col">
-                    <ColumnHint help={COLUMN_HELP.setor} align="start" />
-                  </th>
-                  <th className="market-magic-col-num" scope="col">
-                    <ColumnHint help={COLUMN_HELP.soma} align="end" />
-                  </th>
-                  <th className="market-magic-col-num" scope="col">
-                    <ColumnHint help={COLUMN_HELP.ey} align="end" />
-                  </th>
-                  <th className="market-magic-col-num" scope="col">
-                    <ColumnHint help={COLUMN_HELP.roic} align="end" />
-                  </th>
-                  <th className="market-magic-col-fscore" scope="col">
-                    <ColumnHint help={COLUMN_HELP.fscore} align="end" />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {top.map((row) => (
-                  <tr key={row.ticker}>
-                    <td className="market-magic-col-rank">{row.rank}</td>
-                    <td className="market-magic-col-ticker">
-                      <span className="table-cell-title">{row.ticker}</span>
-                    </td>
-                    <td className="market-magic-col-sector">
-                      <span className="table-cell-muted">{formatSector(row)}</span>
-                    </td>
-                    <td className="market-magic-col-num">{row.combined}</td>
-                    <td className="market-magic-col-num">{num(row.eyPct)}</td>
-                    <td className="market-magic-col-num">{num(row.roicPct)}</td>
-                    <td className="market-magic-col-fscore">{fScoreLabel(row)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {ranking.disclaimer ? (
-          <p className="market-disclaimer market-magic-footer">{ranking.disclaimer}</p>
-        ) : null}
-      </div>
-
-      <div className="mobile-cards-container market-magic-mobile">
-        {pendingToday ? <PendingTodayNotice asOfDate={ranking.asOfDate} /> : null}
-        <header className="market-mobile-header">
-          <h2 className="market-section-title">Fórmula Mágica</h2>
-          <p className="text-muted market-table-subtitle">{meta}</p>
-        </header>
-        <p className="market-magic-blurb">
-          {blurbDate} (Greenblatt). Bancos e utilities ficam de fora. Não é recomendação de compra.
+      <div className="mf-hero">
+        <p className="mf-lead">
+          Inspirado em Joel Greenblatt: entre os papéis elegíveis, quem combina preço atrativo (EY) com
+          retorno sobre o capital (ROIC). Bancos e utilities ficam de fora. Não é recomendação de compra.
         </p>
-        {significant ? (
-          <ul className="market-magic-legend">
-            <li>
-              <strong>Soma</strong> — EY-rank + ROIC-rank (menor = melhor)
-            </li>
-            <li>
-              <strong>EY %</strong> — barato? · <strong>ROIC %</strong> — eficiente?
-            </li>
-            <li>
-              <strong>F-Score</strong> — qualidade (contexto; não ordena)
-            </li>
-          </ul>
-        ) : null}
-        {!significant ? (
-          <p className="market-magic-insufficient" role="status">
-            Universo insuficiente: {universe} ativo{universe === 1 ? '' : 's'} (mínimo{' '}
-            {MAGIC_FORMULA_MIN_UNIVERSE}).
-          </p>
-        ) : null}
         {significant && concentration.length > 0 ? (
-          <ul className="market-magic-concentration">
+          <ul className="mf-chips" aria-label="Concentração setorial no topo">
             {concentration.map((row) => (
-              <li key={row.sector}>
-                {row.label} {row.count} de {row.of}
-              </li>
+              <li key={row.sector} className="mf-chip">{row.label}: {row.count} de {row.of} no top</li>
             ))}
           </ul>
         ) : null}
-        {!significant ? null : top.length === 0 ? (
-          <p className="text-muted">Ainda não há ativos elegíveis neste dia.</p>
-        ) : (
-          top.map((row) => (
-            <div className="mobile-domain-card" key={row.ticker}>
-              <div className="mobile-card-top">
-                <span className="mobile-domain-name">
-                  #{row.rank} · {row.ticker}
-                </span>
-                <span className="badge-role">Soma {row.combined} · F-Score {fScoreLabel(row)}</span>
-              </div>
-              <div className="mobile-card-subinfo">{formatSector(row)}</div>
-              <div className="mobile-card-meta">
-                EY {num(row.eyPct)}% · ROIC {num(row.roicPct)}%
-              </div>
-            </div>
-          ))
-        )}
-        {ranking.disclaimer ? (
-          <p className="market-disclaimer">{ranking.disclaimer}</p>
-        ) : null}
       </div>
+
+      <div className="mf-tiles">
+        <Tile label="No ranking" value={universe} sub="ativos elegíveis" />
+        <Tile label="Excluídas" value={excluded} sub="fora do ranking" />
+        <Tile label="Omitidas" value={omitted} sub="métrica ausente" />
+        <Tile label="Você acompanha" value={mineInRanking} sub="no ranking" />
+        {best ? <Tile label="1º colocado" value={best.ticker} sub={`Soma ${best.combined}`} /> : null}
+      </div>
+
+      {!significant ? (
+        <p className="market-magic-insufficient" role="status">
+          Universo insuficiente para ranking significativo: {universe} ativo{universe === 1 ? '' : 's'} (mínimo{' '}
+          {MAGIC_FORMULA_MIN_UNIVERSE}). Concentração setorial também fica oculta — amplie a watchlist para
+          interpretar posição e concentração.
+        </p>
+      ) : ranked.length === 0 ? (
+        <p className="market-magic-empty text-muted">Ainda não há ativos elegíveis neste dia.</p>
+      ) : (
+        <div className="mf-card">
+          <div className="mf-toolbar">
+            <label className="mf-filter">
+              <span>Setor</span>
+              <select
+                value={sector}
+                onChange={(e) => { setSector(e.target.value); setVisible(PAGE_SIZE); }}
+              >
+                <option value="">Todos os setores</option>
+                {sectors.map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <span className="mf-count">
+              Mostrando {shown.length} de {filtered.length}
+            </span>
+          </div>
+
+          <div className="mf-row mf-row-head" role="presentation">
+            <span className="mf-col-rank">#</span>
+            <span className="mf-col-id">Ativo</span>
+            <span className="mf-col-bar"><ColumnHint help={COLUMN_HELP.ey} align="start" /></span>
+            <span className="mf-col-bar"><ColumnHint help={COLUMN_HELP.roic} align="start" /></span>
+            <span className="mf-col-num"><ColumnHint help={COLUMN_HELP.soma} align="end" /></span>
+            <span className="mf-col-f"><ColumnHint help={COLUMN_HELP.fscore} align="end" /></span>
+          </div>
+
+          <ol className="mf-list">
+            {shown.map((row) => {
+              const ratio = fScoreRatio(row);
+              const isMine = mine.has(row.ticker.toUpperCase());
+              return (
+                <li key={row.ticker} className={`mf-row${row.rank <= 3 ? ' is-top' : ''}`}>
+                  <span className="mf-col-rank"><span className="mf-rank">{row.rank}</span></span>
+                  <span className="mf-col-id">
+                    <button
+                      type="button"
+                      className="mf-ticker"
+                      onClick={() => onSelectTicker?.(row.ticker)}
+                      disabled={!onSelectTicker}
+                      title="Abrir dossiê"
+                    >
+                      {row.ticker}
+                      {isMine ? <Star size={11} className="mf-star" fill="currentColor" aria-label="Você acompanha este ativo" /> : null}
+                    </button>
+                    <span className="mf-sector">{row.sectorLabel || '—'}</span>
+                  </span>
+                  <span className="mf-col-bar">
+                    <span className="mf-bar" aria-hidden="true">
+                      <span className="mf-bar-fill is-ey" style={{ width: `${barWidth(row.eyPct, maxEy)}%` }} />
+                    </span>
+                    <strong>{num(row.eyPct)}%</strong>
+                  </span>
+                  <span className="mf-col-bar">
+                    <span className="mf-bar" aria-hidden="true">
+                      <span className="mf-bar-fill is-roic" style={{ width: `${barWidth(row.roicPct, maxRoic)}%` }} />
+                    </span>
+                    <strong>{num(row.roicPct)}%</strong>
+                  </span>
+                  <span className="mf-col-num" title="Soma das posições em EY e ROIC">
+                    <span className="mf-mobile-label">Soma</span>{row.combined}
+                  </span>
+                  <span className="mf-col-f">
+                    {ratio != null ? (
+                      <span className={`mf-f is-${fScoreTone(ratio)}`} title="Piotroski: só contexto, não ordena o ranking">
+                        {Math.round(ratio * 100)}% <small>({row.piotroskiScore}/{row.piotroskiPossible})</small>
+                      </span>
+                    ) : (
+                      <span className="mf-f is-none">—</span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+
+          {shown.length < filtered.length ? (
+            <div className="mf-more">
+              <button type="button" className="mf-more-btn" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
+                Ver mais {Math.min(PAGE_SIZE, filtered.length - shown.length)}
+              </button>
+              <button type="button" className="mf-more-btn" onClick={() => setVisible(filtered.length)}>
+                Ver todos ({filtered.length})
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {ranking.disclaimer ? <p className="market-disclaimer">{ranking.disclaimer}</p> : null}
     </section>
   );
 }

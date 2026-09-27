@@ -289,7 +289,7 @@ export const MarketHubView: React.FC<MarketHubViewProps> = ({ defaultTab }) => {
                 </div>
               )
             ) : null}
-            {ranking ? <MagicFormulaPanel ranking={ranking} /> : null}
+            {ranking ? <MagicFormulaPanel ranking={ranking} onSelectTicker={handleSelectTickerFromSector} /> : null}
           </div>
         ) : null}
 
