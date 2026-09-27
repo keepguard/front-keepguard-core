@@ -3,6 +3,7 @@ import { CalendarRange, ChevronLeft, ChevronRight, Copy, RefreshCw, Star, Trendi
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { hasAdminRole } from '../../utils/roles';
+import { Tooltip } from '../common/Tooltip';
 import {
   getFavorites,
   getUserWatchlist,
@@ -356,9 +357,15 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
             </label>
           ) : null}
           {selected ? (
-            <button type="button" className="digest-ghost" onClick={() => { void copySummary(); }}>
-              <Copy size={14} aria-hidden="true" /> Copiar resumo
-            </button>
+            <Tooltip
+              label="Copiar texto do resumo"
+              description="Copia o panorama deste período, com o período no início, para você colar em uma mensagem, e-mail ou anotação e compartilhar. As listas de altas, quedas e teses não vão junto."
+              align="end"
+            >
+              <button type="button" className="digest-ghost" onClick={() => { void copySummary(); }}>
+                <Copy size={14} aria-hidden="true" /> Copiar texto
+              </button>
+            </Tooltip>
           ) : null}
           {isOps ? (
             <>
