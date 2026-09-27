@@ -45,5 +45,9 @@ export function usePlanUniverse(): PlanUniverse {
     () => (ticker: string) => fullAccess || allowed.has(ticker.trim().toUpperCase()),
     [fullAccess, allowed],
   );
-  return { ready: state.ready, fullAccess, tickers: state.tickers, has };
+  // Objeto estável: quem usa como dependência de efeito não pode disparar a cada render.
+  return useMemo(
+    () => ({ ready: state.ready, fullAccess, tickers: state.tickers, has }),
+    [state.ready, fullAccess, state.tickers, has],
+  );
 }

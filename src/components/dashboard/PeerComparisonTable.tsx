@@ -56,7 +56,8 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
   const { addToast } = useToast();
   const universe = usePlanUniverse();
   // Plano com universo limitado: só se compara o que está na carteira.
-  const restricted = universe.ready && !universe.fullAccess;
+  const { ready, has } = universe;
+  const restricted = ready && !universe.fullAccess;
   const searchInputId = useId();
   const [selectedTickers, setSelectedTickers] = useState<string[]>(() => {
     if (initialTickers && initialTickers.length > 0) {
@@ -162,7 +163,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
   // Ativo de fora do plano que veio pela URL sai da seleção antes de qualquer consulta.
   useEffect(() => {
     if (!restricted) return;
-    const allowed = selectedTickers.filter((t) => universe.has(t));
+    const allowed = selectedTickers.filter((t) => has(t));
     if (allowed.length === selectedTickers.length) return;
     addToast({
       type: 'info',
@@ -170,18 +171,18 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
       description: 'Removemos da comparação o que não faz parte da sua carteira.',
     });
     updateTickers(allowed);
-  }, [restricted, selectedTickers, universe, updateTickers, addToast]);
+  }, [restricted, selectedTickers, has, updateTickers, addToast]);
 
   useEffect(() => {
-    if (!universe.ready) return;
-    if (restricted && selectedTickers.some((t) => !universe.has(t))) return;
+    if (!ready) return;
+    if (restricted && selectedTickers.some((t) => !has(t))) return;
     if (selectedTickers.length >= 2) {
       void fetchComparison(selectedTickers);
     } else {
       setMatrix(null);
       setError('');
     }
-  }, [selectedTickers, fetchComparison, universe, restricted]);
+  }, [selectedTickers, fetchComparison, ready, has, restricted]);
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
