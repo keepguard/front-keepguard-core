@@ -21,6 +21,7 @@ import {
   SettingsPage,
   TemplatesPage,
   TenantSessionsPage,
+  TradePage,
   UserBlacklistPage,
 } from '../pages/DashboardPage';
 import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canSeeBillingOrg, canSeeBillingStorefront, hasAdminRole } from '../utils/roles';
@@ -68,6 +69,7 @@ export const AppRoutes: React.FC = () => {
         <Route path={PATHS.overview} element={<Navigate to={PATHS.market} replace />} />
         <Route path={PATHS.market} element={<MarketDeskPage />} />
         <Route path={PATHS.marketCompare} element={<MarketDeskPage defaultTab="compare" />} />
+        <Route path={PATHS.trade} element={<TradePage />} />
         <Route path={PATHS.sessions} element={<SessionsPage />} />
         <Route path={PATHS.blacklist} element={<UserBlacklistPage />} />
         <Route

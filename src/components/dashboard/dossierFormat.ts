@@ -58,3 +58,14 @@ export function titleWithTicker(displayName: string | undefined, ticker: string)
   const name = displayName?.trim();
   return name && name.toUpperCase() !== ticker.toUpperCase() ? `${name} · ${ticker}` : ticker;
 }
+
+/** "agora", "há 12 min", "há 3 h", "há 2 dias". */
+export function ageLabel(seconds: number): string {
+  if (seconds < 60) return 'agora';
+  const min = Math.floor(seconds / 60);
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24);
+  return `há ${d} ${d === 1 ? 'dia' : 'dias'}`;
+}

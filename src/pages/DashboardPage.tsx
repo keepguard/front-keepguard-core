@@ -22,9 +22,11 @@ import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
 import { MarketOpsHubView } from '../components/dashboard/MarketOpsHubView';
 import { MarketHubView } from '../components/dashboard/MarketHubView';
+import { TradeView } from '../components/dashboard/TradeView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
+  CandlestickChart,
   User,
   CheckCircle,
   Activity,
@@ -377,6 +379,23 @@ export const MarketDeskPage: React.FC<{ defaultTab?: 'desk' | 'magic' | 'sectors
       </div>
     </div>
     <MarketHubView defaultTab={defaultTab} />
+  </DashboardShell>
+);
+
+export const TradePage: React.FC = () => (
+  <DashboardShell>
+    <div className="dashboard-header">
+      <div className="dashboard-title-group">
+        <h1 className="dashboard-title">
+          <CandlestickChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          Trade
+        </h1>
+        <p className="dashboard-subtitle">
+          Última cotação e último candle dos ativos do seu plano. Dado do coletor, não é tempo real. Análise, não recomendação de investimento.
+        </p>
+      </div>
+    </div>
+    <TradeView />
   </DashboardShell>
 );
 

@@ -15,6 +15,7 @@ import {
   X,
   BookOpen,
   LineChart,
+  CandlestickChart,
   Sparkles,
   PanelLeftClose,
   PanelLeft,
@@ -120,6 +121,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               end
               label="Mercado"
               icon={<LineChart size={18} className="sidebar-icon" />}
+              onCloseMobile={onCloseMobile}
+            />
+
+            <SidebarLink
+              to={PATHS.trade}
+              label="Trade"
+              icon={<CandlestickChart size={18} className="sidebar-icon" />}
               onCloseMobile={onCloseMobile}
             />
 
