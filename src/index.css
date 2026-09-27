@@ -14335,3 +14335,20 @@ textarea.form-input {
   font-size: 0.8rem;
   color: var(--text-muted);
 }
+
+/* Comparador: rótulo da métrica à esquerda e chip de setor sem quebrar o cabeçalho */
+.market-compare-td-metric {
+  text-align: left;
+}
+
+.market-compare-asset-ticker-row {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.market-compare-asset-sector {
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
