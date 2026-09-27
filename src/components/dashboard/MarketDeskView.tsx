@@ -70,6 +70,9 @@ function mapAnalystError(err: unknown, fallback: string): string {
   if (data?.error === 'INVALID_TICKER' || status === 400) {
     return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).';
   }
+  if (data?.error === 'ASSET_OUTSIDE_PLAN') {
+    return 'Este ativo não faz parte do seu plano. Escolha um ativo da sua carteira ou adicione-o em "Escolher Ativo (Pick)".';
+  }
   if (data?.error === 'PRODUCT_RESTRICTED' || status === 403) {
     return data?.message || 'Este ativo não está incluído na cota do seu plano atual.';
   }
@@ -258,35 +261,6 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   const [openList, setOpenList] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const handleCompareWithPeers = useCallback(() => {
-    const target = selectedTicker || appliedQuery || query;
-    if (!target) return;
-    const upper = target.trim().toUpperCase();
-    const currentItem = catalogItems.find(
-      (item) => item.ticker.toUpperCase() === upper,
-    );
-    const peers = currentItem?.sectorId
-      ? rankSectorPeers(currentItem, catalogItems).slice(0, 2)
-      : [];
-    if (peers.length === 0) {
-      addToast({
-        type: 'info',
-        title: 'Sem pares no mesmo setor',
-        description: `Não encontramos outro ativo do mesmo setor de ${upper} no catálogo. Adicione os concorrentes manualmente no comparador.`,
-      });
-    }
-    const tickersToCompare = [upper, ...peers];
-    if (onNavigateToCompare) {
-      onNavigateToCompare(tickersToCompare);
-    } else {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('tab', 'compare');
-        next.set('tickers', tickersToCompare.join(','));
-        return next;
-      });
-    }
-  }, [selectedTicker, appliedQuery, query, catalogItems, onNavigateToCompare, setSearchParams, addToast]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -325,6 +299,49 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
   const isVIP = userWatchlist?.planCode?.toUpperCase() === 'VIP' || (userWatchlist?.maxTickers ?? 0) >= WATCHLIST_MAX_TICKERS;
   const isFullAccess = isAdmin || isVIP;
+
+  // Pares para comparar: quem tem universo limitado só compara ativos da própria carteira.
+  const comparablePeers = useMemo(() => {
+    const target = (selectedTicker || appliedQuery || query).trim().toUpperCase();
+    if (!target) return [];
+    const currentItem = catalogItems.find((item) => item.ticker.toUpperCase() === target);
+    if (!currentItem?.sectorId) return [];
+    const planSet = new Set(watchlistTickers.map((t) => t.toUpperCase()));
+    const pool = isFullAccess ? catalogItems : catalogItems.filter((item) => planSet.has(item.ticker.toUpperCase()));
+    return rankSectorPeers(currentItem, pool).slice(0, 2);
+  }, [selectedTicker, appliedQuery, query, catalogItems, watchlistTickers, isFullAccess]);
+  const noPlanPeers = !isFullAccess && comparablePeers.length === 0;
+
+  const handleCompareWithPeers = useCallback(() => {
+    const target = selectedTicker || appliedQuery || query;
+    if (!target) return;
+    const upper = target.trim().toUpperCase();
+    if (comparablePeers.length === 0) {
+      addToast({
+        type: 'info',
+        title: isFullAccess ? 'Sem pares no mesmo setor' : 'Sem pares na sua carteira',
+        description: isFullAccess
+          ? `Não encontramos outro ativo do mesmo setor de ${upper} no catálogo. Adicione os concorrentes manualmente no comparador.`
+          : `Você não tem outro ativo do mesmo setor de ${upper} na carteira do plano. Adicione um em "Escolher Ativo (Pick)" para comparar.`,
+      });
+      if (!isFullAccess) return;
+    }
+    const tickersToCompare = [upper, ...comparablePeers];
+    if (onNavigateToCompare) {
+      onNavigateToCompare(tickersToCompare);
+    } else {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', 'compare');
+        next.set('tickers', tickersToCompare.join(','));
+        return next;
+      });
+    }
+  }, [selectedTicker, appliedQuery, query, comparablePeers, isFullAccess, onNavigateToCompare, setSearchParams, addToast]);
+  const compareTitle = (ticker: string) => (noPlanPeers
+    ? `Você não tem outro ativo do setor de ${ticker} na carteira do plano`
+    : `Comparar ${ticker} com pares da sua carteira`);
+
 
   const catalogMap = useMemo(() => {
     const map = new Map<string, MarketAssetItem>();
@@ -1212,9 +1229,10 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <button
                 type="button"
-                className="btn btn-secondary btn-pill market-compare-shortcut-btn"
+                className={`btn btn-secondary btn-pill market-compare-shortcut-btn${noPlanPeers ? ' is-muted' : ''}`}
                 onClick={handleCompareWithPeers}
-                title={`Comparar ${selectedTicker} com pares do mesmo setor`}
+                aria-disabled={noPlanPeers}
+                title={compareTitle(selectedTicker || '')}
               >
                 <Scale size={15} aria-hidden="true" />
                 <span>Comparar com Pares</span>
@@ -1281,9 +1299,10 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <button
                 type="button"
-                className="btn btn-secondary btn-pill market-compare-shortcut-btn"
+                className={`btn btn-secondary btn-pill market-compare-shortcut-btn${noPlanPeers ? ' is-muted' : ''}`}
                 onClick={handleCompareWithPeers}
-                title={`Comparar ${latest.ticker} com pares do setor`}
+                aria-disabled={noPlanPeers}
+                title={compareTitle(latest.ticker)}
               >
                 <Scale size={15} aria-hidden="true" />
                 <span>Comparar com Pares</span>

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { hasAdminRole } from '../../utils/roles';
 import { Tooltip } from '../common/Tooltip';
+import { LockedNotice, LockedTicker } from './LockedAsset';
 import {
   getFavorites,
   getUserWatchlist,
@@ -66,6 +67,7 @@ interface ThesisMove {
 function netThesisMoves(changes: AnalystDigestThesisChange[]): { better: ThesisMove[]; worse: ThesisMove[]; other: ThesisMove[]; returned: string[] } {
   const byTicker = new Map<string, AnalystDigestThesisChange[]>();
   [...changes]
+    .filter((c) => !c.locked)
     .sort((a, b) => a.detectedAt.localeCompare(b.detectedAt))
     .forEach((c) => byTicker.set(c.ticker, [...(byTicker.get(c.ticker) ?? []), c]));
 
@@ -93,8 +95,9 @@ function netThesisMoves(changes: AnalystDigestThesisChange[]): { better: ThesisM
 /** Tickers que o usuário acompanha (favoritos e carteira do plano): ganham uma estrela em toda a tela. */
 const MineContext = createContext<Set<string>>(new Set());
 
-function TickerButton({ ticker, name, onSelect }: { ticker: string; name?: string; onSelect: (ticker: string) => void }) {
+function TickerButton({ ticker, name, onSelect, locked }: { ticker: string; name?: string; onSelect: (ticker: string) => void; locked?: boolean }) {
   const mine = useContext(MineContext).has(ticker);
+  if (locked) return <LockedTicker />;
   return (
     <button type="button" className="digest-ticker" onClick={() => onSelect(ticker)} title={name ? `${name} · abrir dossiê` : 'Abrir dossiê'}>
       {ticker}
@@ -180,8 +183,8 @@ function MoverList({ title, icon, items, tone, onSelect, emptyText }: {
             <li key={item.ticker} className="digest-mover">
               <span className="digest-mover-rank" aria-hidden="true">{index + 1}</span>
               <span className="digest-mover-id">
-                <TickerButton ticker={item.ticker} name={item.displayName} onSelect={onSelect} />
-                <span className="digest-mover-price">{formatMoney(item.lastClose)}</span>
+                <TickerButton ticker={item.ticker} name={item.displayName} onSelect={onSelect} locked={item.locked} />
+                <span className="digest-mover-price">{item.locked ? 'fora do seu plano' : formatMoney(item.lastClose)}</span>
               </span>
               <span className="digest-bar" aria-hidden="true">
                 <span className={`digest-bar-fill is-${tone}`} style={{ width: `${barWidth(item.returnPct, max)}%` }} />
@@ -275,6 +278,16 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
   const index = items.findIndex((d) => d.periodKey === selectedKey);
   const selected = index >= 0 ? items[index] : null;
   const moves = useMemo(() => netThesisMoves(selected?.thesisChanges ?? []), [selected]);
+  // Mudanças de tese em ativos fora do plano: contam no total, mas não dizem quem nem para onde.
+  const lockedChanges = useMemo(() => (selected?.thesisChanges ?? []).filter((c) => c.locked).length, [selected]);
+  const hasLocked = useMemo(
+    () => Boolean(selected && (
+      selected.topGainers.some((m) => m.locked) || selected.topLosers.some((m) => m.locked) || lockedChanges > 0
+      || selected.riskUp.some((m) => m.locked) || selected.riskDown.some((m) => m.locked)
+      || selected.magicFormula?.entered.some((m) => m.locked) || selected.magicFormula?.exited.some((m) => m.locked)
+    )),
+    [selected, lockedChanges],
+  );
 
   const generate = async (force: boolean) => {
     setGenerating(true);
@@ -434,19 +447,19 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
           <div className="digest-tiles">
             <Tile
               label="Maior alta"
-              value={best ? best.ticker : '—'}
+              value={best ? (best.locked ? 'Bloqueado' : best.ticker) : '—'}
               sub={best ? <span className="is-up">{formatSignedPct(best.returnPct)}</span> : 'Nenhuma alta no período'}
               tone="up"
             />
             <Tile
               label="Maior queda"
-              value={worst ? worst.ticker : '—'}
+              value={worst ? (worst.locked ? 'Bloqueado' : worst.ticker) : '—'}
               sub={worst ? <span className="is-down">{formatSignedPct(worst.returnPct)}</span> : 'Nenhuma queda no período'}
               tone="down"
             />
             <Tile
               label="Mudanças de tese"
-              value={moves.better.length + moves.worse.length + moves.other.length}
+              value={moves.better.length + moves.worse.length + moves.other.length + lockedChanges}
               sub={`${moves.better.length} melhoraram · ${moves.worse.length} pioraram`}
             />
             <Tile
@@ -455,6 +468,10 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
               sub={`${selected.coverage.sessionDays} ${selected.coverage.sessionDays === 1 ? 'pregão' : 'pregões'}`}
             />
           </div>
+
+          {hasLocked ? (
+            <LockedNotice text="Você vê em detalhe os ativos do seu plano. Os demais aparecem bloqueados, com a posição e o quanto se moveram." />
+          ) : null}
 
           <MyAssets assets={mineAssets} hasAny={mine.size > 0} onSelect={onSelectTicker} />
 
@@ -465,7 +482,7 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
 
           <section className="digest-card" aria-label="Mudanças de tese">
             <h3 className="digest-card-title">Mudanças de tese</h3>
-            {moves.better.length + moves.worse.length + moves.other.length === 0 ? (
+            {moves.better.length + moves.worse.length + moves.other.length + lockedChanges === 0 ? (
               <p className="text-muted">Nenhuma mudança de tese no período.</p>
             ) : (
               <>
@@ -474,6 +491,11 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
                 <ThesisGroup title="Outras mudanças" tone="neutral" moves={moves.other} onSelect={onSelectTicker} />
               </>
             )}
+            {lockedChanges > 0 ? (
+              <p className="text-muted digest-returned">
+                {lockedChanges} {lockedChanges === 1 ? 'mudança de tese em ativo' : 'mudanças de tese em ativos'} fora do seu plano.
+              </p>
+            ) : null}
             {moves.returned.length > 0 ? (
               <p className="text-muted digest-returned">
                 Mudaram e voltaram à tese de partida: {moves.returned.join(', ')}.
@@ -493,7 +515,7 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
                   {selected.magicFormula.entered.length === 0 ? <p className="text-muted">Ninguém entrou.</p> : (
                     <ul className="digest-thesis">
                       {selected.magicFormula.entered.map((m) => (
-                        <li key={m.ticker}><TickerButton ticker={m.ticker} onSelect={onSelectTicker} /><span className="digest-thesis-flow">{rankText(m.rankFrom)} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{rankText(m.rankTo)}</strong></span></li>
+                        <li key={m.ticker}><TickerButton ticker={m.ticker} onSelect={onSelectTicker} locked={m.locked} /><span className="digest-thesis-flow">{rankText(m.rankFrom)} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{rankText(m.rankTo)}</strong></span></li>
                       ))}
                     </ul>
                   )}
@@ -501,7 +523,7 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
                   {selected.magicFormula.exited.length === 0 ? <p className="text-muted">Ninguém saiu.</p> : (
                     <ul className="digest-thesis">
                       {selected.magicFormula.exited.map((m) => (
-                        <li key={m.ticker}><TickerButton ticker={m.ticker} onSelect={onSelectTicker} /><span className="digest-thesis-flow">{rankText(m.rankFrom)} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{rankText(m.rankTo)}</strong></span></li>
+                        <li key={m.ticker}><TickerButton ticker={m.ticker} onSelect={onSelectTicker} locked={m.locked} /><span className="digest-thesis-flow">{rankText(m.rankFrom)} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{rankText(m.rankTo)}</strong></span></li>
                       ))}
                     </ul>
                   )}
@@ -515,7 +537,7 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
               {selected.riskUp.length === 0 ? <p className="text-muted">Nenhum ativo subiu de nível.</p> : (
                 <ul className="digest-thesis">
                   {selected.riskUp.map((r) => (
-                    <li key={r.ticker}><TickerButton ticker={r.ticker} name={r.displayName} onSelect={onSelectTicker} /><span className="digest-thesis-flow">{RISK_LEVEL_LABEL[r.from] || r.from} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{RISK_LEVEL_LABEL[r.to] || r.to}</strong></span></li>
+                    <li key={r.ticker}><TickerButton ticker={r.ticker} name={r.displayName} onSelect={onSelectTicker} locked={r.locked} />{r.locked ? null : <span className="digest-thesis-flow">{RISK_LEVEL_LABEL[r.from] || r.from} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{RISK_LEVEL_LABEL[r.to] || r.to}</strong></span>}</li>
                   ))}
                 </ul>
               )}
@@ -523,7 +545,7 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
               {selected.riskDown.length === 0 ? <p className="text-muted">Nenhum ativo desceu de nível.</p> : (
                 <ul className="digest-thesis">
                   {selected.riskDown.map((r) => (
-                    <li key={r.ticker}><TickerButton ticker={r.ticker} name={r.displayName} onSelect={onSelectTicker} /><span className="digest-thesis-flow">{RISK_LEVEL_LABEL[r.from] || r.from} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{RISK_LEVEL_LABEL[r.to] || r.to}</strong></span></li>
+                    <li key={r.ticker}><TickerButton ticker={r.ticker} name={r.displayName} onSelect={onSelectTicker} locked={r.locked} />{r.locked ? null : <span className="digest-thesis-flow">{RISK_LEVEL_LABEL[r.from] || r.from} <span aria-hidden="true">→</span><span className="sr-only"> para </span> <strong>{RISK_LEVEL_LABEL[r.to] || r.to}</strong></span>}</li>
                   ))}
                 </ul>
               )}

@@ -10,6 +10,7 @@ import {
   type ComparisonMetric,
   type MarketAssetItem,
 } from '../../services/analystService';
+import { usePlanUniverse } from '../../hooks/usePlanUniverse';
 import { thesisDisplayLabel, thesisTone } from './marketLabels';
 
 interface PeerComparisonTableProps {
@@ -53,6 +54,9 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
   onSelectTicker,
 }) => {
   const { addToast } = useToast();
+  const universe = usePlanUniverse();
+  // Plano com universo limitado: só se compara o que está na carteira.
+  const restricted = universe.ready && !universe.fullAccess;
   const searchInputId = useId();
   const [selectedTickers, setSelectedTickers] = useState<string[]>(() => {
     if (initialTickers && initialTickers.length > 0) {
@@ -181,7 +185,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
     if (!query) return [];
 
     const availableItems = catalogItems.filter(
-      (item) => !selectedTickers.includes(item.ticker.toUpperCase()),
+      (item) => !selectedTickers.includes(item.ticker.toUpperCase()) && (!restricted || universe.has(item.ticker)),
     );
 
     const matches = availableItems.filter(
@@ -194,7 +198,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
 
     // Fallback para knownTickers se catalogItems for vazio
     return knownTickers
-      .filter((t) => !selectedTickers.includes(t) && t.includes(query))
+      .filter((t) => !selectedTickers.includes(t) && t.includes(query) && (!restricted || universe.has(t)))
       .slice(0, 6)
       .map((t) => ({
         ticker: t,
@@ -203,11 +207,19 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
         sectorId: '',
         sectorLabel: '',
       }));
-  }, [searchTerm, selectedTickers, catalogItems, knownTickers]);
+  }, [searchTerm, selectedTickers, catalogItems, knownTickers, restricted, universe]);
 
   const handleAddTicker = (ticker: string) => {
     const upper = ticker.trim().toUpperCase();
     if (!upper || selectedTickers.includes(upper)) return;
+    if (restricted && !universe.has(upper)) {
+      addToast({
+        type: 'warning',
+        title: 'Ativo fora do seu plano',
+        description: 'Compare apenas ativos da sua carteira. Para incluir outro, escolha-o em "Escolher Ativo (Pick)" no Dossiê.',
+      });
+      return;
+    }
     if (selectedTickers.length >= 4) {
       addToast({
         type: 'warning',
@@ -282,6 +294,15 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
     return counts;
   }, [matrix]);
   const totalMetrics = matrix?.metrics?.length ?? 0;
+
+  const presets = useMemo(
+    () => (restricted ? PRESET_COMPARISONS.filter((p) => p.tickers.every((t) => universe.has(t))) : PRESET_COMPARISONS),
+    [restricted, universe],
+  );
+  // Sugestão de par para o estado vazio: o do catálogo para quem vê tudo, os primeiros da carteira para os demais.
+  const suggestedPairs: string[][] = restricted
+    ? (universe.tickers.length >= 2 ? [universe.tickers.slice(0, 2)] : [])
+    : [['ITUB4', 'BBAS3'], ['PETR4', 'PRIO3']];
 
   const allAssetsNoData = Boolean(
     matrix && matrix.assets.length > 0 && matrix.assets.every(hasNoRun),
@@ -402,14 +423,14 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
         </div>
 
         {/* SUGESTÕES RÁPIDAS (PRESETS) */}
-        {selectedTickers.length < 2 ? (
+        {selectedTickers.length < 2 && presets.length > 0 ? (
           <div className="market-compare-presets-wrap">
             <span className="market-compare-presets-label">
               <Sparkles size={14} aria-hidden="true" />
               Sugestões rápidas de comparação:
             </span>
             <div className="market-compare-presets-chips">
-              {PRESET_COMPARISONS.map((preset) => (
+              {presets.map((preset) => (
                 <button
                   key={preset.label}
                   type="button"
@@ -509,20 +530,19 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
             Selecione ao menos 2 ativos acima ou clique em uma das sugestões rápidas para gerar a matriz comparativa lado a lado.
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-primary btn-pill"
-              onClick={() => updateTickers(['ITUB4', 'BBAS3'])}
-            >
-              <Plus size={14} /> Comparar ITUB4 vs BBAS3
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-pill"
-              onClick={() => updateTickers(['PETR4', 'PRIO3'])}
-            >
-              <Plus size={14} /> Comparar PETR4 vs PRIO3
-            </button>
+            {suggestedPairs.map((pair, index) => (
+              <button
+                key={pair.join('-')}
+                type="button"
+                className={`btn ${index === 0 ? 'btn-primary' : 'btn-secondary'} btn-pill`}
+                onClick={() => updateTickers(pair)}
+              >
+                <Plus size={14} /> Comparar {pair.join(' vs ')}
+              </button>
+            ))}
+            {suggestedPairs.length === 0 ? (
+              <p className="text-muted">Sua carteira tem menos de 2 ativos. Adicione mais um em "Escolher Ativo (Pick)" no Dossiê para comparar.</p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -541,20 +561,19 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
             Selecione outros ativos da sua watchlist ou utilize uma das comparações recomendadas abaixo:
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-primary btn-pill"
-              onClick={() => updateTickers(['ITUB4', 'BBAS3'])}
-            >
-              <Plus size={14} /> Comparar ITUB4 vs BBAS3
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary btn-pill"
-              onClick={() => updateTickers(['PETR4', 'PRIO3'])}
-            >
-              <Plus size={14} /> Comparar PETR4 vs PRIO3
-            </button>
+            {suggestedPairs.map((pair, index) => (
+              <button
+                key={pair.join('-')}
+                type="button"
+                className={`btn ${index === 0 ? 'btn-primary' : 'btn-secondary'} btn-pill`}
+                onClick={() => updateTickers(pair)}
+              >
+                <Plus size={14} /> Comparar {pair.join(' vs ')}
+              </button>
+            ))}
+            {suggestedPairs.length === 0 ? (
+              <p className="text-muted">Sua carteira tem menos de 2 ativos. Adicione mais um em "Escolher Ativo (Pick)" no Dossiê para comparar.</p>
+            ) : null}
           </div>
         </div>
       ) : null}

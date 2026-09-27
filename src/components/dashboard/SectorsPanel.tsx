@@ -10,6 +10,7 @@ import {
   formatIsoDatePt,
 } from '../../services/analystService';
 import { Tooltip } from '../common/Tooltip';
+import { LockedNotice, LockedPlaceholder, LockedTicker } from './LockedAsset';
 import { THESIS_LABEL, thesisDisplayLabel, thesisTone } from './marketLabels';
 
 const COLUMN_HELP = {
@@ -128,6 +129,21 @@ function Multiple({ current, hist }: { current?: number | null; hist?: number | 
 }
 
 function TickerCard({ t, onSelect }: { t: AnalystSectorTickerDetail; onSelect?: (ticker: string) => void }) {
+  if (t.locked) {
+    return (
+      <div className="sc-ticker is-locked" aria-label="Ativo fora do seu plano">
+        <span className="sc-ticker-top">
+          <LockedTicker />
+        </span>
+        <span className="sc-ticker-name"><LockedPlaceholder>Nome da empresa</LockedPlaceholder></span>
+        <span className="sc-ticker-metrics">
+          <LockedPlaceholder>R$ 00,00</LockedPlaceholder>
+          <LockedPlaceholder>P/L 0,0x</LockedPlaceholder>
+          <LockedPlaceholder>P/VP 0,00x</LockedPlaceholder>
+        </span>
+      </div>
+    );
+  }
   const tone = t.thesisCode ? thesisTone(t.thesisCode) : 'muted';
   return (
     <button type="button" className="sc-ticker" onClick={() => onSelect?.(t.ticker)} disabled={!onSelect}>
@@ -217,6 +233,7 @@ export const SectorsPanel: React.FC<SectorsPanelProps> = ({ snapshot, onSelectTi
   const worstM3 = withM3.reduce<AnalystSectorSummary | null>((acc, r) => (!acc || (m3Of(r) as number) < (m3Of(acc) as number) ? r : acc), null);
   const withGap = snapshot.sectors.filter((r) => plGap(r) != null);
   const cheapest = withGap.reduce<AnalystSectorSummary | null>((acc, r) => (!acc || (plGap(r) as number) < (plGap(acc) as number) ? r : acc), null);
+  const hasLocked = snapshot.sectors.some((r) => (r.lockedCount ?? 0) > 0);
   const maxM3 = Math.max(...withM3.map((r) => Math.abs(m3Of(r) as number)), 0.0001);
 
   return (
@@ -237,6 +254,10 @@ export const SectorsPanel: React.FC<SectorsPanelProps> = ({ snapshot, onSelectTi
           </select>
         </label>
       </header>
+
+      {hasLocked ? (
+        <LockedNotice text="Os números do setor consideram todos os ativos. Você vê em detalhe só os do seu plano; os demais aparecem bloqueados." />
+      ) : null}
 
       <div className="sc-tiles">
         <Tile label="Setores" value={snapshot.sectors.length} sub="monitorados" />
@@ -267,7 +288,10 @@ export const SectorsPanel: React.FC<SectorsPanelProps> = ({ snapshot, onSelectTi
                 <div className="sc-row">
                   <span className="sc-name">
                     <strong>{row.sectorLabel}</strong>
-                    <small>{row.tickerCount} {row.tickerCount === 1 ? 'ativo' : 'ativos'}</small>
+                    <small>
+                      {row.tickerCount} {row.tickerCount === 1 ? 'ativo' : 'ativos'}
+                      {row.lockedCount ? ` · ${row.lockedCount} fora do seu plano` : ''}
+                    </small>
                   </span>
 
                   <span className="sc-perf" data-label="Var 3M">

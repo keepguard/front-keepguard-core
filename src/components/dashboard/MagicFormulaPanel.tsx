@@ -9,6 +9,7 @@ import {
   getUserWatchlist,
 } from '../../services/analystService';
 import { Tooltip } from '../common/Tooltip';
+import { LockedNotice, LockedPlaceholder, LockedTicker } from './LockedAsset';
 
 const PAGE_SIZE = 10;
 
@@ -136,10 +137,12 @@ export function MagicFormulaPanel({ ranking, onSelectTicker }: MagicFormulaPanel
     [ranked, sector],
   );
   const shown = filtered.slice(0, visible);
-  const maxEy = Math.max(...shown.map((r) => r.eyPct), 0);
-  const maxRoic = Math.max(...shown.map((r) => r.roicPct), 0);
+  const unlocked = shown.filter((r) => !r.locked);
+  const maxEy = Math.max(...unlocked.map((r) => r.eyPct), 0);
+  const maxRoic = Math.max(...unlocked.map((r) => r.roicPct), 0);
   const best = ranked[0];
-  const mineInRanking = ranked.filter((row) => mine.has(row.ticker.toUpperCase())).length;
+  const hasLocked = ranked.some((row) => row.locked);
+  const mineInRanking = ranked.filter((row) => !row.locked && mine.has(row.ticker.toUpperCase())).length;
 
   return (
     <section className="mf" aria-label="Fórmula Mágica">
@@ -166,13 +169,17 @@ export function MagicFormulaPanel({ ranking, onSelectTicker }: MagicFormulaPanel
         ) : null}
       </div>
 
+      {hasLocked ? (
+        <LockedNotice text="Você vê em detalhe os ativos do seu plano. Nos demais, aparecem só a posição, a soma e o setor." />
+      ) : null}
+
       <div className="mf-tiles">
         <Tile label="Analisados" value={universe} sub="universo do dia" />
         <Tile label="No ranking" value={ranked.length} sub="com nota completa" />
         <Tile label="Excluídas" value={excluded} sub="fora do ranking" />
         <Tile label="Omitidas" value={omitted} sub="métrica ausente" />
         <Tile label="Você acompanha" value={mineInRanking} sub="no ranking" />
-        {best ? <Tile label="1º colocado" value={best.ticker} sub={`Soma ${best.combined}`} /> : null}
+        {best ? <Tile label="1º colocado" value={best.locked ? 'Bloqueado' : best.ticker} sub={`Soma ${best.combined}`} /> : null}
       </div>
 
       {!significant ? (
@@ -214,6 +221,23 @@ export function MagicFormulaPanel({ ranking, onSelectTicker }: MagicFormulaPanel
 
           <ol className="mf-list">
             {shown.map((row) => {
+              if (row.locked) {
+                return (
+                  <li key={row.ticker} className="mf-row is-locked">
+                    <span className="mf-col-rank"><span className="mf-rank">{row.rank}</span></span>
+                    <span className="mf-col-id">
+                      <LockedTicker />
+                      <span className="mf-sector">{row.sectorLabel || '—'}</span>
+                    </span>
+                    <span className="mf-col-bar"><span className="mf-bar" aria-hidden="true" /><LockedPlaceholder>00,00%</LockedPlaceholder></span>
+                    <span className="mf-col-bar"><span className="mf-bar" aria-hidden="true" /><LockedPlaceholder>00,00%</LockedPlaceholder></span>
+                    <span className="mf-col-num" title="Soma das posições em EY e ROIC">
+                      <span className="mf-mobile-label">Soma</span>{row.combined}
+                    </span>
+                    <span className="mf-col-f"><span className="mf-f is-none"><LockedPlaceholder>00%</LockedPlaceholder></span></span>
+                  </li>
+                );
+              }
               const ratio = fScoreRatio(row);
               const isMine = mine.has(row.ticker.toUpperCase());
               return (

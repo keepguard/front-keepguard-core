@@ -655,6 +655,8 @@ export type DigestKind = 'WEEKLY' | 'MONTHLY';
 
 export interface AnalystDigestMover {
   ticker: string;
+  /** Ativo fora do plano do usuário: só posição e variação; o BFF troca o ticker por um apelido opaco. */
+  locked?: boolean;
   displayName?: string;
   returnPct: number;
   lastClose: number;
@@ -674,6 +676,7 @@ export interface AnalystDigestAsset {
 
 export interface AnalystDigestThesisChange {
   ticker: string;
+  locked?: boolean;
   displayName?: string;
   fromThesis: string;
   toThesis: string;
@@ -684,12 +687,14 @@ export interface AnalystDigestThesisChange {
 /** Posição 0 = fora do ranking. */
 export interface AnalystDigestRankMove {
   ticker: string;
+  locked?: boolean;
   rankFrom: number;
   rankTo: number;
 }
 
 export interface AnalystDigestRiskMove {
   ticker: string;
+  locked?: boolean;
   displayName?: string;
   from: string;
   to: string;
@@ -1029,6 +1034,8 @@ export const addUserPicks = addUserWatchlistPicks;
 
 export interface AnalystMagicRanked {
   rank: number;
+  /** Ativo fora do plano: só posição, soma e setor; sem ticker, EY, ROIC nem F-Score. */
+  locked?: boolean;
   ticker: string;
   combined: number;
   eyRank: number;
@@ -1168,6 +1175,8 @@ export interface AnalystSectorAxes {
 
 export interface AnalystSectorTickerDetail {
   ticker: string;
+  /** Ativo fora do plano: sem nome, tese, preço nem múltiplos. */
+  locked?: boolean;
   displayName?: string;
   thesisCode?: string;
   price?: number;
@@ -1177,6 +1186,8 @@ export interface AnalystSectorTickerDetail {
 
 export interface AnalystSectorSummary {
   sector: string;
+  /** Quantos ativos do setor estão fora do plano do usuário. */
+  lockedCount?: number;
   sectorLabel: string;
   tickerCount: number;
   tickers: string[];

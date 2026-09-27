@@ -14791,3 +14791,64 @@ textarea.form-input {
   flex-direction: column;
   gap: 0.25rem;
 }
+
+/* Ativos fora do plano: vitrine bloqueada (o dado real nunca chega ao navegador) */
+.locked-ticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.locked-blur {
+  display: inline-block;
+  color: var(--text-muted);
+  filter: blur(4px);
+  user-select: none;
+  pointer-events: none;
+}
+
+.locked-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  border: 1px dashed var(--primary-border);
+  border-radius: 12px;
+  background: var(--primary-light);
+  font-size: 0.85rem;
+  color: var(--text-body);
+}
+
+.locked-cta {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.locked-cta:hover {
+  text-decoration: underline;
+}
+
+.locked-cta:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.sc-ticker.is-locked {
+  cursor: default;
+  border-style: dashed;
+  background: var(--bg-muted);
+}
+
+.mf-row.is-locked .mf-rank {
+  background: var(--bg-muted);
+  color: var(--text-sub);
+}
+
+.market-compare-shortcut-btn.is-muted {
+  opacity: 0.6;
+}
