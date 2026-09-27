@@ -102,7 +102,7 @@ export function MarketContextCard({ context }: MarketContextCardProps) {
         />
         <Tile
           label="Negociado por dia"
-          value={context.averageDailyTradedValue != null ? formatCompactBrl(context.averageDailyTradedValue) : NO_DATA}
+          value={context.averageDailyTradedValue != null ? formatCompactBrl(context.averageDailyTradedValue).replace(' bilhões', ' bi') : NO_DATA}
           sub="média de 20 pregões"
         />
       </div>
