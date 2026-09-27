@@ -1,11 +1,13 @@
+# syntax=docker/dockerfile:1
 # Stage 1: Build da aplicação React/Vite
 FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copia arquivos de dependência
+# Copia arquivos de dependência e aproveita cache do npm
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Copia código-fonte e arquivos de configuração
 COPY . .
