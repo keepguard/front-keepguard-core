@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
   getPlanQuotas,
+  isVIPPlan,
   listKnownTickers,
   savePlanQuotas,
   type PlanQuotaDTO,
@@ -30,6 +31,7 @@ interface QuotaDraft {
   watchlistPicks: number;
   fixedTickers: string[];
   isNoPlan?: boolean;
+  isLifetime?: boolean;
   updatedAt?: string | null;
 }
 
@@ -109,14 +111,16 @@ export const MarketPlanQuotasPanel: React.FC = () => {
       for (const p of billingPlans) {
         if (p.code === NO_PLAN_CODE) continue;
         const q = quotaMap.get(p.code);
+        const isVIP = p.isLifetime || isVIPPlan(p.code, q?.watchlistSlots);
         merged.push({
           planCode: p.code,
           name: p.name,
           level: p.level ?? 1,
-          watchlistSlots: q ? q.watchlistSlots : DEFAULT_PAID_SLOTS,
-          watchlistPicks: q ? q.watchlistPicks : DEFAULT_PAID_PICKS,
-          fixedTickers: q?.fixedTickers ?? [],
+          watchlistSlots: isVIP ? -1 : (q ? q.watchlistSlots : DEFAULT_PAID_SLOTS),
+          watchlistPicks: isVIP ? -1 : (q ? q.watchlistPicks : DEFAULT_PAID_PICKS),
+          fixedTickers: isVIP ? [] : (q?.fixedTickers ?? []),
           isNoPlan: false,
+          isLifetime: p.isLifetime,
           updatedAt: q?.updatedAt,
         });
       }
@@ -125,13 +129,14 @@ export const MarketPlanQuotasPanel: React.FC = () => {
       for (const q of existingQuotas) {
         if (q.planCode === NO_PLAN_CODE) continue;
         if (!billingMap.has(q.planCode)) {
+          const isVIP = isVIPPlan(q.planCode, q.watchlistSlots);
           merged.push({
             planCode: q.planCode,
             name: `Plano customizado (${q.planCode})`,
             level: 99,
-            watchlistSlots: q.watchlistSlots,
-            watchlistPicks: q.watchlistPicks,
-            fixedTickers: q.fixedTickers ?? [],
+            watchlistSlots: isVIP ? -1 : q.watchlistSlots,
+            watchlistPicks: isVIP ? -1 : q.watchlistPicks,
+            fixedTickers: isVIP ? [] : (q.fixedTickers ?? []),
             isNoPlan: false,
             updatedAt: q.updatedAt,
           });
@@ -262,6 +267,10 @@ export const MarketPlanQuotasPanel: React.FC = () => {
     // Validação estrita prévia antes de salvar
     for (const draft of drafts) {
       const planLabel = draft.name || draft.planCode;
+      const isVIP = draft.isLifetime || isVIPPlan(draft.planCode, draft.watchlistSlots) || draft.watchlistSlots < 0;
+      if (isVIP) {
+        continue;
+      }
       if (draft.watchlistPicks > draft.watchlistSlots) {
         addToast({
           type: 'error',
@@ -441,19 +450,22 @@ export const MarketPlanQuotasPanel: React.FC = () => {
               </tr>
             ) : (
               drafts.map((draft) => {
+                const isVIP = draft.isLifetime || isVIPPlan(draft.planCode, draft.watchlistSlots);
                 const slots = draft.watchlistSlots;
                 const picks = draft.watchlistPicks;
-                const isPicksOver = picks > slots;
-                const requiredFixed = Math.max(0, slots - picks);
+                const isPicksOver = !isVIP && picks > slots;
+                const requiredFixed = isVIP ? 0 : Math.max(0, slots - picks);
                 const currentFixedCount = draft.fixedTickers.length;
-                const isComplete = !isPicksOver && currentFixedCount === requiredFixed;
-                const isExpanded = expandedPlans[draft.planCode] ?? (requiredFixed > 0);
+                const isComplete = isVIP || (!isPicksOver && currentFixedCount === requiredFixed);
+                const isExpanded = !isVIP && (expandedPlans[draft.planCode] ?? (requiredFixed > 0));
 
                 return (
                   <React.Fragment key={draft.planCode}>
                     <tr
                       style={
-                        draft.isNoPlan
+                        isVIP
+                          ? { background: 'rgba(232, 240, 254, 0.35)' }
+                          : draft.isNoPlan
                           ? { background: 'rgba(255, 244, 229, 0.4)' }
                           : undefined
                       }
@@ -476,7 +488,21 @@ export const MarketPlanQuotasPanel: React.FC = () => {
                             NÍVEL {draft.level ?? 0}
                           </span>
                           <strong>{draft.name || draft.planCode}</strong>
-                          {draft.isNoPlan ? (
+                          {isVIP ? (
+                            <span
+                              style={{
+                                background: '#e8f0fe',
+                                color: '#1967d2',
+                                border: '1px solid #aecbfa',
+                                borderRadius: '12px',
+                                padding: '2px 8px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                              }}
+                            >
+                              VIP / Vitalício (Ilimitado)
+                            </span>
+                          ) : draft.isNoPlan ? (
                             <span
                               style={{
                                 background: '#fff0d4',
@@ -506,6 +532,11 @@ export const MarketPlanQuotasPanel: React.FC = () => {
                             </span>
                           )}
                         </div>
+                        {isVIP && (
+                          <div style={{ fontSize: '0.8rem', color: '#1967d2', marginTop: '4px' }}>
+                            ✨ Acesso total e irrestrito a 100% dos tickets do catálogo sem limites.
+                          </div>
+                        )}
                         {draft.isNoPlan && (
                           <div style={{ fontSize: '0.8rem', color: '#805b10', marginTop: '4px' }}>
                             {slots <= 0
@@ -520,47 +551,93 @@ export const MarketPlanQuotasPanel: React.FC = () => {
                         </code>
                       </td>
                       <td style={{ padding: '0.75rem 1rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <input
-                            type="number"
-                            className="form-input"
-                            style={{ width: '85px', textAlign: 'center' }}
-                            value={draft.watchlistSlots}
-                            min={0}
-                            max={500}
-                            disabled={saving}
-                            onChange={(e) =>
-                              updateDraft(draft.planCode, 'watchlistSlots', parseInt(e.target.value, 10))
-                            }
-                            aria-label={`Slots para ${draft.planCode}`}
-                          />
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted, #70757a)' }}>ativos</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <input
-                            type="number"
-                            className="form-input"
+                        {isVIP ? (
+                          <span
                             style={{
-                              width: '85px',
-                              textAlign: 'center',
-                              borderColor: isPicksOver ? '#d93025' : undefined,
+                              background: '#e8f0fe',
+                              color: '#1a73e8',
+                              border: '1px solid #d2e3fc',
+                              borderRadius: '12px',
+                              padding: '3px 10px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
                             }}
-                            value={draft.watchlistPicks}
-                            min={0}
-                            max={500}
-                            disabled={saving}
-                            onChange={(e) =>
-                              updateDraft(draft.planCode, 'watchlistPicks', parseInt(e.target.value, 10))
-                            }
-                            aria-label={`Picks para ${draft.planCode}`}
-                          />
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted, #70757a)' }}>picks</span>
-                        </div>
+                          >
+                            Ilimitado
+                          </span>
+                        ) : (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <input
+                              type="number"
+                              className="form-input"
+                              style={{ width: '85px', textAlign: 'center' }}
+                              value={draft.watchlistSlots}
+                              min={0}
+                              max={500}
+                              disabled={saving}
+                              onChange={(e) =>
+                                updateDraft(draft.planCode, 'watchlistSlots', parseInt(e.target.value, 10))
+                              }
+                              aria-label={`Slots para ${draft.planCode}`}
+                            />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted, #70757a)' }}>ativos</span>
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', textAlign: 'center', verticalAlign: 'middle' }}>
-                        {isPicksOver ? (
+                        {isVIP ? (
+                          <span
+                            style={{
+                              background: '#e8f0fe',
+                              color: '#1a73e8',
+                              border: '1px solid #d2e3fc',
+                              borderRadius: '12px',
+                              padding: '3px 10px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            Ilimitado
+                          </span>
+                        ) : (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <input
+                              type="number"
+                              className="form-input"
+                              style={{
+                                width: '85px',
+                                textAlign: 'center',
+                                borderColor: isPicksOver ? '#d93025' : undefined,
+                              }}
+                              value={draft.watchlistPicks}
+                              min={0}
+                              max={500}
+                              disabled={saving}
+                              onChange={(e) =>
+                                updateDraft(draft.planCode, 'watchlistPicks', parseInt(e.target.value, 10))
+                              }
+                              aria-label={`Picks para ${draft.planCode}`}
+                            />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted, #70757a)' }}>picks</span>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center', verticalAlign: 'middle' }}>
+                        {isVIP ? (
+                          <span
+                            style={{
+                              background: '#e6f4ea',
+                              color: '#137333',
+                              border: '1px solid #ceead6',
+                              borderRadius: '12px',
+                              padding: '2px 8px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                            }}
+                          >
+                            100% Livre (Sem restrições)
+                          </span>
+                        ) : isPicksOver ? (
                           <span
                             style={{
                               color: '#d93025',

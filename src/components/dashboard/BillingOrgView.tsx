@@ -1770,9 +1770,9 @@ function PlansPanel({ writable }: { writable: boolean }) {
         await saveBillingPlan(payload, access);
       }
 
-      // Persiste cotas de mercado no bff-invest (VIP recebe 150 slots 100% livres)
-      const quotaSlots = planModal.isLifetime ? 150 : planModal.quotaSlots;
-      const quotaPicks = planModal.isLifetime ? 150 : planModal.quotaPicks;
+      // Persiste cotas de mercado no bff-invest (VIP recebe acesso total irrestrito / sem limites)
+      const quotaSlots = planModal.isLifetime ? -1 : planModal.quotaSlots;
+      const quotaPicks = planModal.isLifetime ? -1 : planModal.quotaPicks;
       const quotaFixed = planModal.isLifetime ? [] : planModal.quotaFixedTickers;
 
       const otherQuotas = allQuotas.filter((q) => q.planCode !== payload.code);
@@ -2624,15 +2624,15 @@ function PlansPanel({ writable }: { writable: boolean }) {
                           prices: isLifetime
                             ? []
                             : (planModal.prices.length ? planModal.prices : [{ interval: 'month', amountCents: 19900, currency: 'BRL' }]),
-                          quotaSlots: isLifetime ? 150 : (planModal.quotaSlots || 10),
-                          quotaPicks: isLifetime ? 150 : (planModal.quotaPicks || 10),
+                          quotaSlots: isLifetime ? -1 : (planModal.quotaSlots || 10),
+                          quotaPicks: isLifetime ? -1 : (planModal.quotaPicks || 10),
                           quotaFixedTickers: isLifetime ? [] : planModal.quotaFixedTickers,
                         });
                       }}
                     />
                     <div className="billing-toggle-body">
                       <strong>Plano VIP / Vitalício</strong>
-                      <span>Acesso permanente com isenção total de faturas no gateway</span>
+                      <span>Acesso permanente com isenção total de faturas e catálogo de mercado 100% ilimitado</span>
                     </div>
                   </label>
                 </div>
@@ -2642,7 +2642,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     <Crown size={22} className="billing-vip-alert-icon" />
                     <div className="billing-vip-alert-text">
                       <strong>Plano VIP Vitalício Selecionado</strong>
-                      <p>Assinantes vinculados a este plano terão acesso irrestrito sem geração de cobranças no Asaas. A etapa de ciclos é dispensada e você já pode salvar o plano diretamente.</p>
+                      <p>Assinantes vinculados a este plano terão acesso irrestrito a todos os ativos sem geração de cobranças no Asaas. A etapa de ciclos é dispensada e você já pode salvar o plano diretamente.</p>
                     </div>
                   </div>
                 )}
@@ -2798,7 +2798,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     </div>
                     <h4>Acesso Irrestrito à Carteira de Mercado</h4>
                     <p>
-                      Este plano está configurado como <strong>VIP Vitalício</strong>. Usuários vinculados a ele possuem acesso total e irrestrito ao catálogo de ativos da carteira ({planModal.quotaSlots || 150} slots 100% livres), sem obrigatoriedade de ativos fixos ou cotas limitadas.
+                      Este plano está configurado como <strong>VIP Vitalício</strong>. Usuários vinculados a ele possuem acesso total e irrestrito ao catálogo de ativos da carteira (todos os ativos 100% livres e sem limites), sem obrigatoriedade de ativos fixos ou cotas limitadas.
                     </p>
                     <button
                       type="button"
@@ -3283,7 +3283,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 <div className="billing-vip-alert-text">
                   <strong>Acesso Irrestrito à Carteira de Mercado</strong>
                   <p>
-                    Assinantes vinculados a este plano VIP Vitalício possuem acesso total e irrestrito (150 slots 100% livres), sem restrições de cotas ou obrigatoriedade de ativos fixos.
+                    Assinantes vinculados a este plano VIP Vitalício possuem acesso total e irrestrito (catálogo 100% livre e sem limites de ativos), sem restrições de cotas ou obrigatoriedade de ativos fixos.
                   </p>
                 </div>
               </div>

@@ -17,6 +17,7 @@ import {
   listAllRuns,
   listRuns,
   saveFavorites,
+  isVIPPlan,
   WATCHLIST_MAX_TICKERS,
   type AnalystFavorites,
   type AnalystUserWatchlist,
@@ -300,7 +301,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   const watchlistTickers = userWatchlist?.tickers ?? [];
   const lockedTickers = userWatchlist?.lockedTickers ?? [];
   const maxFavorites = favorites?.maxTickers || WATCHLIST_MAX_TICKERS;
-  const isVIP = userWatchlist?.planCode?.toUpperCase() === 'VIP' || (userWatchlist?.maxTickers ?? 0) >= WATCHLIST_MAX_TICKERS;
+  const isVIP = isVIPPlan(userWatchlist?.planCode, userWatchlist?.maxTickers);
   const isFullAccess = isAdmin || isVIP;
 
   // Pares para comparar: quem tem universo limitado só compara ativos da própria carteira.

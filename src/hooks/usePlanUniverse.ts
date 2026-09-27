@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getUserWatchlist, WATCHLIST_MAX_TICKERS } from '../services/analystService';
+import { getUserWatchlist, isVIPPlan } from '../services/analystService';
 
 export interface PlanUniverse {
   /** A carteira já foi consultada (ou a consulta falhou). */
@@ -29,7 +29,7 @@ export function usePlanUniverse(): PlanUniverse {
         if (cancelled) return;
         setState({
           ready: true,
-          vip: uw.planCode?.toUpperCase() === 'VIP' || (uw.maxTickers ?? 0) >= WATCHLIST_MAX_TICKERS,
+          vip: isVIPPlan(uw.planCode, uw.maxTickers),
           tickers: (uw.tickers ?? []).map((t) => t.toUpperCase()),
         });
       })

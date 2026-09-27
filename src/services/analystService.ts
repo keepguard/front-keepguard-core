@@ -13,6 +13,16 @@ const ANALYST_BASE = `${BFF_INVEST_URL}/api/v1/invest/analyst`;
 export const WATCHLIST_MAX_TICKERS = 150;
 export const TICKER_PATTERN = /^[A-Z0-9]{4,6}$/;
 
+export function isVIPPlan(planCode?: string | null, maxTickers?: number | null): boolean {
+  if (!planCode && (maxTickers === undefined || maxTickers === null)) return false;
+  const code = (planCode ?? '').trim().toUpperCase();
+  if (code === 'VIP' || code.includes('VITALICIO') || code.includes('LIFETIME')) return true;
+  if (maxTickers !== undefined && maxTickers !== null) {
+    return maxTickers < 0 || maxTickers >= WATCHLIST_MAX_TICKERS;
+  }
+  return false;
+}
+
 export interface AnalystSignal {
   metric: string;
   code?: string;
