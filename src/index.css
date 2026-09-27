@@ -14352,3 +14352,24 @@ textarea.form-input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Comparador: a lista de sugestões saía cortada/por baixo dos cartões seguintes.
+   O cartão base corta o que passa da borda (overflow hidden) e não criava camada própria. */
+.market-compare-selector-card {
+  position: relative;
+  z-index: 20;
+  overflow: visible;
+}
+
+.market-compare-dropdown {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+.market-compare-chips-input-wrap {
+  background: var(--bg-card);
+}
+
+.market-compare-dropdown-item {
+  border-bottom-color: var(--border-subtle);
+}
