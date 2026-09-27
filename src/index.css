@@ -14785,3 +14785,9 @@ textarea.form-input {
     grid-row: 1;
   }
 }
+
+/* Comparador: ticker e setor sempre em duas linhas, para os cabeçalhos ficarem na mesma altura */
+.market-compare-asset-ticker-row {
+  flex-direction: column;
+  gap: 0.25rem;
+}
