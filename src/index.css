@@ -14196,3 +14196,142 @@ textarea.form-input {
     margin-right: 0.3rem;
   }
 }
+
+/* Comparador: mesma linguagem do Resumo; corrige linhas desalinhadas, larguras desiguais e tema escuro */
+.market-compare-selector-card {
+  border-color: var(--primary-border);
+  background: linear-gradient(135deg, var(--primary-light), var(--bg-card) 70%);
+}
+
+.market-compare-table-card {
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.market-compare-table {
+  table-layout: fixed;
+}
+
+.market-compare-sticky-col,
+.market-compare-table thead th {
+  background: var(--bg-card);
+}
+
+.market-compare-table thead th {
+  border-bottom: 2px solid var(--border);
+}
+
+.market-compare-th-metric {
+  width: 14rem;
+  min-width: 14rem;
+  max-width: none;
+}
+
+.market-compare-th-asset {
+  width: auto;
+  min-width: 10rem;
+}
+
+.market-compare-asset-ticker {
+  font-family: inherit;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+.market-compare-asset-sector {
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+}
+
+.market-compare-asset-price {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-compare-asset-not-found {
+  background: var(--danger-light);
+}
+
+.market-compare-cat-row .market-compare-cat-cell {
+  background: var(--bg-muted);
+  border-color: var(--border);
+  color: var(--primary);
+}
+
+.market-compare-metric-row:hover,
+.market-compare-metric-row:hover .market-compare-sticky-col {
+  background-color: var(--bg-muted);
+}
+
+.market-compare-td-metric {
+  display: table-cell;
+  vertical-align: middle;
+  border-bottom-color: var(--border-subtle);
+}
+
+.market-compare-td-val {
+  vertical-align: middle;
+  border-bottom-color: var(--border-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.market-compare-td-val.is-best {
+  background: var(--success-light);
+}
+
+.market-compare-best-badge {
+  background: var(--bg-card);
+  border-color: var(--success-border);
+  color: var(--success-hover);
+}
+
+.market-compare-tie-tag {
+  color: var(--success-hover);
+  background: var(--success-light);
+}
+
+.market-compare-cross-sector-alert strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.cmp-score {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cmp-score-item {
+  display: grid;
+  align-content: start;
+  gap: 0.15rem;
+  padding: 0.9rem 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.cmp-score-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+
+.cmp-score-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-main);
+}
+
+.cmp-score-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}

@@ -270,6 +270,19 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
     return grouped;
   }, [matrix]);
 
+  // Quantos "melhores índices" cada ativo leva na matriz: leitura descritiva, não recomendação.
+  const bestCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    (matrix?.assets ?? []).forEach((a) => counts.set(a.ticker, 0));
+    (matrix?.metrics ?? []).forEach((metric) => {
+      Object.entries(metric.values ?? {}).forEach(([ticker, val]) => {
+        if (val?.isBest) counts.set(ticker, (counts.get(ticker) ?? 0) + 1);
+      });
+    });
+    return counts;
+  }, [matrix]);
+  const totalMetrics = matrix?.metrics?.length ?? 0;
+
   const allAssetsNoData = Boolean(
     matrix && matrix.assets.length > 0 && matrix.assets.every(hasNoRun),
   );
@@ -285,7 +298,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
               Comparador Lado a Lado
             </h2>
             <p className="market-compare-subtitle">
-              Compare múltiplos de valuation, rentabilidade e saúde financeira de 2 a 4 ativos simultâneos.
+              Múltiplos de valuation, rentabilidade e saúde financeira de 2 a 4 ativos, lado a lado. O troféu marca o melhor índice de cada linha.
             </p>
           </div>
           <div className="market-compare-count-badge" aria-live="polite">
@@ -416,9 +429,9 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
         <div className="market-compare-cross-sector-alert" role="alert">
           <AlertTriangle size={18} className="market-compare-alert-icon" aria-hidden="true" />
           <div>
-            <strong>Atenção: Comparação entre setores com dinâmicas contábeis distintas.</strong>
+            <strong>Comparação entre setores com dinâmicas contábeis distintas</strong>
             <p>
-              {matrix.sectorAlertMessage ||
+              {matrix.sectorAlertMessage?.replace(/^Atenção:\s*/i, '') ||
                 'Empresas financeiras (ex: bancos) e indústrias operam com modelos contábeis diferentes. Métricas como P/VP, Margens e Dívida Líquida/EBITDA não possuem comparabilidade direta.'}
             </p>
           </div>
@@ -440,6 +453,19 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {/* PLACAR DE MELHORES ÍNDICES */}
+      {!loading && !error && matrix && matrix.assets.length > 0 && !allAssetsNoData ? (
+        <ul className="cmp-score" aria-label="Melhores índices por ativo">
+          {matrix.assets.map((asset) => (
+            <li key={asset.ticker} className="cmp-score-item">
+              <span className="cmp-score-label">{asset.ticker}</span>
+              <strong className="cmp-score-value">{bestCounts.get(asset.ticker) ?? 0}</strong>
+              <span className="cmp-score-sub">melhores índices de {totalMetrics}</span>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       {/* ESTADO DE LOADING */}
@@ -537,7 +563,10 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
       {!loading && !error && matrix && matrix.assets.length > 0 && !allAssetsNoData ? (
         <div className="hpanel-table-card market-compare-table-card">
           <div className="market-compare-scroll-wrapper" tabIndex={0} aria-label="Tabela de comparação com rolagem horizontal">
-            <table className="market-compare-table">
+            <table
+              className="market-compare-table"
+              style={{ minWidth: `${14 + matrix.assets.length * 10}rem` }}
+            >
               <thead>
                 <tr>
                   <th scope="col" className="market-compare-th-metric market-compare-sticky-col">
@@ -618,7 +647,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
                           >
                             <span className="market-compare-metric-name">{metric.name}</span>
                             {metric.unit ? (
-                              <span className="market-compare-metric-unit">({metric.unit})</span>
+                              <span className="market-compare-metric-unit"> ({metric.unit})</span>
                             ) : null}
                           </th>
 

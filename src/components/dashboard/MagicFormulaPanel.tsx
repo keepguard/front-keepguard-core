@@ -167,7 +167,8 @@ export function MagicFormulaPanel({ ranking, onSelectTicker }: MagicFormulaPanel
       </div>
 
       <div className="mf-tiles">
-        <Tile label="No ranking" value={universe} sub="ativos elegíveis" />
+        <Tile label="Analisados" value={universe} sub="universo do dia" />
+        <Tile label="No ranking" value={ranked.length} sub="com nota completa" />
         <Tile label="Excluídas" value={excluded} sub="fora do ranking" />
         <Tile label="Omitidas" value={omitted} sub="métrica ausente" />
         <Tile label="Você acompanha" value={mineInRanking} sub="no ranking" />
