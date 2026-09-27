@@ -47,6 +47,7 @@ import { FiiDossierView } from './FiiDossierView';
 import { PriceDossierView } from './PriceDossierView';
 import { DataFreshnessBar } from './DataFreshnessBar';
 import { MarketContextCard } from './MarketContextCard';
+import { DossierHero } from './DossierHero';
 import { NarrativeText } from './NarrativeText';
 import { MemorySummary } from './MemorySummary';
 import { titleWithTicker } from './dossierFormat';
@@ -1318,18 +1319,14 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               </button>
             </div>
           </div>
-          <dl className="market-desk-meta">
-            <div>
-              <dt>Analisado em</dt>
-              <dd><time dateTime={latest.analyzedAt}>{formatWhen(latest.analyzedAt)}</time></dd>
-            </div>
-            <div>
-              <dt>Coletado em</dt>
-              <dd>
-                {collectedAt ? <time dateTime={collectedAt}>{formatWhen(collectedAt)}</time> : '—'}
-              </dd>
-            </div>
-          </dl>
+          <DossierHero
+            context={detail?.marketContext}
+            fallbackPrice={signalValue(latest, 'price') ?? detail?.priceDetails?.currentPrice ?? latest.priceDetails?.currentPrice}
+            thesis={THESIS_CARD_PUBLISHED ? latest.thesis : null}
+            riskLevel={latest.flags?.riskLevel}
+            analyzedAtLabel={formatWhen(latest.analyzedAt)}
+            collectedAtLabel={collectedAt ? formatWhen(collectedAt) : undefined}
+          />
           {runSources.length > 0 && !detail?.dataFreshness ? (
             <p className="text-muted market-desk-sources">
               Fontes: {runSources.map(sourceLabel).join(' · ')}
@@ -1342,6 +1339,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               Fatos de um dia civil anterior à análise (horário de Brasília).
             </p>
           ) : null}
+          {!isPriceOnly && detail ? <MarketContextCard context={detail.marketContext} /> : null}
           {THESIS_CARD_PUBLISHED && latest.thesis ? <ThesisCard thesis={latest.thesis} /> : null}
           {latest.flags ? <ExecutiveFlagsPanel flags={latest.flags} /> : null}
           {isFii ? (
@@ -1367,7 +1365,6 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
           ) : latest.formulas ? (
             <FormulasCard formulas={latest.formulas} />
           ) : null}
-          {!isPriceOnly && detail ? <MarketContextCard context={detail.marketContext} /> : null}
           <section className="market-trajectory" aria-labelledby={`${instanceId}-traj`}>
             <h3 id={`${instanceId}-traj`} className="market-section-title">Trajetória</h3>
             <div className="market-charts">
@@ -1474,17 +1471,6 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               <p className="text-muted">Macro indisponível neste run (CDI, Selic ou IPCA).</p>
             )}
           </section>
-          {latest.narrative ? (
-            <section className="market-narrative-section" aria-labelledby={`${instanceId}-narrative`}>
-              <h3 id={`${instanceId}-narrative`} className="market-section-title">Narrativa</h3>
-              {isAdmin && latest.outcome === 'DEGRADED' ? (
-                <p className="text-muted market-catalog-hint" role="status">
-                  Texto padrão: {fallbackReasonLabel(latest.fallbackReason)}. Os números continuam confiáveis.
-                </p>
-              ) : null}
-              <NarrativeText text={latest.narrative} />
-            </section>
-          ) : null}
           <section className="market-news" aria-labelledby={`${instanceId}-news`}>
             <h3 id={`${instanceId}-news`} className="market-section-title">Notícias</h3>
             {visibleNews.length > 0 ? (
@@ -1513,6 +1499,17 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
               </p>
             )}
           </section>
+          {latest.narrative ? (
+            <section className="market-narrative-section" aria-labelledby={`${instanceId}-narrative`}>
+              <h3 id={`${instanceId}-narrative`} className="market-section-title">Narrativa</h3>
+              {isAdmin && latest.outcome === 'DEGRADED' ? (
+                <p className="text-muted market-catalog-hint" role="status">
+                  Texto padrão: {fallbackReasonLabel(latest.fallbackReason)}. Os números continuam confiáveis.
+                </p>
+              ) : null}
+              <NarrativeText text={latest.narrative} />
+            </section>
+          ) : null}
           {memory?.summary ? (
             <MemorySummary revision={memory.revision} summary={memory.summary} />
           ) : null}
