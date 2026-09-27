@@ -460,7 +460,7 @@ export const DigestPanel: React.FC<DigestPanelProps> = ({ onSelectTicker }) => {
             <Tile
               label="Mudanças de tese"
               value={moves.better.length + moves.worse.length + moves.other.length + lockedChanges}
-              sub={`${moves.better.length} melhoraram · ${moves.worse.length} pioraram`}
+              sub={`${moves.better.length} melhoraram · ${moves.worse.length} pioraram${lockedChanges > 0 ? ` · ${lockedChanges} em ativos bloqueados` : ''}`}
             />
             <Tile
               label="Ativos analisados"

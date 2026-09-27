@@ -14852,3 +14852,35 @@ textarea.form-input {
 .market-compare-shortcut-btn.is-muted {
   opacity: 0.6;
 }
+
+.error-boundary {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 34rem;
+  margin: 4rem auto;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.error-boundary h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-main);
+}
+
+.error-boundary p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.error-boundary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}

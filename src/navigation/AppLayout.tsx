@@ -4,6 +4,7 @@ import { Header } from '../components/layout/Header';
 import { Sidebar } from '../components/layout/Sidebar';
 import { AuthPage } from '../pages/AuthPage';
 import { TermsConsentModal } from '../components/common/TermsConsentModal';
+import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { DEFAULT_TENANT_ID } from '../services/api';
@@ -132,7 +133,9 @@ export const AppLayout: React.FC = () => {
           />
           <main className="app-content">
             <BillingEntitlementBanner />
-            <Outlet />
+            <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>
+              <Outlet />
+            </ErrorBoundary>
           </main>
         </div>
       ) : (

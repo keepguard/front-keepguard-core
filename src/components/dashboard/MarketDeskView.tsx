@@ -48,6 +48,7 @@ import { PriceDossierView } from './PriceDossierView';
 import { DataFreshnessBar } from './DataFreshnessBar';
 import { MarketContextCard } from './MarketContextCard';
 import { DossierHero } from './DossierHero';
+import { LockedNotice } from './LockedAsset';
 import { NarrativeText } from './NarrativeText';
 import { MemorySummary } from './MemorySummary';
 import { titleWithTicker } from './dossierFormat';
@@ -264,6 +265,8 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // O plano do usuário não inclui o ativo pedido (ex.: ?ticker= na URL): mostra o estado bloqueado, não "sem análise".
+  const [outsidePlan, setOutsidePlan] = useState(false);
   const [runs, setRuns] = useState<AnalystRun[]>([]);
   const [detail, setDetail] = useState<AnalystRunDetail | null>(null);
   // Última análise do lote (a oficial do dia) e se a tela está mostrando ela no lugar da mais recente.
@@ -340,7 +343,9 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   }, [selectedTicker, appliedQuery, query, comparablePeers, isFullAccess, onNavigateToCompare, setSearchParams, addToast]);
   const compareTitle = (ticker: string) => (noPlanPeers
     ? `Você não tem outro ativo do setor de ${ticker} na carteira do plano`
-    : `Comparar ${ticker} com pares da sua carteira`);
+    : isFullAccess
+      ? `Comparar ${ticker} com pares do setor`
+      : `Comparar ${ticker} com pares da sua carteira`);
 
 
   const catalogMap = useMemo(() => {
@@ -592,6 +597,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
     setLoading(true);
     setChangesLoading(true);
     setError('');
+    setOutsidePlan(false);
     try {
       const [nextRuns, nextChanges, nextOfficial] = await Promise.all([
         listRuns(ticker, LATEST_RUNS_LIMIT),
@@ -634,6 +640,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
         }
       }
     } catch (err) {
+      setOutsidePlan((err as { data?: { error?: string } }).data?.error === 'ASSET_OUTSIDE_PLAN');
       setError(mapAnalystError(err, 'Falha ao carregar o dossiê'));
       setRuns([]);
       setOfficialRun(null);
@@ -1222,7 +1229,20 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
         </div>
       ) : null}
 
-      {selectedTicker && !loading && !latest ? (
+      {selectedTicker && !loading && outsidePlan ? (
+        <div className="hpanel-table-card market-analysis-card">
+          <div className="market-desk-header">
+            <h2 className="market-analyze-title">Ativo fora do seu plano</h2>
+          </div>
+          <p className="text-muted">
+            Você lê em detalhe apenas os ativos do seu plano. Escolha um dos seus ativos acima ou adicione este em
+            {' '}<strong>Escolher Ativo (Pick)</strong>.
+          </p>
+          <LockedNotice text="Quer acompanhar mais ativos? Conheça os planos." />
+        </div>
+      ) : null}
+
+      {selectedTicker && !loading && !latest && !outsidePlan ? (
         <div className="hpanel-table-card market-analysis-card">
           <div className="market-desk-header">
             <h2 className="market-analyze-title">{selectedTicker}</h2>
@@ -1536,7 +1556,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
         </div>
       ) : null}
 
-      {selectedTicker ? (
+      {selectedTicker && !outsidePlan ? (
         <section className="market-changes" aria-label="Mudanças de veredito">
           <div className="hpanel-table-card desktop-table-view market-table-card">
             <header className="market-table-header">

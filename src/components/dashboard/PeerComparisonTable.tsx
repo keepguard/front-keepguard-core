@@ -77,6 +77,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
   const [matrix, setMatrix] = useState<ComparisonMatrix | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorRetryable, setErrorRetryable] = useState(true);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -133,6 +134,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
 
     setLoading(true);
     setError('');
+    setErrorRetryable(true);
     try {
       const data = await compareAssets(tickers);
       setMatrix(data);
@@ -140,7 +142,10 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
       setMatrix(null);
       const errStatus = (err as { status?: number }).status;
       let msg = 'Erro ao comparar os ativos. Tente novamente.';
-      if (errStatus === 400) {
+      if ((err as { data?: { error?: string } }).data?.error === 'ASSET_OUTSIDE_PLAN') {
+        msg = 'Compare apenas ativos da sua carteira. Remova os ativos de fora do plano.';
+        setErrorRetryable(false);
+      } else if (errStatus === 400) {
         msg = 'Selecione entre 2 e 4 ativos válidos.';
       } else if (errStatus === 404) {
         msg = 'Nenhum dos ativos possui dados recentes de análise.';
@@ -154,14 +159,29 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
     }
   }, [addToast]);
 
+  // Ativo de fora do plano que veio pela URL sai da seleção antes de qualquer consulta.
   useEffect(() => {
+    if (!restricted) return;
+    const allowed = selectedTickers.filter((t) => universe.has(t));
+    if (allowed.length === selectedTickers.length) return;
+    addToast({
+      type: 'info',
+      title: 'Ativo fora do seu plano',
+      description: 'Removemos da comparação o que não faz parte da sua carteira.',
+    });
+    updateTickers(allowed);
+  }, [restricted, selectedTickers, universe, updateTickers, addToast]);
+
+  useEffect(() => {
+    if (!universe.ready) return;
+    if (restricted && selectedTickers.some((t) => !universe.has(t))) return;
     if (selectedTickers.length >= 2) {
       void fetchComparison(selectedTickers);
     } else {
       setMatrix(null);
       setError('');
     }
-  }, [selectedTickers, fetchComparison]);
+  }, [selectedTickers, fetchComparison, universe, restricted]);
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -357,7 +377,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
                   className="market-compare-input"
                   placeholder={
                     selectedTickers.length === 0
-                      ? 'Buscar ou digitar ticker (ex: VALE3, ITUB4)...'
+                      ? (restricted ? 'Buscar nos ativos do seu plano...' : 'Buscar ou digitar ticker (ex: VALE3, ITUB4)...')
                       : 'Adicionar mais um ativo...'
                   }
                   value={searchTerm}
@@ -507,13 +527,15 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
       {!loading && error ? (
         <div className="agent-test-result is-error" role="alert">
           <p>{error}</p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-pill"
-            onClick={() => void fetchComparison(selectedTickers)}
-          >
-            Tentar de novo
-          </button>
+          {errorRetryable ? (
+            <button
+              type="button"
+              className="btn btn-secondary btn-pill"
+              onClick={() => void fetchComparison(selectedTickers)}
+            >
+              Tentar de novo
+            </button>
+          ) : null}
         </div>
       ) : null}
 
