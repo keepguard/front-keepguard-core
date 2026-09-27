@@ -46,6 +46,11 @@ function mapError(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
+/** Largura da barra em %: raiz quadrada da razão, para uma alta de 44% não esmagar as de 1%. */
+function barWidth(value: number, max: number): number {
+  return 4 + Math.sqrt(Math.min(1, Math.abs(value) / max)) * 96;
+}
+
 const TONE_RANK: Record<'good' | 'warn' | 'bad', number> = { good: 2, warn: 1, bad: 0 };
 
 interface ThesisMove {
@@ -117,12 +122,14 @@ function MyAssets({ assets, hasAny, onSelect }: { assets: AnalystDigestAsset[]; 
               <li key={a.ticker} className="digest-mine-row">
                 <span className="digest-mover-id">
                   <TickerButton ticker={a.ticker} name={a.displayName} onSelect={onSelect} />
-                  <span className="digest-mover-price">{a.displayName || (a.lastClose ? formatMoney(a.lastClose) : '')}</span>
+                  <span className="digest-mover-price">
+                    {a.displayName && a.displayName.toUpperCase() !== a.ticker ? a.displayName : a.lastClose ? formatMoney(a.lastClose) : ''}
+                  </span>
                 </span>
                 {a.returnPct != null ? (
                   <>
                     <span className="digest-bar" aria-hidden="true">
-                      <span className={`digest-bar-fill is-${tone}`} style={{ width: `${Math.max(4, (Math.abs(a.returnPct) / max) * 100)}%` }} />
+                      <span className={`digest-bar-fill is-${tone}`} style={{ width: `${barWidth(a.returnPct, max)}%` }} />
                     </span>
                     <strong className={`digest-mover-value is-${tone}`}>{formatSignedPct(a.returnPct)}</strong>
                   </>
@@ -176,7 +183,7 @@ function MoverList({ title, icon, items, tone, onSelect, emptyText }: {
                 <span className="digest-mover-price">{formatMoney(item.lastClose)}</span>
               </span>
               <span className="digest-bar" aria-hidden="true">
-                <span className={`digest-bar-fill is-${tone}`} style={{ width: `${Math.max(4, (Math.abs(item.returnPct) / max) * 100)}%` }} />
+                <span className={`digest-bar-fill is-${tone}`} style={{ width: `${barWidth(item.returnPct, max)}%` }} />
               </span>
               <strong className={`digest-mover-value is-${tone}`}>{formatSignedPct(item.returnPct)}</strong>
             </li>
