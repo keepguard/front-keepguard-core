@@ -13,6 +13,7 @@ const RANGES: ReadonlyArray<{ id: string; label: string; days: number | null }> 
 ];
 
 const HISTORY_LIMIT = 1000;
+const TIMEFRAME = 'M10';
 
 interface Bar {
   time: number;
@@ -73,6 +74,16 @@ function alpha(hex: string, a: number): string {
   return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${a})`;
 }
 
+const nfPx = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nfPct = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'exceptZero' });
+const nfVol = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
+const nfInt = new Intl.NumberFormat('pt-BR');
+const fmtPx = (v: number | null | undefined) => (v == null || !isFinite(v) ? '—' : nfPx.format(v));
+const pad = (n: number) => String(n).padStart(2, '0');
+function fmtDT(d: Date): string {
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface Props {
   /** Tickers que o usuário pode abrir (página atual do Trade); a checagem final é sempre do backend. */
   tickers: string[];
@@ -89,7 +100,7 @@ export function TradeCandleChart({ tickers }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ticker && tickers.length) setTicker(tickers[0]);
+    if (!tickers.includes(ticker)) setTicker(tickers[0] ?? '');
   }, [tickers, ticker]);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -200,55 +211,117 @@ export function TradeCandleChart({ tickers }: Props) {
     chartRef.current?.timeScale().fitContent();
   }, [bars, ind]);
 
-  const last = bars[bars.length - 1];
-  const first = bars[0];
-  const changePct = useMemo(() => (first && last && first.open ? ((last.close - first.open) / first.open) * 100 : null), [first, last]);
+  // Preenche as datas do intervalo personalizado com a janela atual, como no protótipo.
+  useEffect(() => {
+    if (range === 'CUSTOM' || !bars.length) return;
+    const from = new Date(bars[0].time * 1000);
+    const to = new Date(bars[bars.length - 1].time * 1000);
+    const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    setCustomFrom(toLocalInput(from));
+    setCustomTo(toLocalInput(to));
+  }, [bars, range]);
+
+  const summary = useMemo(() => {
+    if (!bars.length) return null;
+    const first = bars[0];
+    const last = bars[bars.length - 1];
+    let hi = -Infinity;
+    let lo = Infinity;
+    let vol = 0;
+    for (const b of bars) {
+      if (b.high > hi) hi = b.high;
+      if (b.low < lo) lo = b.low;
+      vol += b.volume || 0;
+    }
+    const chg = last.close - first.open;
+    const pct = first.open ? (chg / first.open) * 100 : 0;
+    const amplitude = lo ? ((hi - lo) / lo) * 100 : 0;
+    return {
+      last: last.close, chg, pct, open: first.open, high: hi, low: lo, amplitude, volume: vol, count: bars.length,
+      from: fmtDT(new Date(first.time * 1000)), to: fmtDT(new Date(last.time * 1000)),
+    };
+  }, [bars]);
 
   if (!tickers.length) return null;
 
   return (
-    <div className="trade-chart-card">
-      <div className="trade-chart-toolbar">
-        <label className="group">
-          <span className="trade-chart-label">Ativo</span>
-          <select value={ticker} onChange={(e) => setTicker(e.target.value)} className="trade-chart-select">
-            {tickers.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </label>
-        <div className="seg">
-          {RANGES.map((r) => (
-            <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => setRange(r.id)}>{r.label}</button>
-          ))}
+    <div className="tchart">
+      <section className="tchart-quote" aria-label="Resumo do ativo">
+        <div className="tchart-ticker">
+          <div className="tchart-ticker-row">
+            <label className="tchart-visually-hidden" htmlFor="tchart-ativo">Ativo</label>
+            <select id="tchart-ativo" className="tchart-select" value={ticker} onChange={(e) => setTicker(e.target.value)}>
+              {tickers.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <span className="tchart-px">{summary ? fmtPx(summary.last) : '—'}</span>
+            {summary ? (
+              <span className={`tchart-pill ${summary.chg > 0 ? 'is-up' : summary.chg < 0 ? 'is-down' : 'is-flat'}`}>
+                {summary.chg > 0 ? '+' : ''}{fmtPx(summary.chg)} ({nfPct.format(summary.pct)}%)
+              </span>
+            ) : <span className="tchart-pill is-flat">—</span>}
+          </div>
+          <div className="tchart-subline">
+            {summary ? `${TIMEFRAME} · tabela candle · ${summary.from} → ${summary.to} · variação no período` : 'Sem dados carregados'}
+          </div>
         </div>
-        <div className="trade-chart-dates">
-          <input type="datetime-local" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label="De" />
-          <span>→</span>
-          <input type="datetime-local" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label="Até" />
-          <button type="button" className="btn btn-secondary" onClick={() => setRange('CUSTOM')}>Aplicar</button>
+        {summary ? (
+          <dl className="tchart-stats">
+            <div className="tchart-stat"><dt>Abertura</dt><dd>{fmtPx(summary.open)}</dd></div>
+            <div className="tchart-stat"><dt>Máxima</dt><dd className="is-up">{fmtPx(summary.high)}</dd></div>
+            <div className="tchart-stat"><dt>Mínima</dt><dd className="is-down">{fmtPx(summary.low)}</dd></div>
+            <div className="tchart-stat"><dt>Amplitude</dt><dd>{nfPct.format(summary.amplitude).replace('+', '')}%</dd></div>
+            <div className="tchart-stat"><dt>Volume</dt><dd>{nfVol.format(summary.volume)}</dd></div>
+            <div className="tchart-stat"><dt>Candles</dt><dd>{nfInt.format(summary.count)}</dd></div>
+          </dl>
+        ) : null}
+      </section>
+
+      <section className="tchart-toolbar" aria-label="Controles do gráfico">
+        <div className="tchart-group">
+          <span>Tempo gráfico</span>
+          <div className="tchart-seg">
+            <button type="button" aria-pressed="true" disabled>{TIMEFRAME}</button>
+          </div>
         </div>
-        <div className="seg sans">
-          {(['ema9', 'ema21', 'vwap', 'vol'] as const).map((k) => (
-            <button key={k} type="button" aria-pressed={ind[k]} onClick={() => setInd((s) => ({ ...s, [k]: !s[k] }))}>
-              {{ ema9: 'MME 9', ema21: 'MME 21', vwap: 'VWAP', vol: 'Volume' }[k]}
-            </button>
-          ))}
+        <div className="tchart-group">
+          <span>Período</span>
+          <div className="tchart-seg">
+            {RANGES.map((r) => (
+              <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => setRange(r.id)}>{r.label}</button>
+            ))}
+          </div>
         </div>
-      </div>
-      {last ? (
-        <div className="trade-chart-head">
-          <b>{ticker}</b>
-          <span>{last.close.toFixed(2)}</span>
-          {changePct != null ? (
-            <span className={changePct >= 0 ? 'up' : 'down'}>{changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%</span>
-          ) : null}
+        <div className="tchart-group">
+          <span>Intervalo personalizado</span>
+          <div className="tchart-dates">
+            <input type="datetime-local" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label="De" />
+            <span className="tchart-arrow" aria-hidden="true">→</span>
+            <input type="datetime-local" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label="Até" />
+            <button type="button" className="btn btn-secondary" onClick={() => setRange('CUSTOM')}>Aplicar</button>
+          </div>
         </div>
-      ) : null}
-      <div className="trade-chart-area">
-        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-        {loading && !bars.length ? <div className="trade-chart-empty">Carregando…</div> : null}
-        {error ? <div className="trade-chart-empty">{error}</div> : null}
-        {!loading && !error && !bars.length ? <div className="trade-chart-empty">Sem candles neste período.</div> : null}
-      </div>
+        <div className="tchart-spacer" />
+        <div className="tchart-group">
+          <span>Indicadores</span>
+          <div className="tchart-seg tchart-seg--sans">
+            {(['ema9', 'ema21', 'vwap', 'vol'] as const).map((k) => (
+              <button key={k} type="button" aria-pressed={ind[k]} onClick={() => setInd((s) => ({ ...s, [k]: !s[k] }))}>
+                <span className={`tchart-swatch tchart-swatch--${k}`} aria-hidden="true" />
+                {{ ema9: 'MME 9', ema21: 'MME 21', vwap: 'VWAP', vol: 'Volume' }[k]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="tchart-card" aria-label="Gráfico de candles">
+        <div className="tchart-area">
+          <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+          {loading && !bars.length ? <div className="tchart-empty">Carregando…</div> : null}
+          {error ? <div className="tchart-empty">{error}</div> : null}
+          {!loading && !error && !bars.length ? <div className="tchart-empty">Sem candles neste período.</div> : null}
+        </div>
+      </section>
     </div>
   );
 }
