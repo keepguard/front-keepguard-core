@@ -80,6 +80,13 @@ function vwap(bars: Bar[]): number[] {
   return out;
 }
 
+// lightweight-charts sempre rotula o eixo de tempo em UTC (não tem opção de fuso local) — sem
+// esse deslocamento, o eixo mostra o horário adiantado pelo fuso do navegador (3h no Brasil).
+// Desloca só o valor exibido na série; bars/summary continuam com o epoch real.
+function toChartTime(epochSeconds: number): number {
+  return epochSeconds - new Date(epochSeconds * 1000).getTimezoneOffset() * 60;
+}
+
 const tok = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 function alpha(hex: string, a: number): string {
   const h = hex.replace('#', '');
@@ -236,15 +243,15 @@ export function TradeCandleChart({ tickers }: Props) {
     if (!s) return;
     const up = tok('--success') || '#0C9A6A';
     const down = tok('--danger') || '#D9434A';
-    s.candle.setData(bars.map(({ time, open, high, low, close }) => ({ time: time as never, open, high, low, close })));
-    s.vol.setData(bars.map((b) => ({ time: b.time as never, value: b.volume || 0, color: alpha(b.close >= b.open ? up : down, 0.28) })));
+    s.candle.setData(bars.map(({ time, open, high, low, close }) => ({ time: toChartTime(time) as never, open, high, low, close })));
+    s.vol.setData(bars.map((b) => ({ time: toChartTime(b.time) as never, value: b.volume || 0, color: alpha(b.close >= b.open ? up : down, 0.28) })));
     s.vol.applyOptions({ visible: ind.vol });
     const e9 = ema(bars, 9);
     const e21 = ema(bars, 21);
     const vw = vwap(bars);
-    s.e9.setData(ind.ema9 ? bars.map((b, i) => ({ time: b.time as never, value: e9[i] })) : []);
-    s.e21.setData(ind.ema21 ? bars.map((b, i) => ({ time: b.time as never, value: e21[i] })) : []);
-    s.vwap.setData(ind.vwap ? bars.map((b, i) => ({ time: b.time as never, value: vw[i] })) : []);
+    s.e9.setData(ind.ema9 ? bars.map((b, i) => ({ time: toChartTime(b.time) as never, value: e9[i] })) : []);
+    s.e21.setData(ind.ema21 ? bars.map((b, i) => ({ time: toChartTime(b.time) as never, value: e21[i] })) : []);
+    s.vwap.setData(ind.vwap ? bars.map((b, i) => ({ time: toChartTime(b.time) as never, value: vw[i] })) : []);
     chartRef.current?.timeScale().fitContent();
   }, [bars, ind]);
 
