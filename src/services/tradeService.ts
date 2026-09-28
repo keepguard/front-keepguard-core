@@ -67,15 +67,18 @@ export interface TradeCandleHistory {
 }
 
 /**
- * Histórico de candles M10 de um ativo do plano, para o gráfico do Trade Day.
+ * Histórico de candles de um ativo do plano, para o gráfico do Trade Day.
+ * `timeframe` opcional (M1-M59/H1-H24; default M10 do backend quando omitido — M1/M10 são
+ * leitura direta, qualquer outro valor é agregado a partir de M1 no srv-mt5-market-data).
  * `from`/`to` opcionais (ISO 8601); ativo fora do plano responde 403 ASSET_OUTSIDE_PLAN.
  */
 export function getTradeCandleHistory(
   ticker: string,
-  opts: { from?: Date; to?: Date; limit?: number } = {},
+  opts: { timeframe?: string; from?: Date; to?: Date; limit?: number } = {},
   signal?: AbortSignal,
 ): Promise<TradeCandleHistory> {
   const params = new URLSearchParams();
+  if (opts.timeframe) params.set('timeframe', opts.timeframe);
   if (opts.from) params.set('from', opts.from.toISOString());
   if (opts.to) params.set('to', opts.to.toISOString());
   if (opts.limit) params.set('limit', String(opts.limit));

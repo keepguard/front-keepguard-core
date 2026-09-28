@@ -2,18 +2,31 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts';
 import { getTradeCandleHistory, type TradeCandle } from '../../services/tradeService';
 
-/** Períodos fixos do toolbar, iguais ao protótipo aprovado. */
+/** Timeframes fixos do combo; "Personalizado" revela um campo livre (M1-M59/H1-H24). */
+const TIMEFRAMES: ReadonlyArray<{ id: string; label: string }> = [
+  { id: 'M1', label: 'M1' },
+  { id: 'M5', label: 'M5' },
+  { id: 'M10', label: 'M10' },
+  { id: 'M30', label: 'M30' },
+  { id: 'H1', label: 'H1' },
+  { id: 'CUSTOM', label: 'Personalizado' },
+];
+const TIMEFRAME_RE = /^(M([1-9]|[1-5][0-9])|H([1-9]|1[0-9]|2[0-4]))$/;
+const DEFAULT_TIMEFRAME = 'M10';
+
+/** Períodos fixos do toolbar; "Personalizado" usa o intervalo de datas ao lado. */
 const RANGES: ReadonlyArray<{ id: string; label: string; days: number | null }> = [
   { id: '1D', label: '1D', days: 1 },
   { id: '5D', label: '5D', days: 5 },
   { id: '1M', label: '1M', days: 31 },
   { id: '3M', label: '3M', days: 92 },
+  { id: '6M', label: '6M', days: 182 },
   { id: '1A', label: '1A', days: 366 },
-  { id: 'ALL', label: 'Tudo', days: null },
+  { id: 'CUSTOM', label: 'Personalizado', days: null },
 ];
+const DEFAULT_RANGE = '1D';
 
 const HISTORY_LIMIT = 1000;
-const TIMEFRAME = 'M10';
 
 interface Bar {
   time: number;
@@ -83,6 +96,10 @@ const pad = (n: number) => String(n).padStart(2, '0');
 function fmtDT(d: Date): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+/** Formato aceito por <input type="datetime-local">, em horário local. */
+function toLocalInputValue(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 interface Props {
   /** Tickers que o usuário pode abrir (página atual do Trade); a checagem final é sempre do backend. */
@@ -91,9 +108,22 @@ interface Props {
 
 export function TradeCandleChart({ tickers }: Props) {
   const [ticker, setTicker] = useState(tickers[0] ?? '');
-  const [range, setRange] = useState<string>('5D');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
+
+  // Tempo gráfico: combo fixo + entrada livre quando "Personalizado".
+  const [timeframeSel, setTimeframeSel] = useState<string>(DEFAULT_TIMEFRAME);
+  const [customTimeframeInput, setCustomTimeframeInput] = useState('');
+  const customTimeframeValid = customTimeframeInput !== '' && TIMEFRAME_RE.test(customTimeframeInput.toUpperCase());
+  // Timeframe que efetivamente vai na consulta; null enquanto "Personalizado" não tem valor válido (não busca).
+  const effectiveTimeframe = timeframeSel === 'CUSTOM' ? (customTimeframeValid ? customTimeframeInput.toUpperCase() : null) : timeframeSel;
+  // Rótulo exibido no resumo: o timeframe que o backend confirmou ter usado na última resposta.
+  const [loadedTimeframe, setLoadedTimeframe] = useState(DEFAULT_TIMEFRAME);
+
+  // Período: pills fixas + intervalo personalizado (rascunho digitado x aplicado na busca).
+  const [range, setRange] = useState<string>(DEFAULT_RANGE);
+  const [customDraft, setCustomDraft] = useState({ from: '', to: '' });
+  const [customApplied, setCustomApplied] = useState({ from: '', to: '' });
+  const [customError, setCustomError] = useState<string | null>(null);
+
   const [ind, setInd] = useState({ ema9: true, ema21: true, vwap: false, vol: true });
   const [bars, setBars] = useState<Bar[]>([]);
   const [loading, setLoading] = useState(false);
@@ -169,21 +199,28 @@ export function TradeCandleChart({ tickers }: Props) {
     };
   }, []);
 
+  // Busca candles: nunca depende do rascunho do intervalo personalizado (customDraft), só do
+  // aplicado (customApplied) — evita o bug em que digitar a data disparava um fetch com o
+  // período fixo antigo e depois reescrevia o campo de volta.
   useEffect(() => {
     if (!ticker) return;
+    if (effectiveTimeframe == null) return; // "Personalizado" ainda sem timeframe válido
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    const opts: { from?: Date; to?: Date; limit: number } = { limit: HISTORY_LIMIT };
+    const opts: { timeframe: string; from?: Date; to?: Date; limit: number } = { timeframe: effectiveTimeframe, limit: HISTORY_LIMIT };
     if (range === 'CUSTOM') {
-      if (customFrom) opts.from = new Date(customFrom);
-      if (customTo) opts.to = new Date(customTo + ':59');
+      if (customApplied.from) opts.from = new Date(customApplied.from);
+      if (customApplied.to) opts.to = new Date(customApplied.to + ':59');
     } else {
       const r = RANGES.find((x) => x.id === range);
       if (r?.days) opts.from = new Date(Date.now() - r.days * 86400_000);
     }
     getTradeCandleHistory(ticker, opts, controller.signal)
-      .then((res) => setBars(toBars(res.candles)))
+      .then((res) => {
+        setBars(toBars(res.candles));
+        setLoadedTimeframe(res.timeframe || effectiveTimeframe);
+      })
       .catch((e: unknown) => {
         if (controller.signal.aborted) return;
         const code = (e as { data?: { error?: string } })?.data?.error;
@@ -192,7 +229,7 @@ export function TradeCandleChart({ tickers }: Props) {
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [ticker, range, customFrom, customTo]);
+  }, [ticker, effectiveTimeframe, range, customApplied.from, customApplied.to]);
 
   useEffect(() => {
     const s = seriesRef.current;
@@ -210,16 +247,6 @@ export function TradeCandleChart({ tickers }: Props) {
     s.vwap.setData(ind.vwap ? bars.map((b, i) => ({ time: b.time as never, value: vw[i] })) : []);
     chartRef.current?.timeScale().fitContent();
   }, [bars, ind]);
-
-  // Preenche as datas do intervalo personalizado com a janela atual, como no protótipo.
-  useEffect(() => {
-    if (range === 'CUSTOM' || !bars.length) return;
-    const from = new Date(bars[0].time * 1000);
-    const to = new Date(bars[bars.length - 1].time * 1000);
-    const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    setCustomFrom(toLocalInput(from));
-    setCustomTo(toLocalInput(to));
-  }, [bars, range]);
 
   const summary = useMemo(() => {
     if (!bars.length) return null;
@@ -242,6 +269,40 @@ export function TradeCandleChart({ tickers }: Props) {
     };
   }, [bars]);
 
+  // Clica na pill "Personalizado": habilita os inputs e, se já houver algo digitado, filtra
+  // na hora por essas datas (sem apagar o que estava lá).
+  function handlePeriodClick(id: string) {
+    setRange(id);
+    if (id === 'CUSTOM' && (customDraft.from || customDraft.to)) {
+      setCustomApplied(customDraft);
+    }
+  }
+
+  function handleAplicar() {
+    if (!customDraft.from || !customDraft.to) {
+      setCustomError('Preencha as duas datas.');
+      return;
+    }
+    if (customDraft.from > customDraft.to) {
+      setCustomError('"De" precisa ser antes de "Até".');
+      return;
+    }
+    setCustomError(null);
+    setCustomApplied(customDraft);
+  }
+
+  function handleLimpar() {
+    setTimeframeSel(DEFAULT_TIMEFRAME);
+    setCustomTimeframeInput('');
+    setRange(DEFAULT_RANGE);
+    setCustomDraft({ from: '', to: '' });
+    setCustomApplied({ from: '', to: '' });
+    setCustomError(null);
+  }
+
+  const nowLocalInput = toLocalInputValue(new Date());
+  const customDisabled = range !== 'CUSTOM';
+
   if (!tickers.length) return null;
 
   return (
@@ -261,7 +322,7 @@ export function TradeCandleChart({ tickers }: Props) {
             ) : <span className="tchart-pill is-flat">—</span>}
           </div>
           <div className="tchart-subline">
-            {summary ? `${TIMEFRAME} · tabela candle · ${summary.from} → ${summary.to} · variação no período` : 'Sem dados carregados'}
+            {summary ? `${loadedTimeframe} · tabela candle · ${summary.from} → ${summary.to} · variação no período` : 'Sem dados carregados'}
           </div>
         </div>
         {summary ? (
@@ -279,26 +340,69 @@ export function TradeCandleChart({ tickers }: Props) {
       <section className="tchart-toolbar" aria-label="Controles do gráfico">
         <div className="tchart-group">
           <span>Tempo gráfico</span>
-          <div className="tchart-seg">
-            <button type="button" aria-pressed="true" disabled>{TIMEFRAME}</button>
+          <div className="tchart-tf-row">
+            <select
+              className="tchart-toolbar-select"
+              aria-label="Tempo gráfico"
+              value={timeframeSel}
+              onChange={(e) => setTimeframeSel(e.target.value)}
+            >
+              {TIMEFRAMES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+            {timeframeSel === 'CUSTOM' ? (
+              <input
+                type="text"
+                className={`tchart-custom-tf${customTimeframeInput && !customTimeframeValid ? ' is-invalid' : ''}`}
+                placeholder="M15"
+                aria-label="Timeframe customizado"
+                aria-invalid={customTimeframeInput !== '' && !customTimeframeValid}
+                aria-describedby="tchart-tf-error"
+                value={customTimeframeInput}
+                onChange={(e) => setCustomTimeframeInput(e.target.value)}
+              />
+            ) : null}
           </div>
+          {timeframeSel === 'CUSTOM' && customTimeframeInput && !customTimeframeValid ? (
+            <span id="tchart-tf-error" className="tchart-error" role="alert">Use M1-M59 ou H1-H24.</span>
+          ) : null}
         </div>
         <div className="tchart-group">
           <span>Período</span>
           <div className="tchart-seg">
             {RANGES.map((r) => (
-              <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => setRange(r.id)}>{r.label}</button>
+              <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => handlePeriodClick(r.id)}>{r.label}</button>
             ))}
           </div>
         </div>
         <div className="tchart-group">
           <span>Intervalo personalizado</span>
           <div className="tchart-dates">
-            <input type="datetime-local" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label="De" />
+            <input
+              type="datetime-local"
+              value={customDraft.from}
+              max={nowLocalInput}
+              disabled={customDisabled}
+              aria-disabled={customDisabled}
+              onChange={(e) => setCustomDraft((d) => ({ ...d, from: e.target.value }))}
+              aria-label="De"
+            />
             <span className="tchart-arrow" aria-hidden="true">→</span>
-            <input type="datetime-local" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label="Até" />
-            <button type="button" className="btn btn-secondary" onClick={() => setRange('CUSTOM')}>Aplicar</button>
+            <input
+              type="datetime-local"
+              value={customDraft.to}
+              max={nowLocalInput}
+              disabled={customDisabled}
+              aria-disabled={customDisabled}
+              onChange={(e) => setCustomDraft((d) => ({ ...d, to: e.target.value }))}
+              aria-label="Até"
+            />
+            <button type="button" className="btn btn-secondary" disabled={customDisabled} aria-disabled={customDisabled} onClick={handleAplicar}>Aplicar</button>
           </div>
+          {customError ? <span className="tchart-error" role="alert">{customError}</span> : null}
+        </div>
+        <div className="tchart-group">
+          <span>Ações</span>
+          <button type="button" className="btn btn-secondary" onClick={handleLimpar}>Limpar</button>
         </div>
         <div className="tchart-spacer" />
         <div className="tchart-group">
