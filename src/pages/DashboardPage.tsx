@@ -23,6 +23,7 @@ import { KnowledgeView } from '../components/dashboard/KnowledgeView';
 import { MarketOpsHubView } from '../components/dashboard/MarketOpsHubView';
 import { MarketHubView } from '../components/dashboard/MarketHubView';
 import { TradeView } from '../components/dashboard/TradeView';
+import { TradeMonitorView } from '../components/dashboard/TradeMonitorView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
@@ -382,34 +383,51 @@ export const MarketDeskPage: React.FC<{ defaultTab?: 'desk' | 'magic' | 'sectors
   </DashboardShell>
 );
 
-export const TradePage: React.FC = () => (
-  <DashboardShell>
-    <div className="dashboard-header">
-      <div className="dashboard-title-group">
-        <h1 className="dashboard-title">
-          <CandlestickChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Trade
-        </h1>
+const TRADE_TABS = [
+  { id: 'day', label: 'Trade Day', tabId: 'trade-tab-day', panelId: 'trade-panel-day' },
+  { id: 'monitor', label: 'Monitor', tabId: 'trade-tab-monitor', panelId: 'trade-panel-monitor' },
+] as const;
+
+export const TradePage: React.FC = () => {
+  const [tab, setTab] = useState<(typeof TRADE_TABS)[number]['id']>('day');
+  const active = TRADE_TABS.find((t) => t.id === tab) ?? TRADE_TABS[0];
+
+  return (
+    <DashboardShell>
+      <div className="dashboard-header">
+        <div className="dashboard-title-group">
+          <h1 className="dashboard-title">
+            <CandlestickChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+            Trade
+          </h1>
+        </div>
       </div>
-    </div>
-    <div className="llm-panel-tabs" role="tablist" aria-label="Seções de Trade">
-      <button
-        type="button"
-        id="trade-tab-day"
-        role="tab"
-        aria-selected="true"
-        aria-controls="trade-panel-day"
-        tabIndex={0}
-        className="llm-panel-tab is-active"
-      >
-        Trade Day
-      </button>
-    </div>
-    <div id="trade-panel-day" role="tabpanel" aria-labelledby="trade-tab-day" className="llm-panel-tabpanel">
-      <TradeView />
-    </div>
-  </DashboardShell>
-);
+      <div className="llm-panel-tabs" role="tablist" aria-label="Seções de Trade">
+        {TRADE_TABS.map((t) => {
+          const selected = t.id === tab;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              id={t.tabId}
+              role="tab"
+              aria-selected={selected}
+              aria-controls={t.panelId}
+              tabIndex={selected ? 0 : -1}
+              className={`llm-panel-tab${selected ? ' is-active' : ''}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+      <div id={active.panelId} role="tabpanel" aria-labelledby={active.tabId} className="llm-panel-tabpanel">
+        {tab === 'day' ? <TradeView /> : <TradeMonitorView />}
+      </div>
+    </DashboardShell>
+  );
+};
 
 export const MarketAnalyzePage: React.FC = () => (
   <DashboardShell>

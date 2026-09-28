@@ -5,7 +5,6 @@ import { PATHS } from '../../navigation/routes';
 import { useTradeSnapshot } from '../../hooks/useTradeSnapshot';
 import type { TradeMarketState } from '../../services/tradeService';
 import { TradeAssetCard } from './TradeAssetCard';
-import { TradeCandleChart } from './TradeCandleChart';
 import { ageLabel } from './dossierFormat';
 
 const PAGE_SIZE = 48;
@@ -123,8 +122,6 @@ export function TradeView() {
           {data.missing} {data.missing === 1 ? 'ativo desta página ainda não tem' : 'ativos desta página ainda não têm'} cotação coletada.
         </p>
       ) : null}
-
-      <TradeCandleChart tickers={items.map((it) => it.ticker)} />
 
       {items.length === 0 ? (
         <div className="trade-state"><p>Nenhum ativo corresponde a “{query}”.</p></div>
