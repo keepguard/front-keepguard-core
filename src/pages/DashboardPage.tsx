@@ -390,12 +390,24 @@ export const TradePage: React.FC = () => (
           <CandlestickChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
           Trade
         </h1>
-        <p className="dashboard-subtitle">
-          Última cotação e último candle dos ativos do seu plano. Dado do coletor, não é tempo real. Análise, não recomendação de investimento.
-        </p>
       </div>
     </div>
-    <TradeView />
+    <div className="llm-panel-tabs" role="tablist" aria-label="Seções de Trade">
+      <button
+        type="button"
+        id="trade-tab-day"
+        role="tab"
+        aria-selected="true"
+        aria-controls="trade-panel-day"
+        tabIndex={0}
+        className="llm-panel-tab is-active"
+      >
+        Trade Day
+      </button>
+    </div>
+    <div id="trade-panel-day" role="tabpanel" aria-labelledby="trade-tab-day" className="llm-panel-tabpanel">
+      <TradeView />
+    </div>
   </DashboardShell>
 );
 

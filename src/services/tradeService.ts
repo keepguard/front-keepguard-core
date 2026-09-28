@@ -59,3 +59,30 @@ export function getTradeSnapshot(page = 1, size = 50, signal?: AbortSignal): Pro
     getAccessToken() || undefined,
   );
 }
+
+export interface TradeCandleHistory {
+  ticker: string;
+  timeframe: string;
+  candles: TradeCandle[];
+}
+
+/**
+ * Histórico de candles M10 de um ativo do plano, para o gráfico do Trade Day.
+ * `from`/`to` opcionais (ISO 8601); ativo fora do plano responde 403 ASSET_OUTSIDE_PLAN.
+ */
+export function getTradeCandleHistory(
+  ticker: string,
+  opts: { from?: Date; to?: Date; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<TradeCandleHistory> {
+  const params = new URLSearchParams();
+  if (opts.from) params.set('from', opts.from.toISOString());
+  if (opts.to) params.set('to', opts.to.toISOString());
+  if (opts.limit) params.set('limit', String(opts.limit));
+  const qs = params.toString();
+  return customFetch<TradeCandleHistory>(
+    `${TRADE_BASE}/assets/${encodeURIComponent(ticker)}/candles${qs ? `?${qs}` : ''}`,
+    { method: 'GET', signal },
+    getAccessToken() || undefined,
+  );
+}

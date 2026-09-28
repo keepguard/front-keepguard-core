@@ -14961,3 +14961,22 @@ textarea.form-input {
 @keyframes trade-rotate { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .trade-skeleton, .trade-spin { animation: none; } }
 @media (max-width: 520px) { .trade-search { margin-left: 0; width: 100%; } .trade-search input { width: 100%; } }
+
+/* Gráfico de candles (Trade Day) */
+.trade-chart-card { display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.trade-chart-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem 1rem; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border-subtle); }
+.trade-chart-toolbar .group { display: flex; flex-direction: column; gap: 0.25rem; }
+.trade-chart-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-sub); font-weight: 500; }
+.trade-chart-select { border: 1px solid var(--border); background: var(--bg-input); color: var(--text-main); border-radius: 7px; padding: 0.3rem 0.5rem; font-weight: 600; font-size: 0.9rem; }
+.trade-chart-toolbar .seg { display: inline-flex; flex-wrap: wrap; background: var(--bg-muted); border-radius: 8px; padding: 2px; gap: 2px; }
+.trade-chart-toolbar .seg button { border: 0; background: transparent; padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; font-size: 0.78rem; font-weight: 500; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.trade-chart-toolbar .seg.sans button { font-family: var(--font-family); }
+.trade-chart-toolbar .seg button[aria-pressed="true"] { background: var(--bg-card); color: var(--text-main); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--border); }
+.trade-chart-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.trade-chart-dates input { border: 1px solid var(--border); background: var(--bg-input); color: var(--text-main); border-radius: 7px; padding: 0.25rem 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+.trade-chart-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.85rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-muted); }
+.trade-chart-head b { color: var(--text-main); font-weight: 600; }
+.trade-chart-head .up { color: var(--success); } .trade-chart-head .down { color: var(--danger); }
+.trade-chart-area { position: relative; height: clamp(280px, 46vh, 520px); }
+.trade-chart-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.85rem; background: var(--bg-card); }
+@media (max-width: 640px) { .trade-chart-area { height: 320px; } .trade-chart-dates input { width: 100%; } }

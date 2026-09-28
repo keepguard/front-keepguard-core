@@ -5,6 +5,7 @@ import { PATHS } from '../../navigation/routes';
 import { useTradeSnapshot } from '../../hooks/useTradeSnapshot';
 import type { TradeMarketState } from '../../services/tradeService';
 import { TradeAssetCard } from './TradeAssetCard';
+import { TradeCandleChart } from './TradeCandleChart';
 import { ageLabel } from './dossierFormat';
 
 const PAGE_SIZE = 48;
@@ -117,15 +118,13 @@ export function TradeView() {
           Não foi possível atualizar agora; mostrando o último dado carregado.
         </p>
       ) : null}
-      <p className="trade-note">
-        Dados do coletor MetaTrader 5, atualizados a cada {Math.round(data.market.intervalSeconds / 60)} min
-        (candle {data.market.timeframe} fechado). Não é cotação em tempo real. Análise, não recomendação de investimento.
-      </p>
       {data.missing > 0 ? (
         <p className="trade-note">
           {data.missing} {data.missing === 1 ? 'ativo desta página ainda não tem' : 'ativos desta página ainda não têm'} cotação coletada.
         </p>
       ) : null}
+
+      <TradeCandleChart tickers={items.map((it) => it.ticker)} />
 
       {items.length === 0 ? (
         <div className="trade-state"><p>Nenhum ativo corresponde a “{query}”.</p></div>
