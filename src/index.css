@@ -714,15 +714,21 @@ body {
 }
 
 /* Dashboard Page Layout */
+/* Teto alto o bastante para não travar conteúdo em 1280px quando a sidebar recolhe (56px) e sobra
+   área útil; respiro lateral em % do container pai (app-content, já reduzido pela sidebar) para
+   crescer/encolher com o layout em vez de deixar vão fixo dos dois lados. */
 .dashboard-container {
-  max-width: 1280px;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 2rem 2.5rem;
+  padding-block: 2rem;
+  padding-inline: clamp(1.25rem, 3%, 3.5rem);
 }
 
 @media (max-width: 768px) {
   .dashboard-container {
-    padding: 1.25rem 1rem;
+    padding-block: 1.25rem;
+    padding-inline: 1rem;
   }
 }
 
