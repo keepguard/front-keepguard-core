@@ -15005,7 +15005,7 @@ textarea.form-input {
 .tchart-spacer { flex: 1 1 0; min-width: 0; }
 
 .tchart-seg { display: inline-flex; flex-wrap: wrap; background: var(--bg-muted); border-radius: 8px; padding: 2px; gap: 2px; }
-.tchart-seg button { border: 0; background: transparent; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.tchart-seg button { box-sizing: border-box; height: 30px; border: 0; background: transparent; padding: 0 10px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
 .tchart-seg button:hover:not(:disabled) { color: var(--text-main); }
 .tchart-seg button:disabled { cursor: default; opacity: 0.65; }
 .tchart-seg--sans button { font-family: var(--font-family); display: inline-flex; align-items: center; gap: 6px; }
@@ -15017,7 +15017,9 @@ textarea.form-input {
 .tchart-swatch--vol { background: var(--text-sub); }
 
 .tchart-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.tchart-dates input { border: 1px solid var(--border); background: var(--bg-input); color: var(--text-main); border-radius: 7px; padding: 4px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; min-width: 0; max-width: 100%; }
+.tchart-dates input { box-sizing: border-box; height: 30px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-main); border-radius: 7px; padding: 0 8px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; min-width: 0; max-width: 100%; }
+/* Sobrepõe o .btn genérico (padding maior) para casar a altura com inputs e seg buttons desta toolbar. */
+.tchart-dates .btn { box-sizing: border-box; height: 30px; padding: 0 12px; font-size: 12.5px; }
 .tchart-arrow { color: var(--text-sub); }
 
 .tchart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-card); overflow: hidden; }
