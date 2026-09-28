@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Search, X } from 'lucide-react';
 import { PATHS } from '../../navigation/routes';
 import { useTradeSnapshot } from '../../hooks/useTradeSnapshot';
 import type { TradeMarketState } from '../../services/tradeService';
@@ -31,17 +31,32 @@ function useNowSeconds(everyMs = 30_000): number {
   return Math.floor(now / 1000);
 }
 
+/** Espera parar de digitar antes de buscar no backend — evita 1 request por tecla. */
+const SEARCH_DEBOUNCE_MS = 350;
+
 export function TradeView() {
   const [page, setPage] = useState(1);
+  // `query` é o que está no campo (rascunho); `debouncedQuery` é o que efetivamente
+  // filtra no backend, 350ms depois de parar de digitar.
   const [query, setQuery] = useState('');
-  const { data, loading, refreshing, error, refresh } = useTradeSnapshot(page, PAGE_SIZE);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedQuery(query.trim().toUpperCase()), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+  }, [query]);
+
+  // Filtro novo (ou limpo) invalida a página atual — sem isso, filtrar um ticker
+  // estando na página 3 buscaria a página 3 do resultado filtrado, não a 1ª.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery]);
+
+  const { data, loading, refreshing, error, refresh } = useTradeSnapshot(page, PAGE_SIZE, debouncedQuery || undefined);
   const nowSec = useNowSeconds();
 
-  const items = useMemo(() => {
-    const list = data?.items ?? [];
-    const q = query.trim().toUpperCase();
-    return q ? list.filter((it) => it.ticker.includes(q)) : list;
-  }, [data, query]);
+  const items = data?.items ?? [];
+  const limparFiltro = () => setQuery('');
 
   if (loading && !data) {
     return (
@@ -72,6 +87,16 @@ export function TradeView() {
   }
 
   if (data.total === 0) {
+    // total já vem filtrado pelo backend — 0 aqui pode ser "plano vazio" (sem query)
+    // ou "filtro não achou nada" (com query), e as duas mensagens são bem diferentes.
+    if (debouncedQuery) {
+      return (
+        <div className="trade-state">
+          <p>Nenhum ativo corresponde a “{debouncedQuery}”.</p>
+          <button type="button" className="btn btn-secondary" onClick={limparFiltro}>Limpar filtro</button>
+        </div>
+      );
+    }
     return (
       <div className="trade-state">
         <p>Você ainda não tem ativos no seu plano. Escolha os ativos que quer acompanhar no Mercado.</p>
@@ -108,6 +133,11 @@ export function TradeView() {
             placeholder="Filtrar ticker"
             aria-label="Filtrar por ticker"
           />
+          {query ? (
+            <button type="button" className="trade-search-clear" onClick={limparFiltro} aria-label="Limpar filtro">
+              <X size={14} aria-hidden="true" />
+            </button>
+          ) : null}
         </label>
       </div>
 
@@ -124,7 +154,7 @@ export function TradeView() {
       ) : null}
 
       {items.length === 0 ? (
-        <div className="trade-state"><p>Nenhum ativo corresponde a “{query}”.</p></div>
+        <div className="trade-state"><p>Nenhum ativo corresponde a “{debouncedQuery}”.</p></div>
       ) : (
         <div className="trade-grid">
           {items.map((it) => (

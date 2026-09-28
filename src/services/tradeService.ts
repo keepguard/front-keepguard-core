@@ -51,10 +51,13 @@ export interface TradeSnapshot {
   size: number;
 }
 
-export function getTradeSnapshot(page = 1, size = 50, signal?: AbortSignal): Promise<TradeSnapshot> {
-  const qs = `?page=${page}&size=${size}`;
+/** `q` filtra por substring do ticker no universo do plano, antes da paginação
+ * (server-side) — buscar um ticker de qualquer página sempre encontra. */
+export function getTradeSnapshot(page = 1, size = 50, q?: string, signal?: AbortSignal): Promise<TradeSnapshot> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (q) params.set('q', q);
   return customFetch<TradeSnapshot>(
-    `${TRADE_BASE}/snapshot${qs}`,
+    `${TRADE_BASE}/snapshot?${params.toString()}`,
     { method: 'GET', signal },
     getAccessToken() || undefined,
   );

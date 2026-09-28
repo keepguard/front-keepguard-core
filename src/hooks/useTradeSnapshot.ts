@@ -23,7 +23,7 @@ function toError(err: unknown): { code?: string; message: string } {
  * Lê o snapshot do Trade e o atualiza a cada 60 s enquanto a aba está visível. O dado só muda a cada ciclo
  * do coletor (~10 min), então não há ganho em consultar mais rápido. Em falha, mantém o último dado bom.
  */
-export function useTradeSnapshot(page: number, size: number): TradeSnapshotState {
+export function useTradeSnapshot(page: number, size: number, q?: string): TradeSnapshotState {
   const [data, setData] = useState<TradeSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,7 +36,7 @@ export function useTradeSnapshot(page: number, size: number): TradeSnapshotState
     const ctrl = new AbortController();
     controller.current = ctrl;
     setRefreshing(true);
-    getTradeSnapshot(page, size, ctrl.signal)
+    getTradeSnapshot(page, size, q, ctrl.signal)
       .then((snap) => {
         if (ctrl.signal.aborted) return;
         lastLoad.current = Date.now();
@@ -52,7 +52,7 @@ export function useTradeSnapshot(page: number, size: number): TradeSnapshotState
         setLoading(false);
         setRefreshing(false);
       });
-  }, [page, size]);
+  }, [page, size, q]);
 
   useEffect(() => {
     load();
