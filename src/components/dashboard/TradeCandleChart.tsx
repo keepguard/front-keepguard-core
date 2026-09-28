@@ -122,8 +122,6 @@ export function TradeCandleChart({ tickers }: Props) {
   const customTimeframeValid = customTimeframeInput !== '' && TIMEFRAME_RE.test(customTimeframeInput.toUpperCase());
   // Timeframe que efetivamente vai na consulta; null enquanto "Personalizado" não tem valor válido (não busca).
   const effectiveTimeframe = timeframeSel === 'CUSTOM' ? (customTimeframeValid ? customTimeframeInput.toUpperCase() : null) : timeframeSel;
-  // Rótulo exibido no resumo: o timeframe que o backend confirmou ter usado na última resposta.
-  const [loadedTimeframe, setLoadedTimeframe] = useState(DEFAULT_TIMEFRAME);
 
   // Período: pills fixas + intervalo personalizado (rascunho digitado x aplicado na busca).
   const [range, setRange] = useState<string>(DEFAULT_RANGE);
@@ -154,7 +152,8 @@ export function TradeCandleChart({ tickers }: Props) {
     if (!containerRef.current) return;
     const chart = createChart(containerRef.current, {
       autoSize: true,
-      layout: { fontFamily: 'JetBrains Mono, monospace', fontSize: 11 },
+      // attributionLogo: false remove o link/logo da TradingView que a lib mostra por padrão.
+      layout: { fontFamily: 'JetBrains Mono, monospace', fontSize: 11, attributionLogo: false },
       rightPriceScale: { scaleMargins: { top: 0.08, bottom: 0.24 } },
       timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 6, barSpacing: 8, minBarSpacing: 0.5 },
       crosshair: { mode: CrosshairMode.Normal },
@@ -224,10 +223,7 @@ export function TradeCandleChart({ tickers }: Props) {
       if (r?.days) opts.from = new Date(Date.now() - r.days * 86400_000);
     }
     getTradeCandleHistory(ticker, opts, controller.signal)
-      .then((res) => {
-        setBars(toBars(res.candles));
-        setLoadedTimeframe(res.timeframe || effectiveTimeframe);
-      })
+      .then((res) => setBars(toBars(res.candles)))
       .catch((e: unknown) => {
         if (controller.signal.aborted) return;
         const code = (e as { data?: { error?: string } })?.data?.error;
@@ -328,13 +324,11 @@ export function TradeCandleChart({ tickers }: Props) {
               </span>
             ) : <span className="tchart-pill is-flat">—</span>}
           </div>
-          <div className="tchart-subline">
-            {summary ? `${loadedTimeframe} · tabela candle · ${summary.from} → ${summary.to} · variação no período` : 'Sem dados carregados'}
-          </div>
         </div>
         {summary ? (
           <dl className="tchart-stats">
             <div className="tchart-stat"><dt>Abertura</dt><dd>{fmtPx(summary.open)}</dd></div>
+            <div className="tchart-stat"><dt>Fechamento</dt><dd>{fmtPx(summary.last)}</dd></div>
             <div className="tchart-stat"><dt>Máxima</dt><dd className="is-up">{fmtPx(summary.high)}</dd></div>
             <div className="tchart-stat"><dt>Mínima</dt><dd className="is-down">{fmtPx(summary.low)}</dd></div>
             <div className="tchart-stat"><dt>Amplitude</dt><dd>{nfPct.format(summary.amplitude).replace('+', '')}%</dd></div>
@@ -403,13 +397,12 @@ export function TradeCandleChart({ tickers }: Props) {
               onChange={(e) => setCustomDraft((d) => ({ ...d, to: e.target.value }))}
               aria-label="Até"
             />
-            <button type="button" className="btn btn-secondary" disabled={customDisabled} aria-disabled={customDisabled} onClick={handleAplicar}>Aplicar</button>
+            <button type="button" className="btn btn-secondary tchart-btn-sm" disabled={customDisabled} aria-disabled={customDisabled} onClick={handleAplicar}>Aplicar</button>
           </div>
           {customError ? <span className="tchart-error" role="alert">{customError}</span> : null}
         </div>
-        <div className="tchart-group">
-          <span>Ações</span>
-          <button type="button" className="btn btn-secondary" onClick={handleLimpar}>Limpar</button>
+        <div className="tchart-group tchart-group--actions">
+          <button type="button" className="btn btn-secondary tchart-btn-sm" onClick={handleLimpar}>Limpar</button>
         </div>
         <div className="tchart-spacer" />
         <div className="tchart-group">

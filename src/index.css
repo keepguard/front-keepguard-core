@@ -15022,9 +15022,15 @@ textarea.form-input {
 .tchart-dates input { box-sizing: border-box; height: 30px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text-main); border-radius: 7px; padding: 0 8px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; min-width: 0; max-width: 100%; }
 .tchart-dates input:disabled { opacity: 0.55; cursor: not-allowed; }
 /* Sobrepõe o .btn genérico (padding maior) para casar a altura com inputs e seg buttons desta toolbar. */
-.tchart-dates .btn { box-sizing: border-box; height: 30px; padding: 0 12px; font-size: 12.5px; }
-.tchart-dates .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .tchart-arrow { color: var(--text-sub); }
+
+/* Mesmo tamanho pros botões de ação do toolbar (Aplicar, Limpar), independente de estarem
+   dentro de .tchart-dates ou soltos num grupo — sobrepõe o .btn genérico (padding maior). */
+.tchart-btn-sm { box-sizing: border-box; height: 30px; padding: 0 12px; font-size: 12.5px; }
+.tchart-btn-sm:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Grupo "Limpar" sem label acima — alinha o botão com o resto do toolbar mesmo assim. */
+.tchart-group--actions { justify-content: flex-end; }
 
 /* Select pequeno do toolbar (timeframe) — mesma métrica dos botões do segmented control,
    diferente do .tchart-select grande do cabeçalho (ativo). */
