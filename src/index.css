@@ -15010,12 +15010,14 @@ textarea.form-input {
 .tchart-group > span { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-sub); font-weight: 500; }
 .tchart-spacer { flex: 1 1 0; min-width: 0; }
 
+/* padding do wrapper (2px) + altura do botão somam a caixa total — 26px de botão fecha em
+   30px, igual ao select de timeframe e aos inputs de data na mesma linha do toolbar. */
 .tchart-seg { display: inline-flex; flex-wrap: wrap; background: var(--bg-muted); border-radius: 8px; padding: 2px; gap: 2px; }
-.tchart-seg button { box-sizing: border-box; height: 30px; border: 0; background: transparent; padding: 0 10px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.tchart-seg button { box-sizing: border-box; height: 26px; border: 0; background: transparent; padding: 0 10px; border-radius: 6px; cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
 .tchart-seg button:hover:not(:disabled) { color: var(--text-main); }
 .tchart-seg button:disabled { cursor: default; opacity: 0.65; }
 .tchart-seg--sans button { font-family: var(--font-family); display: inline-flex; align-items: center; gap: 6px; }
-.tchart-seg button.tchart-seg-icon { width: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.tchart-seg button.tchart-seg-icon { width: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .tchart-seg button[aria-pressed="true"] { background: var(--bg-card); color: var(--text-main); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--border); }
 .tchart-swatch { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
 .tchart-swatch--ema9 { background: var(--warning); }
