@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts';
-import { ArrowUpDown, Calendar, Search, Star } from 'lucide-react';
-import { getTradeCandleHistory, getTradeFavorites, getTradeSnapshot, saveTradeFavorites, type TradeCandle } from '../../services/tradeService';
+import { ArrowUpDown, Calendar, Save, Search, Star } from 'lucide-react';
+import { getTradeCandleHistory, getTradeFavorites, getTradeSnapshot, saveTradeFavorites, type TradeCandle, type TradeFavoriteFilter } from '../../services/tradeService';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
 
 /** Espelha analysis.TradeFavoritesMaxTickers (ms-analyst-finance) — só feedback client-side
@@ -161,8 +161,11 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
 
   // Favoritos pessoais do Trade (busca + chips + reorder), substituindo o antigo <select>.
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [favoriteFilters, setFavoriteFilters] = useState<Record<string, TradeFavoriteFilter>>({});
   const [savingFav, setSavingFav] = useState(false);
   const [favError, setFavError] = useState<string | null>(null);
+  const [savingFilter, setSavingFilter] = useState(false);
+  const [filterError, setFilterError] = useState<string | null>(null);
   const [reorderOpen, setReorderOpen] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -174,7 +177,7 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
   useEffect(() => {
     let alive = true;
     getTradeFavorites()
-      .then((res) => { if (alive) setFavorites(res.tickers); })
+      .then((res) => { if (alive) { setFavorites(res.tickers); setFavoriteFilters(res.filters ?? {}); } })
       .catch(() => { /* falha ao carregar favoritos não deve travar o gráfico */ });
     return () => { alive = false; };
   }, []);
@@ -210,9 +213,23 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
     return () => controller.abort();
   }, [debouncedQuery]);
 
-  function applyTicker(next: string) {
+  // `filter`, quando informado (clique num chip de favorito), é aplicado antes de trocar o
+  // ticker — assim o efeito que busca candles já dispara com timeframe/período corretos,
+  // numa chamada só, em vez de buscar com o filtro antigo e refazer em seguida.
+  function applyTicker(next: string, filter?: TradeFavoriteFilter) {
     const t = next.trim().toUpperCase();
     if (!t) return;
+    if (filter) {
+      if (filter.timeframe) setTimeframeSel(filter.timeframe);
+      if (filter.range) {
+        setRange(filter.range);
+        if (filter.range === 'CUSTOM' && filter.from && filter.to) {
+          const draft = { from: toLocalInputValue(new Date(filter.from)), to: toLocalInputValue(new Date(filter.to)) };
+          setCustomDraft(draft);
+          setCustomApplied(draft);
+        }
+      }
+    }
     setTicker(t);
     setQuery('');
     setOpenList(false);
@@ -254,8 +271,11 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
     setSavingFav(true);
     setFavError(null);
     try {
-      const saved = await saveTradeFavorites(next);
+      // Ao desfavoritar, o filtro salvo daquele ticker não é mais enviado — o backend
+      // descarta a entrada órfã e o retorno já reflete isso (sem passo extra aqui).
+      const saved = await saveTradeFavorites(next, favoriteFilters);
       setFavorites(saved.tickers);
+      setFavoriteFilters(saved.filters ?? {});
     } catch (e: unknown) {
       const code = (e as { data?: { error?: string } })?.data?.error;
       setFavError(code === 'TOO_MANY_TRADE_FAVORITES'
@@ -268,10 +288,38 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
 
   async function handleReorderSave(nextTickers: string[]) {
     try {
-      const saved = await saveTradeFavorites(nextTickers);
+      const saved = await saveTradeFavorites(nextTickers, favoriteFilters);
       setFavorites(saved.tickers);
+      setFavoriteFilters(saved.filters ?? {});
     } catch {
       setFavError('Não foi possível atualizar a ordem dos favoritos.');
+    }
+  }
+
+  // Só habilitado com o ticker atual já favoritado — grava o timeframe/período em tela
+  // como preferência daquele favorito (regra: período CUSTOM salva o intervalo aplicado,
+  // nunca o rascunho ainda não confirmado em customDraft).
+  async function saveCurrentFilter() {
+    if (!ticker || !favorites.includes(ticker) || savingFilter || effectiveTimeframe == null) return;
+    const filter: TradeFavoriteFilter = { timeframe: effectiveTimeframe, range };
+    if (range === 'CUSTOM') {
+      if (!customApplied.from || !customApplied.to) {
+        setFilterError('Aplique um intervalo personalizado antes de salvar o filtro.');
+        return;
+      }
+      filter.from = new Date(customApplied.from).toISOString();
+      filter.to = new Date(customApplied.to + ':59').toISOString();
+    }
+    setSavingFilter(true);
+    setFilterError(null);
+    try {
+      const saved = await saveTradeFavorites(favorites, { ...favoriteFilters, [ticker]: filter });
+      setFavorites(saved.tickers);
+      setFavoriteFilters(saved.filters ?? {});
+    } catch {
+      setFilterError('Não foi possível salvar o filtro deste favorito.');
+    } finally {
+      setSavingFilter(false);
     }
   }
 
@@ -515,7 +563,7 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
                       <button
                         type="button"
                         className="market-ticker-chip-label"
-                        onClick={() => applyTicker(fav)}
+                        onClick={() => applyTicker(fav, favoriteFilters[fav])}
                         disabled={outsidePlan}
                       >
                         {fav}
@@ -678,17 +726,30 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
         </div>
         <div className="tchart-spacer" />
         <div className="tchart-group tchart-group--fav">
-          <button
-            type="button"
-            className={`market-fav-btn${ticker && favorites.includes(ticker) ? ' is-on' : ''}`}
-            onClick={() => { void toggleFavorite(); }}
-            disabled={!ticker || savingFav}
-            aria-pressed={!!ticker && favorites.includes(ticker)}
-            aria-label={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
-            title={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
-          >
-            <Star size={16} fill={ticker && favorites.includes(ticker) ? 'currentColor' : 'none'} />
-          </button>
+          <div className="tchart-fav-actions">
+            <button
+              type="button"
+              className="market-fav-btn"
+              onClick={() => { void saveCurrentFilter(); }}
+              disabled={!ticker || !favorites.includes(ticker) || savingFilter}
+              aria-label="Salvar timeframe e período deste favorito"
+              title={ticker && favorites.includes(ticker) ? 'Salvar timeframe e período deste favorito' : 'Favorite o ativo para salvar um filtro'}
+            >
+              <Save size={16} />
+            </button>
+            <button
+              type="button"
+              className={`market-fav-btn${ticker && favorites.includes(ticker) ? ' is-on' : ''}`}
+              onClick={() => { void toggleFavorite(); }}
+              disabled={!ticker || savingFav}
+              aria-pressed={!!ticker && favorites.includes(ticker)}
+              aria-label={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
+              title={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
+            >
+              <Star size={16} fill={ticker && favorites.includes(ticker) ? 'currentColor' : 'none'} />
+            </button>
+          </div>
+          {filterError ? <span className="tchart-error" role="alert">{filterError}</span> : null}
         </div>
         </div>
         <div className="tchart-toolbar-row">

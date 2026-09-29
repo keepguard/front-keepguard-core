@@ -78,8 +78,18 @@ export interface TradeCandleHistory {
 /** Favoritos pessoais do Trade Monitor (troca rápida de ativo no gráfico) — coleção própria,
  * diferente dos favoritos de Mercado/Dossiê: aqui o universo é o do plano/MT5, não o catálogo
  * de pesquisa. Teto de 20 aplicado pelo backend (`TOO_MANY_TRADE_FAVORITES`). */
+/** Timeframe/período fixado para um favorito — reaplicado sozinho ao reabrir o chip. */
+export interface TradeFavoriteFilter {
+  timeframe?: string;
+  range?: string;
+  /** Só presentes quando range === 'CUSTOM'; ISO 8601. */
+  from?: string;
+  to?: string;
+}
+
 export interface TradeFavorites {
   tickers: string[];
+  filters?: Record<string, TradeFavoriteFilter>;
   maxTickers: number;
   updatedAt?: string;
 }
@@ -92,11 +102,12 @@ export function getTradeFavorites(signal?: AbortSignal): Promise<TradeFavorites>
   );
 }
 
-/** PUT reescreve a lista inteira na ordem enviada — é assim que o reorder persiste. */
-export function saveTradeFavorites(tickers: string[]): Promise<TradeFavorites> {
+/** PUT reescreve tickers e filters por inteiro — é assim que o reorder persiste e é
+ * assim que um favorito removido perde o filtro salvo (não manda mais a chave dele). */
+export function saveTradeFavorites(tickers: string[], filters?: Record<string, TradeFavoriteFilter>): Promise<TradeFavorites> {
   return customFetch<TradeFavorites>(
     `${TRADE_BASE}/favorites`,
-    { method: 'PUT', body: JSON.stringify({ tickers }) },
+    { method: 'PUT', body: JSON.stringify({ tickers, filters }) },
     getAccessToken() || undefined,
   );
 }
