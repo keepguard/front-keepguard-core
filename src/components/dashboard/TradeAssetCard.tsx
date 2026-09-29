@@ -1,8 +1,20 @@
 import { Link } from 'react-router-dom';
-import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
-import type { TradeItem } from '../../services/tradeService';
+import { Check, Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import type { TradeItem, TradeOpportunity } from '../../services/tradeService';
 import { PATHS } from '../../navigation/routes';
 import { ageLabel, formatCompactCount, formatMoney, formatSignedPct } from './dossierFormat';
+
+/** Nome de exibição do setup — só `turtle_soup` ativo em produção hoje, mas o mapa já cobre
+ * o catálogo inteiro pra quando outro setup for promovido (ver srv-mt5-analytics/catalogo.go). */
+const SETUP_LABEL: Record<string, string> = {
+  turtle_soup: 'Turtle Soup',
+  wyckoff_spring_upthrust: 'Wyckoff Spring/Upthrust',
+  wyckoff_sos_lps: 'Wyckoff SOS/LPS',
+  holy_grail: 'Holy Grail',
+  dow_pullback_media_movel: 'Dow — Pullback na Média',
+  dow_rompimento_confirmado: 'Dow — Rompimento Confirmado',
+  rsi2_mean_reversion: 'RSI(2) Mean Reversion',
+};
 
 /** Hora de Brasília, sempre: o pregão é da B3 e o fuso do navegador não pode mudar o que o candle diz. */
 function timeLabel(iso: string): string {
@@ -20,7 +32,16 @@ function closePosition(low: number, high: number, close: number): number {
   return Math.min(100, Math.max(0, ((close - low) / (high - low)) * 100));
 }
 
-export function TradeAssetCard({ item, ageSeconds }: { item: TradeItem; ageSeconds?: number }) {
+export function TradeAssetCard({
+  item,
+  ageSeconds,
+  opportunity,
+}: {
+  item: TradeItem;
+  ageSeconds?: number;
+  /** Ausente = sem sinal ativo agora para este ativo (o normal, na maior parte do tempo). */
+  opportunity?: TradeOpportunity;
+}) {
   const { ticker, quote, candle, stale } = item;
   const dossierLink = `${PATHS.market}?ticker=${encodeURIComponent(ticker)}`;
   const age = ageSeconds ?? item.ageSeconds;
@@ -28,7 +49,10 @@ export function TradeAssetCard({ item, ageSeconds }: { item: TradeItem; ageSecon
   const ChangeIcon = changeTone === 'up' ? TrendingUp : changeTone === 'down' ? TrendingDown : Minus;
 
   return (
-    <article className={`trade-card${stale ? ' is-stale' : ''}${quote ? '' : ' is-empty'}`} aria-label={`Cotação de ${ticker}`}>
+    <article
+      className={`trade-card${stale ? ' is-stale' : ''}${quote ? '' : ' is-empty'}${opportunity ? ' has-signal' : ''}`}
+      aria-label={`Cotação de ${ticker}`}
+    >
       <header className="trade-card-head">
         <Link to={dossierLink} className="trade-card-ticker" title="Abrir o dossiê no Mercado">
           {ticker}
@@ -77,6 +101,23 @@ export function TradeAssetCard({ item, ageSeconds }: { item: TradeItem; ageSecon
         </section>
       ) : quote ? (
         <p className="trade-card-empty">Sem candle fechado ainda.</p>
+      ) : null}
+
+      {opportunity ? (
+        <section className="trade-signal" aria-label={`Oportunidade identificada em ${ticker}`}>
+          <div className="trade-signal-head">
+            <span className="trade-signal-badge">
+              <Check size={12} aria-hidden="true" />
+              {opportunity.direcao === 'compra' ? 'Compra' : opportunity.direcao === 'venda' ? 'Venda' : opportunity.direcao}
+            </span>
+            <span className="trade-signal-setup">{SETUP_LABEL[opportunity.setup] ?? opportunity.setup}</span>
+          </div>
+          <dl className="trade-signal-levels">
+            <div className="entrada"><dt>Entrada</dt><dd>{formatMoney(opportunity.entrada)}</dd></div>
+            <div className="stop"><dt>Stop</dt><dd>{formatMoney(opportunity.stop)}</dd></div>
+            <div className="alvo"><dt>Alvo</dt><dd>{formatMoney(opportunity.alvo)}</dd></div>
+          </dl>
+        </section>
       ) : null}
     </article>
   );

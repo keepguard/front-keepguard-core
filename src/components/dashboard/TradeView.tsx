@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, RefreshCw, Search, X } from 'lucide-react';
 import { PATHS } from '../../navigation/routes';
 import { useTradeSnapshot } from '../../hooks/useTradeSnapshot';
-import type { TradeMarketState } from '../../services/tradeService';
+import { getTradeOportunidades, type TradeMarketState, type TradeOpportunity } from '../../services/tradeService';
 import { TradeAssetCard } from './TradeAssetCard';
 import { ageLabel } from './dossierFormat';
 
@@ -57,6 +57,22 @@ export function TradeView() {
 
   const items = data?.items ?? [];
   const limparFiltro = () => setQuery('');
+
+  // Selo de oportunidade: 1 chamada em lote pros tickers da página atual, não 1 por card.
+  // Falha aqui não derruba a grade — o card só fica sem selo (mesmo espírito de "stale").
+  const [opportunities, setOpportunities] = useState<Record<string, TradeOpportunity>>({});
+  const tickersKey = items.map((it) => it.ticker).join(',');
+  useEffect(() => {
+    if (!tickersKey) {
+      setOpportunities({});
+      return;
+    }
+    const controller = new AbortController();
+    getTradeOportunidades(tickersKey.split(','), undefined, controller.signal)
+      .then(setOpportunities)
+      .catch(() => setOpportunities({}));
+    return () => controller.abort();
+  }, [tickersKey]);
 
   if (loading && !data) {
     return (
@@ -162,6 +178,7 @@ export function TradeView() {
               key={it.ticker}
               item={it}
               ageSeconds={it.quote ? Math.max(0, nowSec - Math.floor(new Date(it.quote.collectedAt).getTime() / 1000)) : undefined}
+              opportunity={opportunities[it.ticker]}
             />
           ))}
         </div>

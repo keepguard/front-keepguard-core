@@ -112,6 +112,58 @@ export function saveTradeFavorites(tickers: string[], filters?: Record<string, T
   );
 }
 
+/** Oportunidade identificada agora pelo srv-mt5-analytics (só `turtle_soup` ativo em produção). */
+export interface TradeOpportunity {
+  setup: string;
+  direcao: string;
+  entrada: number;
+  stop: number;
+  alvo: number;
+  confiancaEscolha: number;
+}
+
+function isHttpStatus(err: unknown, status: number): boolean {
+  return (err as { status?: number }).status === status;
+}
+
+/** Devolve `null` quando nenhum setup disparou agora (404) — não é erro, é o estado normal
+ * da maioria dos ativos na maior parte do tempo. */
+export async function getTradeAssetOportunidade(
+  ticker: string,
+  timeframe?: string,
+  signal?: AbortSignal,
+): Promise<TradeOpportunity | null> {
+  const qs = timeframe ? `?timeframe=${encodeURIComponent(timeframe)}` : '';
+  try {
+    return await customFetch<TradeOpportunity>(
+      `${TRADE_BASE}/assets/${encodeURIComponent(ticker)}/oportunidade${qs}`,
+      { method: 'GET', signal },
+      getAccessToken() || undefined,
+    );
+  } catch (err) {
+    if (isHttpStatus(err, 404)) return null;
+    throw err;
+  }
+}
+
+/** Oportunidade de vários ativos numa chamada só — usado pela grade (`TradeView`), pra não
+ * virar 1 request por card. Ticker sem sinal agora simplesmente não vem no mapa devolvido. */
+export async function getTradeOportunidades(
+  tickers: string[],
+  timeframe?: string,
+  signal?: AbortSignal,
+): Promise<Record<string, TradeOpportunity>> {
+  if (tickers.length === 0) return {};
+  const params = new URLSearchParams({ tickers: tickers.join(',') });
+  if (timeframe) params.set('timeframe', timeframe);
+  const resp = await customFetch<{ oportunidades: Record<string, TradeOpportunity> }>(
+    `${TRADE_BASE}/oportunidades?${params.toString()}`,
+    { method: 'GET', signal },
+    getAccessToken() || undefined,
+  );
+  return resp.oportunidades;
+}
+
 export function getTradeCandleHistory(
   ticker: string,
   opts: { timeframe?: string; from?: Date; to?: Date; limit?: number } = {},

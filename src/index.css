@@ -14960,6 +14960,17 @@ textarea.form-input {
 .trade-delta.is-down { background: var(--danger-light); color: var(--danger); }
 .trade-range { position: relative; height: 6px; border-radius: 999px; background: var(--border); }
 .trade-range-marker { position: absolute; top: -3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--primary); border: 2px solid var(--bg-card); }
+.trade-card.has-signal { border-color: var(--success-border); box-shadow: var(--shadow-md), 0 0 0 1px var(--success-border) inset; }
+.trade-signal { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.65rem; border-top: 1px dashed var(--success-border); }
+.trade-signal-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.trade-signal-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.74rem; font-weight: 800; background: var(--success-light); color: var(--success-hover); border: 1px solid var(--success-border); }
+.trade-signal-setup { font-size: 0.72rem; color: var(--text-sub); }
+.trade-signal-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin: 0; }
+.trade-signal-levels dt { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-sub); }
+.trade-signal-levels dd { margin: 0; font-size: 0.82rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.trade-signal-levels .entrada dd { color: var(--text-main); }
+.trade-signal-levels .stop dd { color: var(--danger); }
+.trade-signal-levels .alvo dd { color: var(--success-hover); }
 .trade-state { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
 .trade-state p { margin: 0; color: var(--text-body); }
 .trade-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; color: var(--text-muted); font-size: 0.85rem; }
