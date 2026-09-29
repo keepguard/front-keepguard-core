@@ -3,6 +3,7 @@ import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi 
 import { ArrowUpDown, Calendar, Save, Search, Star } from 'lucide-react';
 import { getTradeCandleHistory, getTradeFavorites, getTradeSnapshot, saveTradeFavorites, type TradeCandle, type TradeFavoriteFilter } from '../../services/tradeService';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
+import { useToast } from '../../context/ToastContext';
 
 /** Espelha analysis.TradeFavoritesMaxTickers (ms-analyst-finance) — só feedback client-side
  * antecipado; o servidor é a fonte de verdade (`422 TOO_MANY_TRADE_FAVORITES`). */
@@ -132,7 +133,8 @@ interface Props {
 }
 
 export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
-  const [ticker, setTicker] = useState(tickers[0] ?? '');
+  const { addToast } = useToast();
+  const [ticker, setTicker] = useState('');
 
   // Tempo gráfico: combo fixo + entrada livre quando "Personalizado".
   const [timeframeSel, setTimeframeSel] = useState<string>(DEFAULT_TIMEFRAME);
@@ -152,16 +154,21 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Só define um ticker default na carga inicial — não reseta uma seleção manual (via busca
-  // ou favorito) a cada poll do snapshot, mesmo que o ticker escolhido esteja fora da
-  // primeira página de MONITOR_SIZE (busca e favoritos já validam contra o plano no backend).
-  useEffect(() => {
-    if (!ticker && tickers.length) setTicker(tickers[0]);
-  }, [tickers, ticker]);
-
   // Favoritos pessoais do Trade (busca + chips + reorder), substituindo o antigo <select>.
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favoriteFilters, setFavoriteFilters] = useState<Record<string, TradeFavoriteFilter>>({});
+  const [favoritesLoaded, setFavoritesLoaded] = useState(false);
+
+  // Ticker inicial: o primeiro favorito (na ordem dos chips), com o filtro salvo dele —
+  // só cai pro primeiro ativo do Monitor se não houver nenhum favorito. Depende de
+  // `favoritesLoaded` pra não "piscar" pro ativo default antes da resposta de favoritos
+  // chegar. Depois da carga inicial, não reseta uma seleção manual (via busca ou favorito)
+  // a cada poll do snapshot, mesmo que o ticker escolhido esteja fora da primeira página de
+  // MONITOR_SIZE (busca e favoritos já validam contra o plano no backend).
+  useEffect(() => {
+    if (!ticker && favoritesLoaded && tickers.length) setTicker(tickers[0]);
+  }, [tickers, ticker, favoritesLoaded]);
+
   const [savingFav, setSavingFav] = useState(false);
   const [favError, setFavError] = useState<string | null>(null);
   const [savingFilter, setSavingFilter] = useState(false);
@@ -177,9 +184,18 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
   useEffect(() => {
     let alive = true;
     getTradeFavorites()
-      .then((res) => { if (alive) { setFavorites(res.tickers); setFavoriteFilters(res.filters ?? {}); } })
-      .catch(() => { /* falha ao carregar favoritos não deve travar o gráfico */ });
+      .then((res) => {
+        if (!alive) return;
+        setFavorites(res.tickers);
+        setFavoriteFilters(res.filters ?? {});
+        // Primeiro favorito na ordem dos chips vira o ativo aberto ao entrar no Monitor,
+        // com o filtro salvo dele — reordenar os favoritos muda qual abre primeiro.
+        if (res.tickers.length > 0) applyTicker(res.tickers[0], res.filters?.[res.tickers[0]], true);
+      })
+      .catch(() => { /* falha ao carregar favoritos não deve travar o gráfico */ })
+      .finally(() => { if (alive) setFavoritesLoaded(true); });
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -325,8 +341,10 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
       const saved = await saveTradeFavorites(favorites, { ...favoriteFilters, [ticker]: filter });
       setFavorites(saved.tickers);
       setFavoriteFilters(saved.filters ?? {});
+      addToast({ type: 'success', title: 'Filtro salvo', description: `${ticker} vai abrir em ${filter.timeframe}/${filter.range}.` });
     } catch {
       setFilterError('Não foi possível salvar o filtro deste favorito.');
+      addToast({ type: 'error', title: 'Filtro do favorito', description: 'Não foi possível salvar o filtro deste favorito.' });
     } finally {
       setSavingFilter(false);
     }
