@@ -15054,8 +15054,7 @@ textarea.form-input {
 /* Bloco de favoritos/busca do Trade Monitor — reaproveita as classes globais de chip/listbox
    já usadas em Mercado/Dossiê (.market-desk-tickers, .market-ticker-*), só com espaçamento
    próprio pro contexto compacto do cabeçalho do gráfico. */
-.tchart-fav-block { margin: 2px 0 0; }
-.tchart-fav-search { max-width: 260px; align-self: flex-start; }
+.tchart-fav-search { max-width: 260px; align-self: flex-start; margin-bottom: 1rem; }
 .tchart-fav-empty { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
 .tchart-fav-empty-list { padding: 0.6rem 0.85rem; font-size: 0.8rem; color: var(--text-muted); }
 

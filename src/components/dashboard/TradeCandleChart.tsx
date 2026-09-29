@@ -445,7 +445,7 @@ export function TradeCandleChart({ tickers }: Props) {
       <section className="tchart-quote" aria-label="Resumo do ativo">
         <div className="tchart-ticker">
           {favorites.length > 0 ? (
-            <div className="market-desk-tickers tchart-fav-block">
+            <div className="market-desk-tickers">
               <div className="market-favs-header">
                 <span className="market-desk-tickers-label" id="tchart-favs-label">Favoritos do Trade</span>
                 {favorites.length > 1 ? (
