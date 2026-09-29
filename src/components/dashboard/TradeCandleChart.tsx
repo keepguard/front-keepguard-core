@@ -460,52 +460,54 @@ export function TradeCandleChart({ tickers }: Props) {
             >
               <Star size={16} fill={ticker && favorites.includes(ticker) ? 'currentColor' : 'none'} />
             </button>
+            <div className="search-input-wrapper market-ticker-search tchart-fav-search" ref={searchWrapRef}>
+              <Search size={14} className="search-icon" />
+              <input
+                className="search-input"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value.toUpperCase()); setOpenList(true); setActiveIndex(0); }}
+                onFocus={() => setOpenList(true)}
+                onKeyDown={onSearchKeyDown}
+                maxLength={6}
+                autoComplete="off"
+                placeholder="Buscar ativo do seu plano…"
+                aria-label="Buscar ativo do Trade"
+                aria-autocomplete="list"
+                aria-expanded={openList}
+                aria-controls="tchart-ticker-listbox"
+                role="combobox"
+              />
+              {openList && suggestions.length > 0 ? (
+                <ul id="tchart-ticker-listbox" className="market-ticker-listbox" role="listbox">
+                  {suggestions.map((t, index) => (
+                    <li key={t} role="presentation">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={index === activeIndex}
+                        className={`market-ticker-option${index === activeIndex ? ' is-active' : ''}`}
+                        onMouseDown={(e) => { e.preventDefault(); applyTicker(t); }}
+                      >
+                        <span className="market-ticker-option-symbol">{t}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {openList && query.trim() && suggestions.length === 0 ? (
+                <div className="market-ticker-listbox tchart-fav-empty-list">
+                  Nenhum ativo do seu plano encontrado para &quot;{query}&quot;.
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="tchart-ticker-row">
             {summary ? (
               <span className={`tchart-pill ${summary.chg > 0 ? 'is-up' : summary.chg < 0 ? 'is-down' : 'is-flat'}`}>
                 {summary.chg > 0 ? '+' : ''}{fmtPx(summary.chg)} ({nfPct.format(summary.pct)}%)
               </span>
             ) : <span className="tchart-pill is-flat">—</span>}
-          </div>
-
-          <div className="search-input-wrapper market-ticker-search tchart-fav-search" ref={searchWrapRef}>
-            <Search size={14} className="search-icon" />
-            <input
-              className="search-input"
-              value={query}
-              onChange={(e) => { setQuery(e.target.value.toUpperCase()); setOpenList(true); setActiveIndex(0); }}
-              onFocus={() => setOpenList(true)}
-              onKeyDown={onSearchKeyDown}
-              maxLength={6}
-              autoComplete="off"
-              placeholder="Buscar ativo do seu plano…"
-              aria-label="Buscar ativo do Trade"
-              aria-autocomplete="list"
-              aria-expanded={openList}
-              aria-controls="tchart-ticker-listbox"
-              role="combobox"
-            />
-            {openList && suggestions.length > 0 ? (
-              <ul id="tchart-ticker-listbox" className="market-ticker-listbox" role="listbox">
-                {suggestions.map((t, index) => (
-                  <li key={t} role="presentation">
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={index === activeIndex}
-                      className={`market-ticker-option${index === activeIndex ? ' is-active' : ''}`}
-                      onMouseDown={(e) => { e.preventDefault(); applyTicker(t); }}
-                    >
-                      <span className="market-ticker-option-symbol">{t}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {openList && query.trim() && suggestions.length === 0 ? (
-              <div className="market-ticker-listbox tchart-fav-empty-list">
-                Nenhum ativo do seu plano encontrado para &quot;{query}&quot;.
-              </div>
-            ) : null}
           </div>
 
           {favorites.length > 0 ? (
