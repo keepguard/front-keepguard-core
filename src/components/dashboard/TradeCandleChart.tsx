@@ -652,6 +652,7 @@ export function TradeCandleChart({ tickers }: Props) {
         <div className="tchart-group tchart-group--actions">
           <button type="button" className="btn btn-secondary tchart-btn-sm" onClick={handleLimpar}>Limpar</button>
         </div>
+        <div className="tchart-spacer" />
         <div className="tchart-group tchart-group--fav">
           <button
             type="button"
