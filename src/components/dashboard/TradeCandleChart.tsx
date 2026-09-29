@@ -123,9 +123,14 @@ function toLocalInputValue(d: Date): string {
 interface Props {
   /** Tickers que o usuário pode abrir (página atual do Trade); a checagem final é sempre do backend. */
   tickers: string[];
+  /** Tamanho real do universo do plano (`TradeSnapshot.total`), não só desta página —
+   * admin/ops e VIP têm acesso a todo o catálogo habilitado (bem além dos MONITOR_SIZE
+   * tickers carregados), então `tickers` sozinho não basta pra saber se um favorito
+   * ainda está dentro do plano. */
+  totalPlanTickers: number;
 }
 
-export function TradeCandleChart({ tickers }: Props) {
+export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
   const [ticker, setTicker] = useState(tickers[0] ?? '');
 
   // Tempo gráfico: combo fixo + entrada livre quando "Personalizado".
@@ -489,7 +494,11 @@ export function TradeCandleChart({ tickers }: Props) {
               </div>
               <div className="market-desk-tickers-list" role="group" aria-labelledby="tchart-favs-label">
                 {favorites.map((fav, index) => {
-                  const outsidePlan = !tickers.includes(fav);
+                  // Só dá pra afirmar "fora do plano" quando a página carregada cobre o
+                  // universo inteiro (tickers.length >= total) — caso contrário (VIP/admin
+                  // com catálogo maior que MONITOR_SIZE), a ausência aqui não prova nada;
+                  // o backend (PUT /trade/favorites) já validou o ticker na hora de salvar.
+                  const outsidePlan = tickers.length >= totalPlanTickers && !tickers.includes(fav);
                   const isChipActive = fav === ticker;
                   return (
                     <span

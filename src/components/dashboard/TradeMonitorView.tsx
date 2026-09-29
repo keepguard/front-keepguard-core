@@ -32,5 +32,5 @@ export function TradeMonitorView() {
     );
   }
 
-  return <TradeCandleChart tickers={data.items.map((it) => it.ticker)} />;
+  return <TradeCandleChart tickers={data.items.map((it) => it.ticker)} totalPlanTickers={data.total} />;
 }
