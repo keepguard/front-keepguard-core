@@ -15015,6 +15015,7 @@ textarea.form-input {
 .tchart-seg button:hover:not(:disabled) { color: var(--text-main); }
 .tchart-seg button:disabled { cursor: default; opacity: 0.65; }
 .tchart-seg--sans button { font-family: var(--font-family); display: inline-flex; align-items: center; gap: 6px; }
+.tchart-seg button.tchart-seg-icon { width: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .tchart-seg button[aria-pressed="true"] { background: var(--bg-card); color: var(--text-main); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--border); }
 .tchart-swatch { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
 .tchart-swatch--ema9 { background: var(--warning); }

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts';
-import { ArrowUpDown, Search, Star } from 'lucide-react';
+import { ArrowUpDown, Calendar, Search, Star } from 'lucide-react';
 import { getTradeCandleHistory, getTradeFavorites, getTradeSnapshot, saveTradeFavorites, type TradeCandle } from '../../services/tradeService';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
 
@@ -14,14 +14,15 @@ const TRADE_FAVORITES_MAX = 20;
  * tem acesso amplo (VIP/ops). */
 const SEARCH_DEBOUNCE_MS = 350;
 
-/** Timeframes fixos do combo; "Personalizado" revela um campo livre (M1-M59/H1-H24). */
+/** Timeframes fixos do combo. O valor "CUSTOM" (campo livre M1-M59/H1-H24) segue suportado
+ * por `effectiveTimeframe`/`customTimeframeInput`, só oculto da lista visível por pedido de UX
+ * — pouco usado e disputava espaço com os timeframes fixos. */
 const TIMEFRAMES: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'M1', label: 'M1' },
   { id: 'M5', label: 'M5' },
   { id: 'M10', label: 'M10' },
   { id: 'M30', label: 'M30' },
   { id: 'H1', label: 'H1' },
-  { id: 'CUSTOM', label: 'Personalizado' },
 ];
 const TIMEFRAME_RE = /^(M([1-9]|[1-5][0-9])|H([1-9]|1[0-9]|2[0-4]))$/;
 const DEFAULT_TIMEFRAME = 'M10';
@@ -628,7 +629,21 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
           <span>Período</span>
           <div className="tchart-seg">
             {RANGES.map((r) => (
-              <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => handlePeriodClick(r.id)}>{r.label}</button>
+              r.id === 'CUSTOM' ? (
+                <button
+                  key={r.id}
+                  type="button"
+                  className="tchart-seg-icon"
+                  aria-pressed={range === r.id}
+                  aria-label="Período personalizado"
+                  title="Período personalizado"
+                  onClick={() => handlePeriodClick(r.id)}
+                >
+                  <Calendar size={14} />
+                </button>
+              ) : (
+                <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => handlePeriodClick(r.id)}>{r.label}</button>
+              )
             ))}
           </div>
         </div>
