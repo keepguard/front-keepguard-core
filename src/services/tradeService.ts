@@ -75,6 +75,32 @@ export interface TradeCandleHistory {
  * leitura direta, qualquer outro valor é agregado a partir de M1 no srv-mt5-market-data).
  * `from`/`to` opcionais (ISO 8601); ativo fora do plano responde 403 ASSET_OUTSIDE_PLAN.
  */
+/** Favoritos pessoais do Trade Monitor (troca rápida de ativo no gráfico) — coleção própria,
+ * diferente dos favoritos de Mercado/Dossiê: aqui o universo é o do plano/MT5, não o catálogo
+ * de pesquisa. Teto de 20 aplicado pelo backend (`TOO_MANY_TRADE_FAVORITES`). */
+export interface TradeFavorites {
+  tickers: string[];
+  maxTickers: number;
+  updatedAt?: string;
+}
+
+export function getTradeFavorites(signal?: AbortSignal): Promise<TradeFavorites> {
+  return customFetch<TradeFavorites>(
+    `${TRADE_BASE}/favorites`,
+    { method: 'GET', signal },
+    getAccessToken() || undefined,
+  );
+}
+
+/** PUT reescreve a lista inteira na ordem enviada — é assim que o reorder persiste. */
+export function saveTradeFavorites(tickers: string[]): Promise<TradeFavorites> {
+  return customFetch<TradeFavorites>(
+    `${TRADE_BASE}/favorites`,
+    { method: 'PUT', body: JSON.stringify({ tickers }) },
+    getAccessToken() || undefined,
+  );
+}
+
 export function getTradeCandleHistory(
   ticker: string,
   opts: { timeframe?: string; from?: Date; to?: Date; limit?: number } = {},

@@ -14987,6 +14987,9 @@ textarea.form-input {
   background-repeat: no-repeat; background-position: right 2px center;
 }
 .tchart-select option { background: var(--bg-card); color: var(--text-main); }
+/* Substitui o antigo .tchart-select: mesma tipografia, mas texto fixo (não é mais um controle
+   de formulário) — troca de ativo agora só via busca/favoritos, sem affordance de clicável. */
+.tchart-ticker-fixed { font-weight: 600; font-size: 20px; letter-spacing: -0.01em; color: var(--text-main); }
 .tchart-px { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; color: var(--text-main); }
 .tchart-pill { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 500; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
 .tchart-pill.is-up { color: var(--success-hover); background: var(--success-light); }
@@ -15047,6 +15050,14 @@ textarea.form-input {
 .tchart-tf-row { display: flex; align-items: center; gap: 6px; }
 
 .tchart-error { color: var(--danger); font-size: 11.5px; }
+
+/* Bloco de favoritos/busca do Trade Monitor — reaproveita as classes globais de chip/listbox
+   já usadas em Mercado/Dossiê (.market-desk-tickers, .market-ticker-*), só com espaçamento
+   próprio pro contexto compacto do cabeçalho do gráfico. */
+.tchart-fav-block { margin: 2px 0 0; }
+.tchart-fav-search { max-width: 260px; margin-top: 6px; }
+.tchart-fav-empty { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
+.tchart-fav-empty-list { padding: 0.6rem 0.85rem; font-size: 0.8rem; color: var(--text-muted); }
 
 .tchart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-card); overflow: hidden; }
 .tchart-area { position: relative; height: clamp(360px, 58vh, 720px); }

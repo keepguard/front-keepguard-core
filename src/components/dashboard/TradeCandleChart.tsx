@@ -1,6 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts';
-import { getTradeCandleHistory, type TradeCandle } from '../../services/tradeService';
+import { ArrowUpDown, Search, Star } from 'lucide-react';
+import { getTradeCandleHistory, getTradeFavorites, saveTradeFavorites, type TradeCandle } from '../../services/tradeService';
+import { ReorderFavoritesModal } from './ReorderFavoritesModal';
+
+/** Espelha analysis.TradeFavoritesMaxTickers (ms-analyst-finance) — só feedback client-side
+ * antecipado; o servidor é a fonte de verdade (`422 TOO_MANY_TRADE_FAVORITES`). */
+const TRADE_FAVORITES_MAX = 20;
 
 /** Timeframes fixos do combo; "Personalizado" revela um campo livre (M1-M59/H1-H24). */
 const TIMEFRAMES: ReadonlyArray<{ id: string; label: string }> = [
@@ -137,6 +143,134 @@ export function TradeCandleChart({ tickers }: Props) {
   useEffect(() => {
     if (!tickers.includes(ticker)) setTicker(tickers[0] ?? '');
   }, [tickers, ticker]);
+
+  // Favoritos pessoais do Trade (busca + chips + reorder), substituindo o antigo <select>.
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favLoaded, setFavLoaded] = useState(false);
+  const [savingFav, setSavingFav] = useState(false);
+  const [favError, setFavError] = useState<string | null>(null);
+  const [reorderOpen, setReorderOpen] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
+  const [openList, setOpenList] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    getTradeFavorites()
+      .then((res) => { if (alive) setFavorites(res.tickers); })
+      .catch(() => { /* falha ao carregar favoritos não deve travar o gráfico */ })
+      .finally(() => { if (alive) setFavLoaded(true); });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (event: MouseEvent) => {
+      if (!searchWrapRef.current?.contains(event.target as Node)) setOpenList(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const suggestions = useMemo(() => {
+    const q = query.trim().toUpperCase();
+    if (!q) return [];
+    return tickers.filter((t) => t.includes(q)).slice(0, 8);
+  }, [query, tickers]);
+
+  function applyTicker(next: string) {
+    if (!tickers.includes(next)) return;
+    setTicker(next);
+    setQuery('');
+    setOpenList(false);
+    setActiveIndex(0);
+  }
+
+  function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setOpenList(true);
+      setActiveIndex((prev) => Math.min(prev + 1, Math.max(suggestions.length - 1, 0)));
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setOpenList(true);
+      setActiveIndex((prev) => Math.max(prev - 1, 0));
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (suggestions[activeIndex]) applyTicker(suggestions[activeIndex]);
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpenList(false);
+    }
+  }
+
+  async function toggleFavorite() {
+    if (!ticker || savingFav) return;
+    const isFav = favorites.includes(ticker);
+    const next = isFav ? favorites.filter((t) => t !== ticker) : [...favorites, ticker];
+    if (!isFav && next.length > TRADE_FAVORITES_MAX) {
+      setFavError(`Você pode marcar até ${TRADE_FAVORITES_MAX} ativos como favoritos do Trade.`);
+      return;
+    }
+    setSavingFav(true);
+    setFavError(null);
+    try {
+      const saved = await saveTradeFavorites(next);
+      setFavorites(saved.tickers);
+    } catch (e: unknown) {
+      const code = (e as { data?: { error?: string } })?.data?.error;
+      setFavError(code === 'TOO_MANY_TRADE_FAVORITES'
+        ? `Você pode marcar até ${TRADE_FAVORITES_MAX} ativos como favoritos do Trade.`
+        : 'Não foi possível salvar o favorito.');
+    } finally {
+      setSavingFav(false);
+    }
+  }
+
+  async function handleReorderSave(nextTickers: string[]) {
+    try {
+      const saved = await saveTradeFavorites(nextTickers);
+      setFavorites(saved.tickers);
+    } catch {
+      setFavError('Não foi possível atualizar a ordem dos favoritos.');
+    }
+  }
+
+  function onChipDragStart(e: React.DragEvent, index: number) {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  }
+
+  function onChipDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dropIndex !== index) setDropIndex(index);
+  }
+
+  function onChipDrop(targetIndex: number) {
+    if (dragIndex !== null && dragIndex !== targetIndex) {
+      const next = [...favorites];
+      const [moved] = next.splice(dragIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      void handleReorderSave(next);
+    }
+    setDragIndex(null);
+    setDropIndex(null);
+  }
+
+  function onChipDragEnd() {
+    setDragIndex(null);
+    setDropIndex(null);
+  }
 
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -313,17 +447,115 @@ export function TradeCandleChart({ tickers }: Props) {
       <section className="tchart-quote" aria-label="Resumo do ativo">
         <div className="tchart-ticker">
           <div className="tchart-ticker-row">
-            <label className="tchart-visually-hidden" htmlFor="tchart-ativo">Ativo</label>
-            <select id="tchart-ativo" className="tchart-select" value={ticker} onChange={(e) => setTicker(e.target.value)}>
-              {tickers.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <span className="tchart-ticker-fixed" id="tchart-ativo">{ticker || '—'}</span>
             <span className="tchart-px">{summary ? fmtPx(summary.last) : '—'}</span>
+            <button
+              type="button"
+              className={`market-fav-btn${ticker && favorites.includes(ticker) ? ' is-on' : ''}`}
+              onClick={() => { void toggleFavorite(); }}
+              disabled={!ticker || savingFav}
+              aria-pressed={!!ticker && favorites.includes(ticker)}
+              aria-label={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
+              title={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
+            >
+              <Star size={16} fill={ticker && favorites.includes(ticker) ? 'currentColor' : 'none'} />
+            </button>
             {summary ? (
               <span className={`tchart-pill ${summary.chg > 0 ? 'is-up' : summary.chg < 0 ? 'is-down' : 'is-flat'}`}>
                 {summary.chg > 0 ? '+' : ''}{fmtPx(summary.chg)} ({nfPct.format(summary.pct)}%)
               </span>
             ) : <span className="tchart-pill is-flat">—</span>}
           </div>
+
+          {favorites.length > 0 ? (
+            <div className="market-desk-tickers tchart-fav-block">
+              <div className="market-favs-header">
+                <span className="market-desk-tickers-label" id="tchart-favs-label">Favoritos do Trade</span>
+                {favorites.length > 1 ? (
+                  <button
+                    type="button"
+                    className="market-favs-reorder-trigger"
+                    onClick={() => setReorderOpen(true)}
+                    title="Organizar favoritos"
+                    aria-label="Organizar favoritos"
+                  >
+                    <ArrowUpDown size={13} />
+                  </button>
+                ) : null}
+              </div>
+              <div className="market-desk-tickers-list" role="group" aria-labelledby="tchart-favs-label">
+                {favorites.map((fav, index) => {
+                  const outsidePlan = !tickers.includes(fav);
+                  const isChipActive = fav === ticker;
+                  return (
+                    <span
+                      key={fav}
+                      className={`badge-role market-ticker-chip${isChipActive ? ' market-ticker-chip--active' : ''}${outsidePlan ? ' market-ticker-chip--locked' : ''}${dragIndex === index ? ' is-dragging' : ''}${dropIndex === index ? ' is-drag-over' : ''}`}
+                      draggable={!outsidePlan}
+                      onDragStart={(e) => onChipDragStart(e, index)}
+                      onDragOver={(e) => onChipDragOver(e, index)}
+                      onDrop={() => onChipDrop(index)}
+                      onDragEnd={onChipDragEnd}
+                      title={outsidePlan ? `${fav} não faz parte do seu plano no momento` : 'Clique para exibir ou arraste para reorganizar'}
+                    >
+                      <button
+                        type="button"
+                        className="market-ticker-chip-label"
+                        onClick={() => applyTicker(fav)}
+                        disabled={outsidePlan}
+                      >
+                        {fav}
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ) : favLoaded ? (
+            <p className="tchart-fav-empty">Busque um ticker e toque na estrela para favoritar.</p>
+          ) : null}
+
+          <div className="search-input-wrapper market-ticker-search tchart-fav-search" ref={searchWrapRef}>
+            <Search size={14} className="search-icon" />
+            <input
+              className="search-input"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value.toUpperCase()); setOpenList(true); setActiveIndex(0); }}
+              onFocus={() => setOpenList(true)}
+              onKeyDown={onSearchKeyDown}
+              maxLength={6}
+              autoComplete="off"
+              placeholder="Buscar ativo do seu plano…"
+              aria-label="Buscar ativo do Trade"
+              aria-autocomplete="list"
+              aria-expanded={openList}
+              aria-controls="tchart-ticker-listbox"
+              role="combobox"
+            />
+            {openList && suggestions.length > 0 ? (
+              <ul id="tchart-ticker-listbox" className="market-ticker-listbox" role="listbox">
+                {suggestions.map((t, index) => (
+                  <li key={t} role="presentation">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={index === activeIndex}
+                      className={`market-ticker-option${index === activeIndex ? ' is-active' : ''}`}
+                      onMouseDown={(e) => { e.preventDefault(); applyTicker(t); }}
+                    >
+                      <span className="market-ticker-option-symbol">{t}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {openList && query.trim() && suggestions.length === 0 ? (
+              <div className="market-ticker-listbox tchart-fav-empty-list">
+                Nenhum ativo do seu plano encontrado para &quot;{query}&quot;.
+              </div>
+            ) : null}
+          </div>
+          {favError ? <span className="tchart-error" role="alert">{favError}</span> : null}
         </div>
         {summary ? (
           <dl className="tchart-stats">
@@ -426,6 +658,13 @@ export function TradeCandleChart({ tickers }: Props) {
           {!loading && !error && !bars.length ? <div className="tchart-empty">Sem candles neste período.</div> : null}
         </div>
       </section>
+
+      <ReorderFavoritesModal
+        isOpen={reorderOpen}
+        onClose={() => setReorderOpen(false)}
+        tickers={favorites}
+        onSave={handleReorderSave}
+      />
     </div>
   );
 }
