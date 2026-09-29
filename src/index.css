@@ -14971,6 +14971,28 @@ textarea.form-input {
 .trade-signal-levels .entrada dd { color: var(--text-main); }
 .trade-signal-levels .stop dd { color: var(--danger); }
 .trade-signal-levels .alvo dd { color: var(--success-hover); }
+.trade-signal-trailing dd { color: var(--text-muted); font-style: italic; font-variant-numeric: normal; }
+
+.setups-view { display: flex; flex-direction: column; gap: 0.9rem; }
+.setups-toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.setups-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.setups-field label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-sub); font-weight: 700; }
+.setups-field select { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); border-radius: 8px; padding: 0.4rem 0.6rem; font-size: 0.85rem; font-family: var(--font-family); min-width: 140px; }
+.setups-field select:disabled { color: var(--text-muted); background: var(--bg-muted); }
+.setups-stats { display: flex; gap: 0.5rem; margin-left: auto; }
+.setups-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.8rem; text-align: center; box-shadow: var(--shadow-card); min-width: 72px; }
+.setups-stat b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.setups-stat span { font-size: 0.68rem; color: var(--text-sub); text-transform: uppercase; }
+.setups-chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-card); padding: 10px; }
+.setups-chart { height: 420px; }
+.setups-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.setups-table th, .setups-table td { text-align: left; padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--border-subtle); }
+.setups-table th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-sub); background: var(--bg-muted); font-weight: 700; }
+.setups-table td { font-variant-numeric: tabular-nums; color: var(--text-body); }
+.setups-res { display: inline-flex; align-items: center; padding: 0.12rem 0.55rem; border-radius: 999px; font-size: 0.74rem; font-weight: 700; }
+.setups-res.is-win { background: var(--success-light); color: var(--success-hover); }
+.setups-res.is-loss { background: var(--danger-light); color: var(--danger); }
+.setups-res.is-open { background: var(--primary-light); color: var(--primary); }
 .trade-state { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
 .trade-state p { margin: 0; color: var(--text-body); }
 .trade-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; color: var(--text-muted); font-size: 0.85rem; }

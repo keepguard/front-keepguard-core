@@ -24,6 +24,7 @@ import { MarketOpsHubView } from '../components/dashboard/MarketOpsHubView';
 import { MarketHubView } from '../components/dashboard/MarketHubView';
 import { TradeView } from '../components/dashboard/TradeView';
 import { TradeMonitorView } from '../components/dashboard/TradeMonitorView';
+import { SetupsView } from '../components/dashboard/SetupsView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
@@ -386,6 +387,7 @@ export const MarketDeskPage: React.FC<{ defaultTab?: 'desk' | 'magic' | 'sectors
 const TRADE_TABS = [
   { id: 'day', label: 'Trade Day', tabId: 'trade-tab-day', panelId: 'trade-panel-day' },
   { id: 'monitor', label: 'Monitor', tabId: 'trade-tab-monitor', panelId: 'trade-panel-monitor' },
+  { id: 'setups', label: 'Setups', tabId: 'trade-tab-setups', panelId: 'trade-panel-setups' },
 ] as const;
 
 export const TradePage: React.FC = () => {
@@ -423,7 +425,7 @@ export const TradePage: React.FC = () => {
         })}
       </div>
       <div id={active.panelId} role="tabpanel" aria-labelledby={active.tabId} className="llm-panel-tabpanel">
-        {tab === 'day' ? <TradeView /> : <TradeMonitorView />}
+        {tab === 'day' ? <TradeView /> : tab === 'monitor' ? <TradeMonitorView /> : <SetupsView />}
       </div>
     </DashboardShell>
   );

@@ -118,7 +118,8 @@ export interface TradeOpportunity {
   direcao: string;
   entrada: number;
   stop: number;
-  alvo: number;
+  /** Ausente = sem alvo fixo, saída por trailing (hoje sempre o caso do turtle_soup). */
+  alvo?: number;
   confiancaEscolha: number;
 }
 
@@ -144,6 +145,36 @@ export async function getTradeAssetOportunidade(
     if (isHttpStatus(err, 404)) return null;
     throw err;
   }
+}
+
+/** UM sinal do histórico do Turtle Soup — resolvido (stop/trailing/teto) ou ainda em
+ * aberto na borda mais recente (`resolvido: false`, `motivoSaida` ausente). */
+export interface TurtleSoupSinalHistorico {
+  direcao: string;
+  entrada: number;
+  stop: number;
+  dataEntrada: string;
+  dataSaida: string;
+  precoSaida: number;
+  rMultiplo: number;
+  resolvido: boolean;
+  motivoSaida?: string;
+}
+
+export interface TurtleSoupHistorico {
+  ticker: string;
+  timeframe: string;
+  sinais: TurtleSoupSinalHistorico[];
+}
+
+/** Histórico completo de sinais do Turtle Soup pra um ativo — usado pela aba "Setups"
+ * (gráfico com a técnica aplicada no dado real). Sempre 200, `sinais` pode vir vazio. */
+export function getTurtleSoupHistorico(ticker: string, signal?: AbortSignal): Promise<TurtleSoupHistorico> {
+  return customFetch<TurtleSoupHistorico>(
+    `${TRADE_BASE}/assets/${encodeURIComponent(ticker)}/turtle-soup/historico`,
+    { method: 'GET', signal },
+    getAccessToken() || undefined,
+  );
 }
 
 /** Oportunidade de vários ativos numa chamada só — usado pela grade (`TradeView`), pra não

@@ -114,8 +114,12 @@ export function TradeAssetCard({
           </div>
           <dl className="trade-signal-levels">
             <div className="entrada"><dt>Entrada</dt><dd>{formatMoney(opportunity.entrada)}</dd></div>
-            <div className="stop"><dt>Stop</dt><dd>{formatMoney(opportunity.stop)}</dd></div>
-            <div className="alvo"><dt>Alvo</dt><dd>{formatMoney(opportunity.alvo)}</dd></div>
+            <div className="stop"><dt>Stop{opportunity.alvo == null ? ' atual' : ''}</dt><dd>{formatMoney(opportunity.stop)}</dd></div>
+            {opportunity.alvo != null ? (
+              <div className="alvo"><dt>Alvo</dt><dd>{formatMoney(opportunity.alvo)}</dd></div>
+            ) : (
+              <div className="alvo trade-signal-trailing"><dt>Saída</dt><dd>Trailing</dd></div>
+            )}
           </dl>
         </section>
       ) : null}
