@@ -213,22 +213,31 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
     return () => controller.abort();
   }, [debouncedQuery]);
 
-  // `filter`, quando informado (clique num chip de favorito), é aplicado antes de trocar o
-  // ticker — assim o efeito que busca candles já dispara com timeframe/período corretos,
-  // numa chamada só, em vez de buscar com o filtro antigo e refazer em seguida.
-  function applyTicker(next: string, filter?: TradeFavoriteFilter) {
+  // `fromFavoriteChip` diz que a troca veio de um clique num chip — cada favorito tem sua
+  // própria config, então aqui o timeframe/período são sempre definidos explicitamente
+  // (o filtro salvo daquele ticker, ou o default), nunca herdados do ticker visto antes.
+  // Sem isso, um favorito sem filtro próprio "herdava" visualmente o que ficou em tela do
+  // favorito anterior, parecendo uma config global compartilhada entre todos.
+  // Busca (search) continua sem mexer em timeframe/período — só troca o ativo.
+  function applyTicker(next: string, filter?: TradeFavoriteFilter, fromFavoriteChip = false) {
     const t = next.trim().toUpperCase();
     if (!t) return;
     if (filter) {
-      if (filter.timeframe) setTimeframeSel(filter.timeframe);
-      if (filter.range) {
-        setRange(filter.range);
-        if (filter.range === 'CUSTOM' && filter.from && filter.to) {
-          const draft = { from: toLocalInputValue(new Date(filter.from)), to: toLocalInputValue(new Date(filter.to)) };
-          setCustomDraft(draft);
-          setCustomApplied(draft);
-        }
+      setTimeframeSel(filter.timeframe || DEFAULT_TIMEFRAME);
+      setRange(filter.range || DEFAULT_RANGE);
+      if (filter.range === 'CUSTOM' && filter.from && filter.to) {
+        const draft = { from: toLocalInputValue(new Date(filter.from)), to: toLocalInputValue(new Date(filter.to)) };
+        setCustomDraft(draft);
+        setCustomApplied(draft);
+      } else {
+        setCustomDraft({ from: '', to: '' });
+        setCustomApplied({ from: '', to: '' });
       }
+    } else if (fromFavoriteChip) {
+      setTimeframeSel(DEFAULT_TIMEFRAME);
+      setRange(DEFAULT_RANGE);
+      setCustomDraft({ from: '', to: '' });
+      setCustomApplied({ from: '', to: '' });
     }
     setTicker(t);
     setQuery('');
@@ -563,7 +572,7 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
                       <button
                         type="button"
                         className="market-ticker-chip-label"
-                        onClick={() => applyTicker(fav, favoriteFilters[fav])}
+                        onClick={() => applyTicker(fav, favoriteFilters[fav], true)}
                         disabled={outsidePlan}
                       >
                         {fav}
