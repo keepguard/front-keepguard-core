@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi, type SeriesMarker, type Time } from 'lightweight-charts';
 import { Link } from 'react-router-dom';
 import { PATHS } from '../../navigation/routes';
@@ -83,13 +83,19 @@ export function SetupsView() {
 
   const aberta = sinais.find((s) => !s.resolvido);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Callback ref (não useRef+useEffect([])) de propósito: os early returns abaixo (loading,
+  // sem tickers) fazem essa <div> só existir na árvore depois de alguns renders -- um efeito
+  // com deps [] rodaria antes disso e nunca criaria o gráfico (achado em produção: tela
+  // sempre em branco, mesmo com dado chegando). Callback ref roda de novo toda vez que o nó
+  // muda (inclusive de null pra montado), então o gráfico é criado assim que a div existir.
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const containerRef = useCallback((node: HTMLDivElement | null) => setContainerEl(node), []);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const chart = createChart(containerRef.current, {
+    if (!containerEl) return;
+    const chart = createChart(containerEl, {
       autoSize: true,
       layout: { fontFamily: 'JetBrains Mono, monospace', fontSize: 11, attributionLogo: false },
       rightPriceScale: { scaleMargins: { top: 0.08, bottom: 0.08 } },
@@ -122,7 +128,7 @@ export function SetupsView() {
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, []);
+  }, [containerEl]);
 
   useEffect(() => {
     const series = seriesRef.current;
