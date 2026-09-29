@@ -14987,9 +14987,6 @@ textarea.form-input {
   background-repeat: no-repeat; background-position: right 2px center;
 }
 .tchart-select option { background: var(--bg-card); color: var(--text-main); }
-/* Substitui o antigo .tchart-select: mesma tipografia, mas texto fixo (não é mais um controle
-   de formulário) — troca de ativo agora só via busca/favoritos, sem affordance de clicável. */
-.tchart-ticker-fixed { font-weight: 600; font-size: 20px; letter-spacing: -0.01em; color: var(--text-main); }
 .tchart-px { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; color: var(--text-main); }
 .tchart-pill { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 500; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
 .tchart-pill.is-up { color: var(--success-hover); background: var(--success-light); }
@@ -15055,6 +15052,10 @@ textarea.form-input {
    já usadas em Mercado/Dossiê (.market-desk-tickers, .market-ticker-*), só com espaçamento
    próprio pro contexto compacto do cabeçalho do gráfico. */
 .tchart-fav-search { max-width: 260px; align-self: flex-start; margin-bottom: 1rem; }
+
+/* Botão de favorito no canto direito do toolbar do gráfico — sem label acima, mesma
+   altura dos controles ao lado (align-self central por não ter rótulo em cima). */
+.tchart-group--fav { align-self: center; }
 .tchart-fav-empty { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
 .tchart-fav-empty-list { padding: 0.6rem 0.85rem; font-size: 0.8rem; color: var(--text-muted); }
 

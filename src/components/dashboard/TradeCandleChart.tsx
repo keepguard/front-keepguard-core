@@ -532,19 +532,8 @@ export function TradeCandleChart({ tickers }: Props) {
           </div>
 
           <div className="tchart-ticker-row">
-            <span className="tchart-ticker-fixed" id="tchart-ativo">{ticker || '—'}</span>
+            <span className="tchart-px" id="tchart-ativo">{ticker || '—'}</span>
             <span className="tchart-px">{summary ? fmtPx(summary.last) : '—'}</span>
-            <button
-              type="button"
-              className={`market-fav-btn${ticker && favorites.includes(ticker) ? ' is-on' : ''}`}
-              onClick={() => { void toggleFavorite(); }}
-              disabled={!ticker || savingFav}
-              aria-pressed={!!ticker && favorites.includes(ticker)}
-              aria-label={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
-              title={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
-            >
-              <Star size={16} fill={ticker && favorites.includes(ticker) ? 'currentColor' : 'none'} />
-            </button>
             {summary ? (
               <span className={`tchart-pill ${summary.chg > 0 ? 'is-up' : summary.chg < 0 ? 'is-down' : 'is-flat'}`}>
                 {summary.chg > 0 ? '+' : ''}{fmtPx(summary.chg)} ({nfPct.format(summary.pct)}%)
@@ -643,6 +632,19 @@ export function TradeCandleChart({ tickers }: Props) {
               </button>
             ))}
           </div>
+        </div>
+        <div className="tchart-group tchart-group--fav">
+          <button
+            type="button"
+            className={`market-fav-btn${ticker && favorites.includes(ticker) ? ' is-on' : ''}`}
+            onClick={() => { void toggleFavorite(); }}
+            disabled={!ticker || savingFav}
+            aria-pressed={!!ticker && favorites.includes(ticker)}
+            aria-label={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
+            title={ticker && favorites.includes(ticker) ? 'Remover dos favoritos do Trade' : 'Adicionar aos favoritos do Trade'}
+          >
+            <Star size={16} fill={ticker && favorites.includes(ticker) ? 'currentColor' : 'none'} />
+          </button>
         </div>
       </section>
 
