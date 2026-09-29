@@ -15055,7 +15055,7 @@ textarea.form-input {
    já usadas em Mercado/Dossiê (.market-desk-tickers, .market-ticker-*), só com espaçamento
    próprio pro contexto compacto do cabeçalho do gráfico. */
 .tchart-fav-block { margin: 2px 0 0; }
-.tchart-fav-search { max-width: 260px; align-self: center; }
+.tchart-fav-search { max-width: 260px; align-self: flex-start; }
 .tchart-fav-empty { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
 .tchart-fav-empty-list { padding: 0.6rem 0.85rem; font-size: 0.8rem; color: var(--text-muted); }
 

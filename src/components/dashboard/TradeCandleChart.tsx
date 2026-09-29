@@ -444,6 +444,52 @@ export function TradeCandleChart({ tickers }: Props) {
     <div className="tchart">
       <section className="tchart-quote" aria-label="Resumo do ativo">
         <div className="tchart-ticker">
+          {favorites.length > 0 ? (
+            <div className="market-desk-tickers tchart-fav-block">
+              <div className="market-favs-header">
+                <span className="market-desk-tickers-label" id="tchart-favs-label">Favoritos do Trade</span>
+                {favorites.length > 1 ? (
+                  <button
+                    type="button"
+                    className="market-favs-reorder-trigger"
+                    onClick={() => setReorderOpen(true)}
+                    title="Organizar favoritos"
+                    aria-label="Organizar favoritos"
+                  >
+                    <ArrowUpDown size={13} />
+                  </button>
+                ) : null}
+              </div>
+              <div className="market-desk-tickers-list" role="group" aria-labelledby="tchart-favs-label">
+                {favorites.map((fav, index) => {
+                  const outsidePlan = !tickers.includes(fav);
+                  const isChipActive = fav === ticker;
+                  return (
+                    <span
+                      key={fav}
+                      className={`badge-role market-ticker-chip${isChipActive ? ' market-ticker-chip--active' : ''}${outsidePlan ? ' market-ticker-chip--locked' : ''}${dragIndex === index ? ' is-dragging' : ''}${dropIndex === index ? ' is-drag-over' : ''}`}
+                      draggable={!outsidePlan}
+                      onDragStart={(e) => onChipDragStart(e, index)}
+                      onDragOver={(e) => onChipDragOver(e, index)}
+                      onDrop={() => onChipDrop(index)}
+                      onDragEnd={onChipDragEnd}
+                      title={outsidePlan ? `${fav} não faz parte do seu plano no momento` : 'Clique para exibir ou arraste para reorganizar'}
+                    >
+                      <button
+                        type="button"
+                        className="market-ticker-chip-label"
+                        onClick={() => applyTicker(fav)}
+                        disabled={outsidePlan}
+                      >
+                        {fav}
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           <div className="search-input-wrapper market-ticker-search tchart-fav-search" ref={searchWrapRef}>
             <Search size={14} className="search-icon" />
             <input
@@ -505,52 +551,6 @@ export function TradeCandleChart({ tickers }: Props) {
               </span>
             ) : <span className="tchart-pill is-flat">—</span>}
           </div>
-
-          {favorites.length > 0 ? (
-            <div className="market-desk-tickers tchart-fav-block">
-              <div className="market-favs-header">
-                <span className="market-desk-tickers-label" id="tchart-favs-label">Favoritos do Trade</span>
-                {favorites.length > 1 ? (
-                  <button
-                    type="button"
-                    className="market-favs-reorder-trigger"
-                    onClick={() => setReorderOpen(true)}
-                    title="Organizar favoritos"
-                    aria-label="Organizar favoritos"
-                  >
-                    <ArrowUpDown size={13} />
-                  </button>
-                ) : null}
-              </div>
-              <div className="market-desk-tickers-list" role="group" aria-labelledby="tchart-favs-label">
-                {favorites.map((fav, index) => {
-                  const outsidePlan = !tickers.includes(fav);
-                  const isChipActive = fav === ticker;
-                  return (
-                    <span
-                      key={fav}
-                      className={`badge-role market-ticker-chip${isChipActive ? ' market-ticker-chip--active' : ''}${outsidePlan ? ' market-ticker-chip--locked' : ''}${dragIndex === index ? ' is-dragging' : ''}${dropIndex === index ? ' is-drag-over' : ''}`}
-                      draggable={!outsidePlan}
-                      onDragStart={(e) => onChipDragStart(e, index)}
-                      onDragOver={(e) => onChipDragOver(e, index)}
-                      onDrop={() => onChipDrop(index)}
-                      onDragEnd={onChipDragEnd}
-                      title={outsidePlan ? `${fav} não faz parte do seu plano no momento` : 'Clique para exibir ou arraste para reorganizar'}
-                    >
-                      <button
-                        type="button"
-                        className="market-ticker-chip-label"
-                        onClick={() => applyTicker(fav)}
-                        disabled={outsidePlan}
-                      >
-                        {fav}
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
           {favError ? <span className="tchart-error" role="alert">{favError}</span> : null}
         </div>
         {summary ? (
