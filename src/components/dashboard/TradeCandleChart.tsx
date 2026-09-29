@@ -1,12 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts';
 import { ArrowUpDown, Search, Star } from 'lucide-react';
-import { getTradeCandleHistory, getTradeFavorites, saveTradeFavorites, type TradeCandle } from '../../services/tradeService';
+import { getTradeCandleHistory, getTradeFavorites, getTradeSnapshot, saveTradeFavorites, type TradeCandle } from '../../services/tradeService';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
 
 /** Espelha analysis.TradeFavoritesMaxTickers (ms-analyst-finance) — só feedback client-side
  * antecipado; o servidor é a fonte de verdade (`422 TOO_MANY_TRADE_FAVORITES`). */
 const TRADE_FAVORITES_MAX = 20;
+
+/** Espera parar de digitar antes de buscar no backend — mesmo esquema do Trade Day
+ * (`TradeView.tsx`): evita 1 request por tecla e não fica preso aos ~100 tickers
+ * carregados no Monitor (`MONITOR_SIZE`), que não cobrem o universo inteiro de quem
+ * tem acesso amplo (VIP/ops). */
+const SEARCH_DEBOUNCE_MS = 350;
 
 /** Timeframes fixos do combo; "Personalizado" revela um campo livre (M1-M59/H1-H24). */
 const TIMEFRAMES: ReadonlyArray<{ id: string; label: string }> = [
@@ -140,8 +146,11 @@ export function TradeCandleChart({ tickers }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Só define um ticker default na carga inicial — não reseta uma seleção manual (via busca
+  // ou favorito) a cada poll do snapshot, mesmo que o ticker escolhido esteja fora da
+  // primeira página de MONITOR_SIZE (busca e favoritos já validam contra o plano no backend).
   useEffect(() => {
-    if (!tickers.includes(ticker)) setTicker(tickers[0] ?? '');
+    if (!ticker && tickers.length) setTicker(tickers[0]);
   }, [tickers, ticker]);
 
   // Favoritos pessoais do Trade (busca + chips + reorder), substituindo o antigo <select>.
@@ -172,15 +181,33 @@ export function TradeCandleChart({ tickers }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
-  const suggestions = useMemo(() => {
-    const q = query.trim().toUpperCase();
-    if (!q) return [];
-    return tickers.filter((t) => t.includes(q)).slice(0, 8);
-  }, [query, tickers]);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedQuery(query.trim().toUpperCase()), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+  }, [query]);
+
+  // Busca no backend (GET /trade/snapshot?q=), igual ao Trade Day — cobre o universo
+  // inteiro do plano (fixos+picks, ou todo o habilitado pra VIP/ops), não só a primeira
+  // página de tickers já carregada no Monitor.
+  useEffect(() => {
+    if (!debouncedQuery) { setSuggestions([]); setSuggestionsLoading(false); return; }
+    const controller = new AbortController();
+    setSuggestionsLoading(true);
+    getTradeSnapshot(1, 8, debouncedQuery, controller.signal)
+      .then((res) => setSuggestions(res.items.map((it) => it.ticker)))
+      .catch(() => { if (!controller.signal.aborted) setSuggestions([]); })
+      .finally(() => { if (!controller.signal.aborted) setSuggestionsLoading(false); });
+    return () => controller.abort();
+  }, [debouncedQuery]);
 
   function applyTicker(next: string) {
-    if (!tickers.includes(next)) return;
-    setTicker(next);
+    const t = next.trim().toUpperCase();
+    if (!t) return;
+    setTicker(t);
     setQuery('');
     setOpenList(false);
     setActiveIndex(0);
@@ -524,9 +551,12 @@ export function TradeCandleChart({ tickers }: Props) {
                 ))}
               </ul>
             ) : null}
-            {openList && query.trim() && suggestions.length === 0 ? (
+            {openList && query.trim() && suggestions.length === 0 && suggestionsLoading ? (
+              <div className="market-ticker-listbox tchart-fav-empty-list">Buscando…</div>
+            ) : null}
+            {openList && debouncedQuery && suggestions.length === 0 && !suggestionsLoading ? (
               <div className="market-ticker-listbox tchart-fav-empty-list">
-                Nenhum ativo do seu plano encontrado para &quot;{query}&quot;.
+                Nenhum ativo do seu plano encontrado para &quot;{debouncedQuery}&quot;.
               </div>
             ) : null}
           </div>
@@ -622,17 +652,6 @@ export function TradeCandleChart({ tickers }: Props) {
           <button type="button" className="btn btn-secondary tchart-btn-sm" onClick={handleLimpar}>Limpar</button>
         </div>
         <div className="tchart-spacer" />
-        <div className="tchart-group">
-          <span>Indicadores</span>
-          <div className="tchart-seg tchart-seg--sans">
-            {(['ema9', 'ema21', 'vwap', 'vol'] as const).map((k) => (
-              <button key={k} type="button" aria-pressed={ind[k]} onClick={() => setInd((s) => ({ ...s, [k]: !s[k] }))}>
-                <span className={`tchart-swatch tchart-swatch--${k}`} aria-hidden="true" />
-                {{ ema9: 'MME 9', ema21: 'MME 21', vwap: 'VWAP', vol: 'Volume' }[k]}
-              </button>
-            ))}
-          </div>
-        </div>
         <div className="tchart-group tchart-group--fav">
           <button
             type="button"
@@ -645,6 +664,17 @@ export function TradeCandleChart({ tickers }: Props) {
           >
             <Star size={16} fill={ticker && favorites.includes(ticker) ? 'currentColor' : 'none'} />
           </button>
+        </div>
+        <div className="tchart-group">
+          <span>Indicadores</span>
+          <div className="tchart-seg tchart-seg--sans">
+            {(['ema9', 'ema21', 'vwap', 'vol'] as const).map((k) => (
+              <button key={k} type="button" aria-pressed={ind[k]} onClick={() => setInd((s) => ({ ...s, [k]: !s[k] }))}>
+                <span className={`tchart-swatch tchart-swatch--${k}`} aria-hidden="true" />
+                {{ ema9: 'MME 9', ema21: 'MME 21', vwap: 'VWAP', vol: 'Volume' }[k]}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
