@@ -60,6 +60,9 @@ export function TradeView() {
 
   // Selo de oportunidade: 1 chamada em lote pros tickers da página atual, não 1 por card.
   // Falha aqui não derruba a grade — o card só fica sem selo (mesmo espírito de "stale").
+  // `data?.asOf` entra na dependência pra refazer a busca a cada poll do snapshot (60s) e no
+  // refresh manual, não só quando a lista de tickers muda -- senão o selo fica congelado no
+  // valor da 1ª carga da página enquanto cotação/candle continuam atualizando ao lado.
   const [opportunities, setOpportunities] = useState<Record<string, TradeOpportunity>>({});
   const tickersKey = items.map((it) => it.ticker).join(',');
   useEffect(() => {
@@ -72,7 +75,7 @@ export function TradeView() {
       .then(setOpportunities)
       .catch(() => setOpportunities({}));
     return () => controller.abort();
-  }, [tickersKey]);
+  }, [tickersKey, data?.asOf]);
 
   if (loading && !data) {
     return (
