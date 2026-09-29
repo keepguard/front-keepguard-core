@@ -15001,7 +15001,11 @@ textarea.form-input {
 .tchart-stat dd { margin: 0; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-body); }
 .tchart-stat dd.is-up { color: var(--success-hover); } .tchart-stat dd.is-down { color: var(--danger); }
 
-.tchart-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 22px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+/* Duas linhas explícitas (controles de tempo/período em cima, indicadores embaixo) —
+   antes era 1 flex-wrap só, e a quebra automática dependia da largura da tela, then
+   deixando o botão de favorito ora na 1ª ora na 2ª linha conforme o viewport. */
+.tchart-toolbar { display: flex; flex-direction: column; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.tchart-toolbar-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 22px; }
 .tchart-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .tchart-group > span { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-sub); font-weight: 500; }
 .tchart-spacer { flex: 1 1 0; min-width: 0; }
@@ -15055,7 +15059,7 @@ textarea.form-input {
 
 /* Botão de favorito no canto direito do toolbar do gráfico — sem label acima, mesma
    altura dos controles ao lado (align-self central por não ter rótulo em cima). */
-.tchart-group--fav { align-self: center; }
+.tchart-group--fav { align-self: center; margin-left: 4px; }
 .tchart-fav-empty { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
 .tchart-fav-empty-list { padding: 0.6rem 0.85rem; font-size: 0.8rem; color: var(--text-muted); }
 

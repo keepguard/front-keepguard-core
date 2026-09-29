@@ -586,6 +586,7 @@ export function TradeCandleChart({ tickers }: Props) {
       </section>
 
       <section className="tchart-toolbar" aria-label="Controles do gráfico">
+        <div className="tchart-toolbar-row">
         <div className="tchart-group">
           <span>Tempo gráfico</span>
           <div className="tchart-tf-row">
@@ -651,7 +652,6 @@ export function TradeCandleChart({ tickers }: Props) {
         <div className="tchart-group tchart-group--actions">
           <button type="button" className="btn btn-secondary tchart-btn-sm" onClick={handleLimpar}>Limpar</button>
         </div>
-        <div className="tchart-spacer" />
         <div className="tchart-group tchart-group--fav">
           <button
             type="button"
@@ -665,15 +665,18 @@ export function TradeCandleChart({ tickers }: Props) {
             <Star size={16} fill={ticker && favorites.includes(ticker) ? 'currentColor' : 'none'} />
           </button>
         </div>
-        <div className="tchart-group">
-          <span>Indicadores</span>
-          <div className="tchart-seg tchart-seg--sans">
-            {(['ema9', 'ema21', 'vwap', 'vol'] as const).map((k) => (
-              <button key={k} type="button" aria-pressed={ind[k]} onClick={() => setInd((s) => ({ ...s, [k]: !s[k] }))}>
-                <span className={`tchart-swatch tchart-swatch--${k}`} aria-hidden="true" />
-                {{ ema9: 'MME 9', ema21: 'MME 21', vwap: 'VWAP', vol: 'Volume' }[k]}
-              </button>
-            ))}
+        </div>
+        <div className="tchart-toolbar-row">
+          <div className="tchart-group">
+            <span>Indicadores</span>
+            <div className="tchart-seg tchart-seg--sans">
+              {(['ema9', 'ema21', 'vwap', 'vol'] as const).map((k) => (
+                <button key={k} type="button" aria-pressed={ind[k]} onClick={() => setInd((s) => ({ ...s, [k]: !s[k] }))}>
+                  <span className={`tchart-swatch tchart-swatch--${k}`} aria-hidden="true" />
+                  {{ ema9: 'MME 9', ema21: 'MME 21', vwap: 'VWAP', vol: 'Volume' }[k]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
