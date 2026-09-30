@@ -18,7 +18,6 @@ import {
   getRefreshToken,
   getTokenMetaSnapshot,
   hydrateFromStorage,
-  markActivity,
   onSessionEnded,
   parseJwtPayload,
   resetRefreshMeta,
@@ -114,7 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSessionEpoch((n) => n + 1);
 
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-    markActivity();
     scheduleProactiveRefresh();
   }, []);
 
@@ -139,7 +137,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [endSessionLocally]);
 
   const performRefreshToken = useCallback(async (): Promise<boolean> => {
-    markActivity();
     return ensureFreshToken({ force: true });
   }, []);
 
@@ -162,20 +159,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     window.addEventListener('keepguard_auth_unauthorized', handleUnauthorized);
     return () => window.removeEventListener('keepguard_auth_unauthorized', handleUnauthorized);
-  }, []);
-
-  useEffect(() => {
-    const handleActivity = () => markActivity();
-    window.addEventListener('mousemove', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-    window.addEventListener('click', handleActivity);
-    window.addEventListener('scroll', handleActivity);
-    return () => {
-      window.removeEventListener('mousemove', handleActivity);
-      window.removeEventListener('keydown', handleActivity);
-      window.removeEventListener('click', handleActivity);
-      window.removeEventListener('scroll', handleActivity);
-    };
   }, []);
 
   useEffect(() => {
