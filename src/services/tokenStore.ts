@@ -57,7 +57,15 @@ function getBroadcastChannel(): BroadcastChannel | null {
         applyTokens(msg.accessToken, msg.refreshToken, { broadcast: false });
         bumpRefreshMeta();
       } else if (msg.type === 'session-ended') {
-        clearTokens({ notifySessionEnded: true, broadcast: false });
+        // Uma aba falhar NÃO derruba as outras de imediato: com várias janelas
+        // abertas isso jogava para fora justamente quem estava operando. O
+        // cookie de refresh é compartilhado entre as abas, então esta tenta
+        // renovar por conta própria e só encerra se também for recusada.
+        void ensureFreshToken({ force: true }).then((ok) => {
+          if (!ok) {
+            clearTokens({ notifySessionEnded: true, broadcast: false });
+          }
+        });
       }
     };
   }
