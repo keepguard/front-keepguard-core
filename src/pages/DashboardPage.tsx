@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ChangePasswordModal } from '../components/auth/ChangePasswordModal';
 import { DeviceSessionsCard } from '../components/dashboard/DeviceSessionsCard';
 import { MyDeviceBlacklistCard } from '../components/dashboard/MyDeviceBlacklistCard';
@@ -392,9 +392,24 @@ const TRADE_TABS = [
   { id: 'setups', label: 'Setups', tabId: 'trade-tab-setups', panelId: 'trade-panel-setups' },
 ] as const;
 
+type TradeTabId = (typeof TRADE_TABS)[number]['id'];
+
+function tradeTabFromSearch(tab: string | null): TradeTabId {
+  return tab && TRADE_TABS.some((t) => t.id === tab) ? (tab as TradeTabId) : 'day';
+}
+
 export const TradePage: React.FC = () => {
-  const [tab, setTab] = useState<(typeof TRADE_TABS)[number]['id']>('day');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = tradeTabFromSearch(searchParams.get('tab'));
   const active = TRADE_TABS.find((t) => t.id === tab) ?? TRADE_TABS[0];
+
+  const selectTab = (id: TradeTabId) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', id);
+      return next;
+    }, { replace: true });
+  };
 
   return (
     <DashboardShell>
@@ -419,7 +434,7 @@ export const TradePage: React.FC = () => {
               aria-controls={t.panelId}
               tabIndex={selected ? 0 : -1}
               className={`llm-panel-tab${selected ? ' is-active' : ''}`}
-              onClick={() => setTab(t.id)}
+              onClick={() => selectTab(t.id)}
             >
               {t.label}
             </button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, Wallet, X } from 'lucide-react';
 import { PATHS } from '../../navigation/routes';
 import { useTradeDay, type TradeDayRow } from '../../hooks/useTradeDay';
@@ -19,6 +19,11 @@ const STATE_LABEL: Record<TradeMarketState, string> = {
 const SEARCH_DEBOUNCE_MS = 350;
 
 type SubTab = 'geral' | 'compra' | 'venda' | 'carteira';
+const SUB_TABS: readonly SubTab[] = ['geral', 'compra', 'venda', 'carteira'];
+
+function subTabFromSearch(subtab: string | null): SubTab {
+  return subtab && (SUB_TABS as readonly string[]).includes(subtab) ? (subtab as SubTab) : 'geral';
+}
 
 function useNowSeconds(everyMs = 30_000): number {
   const [now, setNow] = useState(() => Date.now());
@@ -32,7 +37,15 @@ function useNowSeconds(everyMs = 30_000): number {
 export function TradeDayView() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [subTab, setSubTab] = useState<SubTab>('geral');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const subTab = subTabFromSearch(searchParams.get('subtab'));
+  const setSubTab = (id: SubTab) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('subtab', id);
+      return next;
+    }, { replace: true });
+  };
   // Filtro da aba Carteira é local (client-side): a carteira pode ter ticker fora do
   // universo do plano de Trade, então não reusa o `query` que filtra no backend.
   const [carteiraQuery, setCarteiraQuery] = useState('');
