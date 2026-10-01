@@ -15003,6 +15003,24 @@ textarea.form-input {
 .setups-res.is-win { background: var(--success-light); color: var(--success-hover); }
 .setups-res.is-loss { background: var(--danger-light); color: var(--danger); }
 .setups-res.is-open { background: var(--primary-light); color: var(--primary); }
+
+.setups-ia-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+.setups-ia-btn { white-space: nowrap; }
+.setups-ia-disclaimer { font-size: 0.72rem; color: var(--text-sub); }
+.setups-ia-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.setups-ia-card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.setups-ia-vies { display: inline-flex; align-items: center; padding: 0.18rem 0.7rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+.setups-ia-vies.is-alta { background: var(--success-light); color: var(--success-hover); }
+.setups-ia-vies.is-baixa { background: var(--danger-light); color: var(--danger); }
+.setups-ia-vies.is-lateral { background: var(--bg-muted); color: var(--text-sub); }
+.setups-ia-confianca { font-size: 0.74rem; font-weight: 600; color: var(--text-sub); }
+.setups-ia-confianca.is-alto { color: var(--success-hover); }
+.setups-ia-confianca.is-baixo { color: var(--text-sub); }
+.setups-ia-texto { margin: 0; color: var(--text-body); font-size: 0.88rem; }
+.setups-ia-invalidacao { margin: 0; color: var(--text-sub); font-size: 0.78rem; }
+.setups-ia-recusa { margin: 0; color: var(--text-sub); font-size: 0.88rem; font-style: italic; }
+.setups-ia-footer { margin: 4px 0 0; padding-top: 8px; border-top: 1px solid var(--border-subtle); font-size: 0.7rem; color: var(--text-sub); }
+
 .trade-state { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
 .trade-state p { margin: 0; color: var(--text-body); }
 .trade-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; color: var(--text-muted); font-size: 0.85rem; }

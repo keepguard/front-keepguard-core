@@ -200,6 +200,31 @@ export async function getTradeOportunidades(
   return resp.oportunidades;
 }
 
+/** Leitura exploratória de viés gerada pelo JEV (botão "Analisar com IA", aba Setups).
+ * NUNCA tem entrada/stop/alvo — contrato deliberadamente diferente de TradeOpportunity,
+ * pra não ser lido como setup operacional (ver spec de arquitetura, 2026-10-01). */
+export interface TradeAvaliacaoPadrao {
+  vies: 'alta' | 'baixa' | 'lateral';
+  confianca: 'baixo' | 'medio' | 'alto';
+  invalidacao: number;
+  justificativa: string;
+}
+
+/** Pede ao srv-mt5-analytics (via JEV) a leitura exploratória de viés do ativo — chamada sob
+ * demanda (clique do usuário), POST não-idempotente, não deve ser disparada em retry automático. */
+export function postTradeAvaliacaoPadrao(
+  ticker: string,
+  timeframe?: string,
+  signal?: AbortSignal,
+): Promise<TradeAvaliacaoPadrao> {
+  const qs = timeframe ? `?timeframe=${encodeURIComponent(timeframe)}` : '';
+  return customFetch<TradeAvaliacaoPadrao>(
+    `${TRADE_BASE}/assets/${encodeURIComponent(ticker)}/avaliacao-padrao${qs}`,
+    { method: 'POST', signal },
+    getAccessToken() || undefined,
+  );
+}
+
 export function getTradeCandleHistory(
   ticker: string,
   opts: { timeframe?: string; from?: Date; to?: Date; limit?: number } = {},

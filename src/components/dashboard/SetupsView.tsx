@@ -3,7 +3,14 @@ import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi,
 import { Link } from 'react-router-dom';
 import { PATHS } from '../../navigation/routes';
 import { useTradeSnapshot } from '../../hooks/useTradeSnapshot';
-import { getTradeCandleHistory, getTradeSnapshot, getTurtleSoupHistorico, type TurtleSoupSinalHistorico } from '../../services/tradeService';
+import {
+  getTradeCandleHistory,
+  getTradeSnapshot,
+  getTurtleSoupHistorico,
+  postTradeAvaliacaoPadrao,
+  type TradeAvaliacaoPadrao,
+  type TurtleSoupSinalHistorico,
+} from '../../services/tradeService';
 import { TickerCombobox } from '../common/TickerCombobox';
 import { RefreshCombo } from '../common/RefreshCombo';
 
@@ -33,6 +40,18 @@ const MOTIVO_LABEL: Record<string, string> = {
   stop: 'Stop',
   trailing: 'Trailing',
   teto_backtest: 'Prazo',
+};
+
+const VIES_LABEL: Record<TradeAvaliacaoPadrao['vies'], string> = {
+  alta: 'Alta',
+  baixa: 'Baixa',
+  lateral: 'Lateral',
+};
+
+const CONFIANCA_LABEL: Record<TradeAvaliacaoPadrao['confianca'], string> = {
+  alto: 'Confiança alta',
+  medio: 'Confiança média',
+  baixo: 'Confiança baixa',
 };
 
 export function SetupsView() {
@@ -105,6 +124,26 @@ export function SetupsView() {
   }, [sinais]);
 
   const aberta = sinais.find((s) => !s.resolvido);
+
+  // Avaliação exploratória (JEV) é sob demanda e específica do ticker/momento atual -- troca
+  // de ativo ou refresh de dado invalidam qualquer leitura anterior, nunca mantém "pendurada".
+  const [avaliacao, setAvaliacao] = useState<TradeAvaliacaoPadrao | null>(null);
+  const [avaliacaoLoading, setAvaliacaoLoading] = useState(false);
+  const [avaliacaoErro, setAvaliacaoErro] = useState<string | null>(null);
+  useEffect(() => {
+    setAvaliacao(null);
+    setAvaliacaoErro(null);
+  }, [ticker, refreshNonce]);
+
+  const handleAnalisarComIA = useCallback(() => {
+    if (!ticker) return;
+    setAvaliacaoLoading(true);
+    setAvaliacaoErro(null);
+    postTradeAvaliacaoPadrao(ticker, 'D1')
+      .then(setAvaliacao)
+      .catch((err) => setAvaliacaoErro(err?.message ?? 'Não foi possível analisar agora.'))
+      .finally(() => setAvaliacaoLoading(false));
+  }, [ticker]);
 
   // Callback ref (não useRef+useEffect([])) de propósito: os early returns abaixo (loading,
   // sem tickers) fazem essa <div> só existir na árvore depois de alguns renders -- um efeito
@@ -264,9 +303,42 @@ export function SetupsView() {
             </div>
           </div>
         </div>
+
+        <div className="setups-ia-row">
+          <button
+            type="button"
+            className="btn btn-secondary setups-ia-btn"
+            onClick={handleAnalisarComIA}
+            disabled={!ticker || avaliacaoLoading}
+          >
+            {avaliacaoLoading ? 'Lendo o histórico recente…' : 'Analisar com IA'}
+          </button>
+          <span className="setups-ia-disclaimer">Opinião gerada por IA — não é recomendação de compra/venda</span>
+        </div>
       </section>
 
       {erro ? <p className="trade-note is-warn" role="alert">{erro}</p> : null}
+      {avaliacaoErro ? <p className="trade-note is-warn" role="alert">{avaliacaoErro}</p> : null}
+
+      {avaliacao ? (
+        <div className="setups-ia-card" aria-live="polite">
+          {avaliacao.confianca === 'baixo' ? (
+            <p className="setups-ia-recusa">Não há sinal claro o suficiente neste momento para opinar sobre {ticker}.</p>
+          ) : (
+            <>
+              <div className="setups-ia-card-head">
+                <span className={`setups-ia-vies is-${avaliacao.vies}`}>{VIES_LABEL[avaliacao.vies]}</span>
+                <span className={`setups-ia-confianca is-${avaliacao.confianca}`}>{CONFIANCA_LABEL[avaliacao.confianca]}</span>
+              </div>
+              <p className="setups-ia-texto">{avaliacao.justificativa}</p>
+              <p className="setups-ia-invalidacao">Leitura perde validade se o preço romper {fmtPx(avaliacao.invalidacao)}.</p>
+            </>
+          )}
+          <p className="setups-ia-footer">
+            Leitura exploratória de padrão gráfico, gerada por IA — não é recomendação de compra/venda, não define entrada, stop ou alvo.
+          </p>
+        </div>
+      ) : null}
       {aberta ? (
         <p className="trade-note">
           Posição em aberto desde {fmtData(aberta.dataEntrada)}: {aberta.direcao === 'compra' ? 'compra' : 'venda'} a {fmtPx(aberta.entrada)}, stop atual {fmtPx(aberta.stop)}.
