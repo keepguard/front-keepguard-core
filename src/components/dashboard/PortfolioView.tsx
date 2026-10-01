@@ -8,6 +8,7 @@ import {
   type PortfolioTransaction,
   type PortfolioTransactionInput,
 } from '../../services/portfolioService';
+import { TickerCombobox } from '../common/TickerCombobox';
 import { PortfolioTransactionModal } from './PortfolioTransactionModal';
 import { PortfolioHistoryModal } from './PortfolioHistoryModal';
 
@@ -19,14 +20,9 @@ function formatQuantity(v: number): string {
   return v.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
 }
 
-const TICKER_RE = /^[A-Z0-9]{4,8}$/;
-
 export function PortfolioView() {
   const { data, loading, refreshing, error, refresh } = usePortfolioPositions();
   const [query, setQuery] = useState('');
-
-  const [newTickerInput, setNewTickerInput] = useState('');
-  const [newTickerError, setNewTickerError] = useState<string | null>(null);
 
   const [txModalTicker, setTxModalTicker] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<PortfolioTransaction | null>(null);
@@ -52,17 +48,6 @@ export function PortfolioView() {
   const openNewTransactionForTicker = (ticker: string) => {
     setEditingTx(null);
     setTxModalTicker(ticker);
-  };
-
-  const handleStartNewOperation = () => {
-    const ticker = newTickerInput.trim().toUpperCase();
-    if (!TICKER_RE.test(ticker)) {
-      setNewTickerError('Informe um ticker válido (4 a 8 letras/números).');
-      return;
-    }
-    setNewTickerError(null);
-    setNewTickerInput('');
-    openNewTransactionForTicker(ticker);
   };
 
   const handleEditFromHistory = (tx: PortfolioTransaction) => {
@@ -119,40 +104,28 @@ export function PortfolioView() {
           ) : null}
         </div>
 
-        <div className="portfolio-add-group">
-          <input
-            type="text"
-            className="form-input portfolio-add-ticker-input"
-            placeholder="Ticker (ex.: PETR4)"
-            value={newTickerInput}
-            onChange={(e) => {
-              setNewTickerInput(e.target.value.toUpperCase());
-              setNewTickerError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleStartNewOperation();
-            }}
-            aria-label="Ticker para nova operação"
-            maxLength={8}
-          />
-          <button type="button" className="btn btn-primary btn-pill" onClick={handleStartNewOperation}>
-            <Plus size={15} />
-            <span>Nova operação</span>
+        <div className="table-toolbar-push-end portfolio-toolbar-actions">
+          <div className="portfolio-add-group">
+            <span className="portfolio-add-label">Nova operação:</span>
+            <TickerCombobox
+              placeholder="Escolher ativo..."
+              aria-label="Escolher ativo para nova operação"
+              onSelect={openNewTransactionForTicker}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="btn-table-icon"
+            onClick={refresh}
+            disabled={refreshing}
+            title="Atualizar carteira"
+            aria-label="Atualizar carteira"
+          >
+            <RefreshCw size={15} className={refreshing ? 'spin' : undefined} />
           </button>
         </div>
-
-        <button
-          type="button"
-          className="btn btn-secondary btn-pill"
-          onClick={refresh}
-          disabled={refreshing}
-          title="Atualizar carteira"
-        >
-          <RefreshCw size={15} className={refreshing ? 'spin' : undefined} />
-          <span>Atualizar</span>
-        </button>
       </div>
-      {newTickerError ? <p className="portfolio-tx-error" role="alert">{newTickerError}</p> : null}
 
       {error ? (
         <p className="trade-note is-warn" role="alert">

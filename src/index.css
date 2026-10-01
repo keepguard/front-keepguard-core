@@ -15120,8 +15120,11 @@ textarea.form-input {
 
 .portfolio-view { display: flex; flex-direction: column; gap: 0.9rem; }
 
-.portfolio-add-group { display: flex; align-items: center; gap: 0.5rem; }
-.portfolio-add-ticker-input { width: 160px; text-transform: uppercase; }
+.portfolio-toolbar-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+.portfolio-add-group { display: flex; align-items: center; gap: 0.6rem; }
+.portfolio-add-group .market-ticker-search { width: 220px; }
+.portfolio-add-label { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
 
 .portfolio-tx-error { margin: 0; font-size: 0.85rem; color: var(--danger); }
 
@@ -15210,8 +15213,9 @@ textarea.form-input {
 .portfolio-tx-badge.is-sell { background: var(--danger-light); color: var(--danger); }
 
 @media (max-width: 768px) {
+  .portfolio-toolbar-actions { width: 100%; flex-direction: column; align-items: stretch; }
   .portfolio-add-group { width: 100%; }
-  .portfolio-add-ticker-input { flex: 1; width: auto; }
+  .portfolio-add-group .market-ticker-search { width: 100%; flex: 1; }
   .portfolio-tx-form-row { grid-template-columns: 1fr; }
 }
 
