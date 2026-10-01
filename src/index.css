@@ -14932,6 +14932,16 @@ textarea.form-input {
 .trade-search-clear:hover { color: var(--text-main); background: var(--bg-muted); }
 .trade-note { margin: 0; font-size: 0.82rem; color: var(--text-muted); }
 .trade-note.is-warn { color: var(--warning); }
+.trade-note-trigger {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
 .trade-chip { display: inline-flex; align-items: center; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: var(--bg-muted); color: var(--text-muted); border: 1px solid var(--border); }
 .trade-chip.is-open { background: var(--success-light); color: var(--success-hover); border-color: var(--success-border); }
 .trade-chip.is-no_updates, .trade-chip.is-warn { background: var(--warning-light); color: var(--warning); border-color: var(--warning-border); }
@@ -15202,12 +15212,14 @@ textarea.form-input {
 .portfolio-history-item-details { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
 
 .portfolio-tx-badge {
+  display: inline-block;
   flex-shrink: 0;
   padding: 0.15rem 0.5rem;
   border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 .portfolio-tx-badge.is-buy { background: var(--success-light); color: var(--success); }
 .portfolio-tx-badge.is-sell { background: var(--danger-light); color: var(--danger); }
@@ -15227,6 +15239,10 @@ textarea.form-input {
 /* ── Trade Day (3 tabelas: Geral/Compra/Venda dentro do menu Trade) ──────── */
 
 .trade-day-view { display: flex; flex-direction: column; gap: 0.75rem; }
+.trade-day-view .hpanel-table th,
+.trade-day-view .hpanel-table td { white-space: nowrap; }
+.trade-day-view .hpanel-table td.trade-day-wrap { white-space: normal; }
+.trade-day-carteira-search { max-width: 320px; }
 
 .trade-day-tab-count {
   display: inline-flex;

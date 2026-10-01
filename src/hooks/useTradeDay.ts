@@ -18,7 +18,6 @@ export interface TradeDayState {
   market: { state: TradeMarketState; timeframe: string; intervalSeconds: number } | null;
   asOf: string | null;
   total: number;
-  missing: number;
   /** Primeira carga, sem nada pra mostrar ainda. */
   loading: boolean;
   /** Recarga em andamento (snapshot e/ou oportunidades); mantém o dado antigo na tela. */
@@ -49,7 +48,6 @@ export function useTradeDay(query?: string): TradeDayState {
   const [market, setMarket] = useState<TradeDayState['market']>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
-  const [missing, setMissing] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [snapshotError, setSnapshotError] = useState<TradeDayState['snapshotError']>(null);
@@ -67,7 +65,6 @@ export function useTradeDay(query?: string): TradeDayState {
       let snapMarket: TradeDayState['market'] = null;
       let snapAsOf: string | null = null;
       let snapTotal = 0;
-      let snapMissing = 0;
 
       for (let page = 1; page <= TRADE_DAY_MAX_PAGES; page++) {
         const snap = await getTradeSnapshot(page, TRADE_DAY_PAGE_SIZE, query, ctrl.signal);
@@ -75,7 +72,6 @@ export function useTradeDay(query?: string): TradeDayState {
         snapMarket = snap.market;
         snapAsOf = snap.asOf;
         snapTotal = snap.total;
-        snapMissing += snap.missing;
         items.push(...snap.items);
         if (items.length >= snap.total || snap.items.length === 0) break;
       }
@@ -83,7 +79,6 @@ export function useTradeDay(query?: string): TradeDayState {
       setMarket(snapMarket);
       setAsOf(snapAsOf);
       setTotal(snapTotal);
-      setMissing(snapMissing);
       setSnapshotError(null);
 
       const tickers = items.map((it) => it.ticker);
@@ -126,5 +121,5 @@ export function useTradeDay(query?: string): TradeDayState {
     return () => controller.current?.abort();
   }, [load]);
 
-  return { rows, market, asOf, total, missing, loading, refreshing, snapshotError, opportunityError, refresh: load };
+  return { rows, market, asOf, total, loading, refreshing, snapshotError, opportunityError, refresh: load };
 }
