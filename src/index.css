@@ -15223,3 +15223,49 @@ textarea.form-input {
   .table-toolbar .portfolio-add-group { order: 3; width: 100%; }
   .portfolio-history-item { flex-direction: column; align-items: flex-start; }
 }
+
+/* ── Trade Day (3 tabelas: Geral/Compra/Venda dentro do menu Trade) ──────── */
+
+.trade-day-view { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.trade-day-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}
+.trade-day-tab-count.is-buy { background: var(--success-light); color: var(--success); }
+.trade-day-tab-count.is-sell { background: var(--danger-light); color: var(--danger); }
+
+.trade-day-summary-row { margin-bottom: 0.25rem; }
+
+.trade-day-last { display: flex; flex-direction: column; gap: 0.1rem; }
+.trade-day-last strong { font-variant-numeric: tabular-nums; }
+
+.trade-day-trend.is-up { color: var(--success); }
+.trade-day-trend.is-down { color: var(--danger); }
+.trade-day-trend.is-flat { color: var(--text-muted); }
+
+.trade-day-candle-cell { display: flex; flex-direction: column; gap: 0.3rem; min-width: 7rem; }
+
+/* Barra de risco/retorno (R múltiplo): zero fixo em 1/3 da largura (escala -1R..+2R),
+   preenchimento da esquerda até o valor atual -- mesma ideia visual do trade-range, mas
+   com um ponto de referência interno (o zero) em vez de ser sempre 0-100%. */
+.trade-r-bar-wrap { display: flex; flex-direction: column; gap: 0.25rem; min-width: 6rem; }
+.trade-r-bar { position: relative; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.trade-r-bar-zero { position: absolute; top: -2px; left: 33.333%; width: 2px; height: 10px; background: var(--text-muted); opacity: 0.6; }
+.trade-r-bar-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px; background: var(--text-muted); }
+.trade-r-bar-wrap.is-positive .trade-r-bar-fill { background: var(--success); }
+.trade-r-bar-wrap.is-negative .trade-r-bar-fill { background: var(--danger); }
+
+@media (max-width: 768px) {
+  .trade-day-candle-cell { min-width: 0; }
+}

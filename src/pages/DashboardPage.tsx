@@ -22,7 +22,7 @@ import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
 import { MarketOpsHubView } from '../components/dashboard/MarketOpsHubView';
 import { MarketHubView } from '../components/dashboard/MarketHubView';
-import { TradeView } from '../components/dashboard/TradeView';
+import { TradeDayView } from '../components/dashboard/TradeDayView';
 import { TradeMonitorView } from '../components/dashboard/TradeMonitorView';
 import { SetupsView } from '../components/dashboard/SetupsView';
 import { PortfolioView } from '../components/dashboard/PortfolioView';
@@ -427,7 +427,7 @@ export const TradePage: React.FC = () => {
         })}
       </div>
       <div id={active.panelId} role="tabpanel" aria-labelledby={active.tabId} className="llm-panel-tabpanel">
-        {tab === 'day' ? <TradeView /> : tab === 'monitor' ? <TradeMonitorView /> : <SetupsView />}
+        {tab === 'day' ? <TradeDayView /> : tab === 'monitor' ? <TradeMonitorView /> : <SetupsView />}
       </div>
     </DashboardShell>
   );

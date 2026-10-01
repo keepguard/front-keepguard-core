@@ -117,9 +117,14 @@ export interface TradeOpportunity {
   setup: string;
   direcao: string;
   entrada: number;
+  /** Stop ATUAL — já incorpora o trailing (o mais apertado entre o original e o range recente). */
   stop: number;
   /** Ausente = sem alvo fixo, saída por trailing (hoje sempre o caso do turtle_soup). */
   alvo?: number;
+  /** Stop da entrada, antes do trailing mexer. Ausente para setup sem noção de posição viva. */
+  stopInicial?: number;
+  /** Dias com a posição aberta; 0 = gatilho disparou hoje (ordem ainda pendente). */
+  diasAberta?: number;
   confiancaEscolha: number;
 }
 
