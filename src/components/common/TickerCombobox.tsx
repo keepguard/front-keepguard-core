@@ -9,21 +9,31 @@ interface TickerComboboxProps {
   'aria-label'?: string;
   /** Limpa o campo depois de selecionar (padrão true — uso típico é "disparar uma ação"). */
   clearOnSelect?: boolean;
+  /**
+   * Fonte de busca alternativa ao catálogo geral — ex: universo restrito ao plano de Trade
+   * do usuário (`getTradeSnapshot`). Quando omitida, usa `listCatalogTickers` (padrão).
+   */
+  fetchSuggestions?: (query: string, signal: AbortSignal) => Promise<string[]>;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+const defaultFetchSuggestions = (query: string) =>
+  listCatalogTickers({ query }).then((res) => (res.items?.map((i) => i.ticker) ?? res.tickers ?? []).slice(0, 8));
+
 /**
- * Autocomplete de ticker contra o catálogo geral do Mercado (não restrito ao plano do
- * usuário) — mesmo padrão ARIA combobox já usado em TradeCandleChart/MarketDeskView,
- * mas extraído aqui porque a Carteira precisa aceitar um ticker fora do plano de Trade
- * (o usuário pode ter comprado um ativo que o InvestBot não cobre em pesquisa).
+ * Autocomplete de ticker com busca contra uma fonte parametrizável (padrão: catálogo geral
+ * do Mercado, não restrito ao plano do usuário) — mesmo padrão ARIA combobox já usado em
+ * TradeCandleChart/MarketDeskView, extraído aqui para reuso. A Carteira usa o padrão (precisa
+ * aceitar um ticker fora do plano de Trade); outras telas podem injetar `fetchSuggestions`
+ * para restringir a busca a um universo próprio.
  */
 export const TickerCombobox: React.FC<TickerComboboxProps> = ({
   onSelect,
   placeholder = 'Buscar ticker...',
   'aria-label': ariaLabel = 'Buscar ticker',
   clearOnSelect = true,
+  fetchSuggestions = defaultFetchSuggestions,
 }) => {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -44,23 +54,21 @@ export const TickerCombobox: React.FC<TickerComboboxProps> = ({
       setLoading(false);
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
-    listCatalogTickers({ query: debouncedQuery })
-      .then((res) => {
-        if (cancelled) return;
-        setSuggestions((res.items?.map((i) => i.ticker) ?? res.tickers ?? []).slice(0, 8));
+    fetchSuggestions(debouncedQuery, controller.signal)
+      .then((tickers) => {
+        if (controller.signal.aborted) return;
+        setSuggestions(tickers);
       })
       .catch(() => {
-        if (!cancelled) setSuggestions([]);
+        if (!controller.signal.aborted) setSuggestions([]);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [debouncedQuery]);
+    return () => controller.abort();
+  }, [debouncedQuery, fetchSuggestions]);
 
   useEffect(() => {
     const onDocClick = (event: MouseEvent) => {

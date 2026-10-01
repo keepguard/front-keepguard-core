@@ -3,7 +3,8 @@ import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi,
 import { Link } from 'react-router-dom';
 import { PATHS } from '../../navigation/routes';
 import { useTradeSnapshot } from '../../hooks/useTradeSnapshot';
-import { getTradeCandleHistory, getTurtleSoupHistorico, type TurtleSoupSinalHistorico } from '../../services/tradeService';
+import { getTradeCandleHistory, getTradeSnapshot, getTurtleSoupHistorico, type TurtleSoupSinalHistorico } from '../../services/tradeService';
+import { TickerCombobox } from '../common/TickerCombobox';
 
 /** Universo do seletor de ativo — mesmo teto do Monitor (cobre o plano inteiro). */
 const MONITOR_SIZE = 100;
@@ -41,6 +42,12 @@ export function SetupsView() {
   useEffect(() => {
     if (!ticker && tickers.length > 0) setTicker(tickers[0]);
   }, [ticker, tickers]);
+
+  const fetchTickerSuggestions = useCallback(
+    (query: string, signal: AbortSignal) =>
+      getTradeSnapshot(1, 8, query, signal).then((res) => res.items.map((it) => it.ticker)),
+    [],
+  );
 
   const [sinais, setSinais] = useState<TurtleSoupSinalHistorico[]>([]);
   const [candles, setCandles] = useState<Awaited<ReturnType<typeof getTradeCandleHistory>>['candles']>([]);
@@ -191,13 +198,17 @@ export function SetupsView() {
   return (
     <div className="setups-view">
       <div className="setups-toolbar">
-        <div className="setups-field">
+        <div className="setups-field setups-field-ticker">
           <label htmlFor="setups-ticker">Ativo</label>
-          <select id="setups-ticker" value={ticker} onChange={(e) => setTicker(e.target.value)}>
-            {tickers.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
+          <div className="setups-ticker-picker">
+            <span className="setups-ticker-current" id="setups-ticker">{ticker || '—'}</span>
+            <TickerCombobox
+              onSelect={setTicker}
+              fetchSuggestions={fetchTickerSuggestions}
+              placeholder="Trocar ativo…"
+              aria-label="Buscar ativo do Trade"
+            />
+          </div>
         </div>
         <div className="setups-field">
           <label>Setup</label>
