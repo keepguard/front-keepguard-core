@@ -25,6 +25,7 @@ import { MarketHubView } from '../components/dashboard/MarketHubView';
 import { TradeView } from '../components/dashboard/TradeView';
 import { TradeMonitorView } from '../components/dashboard/TradeMonitorView';
 import { SetupsView } from '../components/dashboard/SetupsView';
+import { PortfolioView } from '../components/dashboard/PortfolioView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
@@ -47,6 +48,7 @@ import {
   LineChart,
   Sparkles,
   CreditCard,
+  Wallet,
 } from 'lucide-react';
 
 const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
@@ -430,6 +432,23 @@ export const TradePage: React.FC = () => {
     </DashboardShell>
   );
 };
+
+export const CarteiraPage: React.FC = () => (
+  <DashboardShell>
+    <div className="dashboard-header">
+      <div className="dashboard-title-group">
+        <h1 className="dashboard-title">
+          <Wallet size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          Carteira
+        </h1>
+        <p className="dashboard-subtitle">
+          Registre suas compras e vendas e acompanhe a posição, o preço médio e o resultado de cada ativo.
+        </p>
+      </div>
+    </div>
+    <PortfolioView />
+  </DashboardShell>
+);
 
 export const MarketAnalyzePage: React.FC = () => (
   <DashboardShell>

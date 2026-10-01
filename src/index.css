@@ -15115,3 +15115,107 @@ textarea.form-input {
   .tchart-area { height: 320px; }
   .tchart-dates input { width: 100%; }
 }
+
+/* ── Carteira (menu Trade > Carteira) ──────────────────────────────────── */
+
+.portfolio-view { display: flex; flex-direction: column; gap: 0.9rem; }
+
+.portfolio-add-group { display: flex; align-items: center; gap: 0.5rem; }
+.portfolio-add-ticker-input { width: 160px; text-transform: uppercase; }
+
+.portfolio-tx-error { margin: 0; font-size: 0.85rem; color: var(--danger); }
+
+.portfolio-summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+.portfolio-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.portfolio-summary-card strong { font-size: 1.1rem; }
+
+.portfolio-pl-positive { color: var(--success); display: inline-flex; align-items: center; gap: 0.3rem; }
+.portfolio-pl-negative { color: var(--danger); display: inline-flex; align-items: center; gap: 0.3rem; }
+
+.portfolio-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+}
+
+.portfolio-skeleton {
+  height: 220px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--bg-muted) 25%, var(--bg-hover) 37%, var(--bg-muted) 63%);
+  background-size: 400% 100%;
+  animation: portfolio-skeleton-shimmer 1.4s ease infinite;
+}
+@keyframes portfolio-skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* Form de registrar/editar operação (PortfolioTransactionModal) */
+.portfolio-tx-form { display: flex; flex-direction: column; gap: 0.9rem; }
+.portfolio-tx-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.portfolio-tx-side-toggle { display: flex; gap: 0.5rem; }
+.portfolio-tx-side-btn {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+.portfolio-tx-side-btn.is-buy.is-active { background: var(--success-light); border-color: var(--success-border); color: var(--success); }
+.portfolio-tx-side-btn.is-sell.is-active { background: var(--danger-light); border-color: var(--danger-border); color: var(--danger); }
+
+/* Histórico de operações (PortfolioHistoryModal) */
+.portfolio-history-list { display: flex; flex-direction: column; gap: 0.6rem; max-height: 55vh; overflow-y: auto; }
+.portfolio-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+.portfolio-history-item-main { display: flex; align-items: flex-start; gap: 0.6rem; }
+.portfolio-history-item-details { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
+
+.portfolio-tx-badge {
+  flex-shrink: 0;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.portfolio-tx-badge.is-buy { background: var(--success-light); color: var(--success); }
+.portfolio-tx-badge.is-sell { background: var(--danger-light); color: var(--danger); }
+
+@media (max-width: 768px) {
+  .portfolio-add-group { width: 100%; }
+  .portfolio-add-ticker-input { flex: 1; width: auto; }
+  .portfolio-tx-form-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .table-toolbar .portfolio-add-group { order: 3; width: 100%; }
+  .portfolio-history-item { flex-direction: column; align-items: flex-start; }
+}
