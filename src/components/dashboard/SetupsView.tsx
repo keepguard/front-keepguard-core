@@ -206,23 +206,19 @@ export function SetupsView() {
 
   return (
     <div className="tchart setups-view">
-      <section className="tchart-quote" aria-label="Resumo do ativo">
-        <div className="tchart-ticker">
-          <div className="tchart-fav-search">
-            <TickerCombobox
-              onSelect={setTicker}
-              fetchSuggestions={fetchTickerSuggestions}
-              placeholder="Buscar ativo do seu plano…"
-              aria-label="Buscar ativo do Trade"
-            />
-          </div>
-          <div className="tchart-ticker-row">
-            <span className="tchart-px" id="setups-ticker">{ticker || '—'}</span>
-          </div>
+      <section className="tchart-toolbar" aria-label="Resumo e controles do setup">
+        <div className="tchart-fav-search">
+          <TickerCombobox
+            onSelect={setTicker}
+            fetchSuggestions={fetchTickerSuggestions}
+            placeholder="Buscar ativo do seu plano…"
+            aria-label="Buscar ativo do Trade"
+          />
         </div>
-      </section>
+        <div className="tchart-ticker-row">
+          <span className="tchart-px" id="setups-ticker">{ticker || '—'}</span>
+        </div>
 
-      <section className="tchart-toolbar" aria-label="Controles do setup">
         <div className="tchart-toolbar-row">
           <div className="tchart-group">
             <span>Setup</span>
@@ -236,7 +232,10 @@ export function SetupsView() {
               <option value="D1">D1</option>
             </select>
           </div>
-          <div className="tchart-spacer" />
+          <div className="tchart-group">
+            <span>&nbsp;</span>
+            <RefreshCombo onRefresh={() => setRefreshNonce((n) => n + 1)} disabled={loading} refreshing={refreshing} />
+          </div>
           <div className="setups-stats">
             <div className="setups-stat"><b>{stats.total}</b><span>Sinais</span></div>
             <div className="setups-stat">
@@ -251,10 +250,6 @@ export function SetupsView() {
               </b>
               <span>R médio</span>
             </div>
-          </div>
-          <div className="tchart-group">
-            <span>&nbsp;</span>
-            <RefreshCombo onRefresh={() => setRefreshNonce((n) => n + 1)} disabled={loading} refreshing={refreshing} />
           </div>
         </div>
       </section>
