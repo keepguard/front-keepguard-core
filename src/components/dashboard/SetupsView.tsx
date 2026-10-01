@@ -205,7 +205,7 @@ export function SetupsView() {
   }
 
   return (
-    <div className="setups-view">
+    <div className="tchart setups-view">
       <section className="tchart-quote" aria-label="Resumo do ativo">
         <div className="tchart-ticker">
           <div className="tchart-fav-search">
@@ -222,39 +222,42 @@ export function SetupsView() {
         </div>
       </section>
 
-      <div className="setups-toolbar">
-        <div className="setups-field">
-          <label>Setup</label>
-          <select disabled value="turtle_soup">
-            <option value="turtle_soup">Turtle Soup (produção)</option>
-          </select>
-        </div>
-        <div className="setups-field">
-          <label>Timeframe</label>
-          <select disabled value="D1">
-            <option value="D1">D1</option>
-          </select>
-        </div>
-        <div className="setups-stats">
-          <div className="setups-stat"><b>{stats.total}</b><span>Sinais</span></div>
-          <div className="setups-stat">
-            <b style={{ color: stats.acerto != null && stats.acerto >= 50 ? 'var(--success-hover)' : 'var(--text-main)' }}>
-              {stats.acerto != null ? `${nfPct.format(stats.acerto)}%` : '—'}
-            </b>
-            <span>Acerto</span>
+      <section className="tchart-toolbar" aria-label="Controles do setup">
+        <div className="tchart-toolbar-row">
+          <div className="tchart-group">
+            <span>Setup</span>
+            <select className="tchart-toolbar-select" disabled value="turtle_soup">
+              <option value="turtle_soup">Turtle Soup (produção)</option>
+            </select>
           </div>
-          <div className="setups-stat">
-            <b style={{ color: stats.rMedio != null && stats.rMedio > 0 ? 'var(--success-hover)' : 'var(--danger)' }}>
-              {stats.rMedio != null ? nfR.format(stats.rMedio) : '—'}
-            </b>
-            <span>R médio</span>
+          <div className="tchart-group">
+            <span>Timeframe</span>
+            <select className="tchart-toolbar-select" disabled value="D1">
+              <option value="D1">D1</option>
+            </select>
+          </div>
+          <div className="tchart-spacer" />
+          <div className="setups-stats">
+            <div className="setups-stat"><b>{stats.total}</b><span>Sinais</span></div>
+            <div className="setups-stat">
+              <b style={{ color: stats.acerto != null && stats.acerto >= 50 ? 'var(--success-hover)' : 'var(--text-main)' }}>
+                {stats.acerto != null ? `${nfPct.format(stats.acerto)}%` : '—'}
+              </b>
+              <span>Acerto</span>
+            </div>
+            <div className="setups-stat">
+              <b style={{ color: stats.rMedio != null && stats.rMedio > 0 ? 'var(--success-hover)' : 'var(--danger)' }}>
+                {stats.rMedio != null ? nfR.format(stats.rMedio) : '—'}
+              </b>
+              <span>R médio</span>
+            </div>
+          </div>
+          <div className="tchart-group">
+            <span>&nbsp;</span>
+            <RefreshCombo onRefresh={() => setRefreshNonce((n) => n + 1)} disabled={loading} refreshing={refreshing} />
           </div>
         </div>
-        <div className="setups-field">
-          <label>&nbsp;</label>
-          <RefreshCombo onRefresh={() => setRefreshNonce((n) => n + 1)} disabled={loading} refreshing={refreshing} />
-        </div>
-      </div>
+      </section>
 
       {erro ? <p className="trade-note is-warn" role="alert">{erro}</p> : null}
       {aberta ? (
