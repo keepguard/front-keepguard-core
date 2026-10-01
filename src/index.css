@@ -14983,6 +14983,9 @@ textarea.form-input {
 .trade-signal-trailing dd { color: var(--text-muted); font-style: italic; font-variant-numeric: normal; }
 
 .setups-view { display: flex; flex-direction: column; gap: 0.9rem; }
+.setups-view > .tchart-fav-search { max-width: 360px; align-self: flex-start; margin-bottom: 0; }
+.setups-controls-row { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 22px; }
+.setups-controls-left { display: flex; align-items: flex-end; gap: 12px 22px; flex-wrap: wrap; }
 .setups-stats { display: flex; gap: 18px; }
 .setups-stat { display: flex; flex-direction: column-reverse; gap: 2px; min-width: 72px; padding-left: 10px; border-left: 1px solid var(--border); text-align: left; }
 .setups-stat b { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 14.5px; color: var(--text-body); }
