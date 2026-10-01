@@ -209,12 +209,10 @@ export function TradeDayView() {
             <span className="table-cell-muted">Com sinal de compra agora</span>
             <strong className="portfolio-pl-positive">{carteiraComCompra}</strong>
           </div>
-          {carteiraComVenda > 0 ? (
-            <div className="portfolio-summary-card">
-              <span className="table-cell-muted">Com sinal de venda agora</span>
-              <strong className="portfolio-pl-negative">{carteiraComVenda}</strong>
-            </div>
-          ) : null}
+          <div className="portfolio-summary-card">
+            <span className="table-cell-muted">Com sinal de venda agora</span>
+            <strong className="portfolio-pl-negative">{carteiraComVenda}</strong>
+          </div>
         </div>
       )}
 
