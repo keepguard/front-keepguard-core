@@ -203,14 +203,18 @@ export function TradeDayView() {
             <span className="table-cell-muted">Ativos na carteira</span>
             <strong>{carteiraRows.length}</strong>
           </div>
-          <div className="portfolio-summary-card">
-            <span className="table-cell-muted">Com sinal de compra agora</span>
-            <strong className="portfolio-pl-positive">{carteiraComCompra}</strong>
-          </div>
-          <div className="portfolio-summary-card">
-            <span className="table-cell-muted">Com sinal de venda agora</span>
-            <strong className="portfolio-pl-negative">{carteiraComVenda}</strong>
-          </div>
+          {carteiraComCompra > 0 ? (
+            <div className="portfolio-summary-card">
+              <span className="table-cell-muted">Com sinal de compra agora</span>
+              <strong className="portfolio-pl-positive">{carteiraComCompra}</strong>
+            </div>
+          ) : null}
+          {carteiraComVenda > 0 ? (
+            <div className="portfolio-summary-card">
+              <span className="table-cell-muted">Com sinal de venda agora</span>
+              <strong className="portfolio-pl-negative">{carteiraComVenda}</strong>
+            </div>
+          ) : null}
         </div>
       )}
 
