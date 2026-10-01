@@ -14985,6 +14985,10 @@ textarea.form-input {
 .setups-view { display: flex; flex-direction: column; gap: 0.9rem; }
 .setups-view > .tchart-fav-search { max-width: 360px; align-self: flex-start; margin-bottom: 0; }
 .setups-timeframe-refresh { display: flex; align-items: center; gap: 8px; }
+/* Combos de Setup/Timeframe na mesma linguagem "pill" do RefreshCombo ao lado (altura 38px,
+   border-radius total), em vez do select retangular padrão do toolbar do Monitor. */
+.setups-pill-select { height: 38px; border-radius: 9999px; padding-left: 14px; }
+.setups-stats-right { margin-left: auto; }
 .setups-stats { display: flex; gap: 18px; }
 .setups-stat { display: flex; flex-direction: column-reverse; gap: 2px; min-width: 72px; padding-left: 10px; border-left: 1px solid var(--border); text-align: left; }
 .setups-stat b { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 14.5px; color: var(--text-body); }

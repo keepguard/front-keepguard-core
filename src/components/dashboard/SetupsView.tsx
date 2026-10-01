@@ -223,20 +223,20 @@ export function SetupsView() {
         <div className="tchart-toolbar-row">
           <div className="tchart-group">
             <span>Setup</span>
-            <select className="tchart-toolbar-select" disabled value="turtle_soup">
+            <select className="tchart-toolbar-select setups-pill-select" disabled value="turtle_soup">
               <option value="turtle_soup">Turtle Soup (produção)</option>
             </select>
           </div>
           <div className="tchart-group">
             <span>Timeframe</span>
             <div className="setups-timeframe-refresh">
-              <select className="tchart-toolbar-select" disabled value="D1">
+              <select className="tchart-toolbar-select setups-pill-select" disabled value="D1">
                 <option value="D1">D1</option>
               </select>
               <RefreshCombo onRefresh={() => setRefreshNonce((n) => n + 1)} disabled={loading} refreshing={refreshing} />
             </div>
           </div>
-          <div className="setups-stats">
+          <div className="setups-stats setups-stats-right">
             <div className="setups-stat"><b>{stats.total}</b><span>Sinais</span></div>
             <div className="setups-stat">
               <b style={{ color: stats.acerto != null && stats.acerto >= 50 ? 'var(--success-hover)' : 'var(--text-main)' }}>
