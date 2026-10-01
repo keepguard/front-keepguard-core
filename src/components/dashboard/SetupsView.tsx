@@ -234,24 +234,26 @@ export function SetupsView() {
                 <option value="D1">D1</option>
               </select>
             </div>
+          </div>
+          <div className="setups-controls-right">
+            <div className="setups-stats">
+              <div className="setups-stat"><b>{stats.total}</b><span>Sinais</span></div>
+              <div className="setups-stat">
+                <b style={{ color: stats.acerto != null && stats.acerto >= 50 ? 'var(--success-hover)' : 'var(--text-main)' }}>
+                  {stats.acerto != null ? `${nfPct.format(stats.acerto)}%` : '—'}
+                </b>
+                <span>Acerto</span>
+              </div>
+              <div className="setups-stat">
+                <b style={{ color: stats.rMedio != null && stats.rMedio > 0 ? 'var(--success-hover)' : 'var(--danger)' }}>
+                  {stats.rMedio != null ? nfR.format(stats.rMedio) : '—'}
+                </b>
+                <span>R médio</span>
+              </div>
+            </div>
             <div className="tchart-group">
               <span>&nbsp;</span>
               <RefreshCombo onRefresh={() => setRefreshNonce((n) => n + 1)} disabled={loading} refreshing={refreshing} />
-            </div>
-          </div>
-          <div className="setups-stats">
-            <div className="setups-stat"><b>{stats.total}</b><span>Sinais</span></div>
-            <div className="setups-stat">
-              <b style={{ color: stats.acerto != null && stats.acerto >= 50 ? 'var(--success-hover)' : 'var(--text-main)' }}>
-                {stats.acerto != null ? `${nfPct.format(stats.acerto)}%` : '—'}
-              </b>
-              <span>Acerto</span>
-            </div>
-            <div className="setups-stat">
-              <b style={{ color: stats.rMedio != null && stats.rMedio > 0 ? 'var(--success-hover)' : 'var(--danger)' }}>
-                {stats.rMedio != null ? nfR.format(stats.rMedio) : '—'}
-              </b>
-              <span>R médio</span>
             </div>
           </div>
         </div>
