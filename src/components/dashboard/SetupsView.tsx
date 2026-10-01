@@ -59,11 +59,18 @@ export function SetupsView() {
   // ticker (manual ou automático), sem que o valor em si seja lido dentro do efeito.
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  // true só quando o ticker mudou — é quando faz sentido reenquadrar o gráfico. Um refresh
+  // (manual ou automático) só atualiza sinais/candles do mesmo ticker; refazer o fitContent
+  // ali descartaria o zoom/scroll que o usuário já tinha.
+  const shouldFitRef = useRef(true);
+  const lastTickerRef = useRef<string | null>(null);
   useEffect(() => {
     if (!ticker) return;
     const controller = new AbortController();
-    const isManualRefresh = refreshNonce > 0;
-    if (isManualRefresh) setRefreshing(true);
+    const isRefresh = lastTickerRef.current === ticker;
+    lastTickerRef.current = ticker;
+    shouldFitRef.current = !isRefresh;
+    if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setErro(null);
     Promise.all([
@@ -186,7 +193,12 @@ export function SetupsView() {
       );
     }
 
-    chart.timeScale().fitContent();
+    // Só reenquadra em troca de ticker (ver shouldFitRef acima) — um refresh de dado não deve
+    // mexer no zoom/scroll que o usuário já ajustou no gráfico.
+    if (shouldFitRef.current) {
+      chart.timeScale().fitContent();
+      shouldFitRef.current = false;
+    }
     return () => {
       linhas.forEach((l) => series.removePriceLine(l));
     };

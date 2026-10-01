@@ -450,15 +450,25 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
   // aplicado (customApplied) — evita o bug em que digitar a data disparava um fetch com o
   // período fixo antigo e depois reescrevia o campo de volta.
   // `refreshNonce` entra nas deps só para o RefreshCombo poder forçar um novo fetch sem mudar
-  // nenhum filtro (manual ou automático) — o valor em si não é lido dentro do efeito.
+  // nenhum filtro (manual ou automático).
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  // true só quando `bars` mudou por troca de ticker/timeframe/período — é quando faz sentido
+  // reenquadrar o gráfico. Um refresh (manual ou automático) só traz candle novo no fim da
+  // série; refazer o fitContent ali descartaria o zoom/scroll que o usuário já tinha. Comparamos
+  // a "chave de filtro" (tudo exceto refreshNonce) com a da execução anterior — se não mudou,
+  // só o refreshNonce mexeu, logo foi refresh, não troca de filtro.
+  const shouldFitRef = useRef(true);
+  const lastFilterKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!ticker) return;
     if (effectiveTimeframe == null) return; // "Personalizado" ainda sem timeframe válido
     const controller = new AbortController();
-    const isManualRefresh = refreshNonce > 0;
-    if (isManualRefresh) setRefreshing(true);
+    const filterKey = JSON.stringify([ticker, effectiveTimeframe, range, customApplied.from, customApplied.to]);
+    const isRefresh = lastFilterKeyRef.current === filterKey;
+    lastFilterKeyRef.current = filterKey;
+    shouldFitRef.current = !isRefresh;
+    if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     const opts: { timeframe: string; from?: Date; to?: Date; limit: number } = { timeframe: effectiveTimeframe, limit: HISTORY_LIMIT };
@@ -499,7 +509,14 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
     s.e9.setData(ind.ema9 ? bars.map((b, i) => ({ time: toChartTime(b.time) as never, value: e9[i] })) : []);
     s.e21.setData(ind.ema21 ? bars.map((b, i) => ({ time: toChartTime(b.time) as never, value: e21[i] })) : []);
     s.vwap.setData(ind.vwap ? bars.map((b, i) => ({ time: toChartTime(b.time) as never, value: vw[i] })) : []);
-    chartRef.current?.timeScale().fitContent();
+    // Só reenquadra em troca de ticker/timeframe/período (ver shouldFitRef acima) — um
+    // refresh de dado, ou só alternar indicadores, não deve mexer no zoom/scroll que o
+    // usuário já ajustou. Reseta a flag logo após usá-la: senão o próximo toggle de
+    // indicador (que também roda este efeito, mesmo `bars`) refitaria de novo.
+    if (shouldFitRef.current) {
+      chartRef.current?.timeScale().fitContent();
+      shouldFitRef.current = false;
+    }
   }, [bars, ind]);
 
   const summary = useMemo(() => {
