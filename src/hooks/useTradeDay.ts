@@ -35,13 +35,14 @@ function toError(err: unknown): { code?: string; message: string } {
 }
 
 /**
- * Junta snapshot (OHLC/cotação, paginado) e oportunidades em lote (setup/entrada/stop) do
- * universo inteiro do plano — sem paginação, porque as 3 tabelas (Geral/Compra/Venda)
- * precisam enxergar o conjunto completo pra contar e filtrar por direção. `pageSize` grande
- * o bastante pra cobrir planos reais (VIP/ops veem todo o habilitado); ver aviso de `missing`
- * se algum dia um plano ultrapassar isso.
+ * Junta snapshot (OHLC/cotação) e oportunidades em lote (setup/entrada/stop) do universo
+ * inteiro do plano — as 3 tabelas (Geral/Compra/Venda) precisam do conjunto completo pra
+ * contar e filtrar por direção, não só de 1 página. `GET /trade/snapshot` aceita no máximo
+ * `size=100` por chamada (400 INVALID_PAGE acima disso), então pede página a página até
+ * juntar `total` itens ou esgotar um teto de segurança.
  */
-const TRADE_DAY_PAGE_SIZE = 500;
+const TRADE_DAY_PAGE_SIZE = 100;
+const TRADE_DAY_MAX_PAGES = 20; // teto de segurança: 2000 ativos, bem acima de qualquer plano real.
 
 export function useTradeDay(query?: string): TradeDayState {
   const [rows, setRows] = useState<TradeDayRow[]>([]);
@@ -61,34 +62,54 @@ export function useTradeDay(query?: string): TradeDayState {
     controller.current = ctrl;
     setRefreshing(true);
 
-    getTradeSnapshot(1, TRADE_DAY_PAGE_SIZE, query, ctrl.signal)
-      .then(async (snap) => {
-        if (ctrl.signal.aborted) return;
-        setMarket(snap.market);
-        setAsOf(snap.asOf);
-        setTotal(snap.total);
-        setMissing(snap.missing);
-        setSnapshotError(null);
+    (async () => {
+      const items: TradeItem[] = [];
+      let snapMarket: TradeDayState['market'] = null;
+      let snapAsOf: string | null = null;
+      let snapTotal = 0;
+      let snapMissing = 0;
 
-        const tickers = snap.items.map((it) => it.ticker);
-        let opportunities: Record<string, TradeOpportunity> = {};
-        try {
-          opportunities = await getTradeOportunidades(tickers, undefined, ctrl.signal);
-          setOpportunityError(null);
-        } catch (err) {
-          if (ctrl.signal.aborted) return;
-          setOpportunityError(toError(err).message);
-        }
+      for (let page = 1; page <= TRADE_DAY_MAX_PAGES; page++) {
+        const snap = await getTradeSnapshot(page, TRADE_DAY_PAGE_SIZE, query, ctrl.signal);
         if (ctrl.signal.aborted) return;
+        snapMarket = snap.market;
+        snapAsOf = snap.asOf;
+        snapTotal = snap.total;
+        snapMissing += snap.missing;
+        items.push(...snap.items);
+        if (items.length >= snap.total || snap.items.length === 0) break;
+      }
 
-        setRows(
-          snap.items.map((item) => ({
-            ticker: item.ticker,
-            item,
-            opportunity: opportunities[item.ticker],
-          })),
-        );
-      })
+      setMarket(snapMarket);
+      setAsOf(snapAsOf);
+      setTotal(snapTotal);
+      setMissing(snapMissing);
+      setSnapshotError(null);
+
+      const tickers = items.map((it) => it.ticker);
+      let opportunities: Record<string, TradeOpportunity> = {};
+      try {
+        // /trade/oportunidades aceita até 100 tickers por chamada — junta em lotes.
+        const batches: string[][] = [];
+        for (let i = 0; i < tickers.length; i += 100) batches.push(tickers.slice(i, i + 100));
+        const results = await Promise.all(batches.map((batch) => getTradeOportunidades(batch, undefined, ctrl.signal)));
+        if (ctrl.signal.aborted) return;
+        opportunities = Object.assign({}, ...results);
+        setOpportunityError(null);
+      } catch (err) {
+        if (ctrl.signal.aborted) return;
+        setOpportunityError(toError(err).message);
+      }
+      if (ctrl.signal.aborted) return;
+
+      setRows(
+        items.map((item) => ({
+          ticker: item.ticker,
+          item,
+          opportunity: opportunities[item.ticker],
+        })),
+      );
+    })()
       .catch((err) => {
         if (ctrl.signal.aborted) return;
         setSnapshotError(toError(err));
