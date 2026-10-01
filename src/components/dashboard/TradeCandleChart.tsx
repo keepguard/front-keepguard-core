@@ -3,6 +3,7 @@ import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi 
 import { ArrowUpDown, Calendar, Save, Search, Star } from 'lucide-react';
 import { getTradeCandleHistory, getTradeFavorites, getTradeSnapshot, saveTradeFavorites, type TradeCandle, type TradeFavoriteFilter } from '../../services/tradeService';
 import { ReorderFavoritesModal } from './ReorderFavoritesModal';
+import { RefreshCombo } from '../common/RefreshCombo';
 import { useToast } from '../../context/ToastContext';
 
 /** Espelha analysis.TradeFavoritesMaxTickers (ms-analyst-finance) — só feedback client-side
@@ -448,11 +449,17 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
   // Busca candles: nunca depende do rascunho do intervalo personalizado (customDraft), só do
   // aplicado (customApplied) — evita o bug em que digitar a data disparava um fetch com o
   // período fixo antigo e depois reescrevia o campo de volta.
+  // `refreshNonce` entra nas deps só para o RefreshCombo poder forçar um novo fetch sem mudar
+  // nenhum filtro (manual ou automático) — o valor em si não é lido dentro do efeito.
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
     if (!ticker) return;
     if (effectiveTimeframe == null) return; // "Personalizado" ainda sem timeframe válido
     const controller = new AbortController();
-    setLoading(true);
+    const isManualRefresh = refreshNonce > 0;
+    if (isManualRefresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
     const opts: { timeframe: string; from?: Date; to?: Date; limit: number } = { timeframe: effectiveTimeframe, limit: HISTORY_LIMIT };
     if (range === 'CUSTOM') {
@@ -470,9 +477,13 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
         setError(code === 'ASSET_OUTSIDE_PLAN' ? 'Este ativo não faz parte do seu plano.' : 'Não foi possível carregar o histórico.');
         setBars([]);
       })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setLoading(false);
+        setRefreshing(false);
+      });
     return () => controller.abort();
-  }, [ticker, effectiveTimeframe, range, customApplied.from, customApplied.to]);
+  }, [ticker, effectiveTimeframe, range, customApplied.from, customApplied.to, refreshNonce]);
 
   useEffect(() => {
     const s = seriesRef.current;
@@ -777,6 +788,10 @@ export function TradeCandleChart({ tickers, totalPlanTickers }: Props) {
             </button>
           </div>
           {filterError ? <span className="tchart-error" role="alert">{filterError}</span> : null}
+        </div>
+        <div className="tchart-group">
+          <span>&nbsp;</span>
+          <RefreshCombo onRefresh={() => setRefreshNonce((n) => n + 1)} disabled={loading} refreshing={refreshing} />
         </div>
         </div>
         <div className="tchart-toolbar-row">

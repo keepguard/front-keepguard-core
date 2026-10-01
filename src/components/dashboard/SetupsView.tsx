@@ -5,6 +5,7 @@ import { PATHS } from '../../navigation/routes';
 import { useTradeSnapshot } from '../../hooks/useTradeSnapshot';
 import { getTradeCandleHistory, getTradeSnapshot, getTurtleSoupHistorico, type TurtleSoupSinalHistorico } from '../../services/tradeService';
 import { TickerCombobox } from '../common/TickerCombobox';
+import { RefreshCombo } from '../common/RefreshCombo';
 
 /** Universo do seletor de ativo — mesmo teto do Monitor (cobre o plano inteiro). */
 const MONITOR_SIZE = 100;
@@ -54,10 +55,16 @@ export function SetupsView() {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // `refreshNonce` entra nas deps só para o RefreshCombo poder forçar um novo fetch do mesmo
+  // ticker (manual ou automático), sem que o valor em si seja lido dentro do efeito.
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
     if (!ticker) return;
     const controller = new AbortController();
-    setLoading(true);
+    const isManualRefresh = refreshNonce > 0;
+    if (isManualRefresh) setRefreshing(true);
+    else setLoading(true);
     setErro(null);
     Promise.all([
       getTurtleSoupHistorico(ticker, controller.signal),
@@ -72,10 +79,12 @@ export function SetupsView() {
         setErro(err?.message ?? 'Não foi possível carregar o histórico.');
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (controller.signal.aborted) return;
+        setLoading(false);
+        setRefreshing(false);
       });
     return () => controller.abort();
-  }, [ticker]);
+  }, [ticker, refreshNonce]);
 
   const stats = useMemo(() => {
     const resolvidos = sinais.filter((s) => s.resolvido);
@@ -197,19 +206,23 @@ export function SetupsView() {
 
   return (
     <div className="setups-view">
-      <div className="setups-toolbar">
-        <div className="setups-field setups-field-ticker">
-          <label htmlFor="setups-ticker">Ativo</label>
-          <div className="setups-ticker-picker">
-            <span className="setups-ticker-current" id="setups-ticker">{ticker || '—'}</span>
+      <section className="tchart-quote" aria-label="Resumo do ativo">
+        <div className="tchart-ticker">
+          <div className="tchart-fav-search">
             <TickerCombobox
               onSelect={setTicker}
               fetchSuggestions={fetchTickerSuggestions}
-              placeholder="Trocar ativo…"
+              placeholder="Buscar ativo do seu plano…"
               aria-label="Buscar ativo do Trade"
             />
           </div>
+          <div className="tchart-ticker-row">
+            <span className="tchart-px" id="setups-ticker">{ticker || '—'}</span>
+          </div>
         </div>
+      </section>
+
+      <div className="setups-toolbar">
         <div className="setups-field">
           <label>Setup</label>
           <select disabled value="turtle_soup">
@@ -236,6 +249,10 @@ export function SetupsView() {
             </b>
             <span>R médio</span>
           </div>
+        </div>
+        <div className="setups-field">
+          <label>&nbsp;</label>
+          <RefreshCombo onRefresh={() => setRefreshNonce((n) => n + 1)} disabled={loading} refreshing={refreshing} />
         </div>
       </div>
 
