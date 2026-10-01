@@ -184,6 +184,8 @@ export function TradeDayView() {
           onClick={() => setSubTab('carteira')}
         >
           Carteira <span className="trade-day-tab-count">{carteiraRows.length}</span>
+          {carteiraComCompra > 0 ? <span className="trade-day-tab-count is-buy">{carteiraComCompra}</span> : null}
+          {carteiraComVenda > 0 ? <span className="trade-day-tab-count is-sell">{carteiraComVenda}</span> : null}
         </button>
       </div>
 
@@ -203,12 +205,10 @@ export function TradeDayView() {
             <span className="table-cell-muted">Ativos na carteira</span>
             <strong>{carteiraRows.length}</strong>
           </div>
-          {carteiraComCompra > 0 ? (
-            <div className="portfolio-summary-card">
-              <span className="table-cell-muted">Com sinal de compra agora</span>
-              <strong className="portfolio-pl-positive">{carteiraComCompra}</strong>
-            </div>
-          ) : null}
+          <div className="portfolio-summary-card">
+            <span className="table-cell-muted">Com sinal de compra agora</span>
+            <strong className="portfolio-pl-positive">{carteiraComCompra}</strong>
+          </div>
           {carteiraComVenda > 0 ? (
             <div className="portfolio-summary-card">
               <span className="table-cell-muted">Com sinal de venda agora</span>

@@ -14938,8 +14938,7 @@ textarea.form-input {
   background: transparent;
   font: inherit;
   color: inherit;
-  text-decoration: underline dotted;
-  text-underline-offset: 2px;
+  text-decoration: none;
   cursor: help;
 }
 .trade-chip { display: inline-flex; align-items: center; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: var(--bg-muted); color: var(--text-muted); border: 1px solid var(--border); }
