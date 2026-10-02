@@ -119,6 +119,10 @@ export interface TradeOpportunity {
   entrada: number;
   /** Stop ATUAL — já incorpora o trailing (o mais apertado entre o original e o range recente). */
   stop: number;
+  /** Preço Limite sugerido pra uma ordem Stop/Loss real na corretora — Disparo = `stop`,
+   * Limite = `stopLimite`. Calculado a partir do ATR20 do ativo (ver srv-mt5-analytics,
+   * setup.PrecoLimiteProtecao). */
+  stopLimite: number;
   /** Ausente = sem alvo fixo, saída por trailing (hoje sempre o caso do turtle_soup). */
   alvo?: number;
   /** Stop da entrada, antes do trailing mexer. Ausente para setup sem noção de posição viva. */

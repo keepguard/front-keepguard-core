@@ -24,11 +24,12 @@ function formatMoney(v: number): string {
 }
 
 /**
- * Mostra o Stop do Turtle Soup pra este ticker ANTES do usuário salvar a compra — contexto
- * no momento certo, não depois (achado em operação real: usuário comprou vários ativos
- * seguidos sem nunca ver o número de proteção, teve que recuperá-lo manualmente depois).
- * Sem oportunidade ativa agora: não mostra nada (evita ruído num form que o usuário quer
- * preencher rápido).
+ * Mostra Disparo + Limite do Turtle Soup pra este ticker ANTES do usuário salvar a compra —
+ * contexto no momento certo, não depois (achado em operação real: usuário comprou vários
+ * ativos seguidos sem nunca ver o número de proteção, teve que recuperá-lo manualmente
+ * depois). Números no MESMO formato do formulário Stop Gain/Loss da corretora, prontos pra
+ * copiar — não é preciso calcular nada na mão. Sem oportunidade ativa agora: não mostra nada
+ * (evita ruído num form que o usuário quer preencher rápido).
  */
 function StopSuggestion({
   ticker,
@@ -41,14 +42,17 @@ function StopSuggestion({
 }) {
   if (!ticker) return null;
   if (loading) {
-    return <p className="portfolio-tx-stop-hint is-loading">Verificando stop sugerido para {ticker}...</p>;
+    return <p className="portfolio-tx-stop-hint is-loading">Verificando proteção sugerida para {ticker}...</p>;
   }
   if (!opportunity) return null;
   return (
-    <p className="portfolio-tx-stop-hint">
-      <strong>Stop sugerido: {formatMoney(opportunity.stop)}.</strong>{' '}
-      Depois de registrar a compra, programe uma ordem Stop nesse preço na sua corretora.
-    </p>
+    <div className="portfolio-tx-stop-hint">
+      <strong>Proteção sugerida (ordem Stop/Loss de Venda, depois de comprar):</strong>
+      <div className="portfolio-tx-stop-values">
+        <span>Preço Disparo: <strong>{formatMoney(opportunity.stop)}</strong></span>
+        <span>Preço Limite: <strong>{formatMoney(opportunity.stopLimite)}</strong></span>
+      </div>
+    </div>
   );
 }
 

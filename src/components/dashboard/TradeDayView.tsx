@@ -305,9 +305,9 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
               <th>Último preço</th>
               <th>Sinal agora</th>
               <th>
-                Stop{' '}
-                <Tooltip label="O que é o Stop" description="Nível de proteção calculado pelo Turtle Soup. Programe uma ordem Stop na corretora nesse preço assim que comprar — ele é atualizado todo dia (trailing).">
-                  <button type="button" className="trade-day-stop-info" aria-label="O que é o Stop? Nível de proteção calculado pelo Turtle Soup. Programe uma ordem Stop na corretora nesse preço assim que comprar — ele é atualizado todo dia.">
+                Stop (Disparo / Limite){' '}
+                <Tooltip label="O que é Disparo/Limite" description="São os dois preços que a ordem Stop/Loss da corretora pede. Disparo = nível calculado pelo Turtle Soup (atualiza todo dia). Limite = um pouco além do disparo, pra aumentar a chance de execução.">
+                  <button type="button" className="trade-day-stop-info" aria-label="O que são Disparo e Limite? São os dois preços que a ordem Stop/Loss da corretora pede. Disparo é o nível calculado pelo Turtle Soup, atualizado todo dia. Limite é um pouco além do disparo, pra aumentar a chance de execução.">
                     ?
                   </button>
                 </Tooltip>
@@ -386,37 +386,57 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
  * cadastrada na corretora já deveria ter sido acionada hoje, mesmo que o app (cálculo diário)
  * ainda não tenha atualizado o número. Achado em operação real: ver PROGRESS.md 2026-10-02.
  */
+/**
+ * Mostra Disparo + Limite no mesmo formato da ordem Stop/Loss da corretora — não só o
+ * número de Stop isolado. A proteção de uma posição de COMPRA é uma ordem de VENDA
+ * (dispara abaixo do preço, executa um pouco mais abaixo ainda); a proteção de uma posição
+ * de VENDA é uma ordem de COMPRA (espelho). Ver setup.PrecoLimiteProtecao no backend.
+ */
 function StopCell({
   opportunity,
   lastPrice,
   compact,
 }: {
-  opportunity?: { direcao: string; stop: number };
+  opportunity?: { direcao: string; stop: number; stopLimite: number };
   lastPrice?: number;
   compact?: boolean;
 }) {
   if (!opportunity) {
     return compact ? null : <span className="table-cell-muted">—</span>;
   }
+  const ladoProtecao = opportunity.direcao === 'compra' ? 'Venda' : 'Compra';
   const stopJaPassado =
     lastPrice != null &&
     (opportunity.direcao === 'compra' ? lastPrice < opportunity.stop : lastPrice > opportunity.stop);
 
-  const valor = formatMoney(opportunity.stop);
+  const disparo = formatMoney(opportunity.stop);
+  const limite = formatMoney(opportunity.stopLimite);
+  const linhas = (
+    <>
+      <span className="trade-day-stop-linha">Disparo {disparo}</span>
+      <span className="trade-day-stop-linha table-cell-muted">Limite {limite}</span>
+    </>
+  );
+
   if (!stopJaPassado) {
-    return compact ? (
-      <span className="table-cell-muted trade-day-stop-compact">Stop {valor}</span>
-    ) : (
-      <span>{valor}</span>
+    return (
+      <div className={`trade-day-stop-values${compact ? ' is-compact' : ''}`}>
+        {compact ? <span className="table-cell-muted trade-day-stop-side">{ladoProtecao} ·</span> : null}
+        {linhas}
+      </div>
     );
   }
   return (
     <Tooltip
       label="Stop já ultrapassado"
-      description="O preço atual já passou do stop calculado — se você já comprou/vendeu este ativo, considere agir agora em vez de programar a ordem, pois o número só atualiza amanhã."
+      description="O preço atual já passou do disparo calculado — se você já comprou/vendeu este ativo, considere agir agora em vez de programar a ordem, pois o número só atualiza amanhã."
     >
-      <button type="button" className="trade-day-stop-alert" aria-label={`Stop ${valor}, já ultrapassado pelo preço atual — considere agir agora`}>
-        {valor} ⚠
+      <button
+        type="button"
+        className="trade-day-stop-alert"
+        aria-label={`${ladoProtecao}: disparo ${disparo}, limite ${limite}, já ultrapassado pelo preço atual — considere agir agora`}
+      >
+        <span className="trade-day-stop-values">{linhas}</span> ⚠
       </button>
     </Tooltip>
   );
