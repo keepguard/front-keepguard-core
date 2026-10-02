@@ -15156,6 +15156,19 @@ textarea.form-input {
 
 .portfolio-tx-error { margin: 0; font-size: 0.85rem; color: var(--danger); }
 
+.portfolio-tx-stop-hint {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: var(--warning-light);
+  border: 1px solid var(--warning-border);
+  color: var(--text-body);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.portfolio-tx-stop-hint strong { color: var(--warning); }
+.portfolio-tx-stop-hint.is-loading { background: var(--bg-muted); border-color: var(--border); color: var(--text-sub); font-style: italic; }
+
 .portfolio-summary-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -15241,6 +15254,42 @@ textarea.form-input {
 }
 .portfolio-tx-badge.is-buy { background: var(--success-light); color: var(--success); }
 .portfolio-tx-badge.is-sell { background: var(--danger-light); color: var(--danger); }
+
+.trade-day-stop-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.trade-day-stop-info:hover,
+.trade-day-stop-info:focus-visible { border-color: var(--text-sub); color: var(--text-body); }
+
+.trade-day-stop-compact { font-size: 0.72rem; }
+
+.trade-day-stop-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-light);
+  color: var(--warning);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.trade-day-stop-alert:focus-visible { outline: 2px solid var(--warning); outline-offset: 2px; }
 
 @media (max-width: 768px) {
   .portfolio-toolbar-actions { width: 100%; flex-direction: column; align-items: stretch; }

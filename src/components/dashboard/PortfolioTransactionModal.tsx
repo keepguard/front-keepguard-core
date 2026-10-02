@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from '../common/Modal';
 import type { PortfolioTransaction, PortfolioTransactionInput, TransactionSide } from '../../services/portfolioService';
+import { getTradeAssetOportunidade, type TradeOpportunity } from '../../services/tradeService';
 
 interface PortfolioTransactionModalProps {
   isOpen: boolean;
@@ -16,6 +17,39 @@ function todayLocalInputValue(): string {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
+}
+
+function formatMoney(v: number): string {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/**
+ * Mostra o Stop do Turtle Soup pra este ticker ANTES do usuário salvar a compra — contexto
+ * no momento certo, não depois (achado em operação real: usuário comprou vários ativos
+ * seguidos sem nunca ver o número de proteção, teve que recuperá-lo manualmente depois).
+ * Sem oportunidade ativa agora: não mostra nada (evita ruído num form que o usuário quer
+ * preencher rápido).
+ */
+function StopSuggestion({
+  ticker,
+  opportunity,
+  loading,
+}: {
+  ticker?: string;
+  opportunity: TradeOpportunity | null;
+  loading: boolean;
+}) {
+  if (!ticker) return null;
+  if (loading) {
+    return <p className="portfolio-tx-stop-hint is-loading">Verificando stop sugerido para {ticker}...</p>;
+  }
+  if (!opportunity) return null;
+  return (
+    <p className="portfolio-tx-stop-hint">
+      <strong>Stop sugerido: {formatMoney(opportunity.stop)}.</strong>{' '}
+      Depois de registrar a compra, programe uma ordem Stop nesse preço na sua corretora.
+    </p>
+  );
 }
 
 function toLocalInputValue(iso: string): string {
@@ -41,6 +75,35 @@ export const PortfolioTransactionModal: React.FC<PortfolioTransactionModalProps>
   const [tradedAt, setTradedAt] = useState(todayLocalInputValue());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [opportunity, setOpportunity] = useState<TradeOpportunity | null>(null);
+  const [opportunityLoading, setOpportunityLoading] = useState(false);
+
+  // Busca o Stop do Turtle Soup só pra transação NOVA de compra (o momento em que o
+  // usuário tipicamente esquece de programar a proteção na corretora — achado em operação
+  // real registrado em PROGRESS.md 2026-10-02). Edição e venda não mostram isso: editar um
+  // registro passado não é hora de agir na corretora, e venda não tem "stop de entrada".
+  useEffect(() => {
+    if (!isOpen || isEditing || !ticker) {
+      setOpportunity(null);
+      return;
+    }
+    const controller = new AbortController();
+    setOpportunityLoading(true);
+    getTradeAssetOportunidade(ticker, undefined, controller.signal)
+      .then((opp) => {
+        if (controller.signal.aborted) return;
+        setOpportunity(opp);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setOpportunity(null);
+      })
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setOpportunityLoading(false);
+      });
+    return () => controller.abort();
+  }, [isOpen, isEditing, ticker]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -147,6 +210,10 @@ export const PortfolioTransactionModal: React.FC<PortfolioTransactionModalProps>
             </button>
           </div>
         </div>
+
+        {!isEditing && side === 'BUY' ? (
+          <StopSuggestion ticker={ticker} opportunity={opportunity} loading={opportunityLoading} />
+        ) : null}
 
         <div className="portfolio-tx-form-row">
           <div className="form-group">

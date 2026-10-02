@@ -304,11 +304,20 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
               <th>Preço médio</th>
               <th>Último preço</th>
               <th>Sinal agora</th>
+              <th>
+                Stop{' '}
+                <Tooltip label="O que é o Stop" description="Nível de proteção calculado pelo Turtle Soup. Programe uma ordem Stop na corretora nesse preço assim que comprar — ele é atualizado todo dia (trailing).">
+                  <button type="button" className="trade-day-stop-info" aria-label="O que é o Stop? Nível de proteção calculado pelo Turtle Soup. Programe uma ordem Stop na corretora nesse preço assim que comprar — ele é atualizado todo dia.">
+                    ?
+                  </button>
+                </Tooltip>
+              </th>
             </tr>
           </thead>
           <tbody>
             {rows.map(({ position, tradeRow }) => {
               const opportunity = tradeRow?.opportunity;
+              const lastPrice = tradeRow?.item.quote?.last;
               return (
                 <tr key={position.ticker}>
                   <td>
@@ -318,7 +327,7 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
                   </td>
                   <td>{position.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</td>
                   <td>{formatMoney(position.averagePrice)}</td>
-                  <td>{tradeRow?.item.quote ? formatMoney(tradeRow.item.quote.last) : '—'}</td>
+                  <td>{lastPrice != null ? formatMoney(lastPrice) : '—'}</td>
                   <td>
                     {opportunity ? (
                       <span className={`portfolio-tx-badge is-${opportunity.direcao === 'compra' ? 'buy' : 'sell'}`}>
@@ -327,6 +336,9 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
                     ) : (
                       <span className="table-cell-muted">Sem sinal agora</span>
                     )}
+                  </td>
+                  <td>
+                    <StopCell opportunity={opportunity} lastPrice={lastPrice} />
                   </td>
                 </tr>
               );
@@ -338,6 +350,7 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
       <div className="mobile-cards-container">
         {rows.map(({ position, tradeRow }) => {
           const opportunity = tradeRow?.opportunity;
+          const lastPrice = tradeRow?.item.quote?.last;
           return (
             <div key={position.ticker} className="mobile-domain-card">
               <div className="mobile-card-top">
@@ -357,12 +370,55 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
                 ) : (
                   <span className="table-cell-muted">Sem sinal agora</span>
                 )}
+                <StopCell opportunity={opportunity} lastPrice={lastPrice} compact />
               </div>
             </div>
           );
         })}
       </div>
     </>
+  );
+}
+
+/**
+ * Mostra o Stop do setup ativo pra esse ticker, com alerta quando o preço ao vivo já passou
+ * do nível na direção errada (ex.: compra com preço abaixo do stop) — sinal de que a proteção
+ * cadastrada na corretora já deveria ter sido acionada hoje, mesmo que o app (cálculo diário)
+ * ainda não tenha atualizado o número. Achado em operação real: ver PROGRESS.md 2026-10-02.
+ */
+function StopCell({
+  opportunity,
+  lastPrice,
+  compact,
+}: {
+  opportunity?: { direcao: string; stop: number };
+  lastPrice?: number;
+  compact?: boolean;
+}) {
+  if (!opportunity) {
+    return compact ? null : <span className="table-cell-muted">—</span>;
+  }
+  const stopJaPassado =
+    lastPrice != null &&
+    (opportunity.direcao === 'compra' ? lastPrice < opportunity.stop : lastPrice > opportunity.stop);
+
+  const valor = formatMoney(opportunity.stop);
+  if (!stopJaPassado) {
+    return compact ? (
+      <span className="table-cell-muted trade-day-stop-compact">Stop {valor}</span>
+    ) : (
+      <span>{valor}</span>
+    );
+  }
+  return (
+    <Tooltip
+      label="Stop já ultrapassado"
+      description="O preço atual já passou do stop calculado — se você já comprou/vendeu este ativo, considere agir agora em vez de programar a ordem, pois o número só atualiza amanhã."
+    >
+      <button type="button" className="trade-day-stop-alert" aria-label={`Stop ${valor}, já ultrapassado pelo preço atual — considere agir agora`}>
+        {valor} ⚠
+      </button>
+    </Tooltip>
   );
 }
 
