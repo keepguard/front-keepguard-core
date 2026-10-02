@@ -2911,6 +2911,18 @@ body {
   text-align: left;
 }
 
+.refresh-combo-main.is-auto-fixed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 38px;
+  padding: 0 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid var(--primary-border);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
 .refresh-combo-split .refresh-combo-caret {
   flex: 0 0 2.15rem;
   width: 2.15rem;
@@ -15335,6 +15347,8 @@ textarea.form-input {
 }
 .trade-day-tab-count.is-buy { background: var(--success-light); color: var(--success); }
 .trade-day-tab-count.is-sell { background: var(--danger-light); color: var(--danger); }
+.trade-day-tab-count.is-alert { background: var(--warning-light); color: var(--warning); }
+.trade-day-stop-alert-icon { color: var(--warning); }
 
 .trade-day-summary-row { margin-bottom: 0.25rem; }
 

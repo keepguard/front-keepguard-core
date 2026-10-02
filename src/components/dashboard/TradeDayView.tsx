@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Wallet, X } from 'lucide-react';
+import { Search, TriangleAlert, Wallet, X } from 'lucide-react';
 import { PATHS } from '../../navigation/routes';
 import { useTradeDay, type TradeDayRow } from '../../hooks/useTradeDay';
 import { usePortfolioPositions } from '../../hooks/usePortfolioPositions';
-import { RefreshCombo } from '../common/RefreshCombo';
+import { usePortfolioStopChanges } from '../../hooks/usePortfolioStopChanges';
+import type { PortfolioStopChange } from '../../services/portfolioService';
+import { AutoRefreshButton } from '../common/AutoRefreshButton';
 import { Tooltip } from '../common/Tooltip';
 import { TradeDayTable } from './TradeDayTable';
 import { ageLabel, formatMoney } from './dossierFormat';
@@ -17,9 +19,12 @@ const STATE_LABEL: Record<TradeMarketState, string> = {
 };
 
 const SEARCH_DEBOUNCE_MS = 350;
+// Trade Day sempre atualiza sozinho — o Stop/Limite muda com o preço ao vivo durante o
+// pregão, não pode depender do usuário lembrar de ligar auto-refresh (ver AutoRefreshButton).
+const TRADE_DAY_AUTO_REFRESH_SECONDS = 60;
 
-type SubTab = 'geral' | 'compra' | 'venda' | 'carteira';
-const SUB_TABS: readonly SubTab[] = ['geral', 'compra', 'venda', 'carteira'];
+type SubTab = 'geral' | 'compra' | 'venda' | 'carteira' | 'ajustar';
+const SUB_TABS: readonly SubTab[] = ['geral', 'compra', 'venda', 'carteira', 'ajustar'];
 
 function subTabFromSearch(subtab: string | null): SubTab {
   return subtab && (SUB_TABS as readonly string[]).includes(subtab) ? (subtab as SubTab) : 'geral';
@@ -58,6 +63,7 @@ export function TradeDayView() {
   const { rows, market, asOf, total, loading, refreshing, snapshotError, opportunityError, refresh } =
     useTradeDay(debouncedQuery || undefined);
   const { data: positions, loading: portfolioLoading, refresh: refreshPortfolio } = usePortfolioPositions();
+  const { data: stopChanges, loading: stopChangesLoading, refresh: refreshStopChanges } = usePortfolioStopChanges();
   const nowSec = useNowSeconds();
   const limparFiltro = () => setQuery('');
 
@@ -135,11 +141,13 @@ export function TradeDayView() {
         ) : null}
 
         <div className="table-toolbar-push-end">
-          <RefreshCombo
+          <AutoRefreshButton
             onRefresh={() => {
               refresh();
               refreshPortfolio();
+              refreshStopChanges();
             }}
+            intervalSeconds={TRADE_DAY_AUTO_REFRESH_SECONDS}
             disabled={loading}
             refreshing={refreshing}
           />
@@ -200,6 +208,18 @@ export function TradeDayView() {
           {carteiraComCompra > 0 ? <span className="trade-day-tab-count is-buy">{carteiraComCompra}</span> : null}
           {carteiraComVenda > 0 ? <span className="trade-day-tab-count is-sell">{carteiraComVenda}</span> : null}
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subTab === 'ajustar'}
+          className={`llm-panel-tab${subTab === 'ajustar' ? ' is-active' : ''}`}
+          onClick={() => setSubTab('ajustar')}
+        >
+          Precisa ajustar
+          {stopChanges && stopChanges.length > 0 ? (
+            <span className="trade-day-tab-count is-alert">{stopChanges.length}</span>
+          ) : null}
+        </button>
       </div>
 
       {subTab === 'geral' ? (
@@ -212,7 +232,7 @@ export function TradeDayView() {
         <TradeDaySummary label="Oportunidades de compra" total={compraRows.length} confidence={averageConfidence(compraRows)} />
       ) : subTab === 'venda' ? (
         <TradeDaySummary label="Oportunidades de venda" total={vendaRows.length} confidence={averageConfidence(vendaRows)} />
-      ) : (
+      ) : subTab === 'carteira' ? (
         <div className="portfolio-summary-row trade-day-summary-row">
           <div className="portfolio-summary-card">
             <span className="table-cell-muted">Ativos na carteira</span>
@@ -225,6 +245,15 @@ export function TradeDayView() {
           <div className="portfolio-summary-card">
             <span className="table-cell-muted">Com sinal de venda agora</span>
             <strong className="portfolio-pl-negative">{carteiraComVenda}</strong>
+          </div>
+        </div>
+      ) : (
+        <div className="portfolio-summary-row trade-day-summary-row">
+          <div className="portfolio-summary-card">
+            <span className="table-cell-muted">Precisam de ajuste na corretora</span>
+            <strong className={stopChanges && stopChanges.length > 0 ? 'portfolio-pl-negative' : undefined}>
+              {stopChanges?.length ?? 0}
+            </strong>
           </div>
         </div>
       )}
@@ -262,6 +291,8 @@ export function TradeDayView() {
             emptyMessage={`Nenhum ativo da carteira corresponde a "${carteiraQuery}".`}
           />
         )
+      ) : subTab === 'ajustar' ? (
+        <PortfolioStopChangesPanel loading={stopChangesLoading} items={stopChanges} />
       ) : (
         <TradeDayTable
           rows={subTab === 'geral' ? rows : subTab === 'compra' ? compraRows : vendaRows}
@@ -288,6 +319,84 @@ interface CarteiraRow {
  * Trade Day do mesmo ticker — é o que responde "tenho que comprar mais" (sinal de compra
  * num ticker que já tenho) ou "tenho que vender algo que tenho" (sinal de venda).
  */
+/**
+ * Painel da aba "Precisa ajustar" — tickers da carteira cujo Disparo/Limite mudou desde a
+ * última vez que o sistema mostrou (ver usePortfolioStopChanges). Mostra o novo valor e,
+ * quando houver, o anterior, no mesmo formato Disparo/Limite usado no resto do Trade Day —
+ * pra o usuário já saber exatamente o que reprogramar na corretora, sem calcular nada.
+ */
+function PortfolioStopChangesPanel({ loading, items }: { loading: boolean; items: PortfolioStopChange[] | null }) {
+  if (loading && items === null) {
+    return <div className="hpanel-table-card desktop-table-view"><div className="portfolio-skeleton" /></div>;
+  }
+  if (!items || items.length === 0) {
+    return (
+      <div className="trade-state">
+        <p>Nenhum ajuste pendente — os stops da sua carteira continuam nos valores que você já viu.</p>
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className="hpanel-table-card desktop-table-view">
+        <table className="hpanel-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Lado da proteção</th>
+              <th>Novo Disparo</th>
+              <th>Novo Limite</th>
+              <th>Disparo anterior</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.ticker}>
+                <td>
+                  <div className="table-cell-title">
+                    <Link to={`${PATHS.market}?ticker=${encodeURIComponent(item.ticker)}`}>{item.ticker}</Link>
+                  </div>
+                </td>
+                <td>{item.direcao === 'compra' ? 'Venda' : 'Compra'}</td>
+                <td><strong>{formatMoney(item.stop)}</strong></td>
+                <td><strong>{formatMoney(item.stopLimite)}</strong></td>
+                <td className="table-cell-muted">
+                  {item.primeiraVez ? 'Primeira vez' : formatMoney(item.stopAnterior ?? 0)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mobile-cards-container">
+        {items.map((item) => (
+          <div key={item.ticker} className="mobile-domain-card">
+            <div className="mobile-card-top">
+              <div className="mobile-card-identity">
+                <TriangleAlert size={15} className="trade-day-stop-alert-icon" />
+                <span className="mobile-domain-name">{item.ticker}</span>
+              </div>
+            </div>
+            <div className="mobile-card-subinfo">
+              {item.direcao === 'compra' ? 'Venda' : 'Compra'} de proteção
+            </div>
+            <div className="mobile-card-meta">
+              <span className="trade-day-stop-values">
+                <span className="trade-day-stop-linha">Disparo <strong>{formatMoney(item.stop)}</strong></span>
+                <span className="trade-day-stop-linha table-cell-muted">Limite <strong>{formatMoney(item.stopLimite)}</strong></span>
+              </span>
+              <span className="table-cell-muted">
+                {item.primeiraVez ? 'Primeira vez' : `Antes: ${formatMoney(item.stopAnterior ?? 0)}`}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; emptyMessage: string }) {
   if (rows.length === 0) {
     return <div className="trade-state"><p>{emptyMessage}</p></div>;
