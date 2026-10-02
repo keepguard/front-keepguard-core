@@ -15,6 +15,7 @@ export type AppTab =
   | 'market-analyze'
   | 'trade'
   | 'carteira'
+  | 'mt5-account'
   | 'audits'
   | 'llm'
   | 'billing'
@@ -48,6 +49,7 @@ export const PATHS = {
   marketWatchlist: '/mercado/watchlist',
   trade: '/trade',
   carteira: '/carteira',
+  mt5Account: '/mt5',
   audits: '/auditoria',
   llm: '/llm',
   billing: '/planos',
@@ -64,6 +66,7 @@ export const ROUTES: RouteMeta[] = [
   { path: PATHS.marketCompare, tab: 'market', title: 'Comparador de Ativos' },
   { path: PATHS.trade, tab: 'trade', title: 'Trade' },
   { path: PATHS.carteira, tab: 'carteira', title: 'Carteira' },
+  { path: PATHS.mt5Account, tab: 'mt5-account', title: 'Conta MT5' },
   { path: PATHS.sessions, tab: 'sessions', title: 'Minhas sessões' },
   { path: PATHS.blacklist, tab: 'blacklist', title: 'Meus bloqueios' },
   { path: PATHS.tenantSessions, tab: 'tenant-sessions', title: 'Sessões da organização' },

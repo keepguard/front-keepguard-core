@@ -26,6 +26,7 @@ import { TradeDayView } from '../components/dashboard/TradeDayView';
 import { TradeMonitorView } from '../components/dashboard/TradeMonitorView';
 import { SetupsView } from '../components/dashboard/SetupsView';
 import { PortfolioView } from '../components/dashboard/PortfolioView';
+import { Mt5AccountView } from '../components/dashboard/Mt5AccountView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
@@ -49,6 +50,7 @@ import {
   Sparkles,
   CreditCard,
   Wallet,
+  Link2,
 } from 'lucide-react';
 
 const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
@@ -462,6 +464,23 @@ export const CarteiraPage: React.FC = () => (
       </div>
     </div>
     <PortfolioView />
+  </DashboardShell>
+);
+
+export const Mt5AccountPage: React.FC = () => (
+  <DashboardShell>
+    <div className="dashboard-header">
+      <div className="dashboard-title-group">
+        <h1 className="dashboard-title">
+          <Link2 size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          Conta MT5
+        </h1>
+        <p className="dashboard-subtitle">
+          Vincule sua conta MT5 e acompanhe saldo, posições, ordens e histórico direto do terminal.
+        </p>
+      </div>
+    </div>
+    <Mt5AccountView />
   </DashboardShell>
 );
 
