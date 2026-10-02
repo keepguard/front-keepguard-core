@@ -15350,6 +15350,9 @@ textarea.form-input {
 .trade-day-tab-count.is-alert { background: var(--warning-light); color: var(--warning); }
 .trade-day-stop-alert-icon { color: var(--warning); }
 
+.btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+.trade-day-stop-confirm-btn { margin-top: 0.6rem; align-self: flex-start; }
+
 .trade-day-summary-row { margin-bottom: 0.25rem; }
 
 .trade-day-last { display: flex; flex-direction: column; gap: 0.1rem; }

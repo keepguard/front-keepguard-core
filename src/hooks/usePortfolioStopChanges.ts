@@ -7,6 +7,9 @@ export interface PortfolioStopChangesState {
   refreshing: boolean;
   error: { code?: string; message: string } | null;
   refresh: () => void;
+  /** Tira 1 ticker da lista na hora (sem novo fetch) — usado depois de
+   * confirmPortfolioStopChange, que já tirou o ticker do cache no backend. */
+  removeLocal: (ticker: string) => void;
 }
 
 function toError(err: unknown): { code?: string; message: string } {
@@ -50,5 +53,9 @@ export function usePortfolioStopChanges(): PortfolioStopChangesState {
     return () => controller.current?.abort();
   }, [load]);
 
-  return { data, loading, refreshing, error, refresh: load };
+  const removeLocal = useCallback((ticker: string) => {
+    setData((prev) => (prev ? prev.filter((item) => item.ticker !== ticker) : prev));
+  }, []);
+
+  return { data, loading, refreshing, error, refresh: load, removeLocal };
 }

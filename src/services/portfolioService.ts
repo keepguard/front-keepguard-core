@@ -131,3 +131,14 @@ export function getPortfolioStopChanges(signal?: AbortSignal): Promise<Portfolio
     getAccessToken() || undefined,
   ).then((resp) => resp.items);
 }
+
+/** Confirma "já ajustei esse stop na corretora" — tira o ticker da lista de pendentes na
+ * hora (sem esperar o cache expirar). O valor já está salvo no backend desde a última
+ * leitura de getPortfolioStopChanges; isso é só feedback de UI, não há o que desfazer. */
+export function confirmPortfolioStopChange(ticker: string): Promise<void> {
+  return customFetch<void>(
+    `${PORTFOLIO_BASE}/stop-changes/${encodeURIComponent(ticker)}/confirm`,
+    { method: 'POST' },
+    getAccessToken() || undefined,
+  );
+}

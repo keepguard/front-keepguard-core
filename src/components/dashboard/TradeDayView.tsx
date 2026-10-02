@@ -5,7 +5,7 @@ import { PATHS } from '../../navigation/routes';
 import { useTradeDay, type TradeDayRow } from '../../hooks/useTradeDay';
 import { usePortfolioPositions } from '../../hooks/usePortfolioPositions';
 import { usePortfolioStopChanges } from '../../hooks/usePortfolioStopChanges';
-import type { PortfolioStopChange } from '../../services/portfolioService';
+import { confirmPortfolioStopChange, type PortfolioStopChange } from '../../services/portfolioService';
 import { AutoRefreshButton } from '../common/AutoRefreshButton';
 import { Tooltip } from '../common/Tooltip';
 import { TradeDayTable } from './TradeDayTable';
@@ -63,7 +63,7 @@ export function TradeDayView() {
   const { rows, market, asOf, total, loading, refreshing, snapshotError, opportunityError, refresh } =
     useTradeDay(debouncedQuery || undefined);
   const { data: positions, loading: portfolioLoading, refresh: refreshPortfolio } = usePortfolioPositions();
-  const { data: stopChanges, loading: stopChangesLoading, refresh: refreshStopChanges } = usePortfolioStopChanges();
+  const { data: stopChanges, loading: stopChangesLoading, refresh: refreshStopChanges, removeLocal: removeStopChangeLocal } = usePortfolioStopChanges();
   const nowSec = useNowSeconds();
   const limparFiltro = () => setQuery('');
 
@@ -292,7 +292,7 @@ export function TradeDayView() {
           />
         )
       ) : subTab === 'ajustar' ? (
-        <PortfolioStopChangesPanel loading={stopChangesLoading} items={stopChanges} />
+        <PortfolioStopChangesPanel loading={stopChangesLoading} items={stopChanges} onConfirmed={removeStopChangeLocal} />
       ) : (
         <TradeDayTable
           rows={subTab === 'geral' ? rows : subTab === 'compra' ? compraRows : vendaRows}
@@ -324,8 +324,21 @@ interface CarteiraRow {
  * última vez que o sistema mostrou (ver usePortfolioStopChanges). Mostra o novo valor e,
  * quando houver, o anterior, no mesmo formato Disparo/Limite usado no resto do Trade Day —
  * pra o usuário já saber exatamente o que reprogramar na corretora, sem calcular nada.
+ * Botão "Confirmar ajuste" tira o item da lista assim que o usuário já reprogramou a ordem
+ * na corretora — o valor já estava salvo no backend, isso é só feedback (ver
+ * confirmPortfolioStopChange).
  */
-function PortfolioStopChangesPanel({ loading, items }: { loading: boolean; items: PortfolioStopChange[] | null }) {
+function PortfolioStopChangesPanel({ loading, items, onConfirmed }: { loading: boolean; items: PortfolioStopChange[] | null; onConfirmed: (ticker: string) => void }) {
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  const handleConfirm = (ticker: string) => {
+    setConfirming(ticker);
+    confirmPortfolioStopChange(ticker)
+      .then(() => onConfirmed(ticker))
+      .catch(() => { /* erro de rede: item continua na lista, usuário pode tentar de novo */ })
+      .finally(() => setConfirming(null));
+  };
+
   if (loading && items === null) {
     return <div className="hpanel-table-card desktop-table-view"><div className="portfolio-skeleton" /></div>;
   }
@@ -347,6 +360,7 @@ function PortfolioStopChangesPanel({ loading, items }: { loading: boolean; items
               <th>Novo Disparo</th>
               <th>Novo Limite</th>
               <th>Disparo anterior</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -362,6 +376,16 @@ function PortfolioStopChangesPanel({ loading, items }: { loading: boolean; items
                 <td><strong>{formatMoney(item.stopLimite)}</strong></td>
                 <td className="table-cell-muted">
                   {item.primeiraVez ? 'Primeira vez' : formatMoney(item.stopAnterior ?? 0)}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={confirming === item.ticker}
+                    onClick={() => handleConfirm(item.ticker)}
+                  >
+                    {confirming === item.ticker ? 'Confirmando…' : 'Confirmar ajuste'}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -390,6 +414,14 @@ function PortfolioStopChangesPanel({ loading, items }: { loading: boolean; items
                 {item.primeiraVez ? 'Primeira vez' : `Antes: ${formatMoney(item.stopAnterior ?? 0)}`}
               </span>
             </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm trade-day-stop-confirm-btn"
+              disabled={confirming === item.ticker}
+              onClick={() => handleConfirm(item.ticker)}
+            >
+              {confirming === item.ticker ? 'Confirmando…' : 'Confirmar ajuste'}
+            </button>
           </div>
         ))}
       </div>
