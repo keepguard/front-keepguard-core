@@ -4,12 +4,14 @@ import { useMt5Account } from '../../hooks/useMt5Account';
 import { Mt5AccountFormModal } from './Mt5AccountFormModal';
 import type { Mt5Deal, Mt5Order, Mt5Position } from '../../services/mt5AccountService';
 
-function formatMoney(v: number, currency = 'BRL'): string {
+function formatMoney(v: number | undefined | null, currency = 'BRL'): string {
+  if (typeof v !== 'number' || Number.isNaN(v)) return '—';
   return v.toLocaleString('pt-BR', { style: 'currency', currency });
 }
 
-function sideLabel(type: number): string {
+function sideLabel(type: number | undefined): string {
   // ORDER_TYPE_BUY=0 / ORDER_TYPE_SELL=1 (e variações pendentes acima disso) — ver skill mt5-api.
+  if (typeof type !== 'number') return '—';
   return type % 2 === 0 ? 'Compra' : 'Venda';
 }
 

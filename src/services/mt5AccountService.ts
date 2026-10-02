@@ -49,7 +49,6 @@ export interface Mt5Position {
   profit: number;
   sl: number;
   tp: number;
-  [key: string]: unknown;
 }
 
 export interface Mt5Order {
@@ -59,7 +58,6 @@ export interface Mt5Order {
   priceOpen: number;
   sl: number;
   tp: number;
-  [key: string]: unknown;
 }
 
 export interface Mt5Deal {
@@ -69,11 +67,40 @@ export interface Mt5Deal {
   price: number;
   profit: number;
   time: string;
-  [key: string]: unknown;
 }
 
 function token(): string | undefined {
   return getAccessToken() || undefined;
+}
+
+// O gateway (srv-mt5-order-gateway, Python) devolve o dict cru do MT5 em
+// snake_case (price_open, price_current, time_msc...), não camelCase — não
+// há Pydantic model nessas 3 rotas (ver schemas.py). Mapeamos aqui pra não
+// espalhar esse detalhe de transporte pelos componentes.
+function toCamel<T extends Record<string, unknown>>(raw: Record<string, unknown>): T {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const camel = key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+    out[camel] = value;
+  }
+  return out as T;
+}
+
+function mapPosition(raw: Record<string, unknown>): Mt5Position {
+  return toCamel<Mt5Position>(raw);
+}
+
+function mapOrder(raw: Record<string, unknown>): Mt5Order {
+  return toCamel<Mt5Order>(raw);
+}
+
+function mapDeal(raw: Record<string, unknown>): Mt5Deal {
+  const mapped = toCamel<Mt5Deal & { time?: number }>(raw);
+  return {
+    ...mapped,
+    // `time` do MT5 é epoch em segundos (int), não ISO string.
+    time: mapped.time ? new Date(mapped.time * 1000).toISOString() : '',
+  };
 }
 
 export function getMt5Account(signal?: AbortSignal): Promise<Mt5Account> {
@@ -92,14 +119,17 @@ export function getMt5AccountInfo(signal?: AbortSignal): Promise<Mt5AccountInfo>
   return customFetch<Mt5AccountInfo>(`${MT5_BASE}/account/info`, { signal }, token());
 }
 
-export function listMt5Positions(signal?: AbortSignal): Promise<Mt5Position[]> {
-  return customFetch<Mt5Position[]>(`${MT5_BASE}/positions`, { signal }, token());
+export async function listMt5Positions(signal?: AbortSignal): Promise<Mt5Position[]> {
+  const raw = await customFetch<Record<string, unknown>[]>(`${MT5_BASE}/positions`, { signal }, token());
+  return raw.map(mapPosition);
 }
 
-export function listMt5Orders(signal?: AbortSignal): Promise<Mt5Order[]> {
-  return customFetch<Mt5Order[]>(`${MT5_BASE}/orders`, { signal }, token());
+export async function listMt5Orders(signal?: AbortSignal): Promise<Mt5Order[]> {
+  const raw = await customFetch<Record<string, unknown>[]>(`${MT5_BASE}/orders`, { signal }, token());
+  return raw.map(mapOrder);
 }
 
-export function listMt5HistoryDeals(signal?: AbortSignal): Promise<Mt5Deal[]> {
-  return customFetch<Mt5Deal[]>(`${MT5_BASE}/history/deals`, { signal }, token());
+export async function listMt5HistoryDeals(signal?: AbortSignal): Promise<Mt5Deal[]> {
+  const raw = await customFetch<Record<string, unknown>[]>(`${MT5_BASE}/history/deals`, { signal }, token());
+  return raw.map(mapDeal);
 }
