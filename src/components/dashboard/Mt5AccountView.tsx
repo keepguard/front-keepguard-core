@@ -57,7 +57,7 @@ export function Mt5AccountView() {
       <div className="mt5-account-view">
         <div className="portfolio-empty-state" style={{ padding: '3rem 1.5rem' }}>
           <Link2 size={22} />
-          <span>Você ainda não vinculou sua conta na corretora. Cadastre o ambiente e a URL do gateway para ver saldo, posições e ordens aqui.</span>
+          <span>Vincule sua conta na corretora (MetaTrader 5) e acompanhe saldo, posições, ordens e histórico em tempo real — diferente da Carteira, que é o que você mesmo registra.</span>
           <button type="button" className="btn" style={{ marginTop: '1rem' }} onClick={() => setFormOpen(true)}>
             Vincular conta
           </button>
