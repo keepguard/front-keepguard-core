@@ -473,10 +473,11 @@ export const Mt5AccountPage: React.FC = () => (
       <div className="dashboard-title-group">
         <h1 className="dashboard-title">
           <Link2 size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Conta MT5
+          Corretora
         </h1>
         <p className="dashboard-subtitle">
-          Vincule sua conta MT5 e acompanhe saldo, posições, ordens e histórico direto do terminal.
+          Vincule sua conta na corretora (MetaTrader 5) e acompanhe saldo, posições, ordens e
+          histórico em tempo real — diferente da Carteira, que é o que você mesmo registra.
         </p>
       </div>
     </div>

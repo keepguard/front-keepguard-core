@@ -35,7 +35,7 @@ export function Mt5AccountView() {
 
   if (loading && !account && hasAccount) {
     return (
-      <div className="mt5-account-view" aria-busy="true" aria-label="Carregando conta MT5">
+      <div className="mt5-account-view" aria-busy="true" aria-label="Carregando dados da corretora">
         <div className="hpanel-table-card desktop-table-view">
           <div className="portfolio-skeleton" />
         </div>
@@ -57,9 +57,9 @@ export function Mt5AccountView() {
       <div className="mt5-account-view">
         <div className="portfolio-empty-state" style={{ padding: '3rem 1.5rem' }}>
           <Link2 size={22} />
-          <span>Você ainda não vinculou uma conta MT5. Cadastre o ambiente e a URL do gateway para ver saldo, posições e ordens aqui.</span>
+          <span>Você ainda não vinculou sua conta na corretora. Cadastre o ambiente e a URL do gateway para ver saldo, posições e ordens aqui.</span>
           <button type="button" className="btn" style={{ marginTop: '1rem' }} onClick={() => setFormOpen(true)}>
-            Vincular conta MT5
+            Vincular conta
           </button>
         </div>
         <Mt5AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} account={null} onSave={save} />
@@ -148,90 +148,145 @@ export function Mt5AccountView() {
 
 function PositionsTable({ positions }: { positions: Mt5Position[] }) {
   return (
-    <div className="hpanel-table-card desktop-table-view">
-      <h3 className="market-section-title">Posições abertas</h3>
-      <table className="hpanel-table">
-        <thead>
-          <tr>
-            <th>Ativo</th>
-            <th>Lado</th>
-            <th>Volume</th>
-            <th>Preço de abertura</th>
-            <th>Preço atual</th>
-            <th>Resultado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {positions.length === 0 ? (
+    <>
+      <div className="hpanel-table-card desktop-table-view">
+        <h3 className="market-section-title">Posições abertas</h3>
+        <table className="hpanel-table">
+          <thead>
             <tr>
-              <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
-                <Wallet size={18} /> Nenhuma posição aberta.
-              </td>
+              <th>Ativo</th>
+              <th>Lado</th>
+              <th>Volume</th>
+              <th>Preço de abertura</th>
+              <th>Preço atual</th>
+              <th>Resultado</th>
             </tr>
-          ) : (
-            positions.map((p, i) => (
-              <tr key={`${p.symbol}-${i}`}>
-                <td>{p.symbol}</td>
-                <td>{sideLabel(p.type)}</td>
-                <td>{p.volume}</td>
-                <td>{formatMoney(p.priceOpen)}</td>
-                <td>{formatMoney(p.priceCurrent)}</td>
-                <td>
-                  <span className={p.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
-                    {formatMoney(p.profit)}
-                  </span>
+          </thead>
+          <tbody>
+            {positions.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
+                  <Wallet size={18} /> Nenhuma posição aberta.
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+            ) : (
+              positions.map((p, i) => (
+                <tr key={`${p.symbol}-${i}`}>
+                  <td>{p.symbol}</td>
+                  <td>{sideLabel(p.type)}</td>
+                  <td>{p.volume}</td>
+                  <td>{formatMoney(p.priceOpen)}</td>
+                  <td>{formatMoney(p.priceCurrent)}</td>
+                  <td>
+                    <span className={p.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
+                      {formatMoney(p.profit)}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mobile-cards-container">
+        {positions.length === 0 ? (
+          <div className="mobile-loading-card">Nenhuma posição aberta.</div>
+        ) : (
+          positions.map((p, i) => (
+            <div key={`${p.symbol}-${i}`} className="mobile-domain-card">
+              <div className="mobile-card-top">
+                <div className="mobile-card-identity">
+                  <Wallet size={15} />
+                  <span className="mobile-domain-name">{p.symbol}</span>
+                </div>
+              </div>
+              <div className="mobile-card-subinfo">
+                {sideLabel(p.type)} · {p.volume} un.
+              </div>
+              <div className="mobile-card-meta">
+                <span>Abertura: {formatMoney(p.priceOpen)}</span>
+                <span>Atual: {formatMoney(p.priceCurrent)}</span>
+                <span className={p.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
+                  Resultado: {formatMoney(p.profit)}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </>
   );
 }
 
 function OrdersTable({ orders }: { orders: Mt5Order[] }) {
   return (
-    <div className="hpanel-table-card desktop-table-view">
-      <h3 className="market-section-title">Ordens pendentes</h3>
-      <table className="hpanel-table">
-        <thead>
-          <tr>
-            <th>Ativo</th>
-            <th>Lado</th>
-            <th>Volume</th>
-            <th>Preço</th>
-            <th>Stop</th>
-            <th>Alvo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.length === 0 ? (
+    <>
+      <div className="hpanel-table-card desktop-table-view">
+        <h3 className="market-section-title">Ordens pendentes</h3>
+        <table className="hpanel-table">
+          <thead>
             <tr>
-              <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
-                Nenhuma ordem pendente.
-              </td>
+              <th>Ativo</th>
+              <th>Lado</th>
+              <th>Volume</th>
+              <th>Preço</th>
+              <th>Stop</th>
+              <th>Alvo</th>
             </tr>
-          ) : (
-            orders.map((o, i) => (
-              <tr key={`${o.symbol}-${i}`}>
-                <td>{o.symbol}</td>
-                <td>{sideLabel(o.type)}</td>
-                <td>{o.volume}</td>
-                <td>{formatMoney(o.priceOpen)}</td>
-                <td>{o.sl ? formatMoney(o.sl) : '—'}</td>
-                <td>{o.tp ? formatMoney(o.tp) : '—'}</td>
+          </thead>
+          <tbody>
+            {orders.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
+                  Nenhuma ordem pendente.
+                </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+            ) : (
+              orders.map((o, i) => (
+                <tr key={`${o.symbol}-${i}`}>
+                  <td>{o.symbol}</td>
+                  <td>{sideLabel(o.type)}</td>
+                  <td>{o.volume}</td>
+                  <td>{formatMoney(o.priceOpen)}</td>
+                  <td>{o.sl ? formatMoney(o.sl) : '—'}</td>
+                  <td>{o.tp ? formatMoney(o.tp) : '—'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mobile-cards-container">
+        {orders.length === 0 ? (
+          <div className="mobile-loading-card">Nenhuma ordem pendente.</div>
+        ) : (
+          orders.map((o, i) => (
+            <div key={`${o.symbol}-${i}`} className="mobile-domain-card">
+              <div className="mobile-card-top">
+                <div className="mobile-card-identity">
+                  <span className="mobile-domain-name">{o.symbol}</span>
+                </div>
+              </div>
+              <div className="mobile-card-subinfo">
+                {sideLabel(o.type)} · {o.volume} un. · {formatMoney(o.priceOpen)}
+              </div>
+              <div className="mobile-card-meta">
+                <span>Stop: {o.sl ? formatMoney(o.sl) : '—'}</span>
+                <span>Alvo: {o.tp ? formatMoney(o.tp) : '—'}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </>
   );
 }
 
 function DealsTable({ deals }: { deals: Mt5Deal[] }) {
   return (
+    <>
     <div className="hpanel-table-card desktop-table-view">
       <h3 className="market-section-title">Histórico recente</h3>
       <table className="hpanel-table">
@@ -271,5 +326,31 @@ function DealsTable({ deals }: { deals: Mt5Deal[] }) {
         </tbody>
       </table>
     </div>
+
+    <div className="mobile-cards-container">
+      {deals.length === 0 ? (
+        <div className="mobile-loading-card">Nenhuma operação no período.</div>
+      ) : (
+        deals.map((d, i) => (
+          <div key={`${d.symbol}-${i}`} className="mobile-domain-card">
+            <div className="mobile-card-top">
+              <div className="mobile-card-identity">
+                <span className="mobile-domain-name">{d.symbol}</span>
+              </div>
+            </div>
+            <div className="mobile-card-subinfo">
+              {new Date(d.time).toLocaleString('pt-BR')} · {sideLabel(d.type)} · {d.volume} un.
+            </div>
+            <div className="mobile-card-meta">
+              <span>Preço: {formatMoney(d.price)}</span>
+              <span className={d.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
+                Resultado: {formatMoney(d.profit)}
+              </span>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+    </>
   );
 }

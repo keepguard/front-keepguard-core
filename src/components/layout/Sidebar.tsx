@@ -142,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <SidebarLink
               to={PATHS.mt5Account}
-              label="Conta MT5"
+              label="Corretora"
               icon={<Link2 size={18} className="sidebar-icon" />}
               onCloseMobile={onCloseMobile}
             />

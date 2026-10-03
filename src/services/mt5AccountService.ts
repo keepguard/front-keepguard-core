@@ -77,7 +77,7 @@ function token(): string | undefined {
 // snake_case (price_open, price_current, time_msc...), não camelCase — não
 // há Pydantic model nessas 3 rotas (ver schemas.py). Mapeamos aqui pra não
 // espalhar esse detalhe de transporte pelos componentes.
-function toCamel<T extends Record<string, unknown>>(raw: Record<string, unknown>): T {
+function toCamel<T>(raw: Record<string, unknown>): T {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw)) {
     const camel = key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
