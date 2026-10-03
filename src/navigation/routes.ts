@@ -49,7 +49,7 @@ export const PATHS = {
   marketWatchlist: '/mercado/watchlist',
   trade: '/trade',
   carteira: '/carteira',
-  mt5Account: '/mt5',
+  mt5Account: '/corretora',
   audits: '/auditoria',
   llm: '/llm',
   billing: '/planos',

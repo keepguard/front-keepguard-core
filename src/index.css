@@ -15158,7 +15158,13 @@ textarea.form-input {
 
 /* ── Carteira (menu Trade > Carteira) ──────────────────────────────────── */
 
-.portfolio-view { display: flex; flex-direction: column; gap: 0.9rem; }
+.portfolio-view,
+.mt5-account-view { display: flex; flex-direction: column; gap: 0.9rem; }
+
+/* .hpanel-table-card tem margin-bottom:2rem por padrão (ok isolado numa
+   tela com 1 tabela só); aqui há 3 tabelas empilhadas e o gap do flex pai
+   já separa cada uma — margin extra duplicaria o espaço. */
+.mt5-account-view .hpanel-table-card { margin-bottom: 0; }
 
 .portfolio-toolbar-actions { display: flex; align-items: center; gap: 0.75rem; }
 
