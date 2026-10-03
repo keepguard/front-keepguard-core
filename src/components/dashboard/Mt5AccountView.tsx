@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link2, Pencil, RefreshCw, Trash2, Wallet } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Link2, Pencil, RefreshCw, Search, Trash2, Wallet, X } from 'lucide-react';
 import { useMt5Account } from '../../hooks/useMt5Account';
 import { Mt5AccountFormModal } from './Mt5AccountFormModal';
 import type { Mt5Deal, Mt5Order, Mt5Position } from '../../services/mt5AccountService';
@@ -146,11 +146,63 @@ export function Mt5AccountView() {
   );
 }
 
+/** Toolbar de filtro por ticker, reaproveitado nas 3 tabelas — mesmo padrão
+ * visual/semântico do filtro em TradeDayView (search-input-wrapper). */
+function TableFilterToolbar({
+  title,
+  query,
+  onQueryChange,
+  placeholder,
+  count,
+}: {
+  title: string;
+  query: string;
+  onQueryChange: (v: string) => void;
+  placeholder: string;
+  count: number;
+}) {
+  return (
+    <div className="mt5-table-header">
+      <h3 className="market-section-title">{title}</h3>
+      <div className="search-input-wrapper mt5-table-search">
+        <Search size={14} className="search-icon" />
+        <input
+          type="search"
+          className="search-input"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder={placeholder}
+          aria-label={placeholder}
+        />
+        {query ? (
+          <button type="button" className="trade-search-clear" onClick={() => onQueryChange('')} aria-label="Limpar filtro">
+            <X size={14} />
+          </button>
+        ) : null}
+      </div>
+      {count > 0 ? <span className="mt5-table-count">{count}</span> : null}
+    </div>
+  );
+}
+
 function PositionsTable({ positions }: { positions: Mt5Position[] }) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const term = query.trim().toUpperCase();
+    if (!term) return positions;
+    return positions.filter((p) => p.symbol?.toUpperCase().includes(term));
+  }, [positions, query]);
+
   return (
     <>
       <div className="hpanel-table-card desktop-table-view">
-        <h3 className="market-section-title">Posições abertas</h3>
+        <TableFilterToolbar
+          title="Posições abertas"
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Filtrar por ativo"
+          count={positions.length}
+        />
         <table className="hpanel-table">
           <thead>
             <tr>
@@ -165,14 +217,27 @@ function PositionsTable({ positions }: { positions: Mt5Position[] }) {
           <tbody>
             {positions.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
-                  <Wallet size={18} /> Nenhuma posição aberta.
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem' }}>
+                  <div className="portfolio-empty-state">
+                    <Wallet size={22} />
+                    <span>Nenhuma posição aberta.</span>
+                  </div>
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem' }}>
+                  Nenhum ativo corresponde a "{query}".
                 </td>
               </tr>
             ) : (
-              positions.map((p, i) => (
+              filtered.map((p, i) => (
                 <tr key={`${p.symbol}-${i}`}>
-                  <td>{p.symbol}</td>
+                  <td>
+                    <div className="table-cell-title">
+                      <strong>{p.symbol}</strong>
+                    </div>
+                  </td>
                   <td>{sideLabel(p.type)}</td>
                   <td>{p.volume}</td>
                   <td>{formatMoney(p.priceOpen)}</td>
@@ -192,8 +257,10 @@ function PositionsTable({ positions }: { positions: Mt5Position[] }) {
       <div className="mobile-cards-container">
         {positions.length === 0 ? (
           <div className="mobile-loading-card">Nenhuma posição aberta.</div>
+        ) : filtered.length === 0 ? (
+          <div className="mobile-loading-card">Nenhum ativo corresponde a "{query}".</div>
         ) : (
-          positions.map((p, i) => (
+          filtered.map((p, i) => (
             <div key={`${p.symbol}-${i}`} className="mobile-domain-card">
               <div className="mobile-card-top">
                 <div className="mobile-card-identity">
@@ -220,10 +287,23 @@ function PositionsTable({ positions }: { positions: Mt5Position[] }) {
 }
 
 function OrdersTable({ orders }: { orders: Mt5Order[] }) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const term = query.trim().toUpperCase();
+    if (!term) return orders;
+    return orders.filter((o) => o.symbol?.toUpperCase().includes(term));
+  }, [orders, query]);
+
   return (
     <>
       <div className="hpanel-table-card desktop-table-view">
-        <h3 className="market-section-title">Ordens pendentes</h3>
+        <TableFilterToolbar
+          title="Ordens pendentes"
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Filtrar por ativo"
+          count={orders.length}
+        />
         <table className="hpanel-table">
           <thead>
             <tr>
@@ -238,14 +318,24 @@ function OrdersTable({ orders }: { orders: Mt5Order[] }) {
           <tbody>
             {orders.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem' }}>
                   Nenhuma ordem pendente.
                 </td>
               </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem' }}>
+                  Nenhum ativo corresponde a "{query}".
+                </td>
+              </tr>
             ) : (
-              orders.map((o, i) => (
+              filtered.map((o, i) => (
                 <tr key={`${o.symbol}-${i}`}>
-                  <td>{o.symbol}</td>
+                  <td>
+                    <div className="table-cell-title">
+                      <strong>{o.symbol}</strong>
+                    </div>
+                  </td>
                   <td>{sideLabel(o.type)}</td>
                   <td>{o.volume}</td>
                   <td>{formatMoney(o.priceOpen)}</td>
@@ -261,8 +351,10 @@ function OrdersTable({ orders }: { orders: Mt5Order[] }) {
       <div className="mobile-cards-container">
         {orders.length === 0 ? (
           <div className="mobile-loading-card">Nenhuma ordem pendente.</div>
+        ) : filtered.length === 0 ? (
+          <div className="mobile-loading-card">Nenhum ativo corresponde a "{query}".</div>
         ) : (
-          orders.map((o, i) => (
+          filtered.map((o, i) => (
             <div key={`${o.symbol}-${i}`} className="mobile-domain-card">
               <div className="mobile-card-top">
                 <div className="mobile-card-identity">
@@ -285,72 +377,97 @@ function OrdersTable({ orders }: { orders: Mt5Order[] }) {
 }
 
 function DealsTable({ deals }: { deals: Mt5Deal[] }) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const term = query.trim().toUpperCase();
+    if (!term) return deals;
+    return deals.filter((d) => d.symbol?.toUpperCase().includes(term));
+  }, [deals, query]);
+
   return (
     <>
-    <div className="hpanel-table-card desktop-table-view">
-      <h3 className="market-section-title">Histórico recente</h3>
-      <table className="hpanel-table">
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Ativo</th>
-            <th>Lado</th>
-            <th>Volume</th>
-            <th>Preço</th>
-            <th>Resultado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {deals.length === 0 ? (
+      <div className="hpanel-table-card desktop-table-view">
+        <TableFilterToolbar
+          title="Histórico recente"
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Filtrar por ativo"
+          count={deals.length}
+        />
+        <table className="hpanel-table">
+          <thead>
             <tr>
-              <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
-                Nenhuma operação no período.
-              </td>
+              <th>Data</th>
+              <th>Ativo</th>
+              <th>Lado</th>
+              <th>Volume</th>
+              <th>Preço</th>
+              <th>Resultado</th>
             </tr>
-          ) : (
-            deals.map((d, i) => (
-              <tr key={`${d.symbol}-${i}`}>
-                <td>{new Date(d.time).toLocaleString('pt-BR')}</td>
-                <td>{d.symbol}</td>
-                <td>{sideLabel(d.type)}</td>
-                <td>{d.volume}</td>
-                <td>{formatMoney(d.price)}</td>
-                <td>
-                  <span className={d.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
-                    {formatMoney(d.profit)}
-                  </span>
+          </thead>
+          <tbody>
+            {deals.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem' }}>
+                  Nenhuma operação no período.
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem' }}>
+                  Nenhum ativo corresponde a "{query}".
+                </td>
+              </tr>
+            ) : (
+              filtered.map((d, i) => (
+                <tr key={`${d.symbol}-${i}`}>
+                  <td>{new Date(d.time).toLocaleString('pt-BR')}</td>
+                  <td>
+                    <div className="table-cell-title">
+                      <strong>{d.symbol}</strong>
+                    </div>
+                  </td>
+                  <td>{sideLabel(d.type)}</td>
+                  <td>{d.volume}</td>
+                  <td>{formatMoney(d.price)}</td>
+                  <td>
+                    <span className={d.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
+                      {formatMoney(d.profit)}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-    <div className="mobile-cards-container">
-      {deals.length === 0 ? (
-        <div className="mobile-loading-card">Nenhuma operação no período.</div>
-      ) : (
-        deals.map((d, i) => (
-          <div key={`${d.symbol}-${i}`} className="mobile-domain-card">
-            <div className="mobile-card-top">
-              <div className="mobile-card-identity">
-                <span className="mobile-domain-name">{d.symbol}</span>
+      <div className="mobile-cards-container">
+        {deals.length === 0 ? (
+          <div className="mobile-loading-card">Nenhuma operação no período.</div>
+        ) : filtered.length === 0 ? (
+          <div className="mobile-loading-card">Nenhum ativo corresponde a "{query}".</div>
+        ) : (
+          filtered.map((d, i) => (
+            <div key={`${d.symbol}-${i}`} className="mobile-domain-card">
+              <div className="mobile-card-top">
+                <div className="mobile-card-identity">
+                  <span className="mobile-domain-name">{d.symbol}</span>
+                </div>
+              </div>
+              <div className="mobile-card-subinfo">
+                {new Date(d.time).toLocaleString('pt-BR')} · {sideLabel(d.type)} · {d.volume} un.
+              </div>
+              <div className="mobile-card-meta">
+                <span>Preço: {formatMoney(d.price)}</span>
+                <span className={d.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
+                  Resultado: {formatMoney(d.profit)}
+                </span>
               </div>
             </div>
-            <div className="mobile-card-subinfo">
-              {new Date(d.time).toLocaleString('pt-BR')} · {sideLabel(d.type)} · {d.volume} un.
-            </div>
-            <div className="mobile-card-meta">
-              <span>Preço: {formatMoney(d.price)}</span>
-              <span className={d.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
-                Resultado: {formatMoney(d.profit)}
-              </span>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
+          ))
+        )}
+      </div>
     </>
   );
 }

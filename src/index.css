@@ -15166,6 +15166,37 @@ textarea.form-input {
    já separa cada uma — margin extra duplicaria o espaço. */
 .mt5-account-view .hpanel-table-card { margin-bottom: 0; }
 
+/* Cabeçalho interno de cada card de tabela (Posições/Ordens/Histórico) —
+   título + busca + contador, com o mesmo respiro do table-toolbar externo
+   usado na Carteira/Trade Day, só que dentro do card em vez de acima dele. */
+.mt5-table-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.1rem 1.25rem 0.85rem;
+}
+
+.mt5-table-header .market-section-title {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.mt5-table-search {
+  flex: 1;
+  max-width: 320px;
+  margin-left: auto;
+}
+
+.mt5-table-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  flex-shrink: 0;
+}
+
 .portfolio-toolbar-actions { display: flex; align-items: center; gap: 0.75rem; }
 
 .portfolio-add-group { display: flex; align-items: center; gap: 0.6rem; }
