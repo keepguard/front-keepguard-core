@@ -119,17 +119,19 @@ export function getMt5AccountInfo(signal?: AbortSignal): Promise<Mt5AccountInfo>
   return customFetch<Mt5AccountInfo>(`${MT5_BASE}/account/info`, { signal }, token());
 }
 
+// O bff-invest envelopa as 3 listas em {"items": [...]} (trade_mt5_handlers.go),
+// diferente de /account/info, que devolve o objeto cru.
 export async function listMt5Positions(signal?: AbortSignal): Promise<Mt5Position[]> {
-  const raw = await customFetch<Record<string, unknown>[]>(`${MT5_BASE}/positions`, { signal }, token());
-  return raw.map(mapPosition);
+  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/positions`, { signal }, token());
+  return items.map(mapPosition);
 }
 
 export async function listMt5Orders(signal?: AbortSignal): Promise<Mt5Order[]> {
-  const raw = await customFetch<Record<string, unknown>[]>(`${MT5_BASE}/orders`, { signal }, token());
-  return raw.map(mapOrder);
+  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/orders`, { signal }, token());
+  return items.map(mapOrder);
 }
 
 export async function listMt5HistoryDeals(signal?: AbortSignal): Promise<Mt5Deal[]> {
-  const raw = await customFetch<Record<string, unknown>[]>(`${MT5_BASE}/history/deals`, { signal }, token());
-  return raw.map(mapDeal);
+  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/history/deals`, { signal }, token());
+  return items.map(mapDeal);
 }
