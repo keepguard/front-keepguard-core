@@ -67,6 +67,8 @@ export interface Mt5Deal {
   price: number;
   profit: number;
   time: string;
+  /** epoch em ms — usado para ordenar por data sem comparar strings. */
+  timeEpoch: number;
 }
 
 function token(): string | undefined {
@@ -96,10 +98,12 @@ function mapOrder(raw: Record<string, unknown>): Mt5Order {
 
 function mapDeal(raw: Record<string, unknown>): Mt5Deal {
   const mapped = toCamel<Mt5Deal & { time?: number }>(raw);
+  // `time` do MT5 é epoch em segundos (int), não ISO string.
+  const epochMs = mapped.time ? mapped.time * 1000 : 0;
   return {
     ...mapped,
-    // `time` do MT5 é epoch em segundos (int), não ISO string.
-    time: mapped.time ? new Date(mapped.time * 1000).toISOString() : '',
+    time: epochMs ? new Date(epochMs).toISOString() : '',
+    timeEpoch: epochMs,
   };
 }
 
@@ -121,17 +125,24 @@ export function getMt5AccountInfo(signal?: AbortSignal): Promise<Mt5AccountInfo>
 
 // O bff-invest envelopa as 3 listas em {"items": [...]} (trade_mt5_handlers.go),
 // diferente de /account/info, que devolve o objeto cru.
-export async function listMt5Positions(signal?: AbortSignal): Promise<Mt5Position[]> {
-  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/positions`, { signal }, token());
+export async function listMt5Positions(symbol?: string, signal?: AbortSignal): Promise<Mt5Position[]> {
+  const qs = symbol ? `?symbol=${encodeURIComponent(symbol)}` : '';
+  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/positions${qs}`, { signal }, token());
   return items.map(mapPosition);
 }
 
-export async function listMt5Orders(signal?: AbortSignal): Promise<Mt5Order[]> {
-  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/orders`, { signal }, token());
+export async function listMt5Orders(symbol?: string, signal?: AbortSignal): Promise<Mt5Order[]> {
+  const qs = symbol ? `?symbol=${encodeURIComponent(symbol)}` : '';
+  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/orders${qs}`, { signal }, token());
   return items.map(mapOrder);
 }
 
-export async function listMt5HistoryDeals(signal?: AbortSignal): Promise<Mt5Deal[]> {
-  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/history/deals`, { signal }, token());
+/** desde/ate em RFC3339 (ex.: 2026-10-05T00:00:00-03:00) — ver bff-invest trade_mt5_handlers.go. */
+export async function listMt5HistoryDeals(desde?: string, ate?: string, signal?: AbortSignal): Promise<Mt5Deal[]> {
+  const params = new URLSearchParams();
+  if (desde) params.set('desde', desde);
+  if (ate) params.set('ate', ate);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const { items } = await customFetch<{ items: Record<string, unknown>[] }>(`${MT5_BASE}/history/deals${qs}`, { signal }, token());
   return items.map(mapDeal);
 }

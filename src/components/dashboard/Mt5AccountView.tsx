@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link2, Pencil, RefreshCw, Search, Trash2, Wallet, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Link2, Pencil, RefreshCw, Search, Trash2, Wallet, X } from 'lucide-react';
 import { useMt5Account } from '../../hooks/useMt5Account';
 import { Mt5AccountFormModal } from './Mt5AccountFormModal';
 import type { Mt5Deal, Mt5Order, Mt5Position } from '../../services/mt5AccountService';
@@ -13,6 +13,74 @@ function sideLabel(type: number | undefined): string {
   // ORDER_TYPE_BUY=0 / ORDER_TYPE_SELL=1 (e variações pendentes acima disso) — ver skill mt5-api.
   if (typeof type !== 'number') return '—';
   return type % 2 === 0 ? 'Compra' : 'Venda';
+}
+
+type SortDirection = 'asc' | 'desc';
+interface SortState<K extends string> {
+  column: K | null;
+  direction: SortDirection;
+}
+
+/** Ordenação client-side de 1 coluna por vez — alterna asc/desc/sem-ordenação
+ * ao clicar no mesmo cabeçalho de novo; trocar de coluna sempre começa em asc. */
+function useColumnSort<T, K extends string>(
+  rows: T[],
+  getValue: (row: T, column: K) => string | number,
+) {
+  const [sort, setSort] = useState<SortState<K>>({ column: null, direction: 'asc' });
+
+  const toggleSort = (column: K) => {
+    setSort((prev) => {
+      if (prev.column !== column) return { column, direction: 'asc' };
+      if (prev.direction === 'asc') return { column, direction: 'desc' };
+      return { column: null, direction: 'asc' }; // 3º clique: remove a ordenação
+    });
+  };
+
+  const sorted = useMemo(() => {
+    if (!sort.column) return rows;
+    const { column, direction } = sort;
+    const factor = direction === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const va = getValue(a, column);
+      const vb = getValue(b, column);
+      if (typeof va === 'string' || typeof vb === 'string') {
+        return String(va).localeCompare(String(vb), 'pt-BR') * factor;
+      }
+      return (va - vb) * factor;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, sort.column, sort.direction]);
+
+  return { sorted, sort, toggleSort };
+}
+
+function SortIcon({ active, direction }: { active: boolean; direction: SortDirection }) {
+  if (!active) return <ArrowUpDown size={12} className="mt5-sort-icon is-inactive" />;
+  return direction === 'asc' ? <ArrowUp size={12} className="mt5-sort-icon" /> : <ArrowDown size={12} className="mt5-sort-icon" />;
+}
+
+/** <th> clicável com seta de ordenação — mesmo padrão nas 3 tabelas. */
+function SortableHeader<K extends string>({
+  label,
+  column,
+  sort,
+  onSort,
+}: {
+  label: string;
+  column: K;
+  sort: SortState<K>;
+  onSort: (column: K) => void;
+}) {
+  const active = sort.column === column;
+  return (
+    <th>
+      <button type="button" className="mt5-sort-button" onClick={() => onSort(column)} aria-label={`Ordenar por ${label}`}>
+        {label}
+        <SortIcon active={active} direction={sort.direction} />
+      </button>
+    </th>
+  );
 }
 
 export function Mt5AccountView() {
@@ -31,6 +99,11 @@ export function Mt5AccountView() {
     dealsLoading,
     error,
     liveError,
+    searchSymbol,
+    searchDate,
+    setSearchSymbol,
+    setSearchDate,
+    applySearch,
     refresh,
     refreshPositions,
     refreshOrders,
@@ -157,11 +230,71 @@ export function Mt5AccountView() {
         </div>
       ) : null}
 
+      <GlobalSearchBar
+        symbol={searchSymbol}
+        date={searchDate}
+        onSymbolChange={setSearchSymbol}
+        onDateChange={setSearchDate}
+        onSearch={applySearch}
+      />
+
       <PositionsTable positions={positions} loading={positionsLoading} onRefresh={refreshPositions} />
       <OrdersTable orders={orders} loading={ordersLoading} onRefresh={refreshOrders} />
       <DealsTable deals={deals} loading={dealsLoading} onRefresh={refreshDeals} />
 
       <Mt5AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} account={account} onSave={save} />
+    </div>
+  );
+}
+
+/** Busca global: ativo (filtra Posições/Ordens/Histórico no backend) + data
+ * (filtra só o Histórico). Dispara na confirmação (Enter/botão), nunca a cada
+ * tecla — são 3 requisições HTTP reais contra o terminal MT5, não um filtro
+ * em memória como o de cada tabela abaixo. */
+function GlobalSearchBar({
+  symbol,
+  date,
+  onSymbolChange,
+  onDateChange,
+  onSearch,
+}: {
+  symbol: string;
+  date: string;
+  onSymbolChange: (v: string) => void;
+  onDateChange: (v: string) => void;
+  onSearch: () => void;
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') onSearch();
+  };
+
+  return (
+    <div className="mt5-global-search">
+      <div className="search-input-wrapper mt5-global-search-symbol">
+        <Search size={14} className="search-icon" />
+        <input
+          type="search"
+          className="search-input"
+          value={symbol}
+          onChange={(e) => onSymbolChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Buscar ativo (ex.: PETR4)"
+          aria-label="Buscar ativo"
+        />
+      </div>
+      <label className="mt5-global-search-date">
+        <span className="table-cell-muted">Período</span>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => onDateChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          aria-label="Período (data do histórico)"
+        />
+      </label>
+      <button type="button" className="btn btn-secondary" onClick={onSearch}>
+        Buscar
+      </button>
     </div>
   );
 }
@@ -221,6 +354,8 @@ function TableFilterToolbar({
   );
 }
 
+type PositionColumn = 'symbol' | 'type' | 'volume' | 'priceOpen' | 'priceCurrent' | 'profit';
+
 function PositionsTable({
   positions,
   loading,
@@ -237,6 +372,8 @@ function PositionsTable({
     return positions.filter((p) => p.symbol?.toUpperCase().includes(term));
   }, [positions, query]);
 
+  const { sorted, sort, toggleSort } = useColumnSort<Mt5Position, PositionColumn>(filtered, (p, col) => p[col] ?? '');
+
   return (
     <>
       <div className="hpanel-table-card desktop-table-view">
@@ -252,12 +389,12 @@ function PositionsTable({
         <table className="hpanel-table">
           <thead>
             <tr>
-              <th>Ativo</th>
-              <th>Lado</th>
-              <th>Volume</th>
-              <th>Preço de abertura</th>
-              <th>Preço atual</th>
-              <th>Resultado</th>
+              <SortableHeader label="Ativo" column="symbol" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Lado" column="type" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Volume" column="volume" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Preço de abertura" column="priceOpen" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Preço atual" column="priceCurrent" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Resultado" column="profit" sort={sort} onSort={toggleSort} />
             </tr>
           </thead>
           <tbody>
@@ -277,7 +414,7 @@ function PositionsTable({
                 </td>
               </tr>
             ) : (
-              filtered.map((p, i) => (
+              sorted.map((p, i) => (
                 <tr key={`${p.symbol}-${i}`}>
                   <td>
                     <div className="table-cell-title">
@@ -306,7 +443,7 @@ function PositionsTable({
         ) : filtered.length === 0 ? (
           <div className="mobile-loading-card">Nenhum ativo corresponde a "{query}".</div>
         ) : (
-          filtered.map((p, i) => (
+          sorted.map((p, i) => (
             <div key={`${p.symbol}-${i}`} className="mobile-domain-card">
               <div className="mobile-card-top">
                 <div className="mobile-card-identity">
@@ -332,6 +469,8 @@ function PositionsTable({
   );
 }
 
+type OrderColumn = 'symbol' | 'type' | 'volume' | 'priceOpen' | 'sl' | 'tp';
+
 function OrdersTable({
   orders,
   loading,
@@ -348,6 +487,8 @@ function OrdersTable({
     return orders.filter((o) => o.symbol?.toUpperCase().includes(term));
   }, [orders, query]);
 
+  const { sorted, sort, toggleSort } = useColumnSort<Mt5Order, OrderColumn>(filtered, (o, col) => o[col] ?? '');
+
   return (
     <>
       <div className="hpanel-table-card desktop-table-view">
@@ -363,12 +504,12 @@ function OrdersTable({
         <table className="hpanel-table">
           <thead>
             <tr>
-              <th>Ativo</th>
-              <th>Lado</th>
-              <th>Volume</th>
-              <th>Preço</th>
-              <th>Stop</th>
-              <th>Alvo</th>
+              <SortableHeader label="Ativo" column="symbol" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Lado" column="type" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Volume" column="volume" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Preço" column="priceOpen" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Stop" column="sl" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Alvo" column="tp" sort={sort} onSort={toggleSort} />
             </tr>
           </thead>
           <tbody>
@@ -385,7 +526,7 @@ function OrdersTable({
                 </td>
               </tr>
             ) : (
-              filtered.map((o, i) => (
+              sorted.map((o, i) => (
                 <tr key={`${o.symbol}-${i}`}>
                   <td>
                     <div className="table-cell-title">
@@ -410,7 +551,7 @@ function OrdersTable({
         ) : filtered.length === 0 ? (
           <div className="mobile-loading-card">Nenhum ativo corresponde a "{query}".</div>
         ) : (
-          filtered.map((o, i) => (
+          sorted.map((o, i) => (
             <div key={`${o.symbol}-${i}`} className="mobile-domain-card">
               <div className="mobile-card-top">
                 <div className="mobile-card-identity">
@@ -432,6 +573,8 @@ function OrdersTable({
   );
 }
 
+type DealColumn = 'timeEpoch' | 'symbol' | 'type' | 'volume' | 'price' | 'profit';
+
 function DealsTable({
   deals,
   loading,
@@ -448,6 +591,8 @@ function DealsTable({
     return deals.filter((d) => d.symbol?.toUpperCase().includes(term));
   }, [deals, query]);
 
+  const { sorted, sort, toggleSort } = useColumnSort<Mt5Deal, DealColumn>(filtered, (d, col) => d[col] ?? '');
+
   return (
     <>
       <div className="hpanel-table-card desktop-table-view">
@@ -463,12 +608,12 @@ function DealsTable({
         <table className="hpanel-table">
           <thead>
             <tr>
-              <th>Data</th>
-              <th>Ativo</th>
-              <th>Lado</th>
-              <th>Volume</th>
-              <th>Preço</th>
-              <th>Resultado</th>
+              <SortableHeader label="Data" column="timeEpoch" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Ativo" column="symbol" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Lado" column="type" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Volume" column="volume" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Preço" column="price" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Resultado" column="profit" sort={sort} onSort={toggleSort} />
             </tr>
           </thead>
           <tbody>
@@ -485,7 +630,7 @@ function DealsTable({
                 </td>
               </tr>
             ) : (
-              filtered.map((d, i) => (
+              sorted.map((d, i) => (
                 <tr key={`${d.symbol}-${i}`}>
                   <td>{new Date(d.time).toLocaleString('pt-BR')}</td>
                   <td>
@@ -514,7 +659,7 @@ function DealsTable({
         ) : filtered.length === 0 ? (
           <div className="mobile-loading-card">Nenhum ativo corresponde a "{query}".</div>
         ) : (
-          filtered.map((d, i) => (
+          sorted.map((d, i) => (
             <div key={`${d.symbol}-${i}`} className="mobile-domain-card">
               <div className="mobile-card-top">
                 <div className="mobile-card-identity">

@@ -17,6 +17,22 @@ import {
 
 type SectionError = { code?: string; message: string } | null;
 
+// Brasil não observa horário de verão desde 2019 — offset de São Paulo é fixo.
+const SAO_PAULO_OFFSET = '-03:00';
+
+/** "2026-10-05" -> "2026-10-05T00:00:00-03:00" / "...T23:59:59-03:00". */
+function dayBoundsToRfc3339(day: string): { desde: string; ate: string } {
+  return {
+    desde: `${day}T00:00:00${SAO_PAULO_OFFSET}`,
+    ate: `${day}T23:59:59${SAO_PAULO_OFFSET}`,
+  };
+}
+
+export function todayInSaoPaulo(): string {
+  // en-CA formata como YYYY-MM-DD, direto no formato do <input type="date">.
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 export interface Mt5AccountState {
   account: Mt5Account | null;
   hasAccount: boolean;
@@ -32,6 +48,13 @@ export interface Mt5AccountState {
   dealsLoading: boolean;
   error: SectionError;
   liveError: SectionError;
+  /** Busca global: ativo (filtra as 3 tabelas no backend) e data (filtra só o Histórico). */
+  searchSymbol: string;
+  searchDate: string;
+  setSearchSymbol: (v: string) => void;
+  setSearchDate: (v: string) => void;
+  /** Aplica searchSymbol/searchDate atuais — dispara as 3 chamadas de novo. */
+  applySearch: () => void;
   refresh: () => void;
   refreshInfo: () => void;
   refreshPositions: () => void;
@@ -60,6 +83,15 @@ export function useMt5Account(): Mt5AccountState {
   const [dealsLoading, setDealsLoading] = useState(false);
   const [error, setError] = useState<SectionError>(null);
   const [liveError, setLiveError] = useState<SectionError>(null);
+
+  // searchSymbol/searchDate são o valor DIGITADO (controla os inputs);
+  // appliedSymbol/appliedDate (ref) são o valor da ÚLTIMA busca confirmada —
+  // load* sempre lê a ref, nunca o state, para não disparar refetch a cada
+  // tecla (busca só roda no Enter/botão "Buscar", ver applySearch).
+  const [searchSymbol, setSearchSymbol] = useState('');
+  const [searchDate, setSearchDate] = useState(() => todayInSaoPaulo());
+  const appliedSymbol = useRef('');
+  const appliedDate = useRef(searchDate);
 
   // Um AbortController por seção: cada tabela tem seu próprio ciclo de
   // carregamento, então cancelar uma (nova chamada sobrepondo a anterior) não
@@ -95,7 +127,7 @@ export function useMt5Account(): Mt5AccountState {
     const ctrl = new AbortController();
     positionsCtrl.current = ctrl;
     setPositionsLoading(true);
-    listMt5Positions(ctrl.signal)
+    listMt5Positions(appliedSymbol.current || undefined, ctrl.signal)
       .then((v) => {
         if (ctrl.signal.aborted) return;
         setPositions(v);
@@ -115,7 +147,7 @@ export function useMt5Account(): Mt5AccountState {
     const ctrl = new AbortController();
     ordersCtrl.current = ctrl;
     setOrdersLoading(true);
-    listMt5Orders(ctrl.signal)
+    listMt5Orders(appliedSymbol.current || undefined, ctrl.signal)
       .then((v) => {
         if (ctrl.signal.aborted) return;
         setOrders(v);
@@ -135,10 +167,14 @@ export function useMt5Account(): Mt5AccountState {
     const ctrl = new AbortController();
     dealsCtrl.current = ctrl;
     setDealsLoading(true);
-    listMt5HistoryDeals(ctrl.signal)
+    const { desde, ate } = dayBoundsToRfc3339(appliedDate.current);
+    listMt5HistoryDeals(desde, ate, ctrl.signal)
       .then((v) => {
         if (ctrl.signal.aborted) return;
-        setDeals(v);
+        // Ativo no histórico é client-side (gateway não suporta ?symbol= em
+        // /history/deals) — filtra aqui sobre o resultado já restrito por data.
+        const symbol = appliedSymbol.current.trim().toUpperCase();
+        setDeals(symbol ? v.filter((d) => d.symbol?.toUpperCase().includes(symbol)) : v);
       })
       .catch(() => {
         if (ctrl.signal.aborted) return;
@@ -149,6 +185,14 @@ export function useMt5Account(): Mt5AccountState {
         setDealsLoading(false);
       });
   }, []);
+
+  const applySearch = useCallback(() => {
+    appliedSymbol.current = searchSymbol.trim();
+    appliedDate.current = searchDate;
+    loadPositions();
+    loadOrders();
+    loadDeals();
+  }, [searchSymbol, searchDate, loadPositions, loadOrders, loadDeals]);
 
   // "Atualizar tudo": dispara as 4 seções em paralelo, sem esperar umas pelas
   // outras — cada tabela atualiza assim que a sua própria chamada volta, em
@@ -225,6 +269,11 @@ export function useMt5Account(): Mt5AccountState {
     dealsLoading,
     error,
     liveError,
+    searchSymbol,
+    searchDate,
+    setSearchSymbol,
+    setSearchDate,
+    applySearch,
     refresh: load,
     refreshInfo: loadInfo,
     refreshPositions: loadPositions,
