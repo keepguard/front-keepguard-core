@@ -16,8 +16,28 @@ function sideLabel(type: number | undefined): string {
 }
 
 export function Mt5AccountView() {
-  const { account, hasAccount, info, positions, orders, deals, loading, refreshing, error, liveError, refresh, save, remove } =
-    useMt5Account();
+  const {
+    account,
+    hasAccount,
+    info,
+    positions,
+    orders,
+    deals,
+    loading,
+    refreshing,
+    infoLoading,
+    positionsLoading,
+    ordersLoading,
+    dealsLoading,
+    error,
+    liveError,
+    refresh,
+    refreshPositions,
+    refreshOrders,
+    refreshDeals,
+    save,
+    remove,
+  } = useMt5Account();
   const [formOpen, setFormOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
 
@@ -137,9 +157,9 @@ export function Mt5AccountView() {
         </div>
       ) : null}
 
-      <PositionsTable positions={positions} />
-      <OrdersTable orders={orders} />
-      <DealsTable deals={deals} />
+      <PositionsTable positions={positions} loading={positionsLoading} onRefresh={refreshPositions} />
+      <OrdersTable orders={orders} loading={ordersLoading} onRefresh={refreshOrders} />
+      <DealsTable deals={deals} loading={dealsLoading} onRefresh={refreshDeals} />
 
       <Mt5AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} account={account} onSave={save} />
     </div>
@@ -154,12 +174,16 @@ function TableFilterToolbar({
   onQueryChange,
   placeholder,
   count,
+  loading,
+  onRefresh,
 }: {
   title: string;
   query: string;
   onQueryChange: (v: string) => void;
   placeholder: string;
   count: number;
+  loading?: boolean;
+  onRefresh?: () => void;
 }) {
   return (
     <div className="mt5-table-header">
@@ -181,11 +205,31 @@ function TableFilterToolbar({
         ) : null}
       </div>
       {count > 0 ? <span className="mt5-table-count">{count}</span> : null}
+      {onRefresh ? (
+        <button
+          type="button"
+          className="btn-table-icon"
+          onClick={onRefresh}
+          disabled={loading}
+          title={`Atualizar ${title.toLowerCase()}`}
+          aria-label={`Atualizar ${title.toLowerCase()}`}
+        >
+          <RefreshCw size={14} className={loading ? 'spin' : undefined} />
+        </button>
+      ) : null}
     </div>
   );
 }
 
-function PositionsTable({ positions }: { positions: Mt5Position[] }) {
+function PositionsTable({
+  positions,
+  loading,
+  onRefresh,
+}: {
+  positions: Mt5Position[];
+  loading?: boolean;
+  onRefresh?: () => void;
+}) {
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
     const term = query.trim().toUpperCase();
@@ -202,6 +246,8 @@ function PositionsTable({ positions }: { positions: Mt5Position[] }) {
           onQueryChange={setQuery}
           placeholder="Filtrar por ativo"
           count={positions.length}
+          loading={loading}
+          onRefresh={onRefresh}
         />
         <table className="hpanel-table">
           <thead>
@@ -286,7 +332,15 @@ function PositionsTable({ positions }: { positions: Mt5Position[] }) {
   );
 }
 
-function OrdersTable({ orders }: { orders: Mt5Order[] }) {
+function OrdersTable({
+  orders,
+  loading,
+  onRefresh,
+}: {
+  orders: Mt5Order[];
+  loading?: boolean;
+  onRefresh?: () => void;
+}) {
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
     const term = query.trim().toUpperCase();
@@ -303,6 +357,8 @@ function OrdersTable({ orders }: { orders: Mt5Order[] }) {
           onQueryChange={setQuery}
           placeholder="Filtrar por ativo"
           count={orders.length}
+          loading={loading}
+          onRefresh={onRefresh}
         />
         <table className="hpanel-table">
           <thead>
@@ -376,7 +432,15 @@ function OrdersTable({ orders }: { orders: Mt5Order[] }) {
   );
 }
 
-function DealsTable({ deals }: { deals: Mt5Deal[] }) {
+function DealsTable({
+  deals,
+  loading,
+  onRefresh,
+}: {
+  deals: Mt5Deal[];
+  loading?: boolean;
+  onRefresh?: () => void;
+}) {
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
     const term = query.trim().toUpperCase();
@@ -393,6 +457,8 @@ function DealsTable({ deals }: { deals: Mt5Deal[] }) {
           onQueryChange={setQuery}
           placeholder="Filtrar por ativo"
           count={deals.length}
+          loading={loading}
+          onRefresh={onRefresh}
         />
         <table className="hpanel-table">
           <thead>
