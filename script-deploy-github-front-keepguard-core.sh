@@ -113,7 +113,7 @@ echo
 if [ "$DEPLOY_DOCKER" = true ]; then
     log_step "Construindo imagem localmente para o Docker Compose..."
     if command -v docker >/dev/null 2>&1; then
-        DOCKER_BUILDKIT=1 docker build --platform linux/amd64 --build-arg BUILD_MODE=docker -f Dockerfile -t "${REGISTRY}/${SERVICE_NAME}:local" .
+        DOCKER_BUILDKIT=1 docker build --build-arg BUILD_MODE=docker -f Dockerfile -t "${REGISTRY}/${SERVICE_NAME}:local" .
         if [ -d "${DOCKER_COMPOSE_DIR}" ] && [ -f "${DOCKER_COMPOSE_FILE}" ]; then
             cd "${DOCKER_COMPOSE_DIR}"
             docker compose up -d --force-recreate "${SERVICE_NAME}" || true
