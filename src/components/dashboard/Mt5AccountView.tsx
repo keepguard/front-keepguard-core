@@ -4,7 +4,6 @@ import { useMt5Account } from '../../hooks/useMt5Account';
 import { Mt5AccountFormModal } from './Mt5AccountFormModal';
 import type { Mt5Deal, Mt5Order, Mt5Position } from '../../services/mt5AccountService';
 import { aggregatePositions, custodyBreakdown, type CustodyPosition } from '../../utils/mt5Custody';
-import { ManualHistoryExport } from './ManualHistoryExport';
 
 function formatMoney(v: number | undefined | null, currency = 'BRL'): string {
   if (typeof v !== 'number' || Number.isNaN(v)) return '—';
@@ -157,7 +156,6 @@ export function Mt5AccountView() {
             Vincular corretora
           </button>
         </div>
-        <ManualHistoryExport />
         <Mt5AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} account={null} onSave={save} />
       </div>
     );
@@ -245,8 +243,6 @@ export function Mt5AccountView() {
       <PositionsTable positions={positions} loading={positionsLoading} onRefresh={refreshPositions} />
       <OrdersTable orders={orders} loading={ordersLoading} onRefresh={refreshOrders} />
       <DealsTable deals={deals} loading={dealsLoading} onRefresh={refreshDeals} />
-
-      <ManualHistoryExport />
 
       <Mt5AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} account={account} onSave={save} />
     </div>
