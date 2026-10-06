@@ -30,7 +30,7 @@ const GROUPS: { title: string; fields: NumField[] }[] = [
   {
     title: 'Capital',
     fields: [
-      { path: 'capital.capitalTrade', label: 'Capital de trade', unit: 'brl', step: 100, kind: 'max', help: 'Quanto o motor pode usar. O resto da conta não é tocado.' },
+      { path: 'capital.capitalTrade', label: 'Capital de trade', unit: 'brl', step: 100, kind: 'info', help: 'Quanto o motor pode usar. O resto da conta não é tocado.' },
       { path: 'capital.maxPctInvestido', label: 'Investido máximo', unit: 'pct', step: 1, kind: 'max', help: 'Quanto do capital pode estar em posições + ordens ao mesmo tempo.' },
       { path: 'capital.reservaMinima', label: 'Reserva mínima', unit: 'brl', step: 100, kind: 'min', help: 'Quanto nunca é usado, aconteça o que acontecer.' },
     ],
