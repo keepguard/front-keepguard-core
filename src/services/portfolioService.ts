@@ -108,37 +108,3 @@ export function deletePortfolioTransaction(id: string): Promise<PortfolioPositio
     getAccessToken() || undefined,
   );
 }
-
-/** UM ticker da carteira cujo Disparo/Limite mudou desde a última vez que o sistema
- * mostrou pro usuário — ver aba "Precisa ajustar" do Trade Day. */
-export interface PortfolioStopChange {
-  ticker: string;
-  direcao: string;
-  stop: number;
-  stopLimite: number;
-  /** Ausente quando primeiraVez=true (nunca houve um valor anterior pra comparar). */
-  stopAnterior?: number;
-  primeiraVez: boolean;
-}
-
-/** Compara o Stop/Limite atual de cada ticker da carteira contra o último valor visto —
- * devolve só quem mudou. Resultado cacheado no backend por ~90s (ver PortfolioStopCache),
- * então chamar de novo logo em seguida pode repetir o mesmo resultado. */
-export function getPortfolioStopChanges(signal?: AbortSignal): Promise<PortfolioStopChange[]> {
-  return customFetch<{ items: PortfolioStopChange[] }>(
-    `${PORTFOLIO_BASE}/stop-changes`,
-    { method: 'GET', signal },
-    getAccessToken() || undefined,
-  ).then((resp) => resp.items);
-}
-
-/** Confirma "já ajustei esse stop na corretora" — tira o ticker da lista de pendentes na
- * hora (sem esperar o cache expirar). O valor já está salvo no backend desde a última
- * leitura de getPortfolioStopChanges; isso é só feedback de UI, não há o que desfazer. */
-export function confirmPortfolioStopChange(ticker: string): Promise<void> {
-  return customFetch<void>(
-    `${PORTFOLIO_BASE}/stop-changes/${encodeURIComponent(ticker)}/confirm`,
-    { method: 'POST' },
-    getAccessToken() || undefined,
-  );
-}

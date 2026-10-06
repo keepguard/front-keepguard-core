@@ -15,7 +15,7 @@
   - `src/pages/` — páginas finas (`AuthPage`, `DashboardPage` exportando páginas por domínio).
   - `src/navigation/` — layout autenticado (`AppLayout`), rotas (`AppRoutes`), guardas (`RequireAccess`), constantes `PATHS`/`ROUTES`.
   - `src/components/` — UI por domínio: `auth/`, `register/`, `layout/` (Header/Sidebar), `dashboard/` (maior superfície), `common/`, `templates/`.
-  - `src/services/` — fachadas HTTP por domínio (`authService`, `billingService`, `analystService`, `agentService`, `guardianService`, `knowledgeService`, `llmGatewayService`, `oauthClientService`, `consentService`, `termsSyncService`, `auditService`, etc.) + `api.ts` / `tokenStore.ts`.
+  - `src/services/` — fachadas HTTP por domínio (`authService`, `billingService`, `analystService`, `agentService`, `guardianService`, `knowledgeService`, `llmGatewayService`, `oauthClientService`, `consentService`, `termsSyncService`, `auditService`, `agentOrdersService`, etc.) + `api.ts` / `tokenStore.ts`.
   - `src/context/` — estado global de sessão, tema e toasts.
   - `src/types/`, `src/utils/` (roles/RBAC, device, list query), `src/hooks/`, `src/data/` (catálogos estáticos).
 - **Gerenciamento de Estado:**
@@ -29,6 +29,7 @@
   - Modo Docker: URLs relativas `/bff-auth`, `/bff-core`, `/bff-invest` (nginx faz proxy same-origin).
   - Dev Vite: proxies `/bff-*-proxy` → localhost 8381–8383.
   - `customFetch` injeta headers: `Authorization: Bearer`, `X-Tenant-Id`, `X-Client-Id` (`keepguard-web`), `X-Correlation-ID`, device/session (`X-Device-*`, `X-Session-Id`), IP público; `credentials: 'include'`; em invest também `X-Company-Id`.
+  - **Agent Ordens** (Trade › sub-aba `?subtab=agente`, `components/dashboard/agent/`): `agentOrdersService` consome `bff-invest` `/api/v1/invest/trade/agent/*` (proxy do `ms-mt5-operations`, contrato em `docs/specs/SPEC-002-contrato-api.md`). Confirm envia `Idempotency-Key: "{id}:{versao}"`; PUT settings envia `If-Match: <version>`; erros 409/410/423/403/422 viram mensagem PT-BR (`AgentApiError`). Auto-refresh 15s só nessa aba. A antiga aba "Precisa ajustar" (`/trade/portfolio/stop-changes`) foi removida.
 - **Autenticação:**
   - Login/refresh/logout/validate e device challenge via BFF Auth (`/api/v1/auth/*`).
   - Tokens: **RN-FE-01** — nunca persistir JWT em `localStorage`; memória + `sessionStorage` (sobrevive F5 na aba); bootstrap silencioso pode usar cookie HttpOnly via refresh.

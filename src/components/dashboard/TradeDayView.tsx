@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, TriangleAlert, Wallet, X } from 'lucide-react';
+import { Search, Wallet, X } from 'lucide-react';
 import { PATHS } from '../../navigation/routes';
 import { useTradeDay, type TradeDayRow } from '../../hooks/useTradeDay';
 import { usePortfolioPositions } from '../../hooks/usePortfolioPositions';
-import { usePortfolioStopChanges } from '../../hooks/usePortfolioStopChanges';
-import { confirmPortfolioStopChange, type PortfolioStopChange } from '../../services/portfolioService';
+import { useAgentProposals } from '../../hooks/useAgentProposals';
+import type { AgentConta } from '../../services/agentOrdersService';
 import { AutoRefreshButton } from '../common/AutoRefreshButton';
 import { Tooltip } from '../common/Tooltip';
 import { TradeDayTable } from './TradeDayTable';
+import { AgentOrdersPanel } from './agent/AgentOrdersPanel';
 import { ageLabel, formatMoney } from './dossierFormat';
 import type { TradeMarketState } from '../../services/tradeService';
 
@@ -22,9 +23,17 @@ const SEARCH_DEBOUNCE_MS = 350;
 // Trade Day sempre atualiza sozinho — o Stop/Limite muda com o preço ao vivo durante o
 // pregão, não pode depender do usuário lembrar de ligar auto-refresh (ver AutoRefreshButton).
 const TRADE_DAY_AUTO_REFRESH_SECONDS = 60;
+// Agent Ordens: a tabela vive no Redis do ms-mt5-operations e é barata — 15s só nessa aba
+// (SPEC-002 §9). Nas outras abas os contadores do título seguem os 60s do Trade Day.
+const AGENT_AUTO_REFRESH_SECONDS = 15;
 
-type SubTab = 'geral' | 'compra' | 'venda' | 'carteira' | 'ajustar';
-const SUB_TABS: readonly SubTab[] = ['geral', 'compra', 'venda', 'carteira', 'ajustar'];
+// 'ajustar' (antiga "Precisa ajustar") foi substituída por 'agente'; o valor antigo na URL cai em 'geral'.
+type SubTab = 'geral' | 'compra' | 'venda' | 'carteira' | 'agente';
+const SUB_TABS: readonly SubTab[] = ['geral', 'compra', 'venda', 'carteira', 'agente'];
+
+function contaFromSearch(conta: string | null): AgentConta {
+  return conta === 'REAL' ? 'REAL' : 'DEMO';
+}
 
 function subTabFromSearch(subtab: string | null): SubTab {
   return subtab && (SUB_TABS as readonly string[]).includes(subtab) ? (subtab as SubTab) : 'geral';
@@ -51,6 +60,15 @@ export function TradeDayView() {
       return next;
     }, { replace: true });
   };
+  const conta = contaFromSearch(searchParams.get('conta'));
+  const setConta = (c: AgentConta) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (c === 'DEMO') next.delete('conta');
+      else next.set('conta', c);
+      return next;
+    }, { replace: true });
+  };
   // Filtro da aba Carteira é local (client-side): a carteira pode ter ticker fora do
   // universo do plano de Trade, então não reusa o `query` que filtra no backend.
   const [carteiraQuery, setCarteiraQuery] = useState('');
@@ -63,7 +81,8 @@ export function TradeDayView() {
   const { rows, market, asOf, total, loading, refreshing, snapshotError, opportunityError, refresh } =
     useTradeDay(debouncedQuery || undefined);
   const { data: positions, loading: portfolioLoading, refresh: refreshPortfolio } = usePortfolioPositions();
-  const { data: stopChanges, loading: stopChangesLoading, refresh: refreshStopChanges, removeLocal: removeStopChangeLocal } = usePortfolioStopChanges();
+  const agent = useAgentProposals(conta);
+  const agentCounts = agent.data?.contadores ?? null;
   const nowSec = useNowSeconds();
   const limparFiltro = () => setQuery('');
 
@@ -116,6 +135,8 @@ export function TradeDayView() {
   return (
     <div className="trade-view trade-day-view">
       <div className="table-toolbar">
+        {/* Busca de ticker filtra o Trade Day no backend — não se aplica ao Agent Ordens. */}
+        {subTab !== 'agente' ? (
         <div className="search-input-wrapper">
           <Search size={16} className="search-icon" />
           <input
@@ -132,6 +153,7 @@ export function TradeDayView() {
             </button>
           ) : null}
         </div>
+        ) : null}
 
         {state ? <span className={`trade-chip is-${state.toLowerCase()}`}>{STATE_LABEL[state]}</span> : null}
         {asOf ? (
@@ -141,25 +163,36 @@ export function TradeDayView() {
         ) : null}
 
         <div className="table-toolbar-push-end">
-          <AutoRefreshButton
-            onRefresh={() => {
-              refresh();
-              refreshPortfolio();
-              refreshStopChanges();
-            }}
-            intervalSeconds={TRADE_DAY_AUTO_REFRESH_SECONDS}
-            disabled={loading}
-            refreshing={refreshing}
-          />
+          {subTab === 'agente' ? (
+            <AutoRefreshButton
+              key="agente"
+              onRefresh={agent.refresh}
+              intervalSeconds={AGENT_AUTO_REFRESH_SECONDS}
+              disabled={agent.loading}
+              refreshing={agent.refreshing}
+            />
+          ) : (
+            <AutoRefreshButton
+              key="trade"
+              onRefresh={() => {
+                refresh();
+                refreshPortfolio();
+                agent.refresh();
+              }}
+              intervalSeconds={TRADE_DAY_AUTO_REFRESH_SECONDS}
+              disabled={loading}
+              refreshing={refreshing}
+            />
+          )}
         </div>
       </div>
 
-      {opportunityError ? (
+      {opportunityError && subTab !== 'agente' ? (
         <p className="trade-note is-warn" role="alert">
           Não foi possível carregar as oportunidades agora ({opportunityError}); os preços e candles continuam atualizados.
         </p>
       ) : null}
-      {missingTickers.length > 0 ? (
+      {missingTickers.length > 0 && subTab !== 'agente' ? (
         <p className="trade-note">
           <Tooltip label={missingTickers.join(', ')} description="Ainda sem cotação coletada">
             <button type="button" className="trade-note-trigger">
@@ -211,13 +244,28 @@ export function TradeDayView() {
         <button
           type="button"
           role="tab"
-          aria-selected={subTab === 'ajustar'}
-          className={`llm-panel-tab${subTab === 'ajustar' ? ' is-active' : ''}`}
-          onClick={() => setSubTab('ajustar')}
+          aria-selected={subTab === 'agente'}
+          className={`llm-panel-tab${subTab === 'agente' ? ' is-active' : ''}`}
+          onClick={() => setSubTab('agente')}
         >
-          Precisa ajustar
-          {stopChanges && stopChanges.length > 0 ? (
-            <span className="trade-day-tab-count is-alert">{stopChanges.length}</span>
+          Agent Ordens
+          {agentCounts ? (
+            <>
+              <span className="trade-day-tab-count is-buy" title="Compra">
+                {agentCounts.COMPRA ?? 0}<span className="sr-only"> de compra</span>
+              </span>
+              <span className="trade-day-tab-count is-sell" title="Venda">
+                {agentCounts.VENDA ?? 0}<span className="sr-only"> de venda</span>
+              </span>
+              <span className="trade-day-tab-count is-stop" title="Stop">
+                {agentCounts.STOP ?? 0}<span className="sr-only"> de stop</span>
+              </span>
+              {(agentCounts.EMERGENCIA ?? 0) > 0 ? (
+                <span className="trade-day-tab-count is-emergency" title="Emergência">
+                  {agentCounts.EMERGENCIA}<span className="sr-only"> de emergência</span>
+                </span>
+              ) : null}
+            </>
           ) : null}
         </button>
       </div>
@@ -247,16 +295,7 @@ export function TradeDayView() {
             <strong className="portfolio-pl-negative">{carteiraComVenda}</strong>
           </div>
         </div>
-      ) : (
-        <div className="portfolio-summary-row trade-day-summary-row">
-          <div className="portfolio-summary-card">
-            <span className="table-cell-muted">Precisam de ajuste na corretora</span>
-            <strong className={stopChanges && stopChanges.length > 0 ? 'portfolio-pl-negative' : undefined}>
-              {stopChanges?.length ?? 0}
-            </strong>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {subTab === 'carteira' ? (
         <div className="search-input-wrapper trade-day-carteira-search">
@@ -291,8 +330,8 @@ export function TradeDayView() {
             emptyMessage={`Nenhum ativo da carteira corresponde a "${carteiraQuery}".`}
           />
         )
-      ) : subTab === 'ajustar' ? (
-        <PortfolioStopChangesPanel loading={stopChangesLoading} items={stopChanges} onConfirmed={removeStopChangeLocal} />
+      ) : subTab === 'agente' ? (
+        <AgentOrdersPanel conta={conta} onContaChange={setConta} state={agent} />
       ) : (
         <TradeDayTable
           rows={subTab === 'geral' ? rows : subTab === 'compra' ? compraRows : vendaRows}
@@ -319,116 +358,6 @@ interface CarteiraRow {
  * Trade Day do mesmo ticker — é o que responde "tenho que comprar mais" (sinal de compra
  * num ticker que já tenho) ou "tenho que vender algo que tenho" (sinal de venda).
  */
-/**
- * Painel da aba "Precisa ajustar" — tickers da carteira cujo Disparo/Limite mudou desde a
- * última vez que o sistema mostrou (ver usePortfolioStopChanges). Mostra o novo valor e,
- * quando houver, o anterior, no mesmo formato Disparo/Limite usado no resto do Trade Day —
- * pra o usuário já saber exatamente o que reprogramar na corretora, sem calcular nada.
- * Botão "Confirmar ajuste" tira o item da lista assim que o usuário já reprogramou a ordem
- * na corretora — o valor já estava salvo no backend, isso é só feedback (ver
- * confirmPortfolioStopChange).
- */
-function PortfolioStopChangesPanel({ loading, items, onConfirmed }: { loading: boolean; items: PortfolioStopChange[] | null; onConfirmed: (ticker: string) => void }) {
-  const [confirming, setConfirming] = useState<string | null>(null);
-
-  const handleConfirm = (ticker: string) => {
-    setConfirming(ticker);
-    confirmPortfolioStopChange(ticker)
-      .then(() => onConfirmed(ticker))
-      .catch(() => { /* erro de rede: item continua na lista, usuário pode tentar de novo */ })
-      .finally(() => setConfirming(null));
-  };
-
-  if (loading && items === null) {
-    return <div className="hpanel-table-card desktop-table-view"><div className="portfolio-skeleton" /></div>;
-  }
-  if (!items || items.length === 0) {
-    return (
-      <div className="trade-state">
-        <p>Nenhum ajuste pendente — os stops da sua carteira continuam nos valores que você já viu.</p>
-      </div>
-    );
-  }
-  return (
-    <>
-      <div className="hpanel-table-card desktop-table-view">
-        <table className="hpanel-table">
-          <thead>
-            <tr>
-              <th>Ticker</th>
-              <th>Lado da proteção</th>
-              <th>Novo Disparo</th>
-              <th>Novo Limite</th>
-              <th>Disparo anterior</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.ticker}>
-                <td>
-                  <div className="table-cell-title">
-                    <Link to={`${PATHS.market}?ticker=${encodeURIComponent(item.ticker)}`}>{item.ticker}</Link>
-                  </div>
-                </td>
-                <td>{item.direcao === 'compra' ? 'Venda' : 'Compra'}</td>
-                <td><strong>{formatMoney(item.stop)}</strong></td>
-                <td><strong>{formatMoney(item.stopLimite)}</strong></td>
-                <td className="table-cell-muted">
-                  {item.primeiraVez ? 'Primeira vez' : formatMoney(item.stopAnterior ?? 0)}
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    disabled={confirming === item.ticker}
-                    onClick={() => handleConfirm(item.ticker)}
-                  >
-                    {confirming === item.ticker ? 'Confirmando…' : 'Confirmar ajuste'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mobile-cards-container">
-        {items.map((item) => (
-          <div key={item.ticker} className="mobile-domain-card">
-            <div className="mobile-card-top">
-              <div className="mobile-card-identity">
-                <TriangleAlert size={15} className="trade-day-stop-alert-icon" />
-                <span className="mobile-domain-name">{item.ticker}</span>
-              </div>
-            </div>
-            <div className="mobile-card-subinfo">
-              {item.direcao === 'compra' ? 'Venda' : 'Compra'} de proteção
-            </div>
-            <div className="mobile-card-meta">
-              <span className="trade-day-stop-values">
-                <span className="trade-day-stop-linha">Disparo <strong>{formatMoney(item.stop)}</strong></span>
-                <span className="trade-day-stop-linha table-cell-muted">Limite <strong>{formatMoney(item.stopLimite)}</strong></span>
-              </span>
-              <span className="table-cell-muted">
-                {item.primeiraVez ? 'Primeira vez' : `Antes: ${formatMoney(item.stopAnterior ?? 0)}`}
-              </span>
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm trade-day-stop-confirm-btn"
-              disabled={confirming === item.ticker}
-              onClick={() => handleConfirm(item.ticker)}
-            >
-              {confirming === item.ticker ? 'Confirmando…' : 'Confirmar ajuste'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
 function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; emptyMessage: string }) {
   if (rows.length === 0) {
     return <div className="trade-state"><p>{emptyMessage}</p></div>;

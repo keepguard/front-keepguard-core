@@ -93,7 +93,6 @@ export function Mt5AccountView() {
     deals,
     loading,
     refreshing,
-    infoLoading,
     positionsLoading,
     ordersLoading,
     dealsLoading,
