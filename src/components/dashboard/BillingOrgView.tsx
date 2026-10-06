@@ -1278,7 +1278,7 @@ function TickerPicker({
           <label className="billing-field-label" htmlFor={id} style={{ margin: 0 }}>
             Ativos Fixos Recomendados da Plataforma
           </label>
-          <InfoHelpTooltip text={`Defina os ${maxCount} ativo(s) fixo(s) obrigatório(s) para completar a carteira deste plano.`} />
+          <InfoHelpTooltip text={`Defina os ${maxCount} ativo(s) fixo(s) obrigatório(s) para completar os ativos deste plano.`} />
         </div>
         <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isMaxReached ? 'var(--success, #00b090)' : 'var(--text-muted)' }}>
           {selectedTickers.length} de {maxCount} adicionados
@@ -1603,7 +1603,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
 
   const saveNoPlanQuota = async () => {
     if (noPlanDraft.watchlistSlots < 1) {
-      addToast({ type: 'warning', title: 'Cotas Freemium', description: 'A carteira deve ter ao menos 1 slot de ativo.' });
+      addToast({ type: 'warning', title: 'Cotas Freemium', description: 'O plano deve ter ao menos 1 slot de ativo.' });
       return;
     }
     if (noPlanDraft.watchlistPicks < 0 || noPlanDraft.watchlistPicks > noPlanDraft.watchlistSlots) {
@@ -1730,7 +1730,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
 
     if (!planModal.isLifetime) {
       if (planModal.quotaSlots < 1) {
-        addToast({ type: 'warning', title: 'Cotas do Plano', description: 'A carteira deve ter ao menos 1 slot de ativo.' });
+        addToast({ type: 'warning', title: 'Cotas do Plano', description: 'O plano deve ter ao menos 1 slot de ativo.' });
         setPlanStep('quotas');
         return;
       }
@@ -2043,7 +2043,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     </div>
 
                     <div className="billing-workflow-popover-section">
-                      <span className="billing-workflow-popover-label">Capacidade da Carteira</span>
+                      <span className="billing-workflow-popover-label">Capacidade de ativos</span>
                       <div className="billing-workflow-popover-quotas">
                         <span>• Slots Totais: <strong>{step.slots}</strong></span>
                         <span>• Picks Livres: <strong>{step.picks}</strong></span>
@@ -2168,7 +2168,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 <div className="billing-freemium-metrics">
                   <div className="billing-freemium-metric-item">
                     <span className="billing-freemium-metric-num">{slots}</span>
-                    <span className="billing-freemium-metric-label">Slots na Carteira</span>
+                    <span className="billing-freemium-metric-label">Slots de ativos</span>
                   </div>
                   <div className="billing-freemium-metric-divider" />
                   <div className="billing-freemium-metric-item">
@@ -2202,7 +2202,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
               <th style={{ width: '120px' }}>Código</th>
               <th style={{ minWidth: '170px' }}>Nome</th>
               <th style={{ width: '100px' }}>Status</th>
-              <th style={{ width: '160px' }}>Cotas da Carteira</th>
+              <th style={{ width: '160px' }}>Cotas de ativos</th>
               <th>Preços por Ciclo</th>
               <th style={{ width: writable ? '120px' : '50px', textAlign: 'right' }}>Ações</th>
             </tr>
@@ -2255,7 +2255,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     return (
                       <div className="billing-quota-cell">
                         <div className="billing-quota-badges">
-                          <span className="billing-quota-chip" title="Total de slots disponíveis na carteira">
+                          <span className="billing-quota-chip" title="Total de slots de ativos disponíveis">
                             <strong>{q.watchlistSlots}</strong> slots
                           </span>
                           <span className="billing-quota-chip is-picks" title="Picks de livre escolha do usuário">
@@ -2796,9 +2796,9 @@ function PlansPanel({ writable }: { writable: boolean }) {
                     <div className="billing-vip-hero-badge">
                       <Crown size={28} />
                     </div>
-                    <h4>Acesso Irrestrito à Carteira de Mercado</h4>
+                    <h4>Acesso irrestrito aos ativos</h4>
                     <p>
-                      Este plano está configurado como <strong>VIP Vitalício</strong>. Usuários vinculados a ele possuem acesso total e irrestrito ao catálogo de ativos da carteira (todos os ativos 100% livres e sem limites), sem obrigatoriedade de ativos fixos ou cotas limitadas.
+                      Este plano está configurado como <strong>VIP Vitalício</strong>. Usuários vinculados a ele possuem acesso total e irrestrito ao catálogo de ativos (todos os ativos 100% livres e sem limites), sem obrigatoriedade de ativos fixos ou cotas limitadas.
                     </p>
                     <button
                       type="button"
@@ -2821,8 +2821,8 @@ function PlansPanel({ writable }: { writable: boolean }) {
                   <div>
                     <div className="billing-quotas-form-intro">
                       <div className="billing-title-with-tooltip">
-                        <h4>Capacidade da Carteira de Mercado</h4>
-                        <InfoHelpTooltip text="Defina o tamanho da carteira que o assinante pode acompanhar e quantos ativos ele escolhe livremente." />
+                        <h4>Capacidade de ativos do plano</h4>
+                        <InfoHelpTooltip text="Defina quantos ativos o assinante pode acompanhar e quantos ativos ele escolhe livremente." />
                       </div>
                     </div>
 
@@ -2835,7 +2835,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
 
                       return (
                         <div>
-                          {/* Equação Visual Interativa da Carteira */}
+                          {/* Equação visual dos ativos do plano */}
                           <div className="billing-quotas-composition-card">
                             <div className="billing-quotas-equation">
                               <div className="billing-equation-box is-total">
@@ -2861,7 +2861,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                                 />
                                 <div className="billing-equation-lbl-wrap">
                                   <span className="billing-equation-lbl">Slots Totais</span>
-                                  <InfoHelpTooltip text="Limite máximo de ativos monitorados pelo usuário nesta carteira." />
+                                  <InfoHelpTooltip text="Limite máximo de ativos monitorados pelo usuário neste plano." />
                                 </div>
                               </div>
 
@@ -2996,7 +2996,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
         <div className="billing-freemium-edit-dialog">
           <div className="billing-quotas-form-intro" style={{ marginBottom: '1rem' }}>
             <div className="billing-title-with-tooltip">
-              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Cotas da Carteira Freemium</h4>
+              <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Cotas de ativos (Freemium)</h4>
               <InfoHelpTooltip text="Configuração padrão de capacidade e picks aplicada aos usuários sem assinatura ativa ou após cancelamento." />
             </div>
           </div>
@@ -3030,12 +3030,12 @@ function PlansPanel({ writable }: { writable: boolean }) {
                             fixedTickers: noPlanDraft.fixedTickers.slice(0, s - p),
                           });
                         }}
-                        title="Total de ativos na carteira gratuita"
+                        title="Total de ativos no plano gratuito"
                         required
                       />
                       <div className="billing-equation-lbl-wrap">
                         <span className="billing-equation-lbl">Slots Totais</span>
-                        <InfoHelpTooltip text="Limite máximo de ativos na carteira gratuita sem assinatura." />
+                        <InfoHelpTooltip text="Limite máximo de ativos no plano gratuito, sem assinatura." />
                       </div>
                     </div>
 
@@ -3100,7 +3100,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                 {is100Free ? (
                   <div className="billing-tickers-empty-hint is-success" style={{ marginTop: '1rem' }}>
                     <CheckCircle2 size={16} />
-                    <span>100% Livre Escolha: Usuários sem plano poderão escolher todos os {noPlanDraft.watchlistSlots} ativos da sua carteira.</span>
+                    <span>100% Livre Escolha: Usuários sem plano poderão escolher todos os {noPlanDraft.watchlistSlots} ativos do plano.</span>
                   </div>
                 ) : (
                   <TickerPicker
@@ -3281,7 +3281,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
               <div className="billing-vip-alert" style={{ marginTop: '1.25rem' }}>
                 <Crown size={22} className="billing-vip-alert-icon" />
                 <div className="billing-vip-alert-text">
-                  <strong>Acesso Irrestrito à Carteira de Mercado</strong>
+                  <strong>Acesso irrestrito aos ativos</strong>
                   <p>
                     Assinantes vinculados a este plano VIP Vitalício possuem acesso total e irrestrito (catálogo 100% livre e sem limites de ativos), sem restrições de cotas ou obrigatoriedade de ativos fixos.
                   </p>
@@ -3291,7 +3291,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
               const q = quotasMap[viewingPlan.code];
               return (
                 <div className="billing-detail-section" style={{ marginTop: '1.25rem' }}>
-                  <span className="billing-detail-section-title">Limites da Carteira de Mercado</span>
+                  <span className="billing-detail-section-title">Limites de ativos do plano</span>
                   {!q ? (
                     <div className="table-cell-muted" style={{ padding: '1rem', background: 'var(--bg-surface-elevated)', borderRadius: '8px' }}>
                       Nenhuma cota específica configurada para este plano. O sistema aplicará os padrões globais.
@@ -3301,7 +3301,7 @@ function PlansPanel({ writable }: { writable: boolean }) {
                       <div className="billing-detail-quotas-stats">
                         <div className="billing-detail-quota-stat">
                           <span className="billing-detail-quota-num">{q.watchlistSlots}</span>
-                          <span className="billing-detail-quota-label">Slots na Carteira</span>
+                          <span className="billing-detail-quota-label">Slots de ativos</span>
                         </div>
                         <div className="billing-freemium-metric-divider" />
                         <div className="billing-detail-quota-stat">

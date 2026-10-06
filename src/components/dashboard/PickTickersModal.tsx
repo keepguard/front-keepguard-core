@@ -86,10 +86,10 @@ export const PickTickersModal: React.FC<PickTickersModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={loading ? () => {} : onClose}
-      title={step === 'select' ? 'Personalizar Carteira do Plano' : 'Confirmar Escolha Definitiva'}
+      title={step === 'select' ? 'Personalizar ativos do plano' : 'Confirmar Escolha Definitiva'}
       subtitle={
         step === 'select'
-          ? `Você possui ${picksRemaining} ativo${picksRemaining > 1 ? 's' : ''} disponível${picksRemaining > 1 ? 'is' : ''} para adicionar à sua carteira.`
+          ? `Você possui ${picksRemaining} ativo${picksRemaining > 1 ? 's' : ''} disponível${picksRemaining > 1 ? 'is' : ''} para adicionar ao seu plano.`
           : 'Esta escolha é irreversível e ficará vinculada à sua assinatura.'
       }
       maxWidth="540px"
@@ -178,7 +178,7 @@ export const PickTickersModal: React.FC<PickTickersModalProps> = ({
           >
             <Sparkles size={18} color="var(--primary, #673de6)" style={{ flexShrink: 0 }} />
             <div style={{ fontSize: '0.85rem', color: 'var(--text-body, #3c4043)' }}>
-              Selecione o ativo da B3 que deseja adicionar à sua carteira. Os ativos recomendados do seu plano já estão garantidos e não consomem suas escolhas.
+              Selecione o ativo da B3 que deseja adicionar ao seu plano. Os ativos recomendados do seu plano já estão garantidos e não consomem suas escolhas.
             </div>
           </div>
 
@@ -414,7 +414,7 @@ export const PickTickersModal: React.FC<PickTickersModalProps> = ({
                 Atenção: A escolha deste ativo é definitiva!
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-body, #3c4043)', lineHeight: 1.5 }}>
-                Após confirmar, o ativo selecionado será vinculado permanentemente à sua carteira do plano.
+                Após confirmar, o ativo selecionado será vinculado permanentemente aos seus ativos do plano.
                 <strong> Não será possível alterar ou substituir este ativo posteriormente.</strong>
               </div>
             </div>

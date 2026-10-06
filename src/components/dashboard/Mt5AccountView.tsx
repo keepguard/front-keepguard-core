@@ -3,6 +3,8 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Link2, Pencil, RefreshCw, Search, Tras
 import { useMt5Account } from '../../hooks/useMt5Account';
 import { Mt5AccountFormModal } from './Mt5AccountFormModal';
 import type { Mt5Deal, Mt5Order, Mt5Position } from '../../services/mt5AccountService';
+import { aggregatePositions, custodyBreakdown, type CustodyPosition } from '../../utils/mt5Custody';
+import { ManualHistoryExport } from './ManualHistoryExport';
 
 function formatMoney(v: number | undefined | null, currency = 'BRL'): string {
   if (typeof v !== 'number' || Number.isNaN(v)) return '—';
@@ -98,6 +100,7 @@ export function Mt5AccountView() {
     dealsLoading,
     error,
     liveError,
+    lastOkAt,
     searchSymbol,
     searchDate,
     setSearchSymbol,
@@ -127,7 +130,7 @@ export function Mt5AccountView() {
 
   if (loading && !account && hasAccount) {
     return (
-      <div className="mt5-account-view" aria-busy="true" aria-label="Carregando dados da corretora">
+      <div className="mt5-account-view" aria-busy="true" aria-label="Carregando a carteira">
         <div className="hpanel-table-card desktop-table-view">
           <div className="portfolio-skeleton" />
         </div>
@@ -149,11 +152,12 @@ export function Mt5AccountView() {
       <div className="mt5-account-view">
         <div className="portfolio-empty-state" style={{ padding: '3rem 1.5rem' }}>
           <Link2 size={22} />
-          <span>Vincule sua conta na corretora (MetaTrader 5) e acompanhe saldo, posições, ordens e histórico em tempo real — diferente da Carteira, que é o que você mesmo registra.</span>
+          <span>Vincule sua corretora (MetaTrader 5) para ver aqui saldo, posições, ordens e histórico em tempo real.</span>
           <button type="button" className="btn" style={{ marginTop: '1rem' }} onClick={() => setFormOpen(true)}>
-            Vincular conta
+            Vincular corretora
           </button>
         </div>
+        <ManualHistoryExport />
         <Mt5AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} account={null} onSave={save} />
       </div>
     );
@@ -164,7 +168,7 @@ export function Mt5AccountView() {
       <div className="table-toolbar">
         <div className="portfolio-add-group">
           <span className="portfolio-add-label">
-            Caminho do gateway: <strong>{account?.gatewayUrl}</strong>
+            Corretora vinculada: <strong>{info?.company || info?.server || account?.gatewayUrl}</strong>
           </span>
         </div>
         <div className="table-toolbar-push-end portfolio-toolbar-actions">
@@ -202,7 +206,8 @@ export function Mt5AccountView() {
 
       {liveError ? (
         <p className="trade-note is-warn" role="alert">
-          Vínculo cadastrado, mas não foi possível ler os dados do terminal agora ({liveError.message}).
+          Corretora indisponível no momento ({liveError.message}).
+          {lastOkAt ? ` Última leitura com sucesso às ${new Date(lastOkAt).toLocaleTimeString('pt-BR')}.` : ''}
         </p>
       ) : null}
 
@@ -240,6 +245,8 @@ export function Mt5AccountView() {
       <PositionsTable positions={positions} loading={positionsLoading} onRefresh={refreshPositions} />
       <OrdersTable orders={orders} loading={ordersLoading} onRefresh={refreshOrders} />
       <DealsTable deals={deals} loading={dealsLoading} onRefresh={refreshDeals} />
+
+      <ManualHistoryExport />
 
       <Mt5AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} account={account} onSave={save} />
     </div>
@@ -353,10 +360,11 @@ function TableFilterToolbar({
   );
 }
 
-type PositionColumn = 'symbol' | 'type' | 'volume' | 'priceOpen' | 'priceCurrent' | 'profit';
+type PositionColumn = 'ticker' | 'side' | 'quantity' | 'averagePrice' | 'priceCurrent' | 'profit';
 
+/** Posições do MT5 agrupadas por ativo (SPEC-003 R2): PETR4 + PETR4F viram uma linha. */
 function PositionsTable({
-  positions,
+  positions: raw,
   loading,
   onRefresh,
 }: {
@@ -364,14 +372,15 @@ function PositionsTable({
   loading?: boolean;
   onRefresh?: () => void;
 }) {
+  const positions = useMemo(() => aggregatePositions(raw), [raw]);
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
     const term = query.trim().toUpperCase();
     if (!term) return positions;
-    return positions.filter((p) => p.symbol?.toUpperCase().includes(term));
+    return positions.filter((p) => p.ticker.includes(term));
   }, [positions, query]);
 
-  const { sorted, sort, toggleSort } = useColumnSort<Mt5Position, PositionColumn>(filtered, (p, col) => p[col] ?? '');
+  const { sorted, sort, toggleSort } = useColumnSort<CustodyPosition, PositionColumn>(filtered, (p, col) => p[col] ?? '');
 
   return (
     <>
@@ -388,10 +397,10 @@ function PositionsTable({
         <table className="hpanel-table">
           <thead>
             <tr>
-              <SortableHeader label="Ativo" column="symbol" sort={sort} onSort={toggleSort} />
-              <SortableHeader label="Lado" column="type" sort={sort} onSort={toggleSort} />
-              <SortableHeader label="Volume" column="volume" sort={sort} onSort={toggleSort} />
-              <SortableHeader label="Preço de abertura" column="priceOpen" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Ativo" column="ticker" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Lado" column="side" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Quantidade" column="quantity" sort={sort} onSort={toggleSort} />
+              <SortableHeader label="Preço médio" column="averagePrice" sort={sort} onSort={toggleSort} />
               <SortableHeader label="Preço atual" column="priceCurrent" sort={sort} onSort={toggleSort} />
               <SortableHeader label="Resultado" column="profit" sort={sort} onSort={toggleSort} />
             </tr>
@@ -413,16 +422,19 @@ function PositionsTable({
                 </td>
               </tr>
             ) : (
-              sorted.map((p, i) => (
-                <tr key={`${p.symbol}-${i}`}>
+              sorted.map((p) => (
+                <tr key={`${p.ticker}-${p.side}`}>
                   <td>
                     <div className="table-cell-title">
-                      <strong>{p.symbol}</strong>
+                      <strong>{p.ticker}</strong>
                     </div>
                   </td>
-                  <td>{sideLabel(p.type)}</td>
-                  <td>{p.volume}</td>
-                  <td>{formatMoney(p.priceOpen)}</td>
+                  <td>{p.side}</td>
+                  <td>
+                    {p.quantity.toLocaleString('pt-BR')}
+                    {custodyBreakdown(p) ? <div className="table-cell-muted">{custodyBreakdown(p)}</div> : null}
+                  </td>
+                  <td>{formatMoney(p.averagePrice)}</td>
                   <td>{formatMoney(p.priceCurrent)}</td>
                   <td>
                     <span className={p.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
@@ -442,19 +454,20 @@ function PositionsTable({
         ) : filtered.length === 0 ? (
           <div className="mobile-loading-card">Nenhum ativo corresponde a "{query}".</div>
         ) : (
-          sorted.map((p, i) => (
-            <div key={`${p.symbol}-${i}`} className="mobile-domain-card">
+          sorted.map((p) => (
+            <div key={`${p.ticker}-${p.side}`} className="mobile-domain-card">
               <div className="mobile-card-top">
                 <div className="mobile-card-identity">
                   <Wallet size={15} />
-                  <span className="mobile-domain-name">{p.symbol}</span>
+                  <span className="mobile-domain-name">{p.ticker}</span>
                 </div>
               </div>
               <div className="mobile-card-subinfo">
-                {sideLabel(p.type)} · {p.volume} un.
+                {p.side} · {p.quantity.toLocaleString('pt-BR')} un.
+                {custodyBreakdown(p) ? ` · ${custodyBreakdown(p)}` : ''}
               </div>
               <div className="mobile-card-meta">
-                <span>Abertura: {formatMoney(p.priceOpen)}</span>
+                <span>Médio: {formatMoney(p.averagePrice)}</span>
                 <span>Atual: {formatMoney(p.priceCurrent)}</span>
                 <span className={p.profit >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>
                   Resultado: {formatMoney(p.profit)}

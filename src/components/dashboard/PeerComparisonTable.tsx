@@ -55,7 +55,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
 }) => {
   const { addToast } = useToast();
   const universe = usePlanUniverse();
-  // Plano com universo limitado: só se compara o que está na carteira.
+  // Plano com universo limitado: só se compara o que está no plano.
   const { ready, has } = universe;
   const restricted = ready && !universe.fullAccess;
   const searchInputId = useId();
@@ -144,7 +144,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
       const errStatus = (err as { status?: number }).status;
       let msg = 'Erro ao comparar os ativos. Tente novamente.';
       if ((err as { data?: { error?: string } }).data?.error === 'ASSET_OUTSIDE_PLAN') {
-        msg = 'Compare apenas ativos da sua carteira. Remova os ativos de fora do plano.';
+        msg = 'Compare apenas os seus ativos do plano. Remova os ativos de fora do plano.';
         setErrorRetryable(false);
       } else if (errStatus === 400) {
         msg = 'Selecione entre 2 e 4 ativos válidos.';
@@ -168,7 +168,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
     addToast({
       type: 'info',
       title: 'Ativo fora do seu plano',
-      description: 'Removemos da comparação o que não faz parte da sua carteira.',
+      description: 'Removemos da comparação o que não faz parte do seu plano.',
     });
     updateTickers(allowed);
   }, [restricted, selectedTickers, has, updateTickers, addToast]);
@@ -237,7 +237,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
       addToast({
         type: 'warning',
         title: 'Ativo fora do seu plano',
-        description: 'Compare apenas ativos da sua carteira. Para incluir outro, escolha-o em "Escolher Ativo (Pick)" no Dossiê.',
+        description: 'Compare apenas os seus ativos do plano. Para incluir outro, escolha-o em "Escolher Ativo (Pick)" no Dossiê.',
       });
       return;
     }
@@ -320,7 +320,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
     () => (restricted ? PRESET_COMPARISONS.filter((p) => p.tickers.every((t) => universe.has(t))) : PRESET_COMPARISONS),
     [restricted, universe],
   );
-  // Sugestão de par para o estado vazio: o do catálogo para quem vê tudo, os primeiros da carteira para os demais.
+  // Sugestão de par para o estado vazio: o do catálogo para quem vê tudo, os primeiros do plano para os demais.
   const suggestedPairs: string[][] = restricted
     ? (universe.tickers.length >= 2 ? [universe.tickers.slice(0, 2)] : [])
     : [['ITUB4', 'BBAS3'], ['PETR4', 'PRIO3']];
@@ -564,7 +564,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
               </button>
             ))}
             {suggestedPairs.length === 0 ? (
-              <p className="text-muted">Sua carteira tem menos de 2 ativos. Adicione mais um em "Escolher Ativo (Pick)" no Dossiê para comparar.</p>
+              <p className="text-muted">Seu plano tem menos de 2 ativos. Adicione mais um em "Escolher Ativo (Pick)" no Dossiê para comparar.</p>
             ) : null}
           </div>
         </div>
@@ -595,7 +595,7 @@ export const PeerComparisonTable: React.FC<PeerComparisonTableProps> = ({
               </button>
             ))}
             {suggestedPairs.length === 0 ? (
-              <p className="text-muted">Sua carteira tem menos de 2 ativos. Adicione mais um em "Escolher Ativo (Pick)" no Dossiê para comparar.</p>
+              <p className="text-muted">Seu plano tem menos de 2 ativos. Adicione mais um em "Escolher Ativo (Pick)" no Dossiê para comparar.</p>
             ) : null}
           </div>
         </div>

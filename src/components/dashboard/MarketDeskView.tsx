@@ -73,7 +73,7 @@ function mapAnalystError(err: unknown, fallback: string): string {
     return data?.message || 'Ticker inválido. Use 4 a 6 caracteres (ex.: PETR4).';
   }
   if (data?.error === 'ASSET_OUTSIDE_PLAN') {
-    return 'Este ativo não faz parte do seu plano. Escolha um ativo da sua carteira ou adicione-o em "Escolher Ativo (Pick)".';
+    return 'Este ativo não faz parte do seu plano. Escolha um dos seus ativos do plano ou adicione-o em "Escolher Ativo (Pick)".';
   }
   if (data?.error === 'PRODUCT_RESTRICTED' || status === 403) {
     return data?.message || 'Este ativo não está incluído na cota do seu plano atual.';
@@ -304,7 +304,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
   const isVIP = isVIPPlan(userWatchlist?.planCode, userWatchlist?.maxTickers);
   const isFullAccess = isAdmin || isVIP;
 
-  // Pares para comparar: quem tem universo limitado só compara ativos da própria carteira.
+  // Pares para comparar: quem tem universo limitado só compara os próprios ativos do plano.
   const comparablePeers = useMemo(() => {
     const target = (selectedTicker || appliedQuery || query).trim().toUpperCase();
     if (!target) return [];
@@ -323,10 +323,10 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
     if (comparablePeers.length === 0) {
       addToast({
         type: 'info',
-        title: isFullAccess ? 'Sem pares no mesmo setor' : 'Sem pares na sua carteira',
+        title: isFullAccess ? 'Sem pares no mesmo setor' : 'Sem pares nos seus ativos do plano',
         description: isFullAccess
           ? `Não encontramos outro ativo do mesmo setor de ${upper} no catálogo. Adicione os concorrentes manualmente no comparador.`
-          : `Você não tem outro ativo do mesmo setor de ${upper} na carteira do plano. Adicione um em "Escolher Ativo (Pick)" para comparar.`,
+          : `Você não tem outro ativo do mesmo setor de ${upper} nos seus ativos do plano. Adicione um em "Escolher Ativo (Pick)" para comparar.`,
       });
       if (!isFullAccess) return;
     }
@@ -343,10 +343,10 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
     }
   }, [selectedTicker, appliedQuery, query, comparablePeers, isFullAccess, onNavigateToCompare, setSearchParams, addToast]);
   const compareTitle = (ticker: string) => (noPlanPeers
-    ? `Você não tem outro ativo do setor de ${ticker} na carteira do plano`
+    ? `Você não tem outro ativo do setor de ${ticker} nos seus ativos do plano`
     : isFullAccess
       ? `Comparar ${ticker} com pares do setor`
-      : `Comparar ${ticker} com pares da sua carteira`);
+      : `Comparar ${ticker} com pares dos seus ativos do plano`);
 
 
   const catalogMap = useMemo(() => {
@@ -527,8 +527,8 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
       if (allowedSet.size > 0 && !allowedSet.has(ticker)) {
         addToast({
           type: 'warning',
-          title: 'Ativo fora da sua carteira',
-          description: `O ativo "${ticker}" não consta nos seus picks do plano. Utilize o botão "Escolher Ativo (Pick)" para adicioná-lo à sua carteira.`,
+          title: 'Ativo fora do seu plano',
+          description: `O ativo "${ticker}" não consta nos seus picks do plano. Utilize o botão "Escolher Ativo (Pick)" para adicioná-lo aos seus ativos do plano.`,
         });
         return;
       }
@@ -579,12 +579,12 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
       setUserWatchlist(updated);
       addToast({
         type: 'success',
-        title: 'Carteira do Plano',
-        description: `Ativo ${ticker} adicionado à sua carteira com sucesso!`,
+        title: 'Ativos do plano',
+        description: `Ativo ${ticker} adicionado aos seus ativos do plano!`,
       });
       applyTicker(ticker);
     } catch (err: unknown) {
-      const msg = mapAnalystError(err, 'Falha ao adicionar ativo à carteira');
+      const msg = mapAnalystError(err, 'Falha ao adicionar ativo ao plano');
       addToast({
         type: 'error',
         title: 'Erro ao adicionar ativo',
@@ -843,7 +843,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main, #1d2129)' }}>
-                Personalize sua Carteira do Plano
+                Personalize seus ativos do plano
               </div>
               <div style={{ fontSize: '0.825rem', color: 'var(--text-muted, #5f6368)', marginTop: '2px' }}>
                 Seu plano permite adicionar <strong>{userWatchlist?.picksRemaining} ativo{(userWatchlist?.picksRemaining ?? 0) > 1 ? 's' : ''}</strong> de sua escolha dentre todo o catálogo da B3. Esta escolha é definitiva.
@@ -871,7 +871,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
         </div>
       )}
 
-      {/* Carteira do Plano (Watchlist Oficial - oculta para VIP para evitar poluição visual) */}
+      {/* Ativos do plano (Watchlist Oficial - oculta para VIP para evitar poluição visual) */}
       {!isVIP && (watchlistTickers.length > 0 || lockedTickers.length > 0 || (userWatchlist?.picksRemaining ?? 0) > 0) && (
         <div className="market-desk-tickers" style={{ marginBottom: favoriteTickers.length > 0 ? '0.75rem' : '1rem' }}>
           <div className="market-favs-header" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -949,7 +949,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
                   padding: '2px 6px',
                   borderRadius: '4px',
                 }}
-                title="Escolher ativo para sua carteira"
+                title="Escolher ativo para o seu plano"
               >
                 <Plus size={14} /> Adicionar Pick ({userWatchlist?.picksRemaining})
               </button>
@@ -967,7 +967,7 @@ export const MarketDeskView: React.FC<MarketDeskViewProps> = ({ onNavigateToComp
                 <span
                   className={`badge-role market-ticker-chip${isChipActive ? ' market-ticker-chip--active' : ''}`}
                   key={ticker}
-                  title={isFixed ? 'Ativo recomendado fixo do plano' : isPicked ? 'Ativo selecionado por você' : 'Ativo da carteira'}
+                  title={isFixed ? 'Ativo recomendado fixo do plano' : isPicked ? 'Ativo selecionado por você' : 'Ativo do plano'}
                 >
                   <button
                     type="button"

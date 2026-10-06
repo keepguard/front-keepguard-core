@@ -48,6 +48,8 @@ export interface Mt5AccountState {
   dealsLoading: boolean;
   error: SectionError;
   liveError: SectionError;
+  /** Última leitura bem-sucedida do terminal (ms epoch) — exibida quando a corretora cai. */
+  lastOkAt: number | null;
   /** Busca global: ativo (filtra as 3 tabelas no backend) e data (filtra só o Histórico). */
   searchSymbol: string;
   searchDate: string;
@@ -83,6 +85,7 @@ export function useMt5Account(): Mt5AccountState {
   const [dealsLoading, setDealsLoading] = useState(false);
   const [error, setError] = useState<SectionError>(null);
   const [liveError, setLiveError] = useState<SectionError>(null);
+  const [lastOkAt, setLastOkAt] = useState<number | null>(null);
 
   // searchSymbol/searchDate são o valor DIGITADO (controla os inputs);
   // appliedSymbol/appliedDate (ref) são o valor da ÚLTIMA busca confirmada —
@@ -111,6 +114,7 @@ export function useMt5Account(): Mt5AccountState {
         if (ctrl.signal.aborted) return;
         setInfo(v);
         setLiveError(null);
+        setLastOkAt(Date.now());
       })
       .catch((err) => {
         if (ctrl.signal.aborted) return;
@@ -269,6 +273,7 @@ export function useMt5Account(): Mt5AccountState {
     dealsLoading,
     error,
     liveError,
+    lastOkAt,
     searchSymbol,
     searchDate,
     setSearchSymbol,

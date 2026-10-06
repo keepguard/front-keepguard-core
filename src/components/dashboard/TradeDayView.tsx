@@ -3,7 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Search, Wallet, X } from 'lucide-react';
 import { PATHS } from '../../navigation/routes';
 import { useTradeDay, type TradeDayRow } from '../../hooks/useTradeDay';
-import { usePortfolioPositions } from '../../hooks/usePortfolioPositions';
+import { useMt5Custody } from '../../hooks/useMt5Custody';
+import { custodyBreakdown, type CustodyPosition } from '../../utils/mt5Custody';
 import { useAgentProposals } from '../../hooks/useAgentProposals';
 import { AutoRefreshButton } from '../common/AutoRefreshButton';
 import { Tooltip } from '../common/Tooltip';
@@ -66,7 +67,9 @@ export function TradeDayView() {
 
   const { rows, market, asOf, total, loading, refreshing, snapshotError, opportunityError, refresh } =
     useTradeDay(debouncedQuery || undefined);
-  const { data: positions, loading: portfolioLoading, refresh: refreshPortfolio } = usePortfolioPositions();
+  const custody = useMt5Custody();
+  const positions = custody.data;
+  const refreshPortfolio = custody.refresh;
   const agent = useAgentProposals();
   const agentCounts = agent.data?.contadores ?? null;
   const nowSec = useNowSeconds();
@@ -76,9 +79,9 @@ export function TradeDayView() {
   const vendaRows = useMemo(() => rows.filter((r) => r.opportunity?.direcao === 'venda'), [rows]);
   const missingTickers = useMemo(() => rows.filter((r) => !r.item.quote).map((r) => r.ticker), [rows]);
 
-  // Cruza a carteira real do usuário com o Trade Day: pra cada posição, acha a linha
-  // correspondente (se o ticker também está no universo do plano) pra saber se tem
-  // oportunidade de compra/venda ativa AGORA sobre um ativo que o usuário já possui.
+  // Cruza a custódia real (posições do MT5 vinculado, SPEC-003) com o Trade Day: pra cada
+  // posição, acha a linha do mesmo ticker-base (se está no universo do plano) pra saber se
+  // tem oportunidade de compra/venda ativa AGORA sobre um ativo que o usuário já possui.
   const rowByTicker = useMemo(() => new Map(rows.map((r) => [r.ticker, r])), [rows]);
   const carteiraRows = useMemo(
     () => (positions ?? []).map((pos) => ({ position: pos, tradeRow: rowByTicker.get(pos.ticker) })),
@@ -283,6 +286,13 @@ export function TradeDayView() {
         </div>
       ) : null}
 
+      {subTab === 'carteira' && custody.error && carteiraRows.length > 0 ? (
+        <p className="trade-note is-warn" role="alert">
+          Corretora indisponível no momento. Mostrando a última leitura
+          {custody.lastOkAt ? ` (${new Date(custody.lastOkAt).toLocaleTimeString('pt-BR')})` : ''}.
+        </p>
+      ) : null}
+
       {subTab === 'carteira' ? (
         <div className="search-input-wrapper trade-day-carteira-search">
           <Search size={16} className="search-icon" />
@@ -303,11 +313,21 @@ export function TradeDayView() {
       ) : null}
 
       {subTab === 'carteira' ? (
-        portfolioLoading && carteiraRows.length === 0 ? (
+        custody.loading && carteiraRows.length === 0 ? (
           <div className="hpanel-table-card desktop-table-view"><div className="portfolio-skeleton" /></div>
+        ) : custody.noAccount ? (
+          <div className="trade-state">
+            <p>Vincule sua corretora para ver aqui as posições que você tem.</p>
+            <Link to={PATHS.carteira} className="btn btn-primary">Vincular corretora</Link>
+          </div>
+        ) : custody.error && carteiraRows.length === 0 ? (
+          <div className="trade-state" role="alert">
+            <p>Corretora indisponível no momento.</p>
+            <button type="button" className="btn btn-secondary" onClick={custody.refresh}>Tentar de novo</button>
+          </div>
         ) : carteiraRows.length === 0 ? (
           <div className="trade-state">
-            <p>Você ainda não registrou nenhuma compra ou venda na Carteira.</p>
+            <p>Nenhuma posição aberta na corretora.</p>
             <Link to={PATHS.carteira} className="btn btn-primary">Ir para a Carteira</Link>
           </div>
         ) : (
@@ -335,7 +355,7 @@ export function TradeDayView() {
 }
 
 interface CarteiraRow {
-  position: { ticker: string; quantity: number; averagePrice: number; totalCost: number; realizedPl: number };
+  position: CustodyPosition;
   tradeRow?: TradeDayRow;
 }
 
@@ -373,15 +393,19 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
           <tbody>
             {rows.map(({ position, tradeRow }) => {
               const opportunity = tradeRow?.opportunity;
-              const lastPrice = tradeRow?.item.quote?.last;
+              const lastPrice = tradeRow?.item.quote?.last ?? (position.priceCurrent || undefined);
               return (
-                <tr key={position.ticker}>
+                <tr key={`${position.ticker}-${position.side}`}>
                   <td>
                     <div className="table-cell-title">
                       <Link to={`${PATHS.market}?ticker=${encodeURIComponent(position.ticker)}`}>{position.ticker}</Link>
                     </div>
                   </td>
-                  <td>{position.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</td>
+                  <td>
+                    {position.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}
+                    {position.side === 'Venda' ? <span className="table-cell-muted"> (vendido)</span> : null}
+                    {custodyBreakdown(position) ? <div className="table-cell-muted">{custodyBreakdown(position)}</div> : null}
+                  </td>
                   <td>{formatMoney(position.averagePrice)}</td>
                   <td>{lastPrice != null ? formatMoney(lastPrice) : '—'}</td>
                   <td>
@@ -406,9 +430,9 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
       <div className="mobile-cards-container">
         {rows.map(({ position, tradeRow }) => {
           const opportunity = tradeRow?.opportunity;
-          const lastPrice = tradeRow?.item.quote?.last;
+          const lastPrice = tradeRow?.item.quote?.last ?? (position.priceCurrent || undefined);
           return (
-            <div key={position.ticker} className="mobile-domain-card">
+            <div key={`${position.ticker}-${position.side}`} className="mobile-domain-card">
               <div className="mobile-card-top">
                 <div className="mobile-card-identity">
                   <Wallet size={15} />
@@ -417,6 +441,7 @@ function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; em
               </div>
               <div className="mobile-card-subinfo">
                 {position.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} un. · PM {formatMoney(position.averagePrice)}
+                {custodyBreakdown(position) ? ` · ${custodyBreakdown(position)}` : ''}
               </div>
               <div className="mobile-card-meta">
                 {opportunity ? (

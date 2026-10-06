@@ -12,7 +12,6 @@ import {
   BillingOrgPage,
   BillingPage,
   CarteiraPage,
-  Mt5AccountPage,
   ClientSystemPage,
   ConnectionsPage,
   GuardianPage,
@@ -73,7 +72,7 @@ export const AppRoutes: React.FC = () => {
         <Route path={PATHS.marketCompare} element={<MarketDeskPage defaultTab="compare" />} />
         <Route path={PATHS.trade} element={<TradePage />} />
         <Route path={PATHS.carteira} element={<CarteiraPage />} />
-        <Route path={PATHS.mt5Account} element={<Mt5AccountPage />} />
+        <Route path={PATHS.mt5Account} element={<Navigate to={PATHS.carteira} replace />} />
         <Route path={PATHS.sessions} element={<SessionsPage />} />
         <Route path={PATHS.blacklist} element={<UserBlacklistPage />} />
         <Route

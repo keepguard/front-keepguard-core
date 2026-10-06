@@ -92,7 +92,7 @@ function netThesisMoves(changes: AnalystDigestThesisChange[]): { better: ThesisM
   return out;
 }
 
-/** Tickers que o usuário acompanha (favoritos e carteira do plano): ganham uma estrela em toda a tela. */
+/** Tickers que o usuário acompanha (favoritos e ativos do plano): ganham uma estrela em toda a tela. */
 const MineContext = createContext<Set<string>>(new Set());
 
 function TickerButton({ ticker, name, onSelect, locked }: { ticker: string; name?: string; onSelect: (ticker: string) => void; locked?: boolean }) {

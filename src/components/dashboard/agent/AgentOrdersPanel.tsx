@@ -98,7 +98,7 @@ export function AgentOrdersPanel({ state }: AgentOrdersPanelProps) {
         <div className="trade-state" role="alert">
           <p>{error.message}</p>
           {error.code === 'MT5_ACCOUNT_NOT_FOUND' ? (
-            <Link to={PATHS.mt5Account} className="btn btn-primary">Vincular conta MT5</Link>
+            <Link to={PATHS.carteira} className="btn btn-primary">Vincular corretora</Link>
           ) : (
             <button type="button" className="btn btn-secondary" onClick={refresh}>Tentar de novo</button>
           )}

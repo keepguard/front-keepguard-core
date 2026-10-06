@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getUserWatchlist, isVIPPlan } from '../services/analystService';
 
 export interface PlanUniverse {
-  /** A carteira já foi consultada (ou a consulta falhou). */
+  /** Os ativos do plano já foram consultados (ou a consulta falhou). */
   ready: boolean;
   /** VIP, admin ou ops: leem o universo inteiro. */
   fullAccess: boolean;
@@ -15,7 +15,7 @@ export interface PlanUniverse {
 
 /**
  * Ativos que o usuário pode ler em detalhe. Espelha a regra do BFF: plano com universo limitado enxerga só
- * a própria carteira. Serve para desenhar a interface; quem barra de verdade é o BFF.
+ * os próprios ativos do plano. Serve para desenhar a interface; quem barra de verdade é o BFF.
  */
 export function usePlanUniverse(): PlanUniverse {
   const { user } = useAuth();

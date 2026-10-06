@@ -25,7 +25,6 @@ import { MarketHubView } from '../components/dashboard/MarketHubView';
 import { TradeDayView } from '../components/dashboard/TradeDayView';
 import { TradeMonitorView } from '../components/dashboard/TradeMonitorView';
 import { SetupsView } from '../components/dashboard/SetupsView';
-import { PortfolioView } from '../components/dashboard/PortfolioView';
 import { Mt5AccountView } from '../components/dashboard/Mt5AccountView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
@@ -50,7 +49,6 @@ import {
   Sparkles,
   CreditCard,
   Wallet,
-  Link2,
 } from 'lucide-react';
 
 const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
@@ -459,25 +457,7 @@ export const CarteiraPage: React.FC = () => (
           Carteira
         </h1>
         <p className="dashboard-subtitle">
-          Registre suas compras e vendas e acompanhe a posição, o preço médio e o resultado de cada ativo.
-        </p>
-      </div>
-    </div>
-    <PortfolioView />
-  </DashboardShell>
-);
-
-export const Mt5AccountPage: React.FC = () => (
-  <DashboardShell>
-    <div className="dashboard-header">
-      <div className="dashboard-title-group">
-        <h1 className="dashboard-title">
-          <Link2 size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Corretora
-        </h1>
-        <p className="dashboard-subtitle">
-          Vincule sua conta na corretora (MetaTrader 5) e acompanhe saldo, posições, ordens e
-          histórico em tempo real — diferente da Carteira, que é o que você mesmo registra.
+          O que você tem na corretora, em tempo real: saldo, posições, ordens e histórico (MetaTrader 5).
         </p>
       </div>
     </div>

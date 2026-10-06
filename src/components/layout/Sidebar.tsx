@@ -17,7 +17,6 @@ import {
   LineChart,
   CandlestickChart,
   Wallet,
-  Link2,
   Sparkles,
   PanelLeftClose,
   PanelLeft,
@@ -137,13 +136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               to={PATHS.carteira}
               label="Carteira"
               icon={<Wallet size={18} className="sidebar-icon" />}
-              onCloseMobile={onCloseMobile}
-            />
-
-            <SidebarLink
-              to={PATHS.mt5Account}
-              label="Corretora"
-              icon={<Link2 size={18} className="sidebar-icon" />}
               onCloseMobile={onCloseMobile}
             />
 
