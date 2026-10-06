@@ -5,10 +5,8 @@ import {
   toAgentError,
   zerarEngine,
   type AgentApiError,
-  type AgentConta,
 } from '../../../services/agentOrdersService';
 import { AgentDialog } from './AgentDialog';
-import { ContaBadge } from './AgentBadges';
 
 export type EngineAction = 'pause' | 'resume' | 'zerar';
 
@@ -16,13 +14,12 @@ const ZERAR_WORD = 'ZERAR';
 
 interface EngineActionModalProps {
   action: EngineAction | null;
-  conta: AgentConta;
   onClose: () => void;
   onDone: (action: EngineAction) => void;
 }
 
 /** Pausar (motivo), Retomar (confirmação simples) e Zerar tudo (exige digitar "ZERAR"). */
-export function EngineActionModal({ action, conta, onClose, onDone }: EngineActionModalProps) {
+export function EngineActionModal({ action, onClose, onDone }: EngineActionModalProps) {
   const [motivo, setMotivo] = useState('');
   const [typed, setTyped] = useState('');
   const [sending, setSending] = useState(false);
@@ -45,9 +42,9 @@ export function EngineActionModal({ action, conta, onClose, onDone }: EngineActi
     setSending(true);
     setError(null);
     try {
-      if (action === 'pause') await pauseEngine(conta, motivo.trim() || 'Pausado pelo usuário no backoffice');
-      else if (action === 'resume') await resumeEngine(conta);
-      else await zerarEngine(conta, ZERAR_WORD);
+      if (action === 'pause') await pauseEngine(motivo.trim() || 'Pausado pelo usuário no backoffice');
+      else if (action === 'resume') await resumeEngine();
+      else await zerarEngine(ZERAR_WORD);
       onDone(action);
       onClose();
     } catch (err) {
@@ -67,7 +64,6 @@ export function EngineActionModal({ action, conta, onClose, onDone }: EngineActi
       onClose={onClose}
       busy={sending}
       title={title}
-      subtitle={<>Conta-alvo: <ContaBadge conta={conta} /></>}
       footer={
         <>
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={sending}>Voltar</button>
@@ -100,12 +96,12 @@ export function EngineActionModal({ action, conta, onClose, onDone }: EngineActi
           </>
         ) : action === 'resume' ? (
           <p className="ao-modal-text">
-            O motor volta a aceitar confirmações na conta {conta}. As propostas são revalidadas no próximo ciclo antes de qualquer envio.
+            O motor volta a aceitar confirmações. As propostas são revalidadas no próximo ciclo antes de qualquer envio.
           </p>
         ) : (
           <>
             <div className="ao-callout is-danger" role="note">
-              <strong>Ação irreversível.</strong> Encerra todas as posições abertas pelo sistema na conta {conta} e cancela as ordens pendentes dele.
+              <strong>Ação irreversível.</strong> Encerra todas as posições abertas pelo sistema e cancela as ordens pendentes dele.
               Posições e ordens que você abriu à mão não são tocadas.
             </div>
             <div className="form-group">

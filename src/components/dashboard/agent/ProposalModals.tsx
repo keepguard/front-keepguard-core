@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarClock, Newspaper, TriangleAlert } from 'lucide-react';
+import { CalendarClock, Newspaper } from 'lucide-react';
 import {
   cancelProposal,
   confirmProposal,
@@ -10,7 +10,7 @@ import {
   type Proposal,
 } from '../../../services/agentOrdersService';
 import { AgentDialog } from './AgentDialog';
-import { ContaBadge, FamiliaBadge } from './AgentBadges';
+import { FamiliaBadge } from './AgentBadges';
 import {
   TIPO_LABEL,
   alteracoesRecentes,
@@ -45,7 +45,6 @@ export function ProposalSummary({ proposal }: { proposal: Proposal }) {
     <dl className="ao-summary">
       <div><dt>Ação</dt><dd><FamiliaBadge familia={p.familia} /> {TIPO_LABEL[p.tipo] ?? p.tipo}</dd></div>
       <div><dt>Ativo</dt><dd><strong>{p.ticker}</strong>{p.simbolo && p.simbolo !== p.ticker ? <span className="table-cell-muted"> · envia como {p.simbolo}</span> : null}</dd></div>
-      <div><dt>Conta</dt><dd><ContaBadge conta={p.conta} /></dd></div>
       {p.ordem ? <div><dt>Ordem</dt><dd><strong>{ordemResumo(p.ordem)}</strong> <span className="table-cell-muted">· validade {p.ordem.validade === 'DAY' ? 'no dia' : p.ordem.validade}</span></dd></div> : null}
       {p.protecao ? <div><dt>Proteção</dt><dd>{protecaoResumo(p.protecao)}</dd></div> : null}
       {p.valorOrdem != null ? <div><dt>Valor</dt><dd>{money(p.valorOrdem)}</dd></div> : null}
@@ -187,7 +186,6 @@ export function ConfirmProposalModal({ proposal, liveProposal, enginePaused, onC
   };
 
   const sending = step === 'sending';
-  const isReal = current.conta === 'REAL';
 
   const footer =
     step === 'done' ? (
@@ -206,13 +204,13 @@ export function ConfirmProposalModal({ proposal, liveProposal, enginePaused, onC
         ) : (
           <button
             type="button"
-            className={`btn ${isReal ? 'btn-danger-solid' : 'btn-primary'} ao-armed-btn`}
+            className="btn btn-primary ao-armed-btn"
             onClick={send}
             disabled={!canAct || sending}
             aria-describedby="ao-confirm-armed-hint"
             autoFocus
           >
-            {sending ? 'Enviando…' : `Enviar para a conta ${current.conta}`}
+            {sending ? 'Enviando…' : 'Enviar ordem'}
           </button>
         )}
       </>
@@ -224,7 +222,7 @@ export function ConfirmProposalModal({ proposal, liveProposal, enginePaused, onC
       onClose={onClose}
       busy={sending}
       title={step === 'done' ? 'Resultado da ordem' : `Confirmar ${(TIPO_LABEL[current.tipo] ?? current.tipo).toLowerCase()} · ${current.ticker}`}
-      subtitle={step === 'done' ? undefined : <>Executa só no segundo clique. Conta-alvo: <ContaBadge conta={current.conta} /></>}
+      subtitle={step === 'done' ? undefined : 'Executa só no segundo clique.'}
       maxWidth="600px"
       footer={footer}
     >
@@ -255,14 +253,9 @@ export function ConfirmProposalModal({ proposal, liveProposal, enginePaused, onC
                 ? <>Vale até {timeOnly(current.validaAte)} · <span className={cd.urgent ? 'ao-countdown is-urgent' : 'ao-countdown'}>{cd.text}</span></>
                 : 'Vale até ser resolvida.'}
           </p>
-          {isReal ? (
-            <div className="ao-callout is-danger" role="note">
-              <TriangleAlert size={14} aria-hidden="true" /> Conta <strong>REAL</strong>: dinheiro de verdade.
-            </div>
-          ) : null}
           {step === 'armed' ? (
             <p id="ao-confirm-armed-hint" className="ao-armed-hint" role="status">
-              Clique em “Enviar para a conta {current.conta}” para executar. Volta ao normal em 10 s se você não clicar.
+              Clique em “Enviar ordem” para executar. Volta ao normal em 10 s se você não clicar.
             </p>
           ) : null}
         </>

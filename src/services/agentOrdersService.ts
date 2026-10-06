@@ -10,7 +10,6 @@ const AGENT_BASE = `${BFF_INVEST_URL}/api/v1/invest/trade/agent`;
 
 // ── Tipos do contrato ─────────────────────────────────────────────────────────
 
-export type AgentConta = 'DEMO' | 'REAL';
 export type ProposalFamilia = 'COMPRA' | 'VENDA' | 'STOP' | 'EMERGENCIA' | 'ALERTA';
 export type ProposalTipo =
   | 'ABRIR_COMPRA'
@@ -66,7 +65,6 @@ export interface Proposal {
   id: string;
   chave: string;
   versao: number;
-  conta: AgentConta;
   familia: ProposalFamilia;
   tipo: ProposalTipo;
   ticker: string;
@@ -102,6 +100,8 @@ export interface AgentEngine {
   desde: string | null;
   /** codeUser ou "IA". */
   por: string | null;
+  /** false = execução de ordens desligada neste ambiente (só acompanhamento). */
+  execucaoHabilitada?: boolean;
 }
 
 export interface AgentCapital {
@@ -118,7 +118,6 @@ export interface AgentCapital {
 export type FamiliaContadores = Record<ProposalFamilia, number>;
 
 export interface ProposalsResponse {
-  conta: AgentConta;
   asOf: string;
   engine: AgentEngine;
   capital: AgentCapital;
@@ -188,7 +187,6 @@ export interface TradingSettings {
 }
 
 export interface SettingsResponse {
-  conta: AgentConta;
   version: number;
   settings: TradingSettings;
   /** Mesma forma de `settings`, com os valores máximos (o usuário só pode apertar). */
@@ -226,7 +224,7 @@ export type AgentErrorCode =
   | 'PROPOSTA_EXPIRADA'
   | 'MOTOR_PAUSADO'
   | 'EXECUCAO_NAO_AUTORIZADA'
-  | 'CONTA_REAL_BLOQUEADA'
+  | 'EXECUCAO_DESLIGADA'
   | 'MT5_ACCOUNT_NOT_FOUND'
   | 'GATEWAY_UNAVAILABLE';
 
@@ -275,8 +273,8 @@ function friendlyMessage(status: number, code: string | null, serverMessage: str
       return 'O motor está pausado. Retome o motor antes de confirmar ordens.';
     case 'EXECUCAO_NAO_AUTORIZADA':
       return 'Seu usuário não tem permissão para executar ordens (fora da lista autorizada).';
-    case 'CONTA_REAL_BLOQUEADA':
-      return 'A conta REAL está bloqueada pelo sistema. Só a DEMO pode operar agora.';
+    case 'EXECUCAO_DESLIGADA':
+      return 'Execução de ordens desligada neste ambiente';
     case 'MT5_ACCOUNT_NOT_FOUND':
       return 'Você ainda não vinculou uma conta MT5. Vincule no menu Corretora.';
     case 'GATEWAY_UNAVAILABLE':
@@ -344,8 +342,8 @@ function qs(params: Record<string, string | number | undefined | null>): string 
 
 // ── Rotas (§4 do contrato) ───────────────────────────────────────────────────
 
-export function getProposals(conta: AgentConta, signal?: AbortSignal): Promise<ProposalsResponse> {
-  return call<ProposalsResponse>(`${AGENT_BASE}/proposals${qs({ conta })}`, { method: 'GET', signal });
+export function getProposals(signal?: AbortSignal): Promise<ProposalsResponse> {
+  return call<ProposalsResponse>(`${AGENT_BASE}/proposals`, { method: 'GET', signal });
 }
 
 /** Envia `Idempotency-Key: "{id}:{versao}"` — repetir o clique devolve a mesma resposta 200. */
@@ -367,7 +365,6 @@ export function cancelProposal(id: string, versao: number, motivo?: string): Pro
 }
 
 export interface HistoryQuery {
-  conta: AgentConta;
   /** YYYY-MM-DD */
   desde?: string;
   /** YYYY-MM-DD */
@@ -379,61 +376,61 @@ export interface HistoryQuery {
 
 export function getHistory(q: HistoryQuery, signal?: AbortSignal): Promise<Paged<HistoryItem>> {
   return call<Paged<HistoryItem>>(
-    `${AGENT_BASE}/history${qs({ conta: q.conta, desde: q.desde, ate: q.ate, ticker: q.ticker, limit: q.limit, offset: q.offset })}`,
+    `${AGENT_BASE}/history${qs({ desde: q.desde, ate: q.ate, ticker: q.ticker, limit: q.limit, offset: q.offset })}`,
     { method: 'GET', signal },
   );
 }
 
 export function getEvents(
-  q: { conta: AgentConta; proposalId?: string; limit?: number; offset?: number },
+  q: { proposalId?: string; limit?: number; offset?: number },
   signal?: AbortSignal,
 ): Promise<Paged<ProposalEvent>> {
   return call<Paged<ProposalEvent>>(
-    `${AGENT_BASE}/events${qs({ conta: q.conta, proposalId: q.proposalId, limit: q.limit, offset: q.offset })}`,
+    `${AGENT_BASE}/events${qs({ proposalId: q.proposalId, limit: q.limit, offset: q.offset })}`,
     { method: 'GET', signal },
   );
 }
 
-export function getSettings(conta: AgentConta, signal?: AbortSignal): Promise<SettingsResponse> {
-  return call<SettingsResponse>(`${AGENT_BASE}/settings${qs({ conta })}`, { method: 'GET', signal });
+export function getSettings(signal?: AbortSignal): Promise<SettingsResponse> {
+  return call<SettingsResponse>(`${AGENT_BASE}/settings`, { method: 'GET', signal });
 }
 
 /** Concorrência otimista: `If-Match` com a `version` lida. 409 SETTINGS_VERSION_MISMATCH se mudou. */
-export function updateSettings(conta: AgentConta, version: number, settings: TradingSettings): Promise<SettingsResponse> {
-  return call<SettingsResponse>(`${AGENT_BASE}/settings${qs({ conta })}`, {
+export function updateSettings(version: number, settings: TradingSettings): Promise<SettingsResponse> {
+  return call<SettingsResponse>(`${AGENT_BASE}/settings`, {
     method: 'PUT',
     headers: { 'If-Match': String(version) },
     body: JSON.stringify(settings),
   });
 }
 
-export function getSettingsPreview(conta: AgentConta, ticker: string, signal?: AbortSignal): Promise<SettingsPreview> {
-  return call<SettingsPreview>(`${AGENT_BASE}/settings/preview${qs({ conta, ticker })}`, { method: 'GET', signal });
+export function getSettingsPreview(ticker: string, signal?: AbortSignal): Promise<SettingsPreview> {
+  return call<SettingsPreview>(`${AGENT_BASE}/settings/preview${qs({ ticker })}`, { method: 'GET', signal });
 }
 
-export function getEngine(conta: AgentConta, signal?: AbortSignal): Promise<AgentEngine> {
-  return call<AgentEngine>(`${AGENT_BASE}/engine${qs({ conta })}`, { method: 'GET', signal });
+export function getEngine(signal?: AbortSignal): Promise<AgentEngine> {
+  return call<AgentEngine>(`${AGENT_BASE}/engine`, { method: 'GET', signal });
 }
 
-export function pauseEngine(conta: AgentConta, motivo: string): Promise<unknown> {
-  return call<unknown>(`${AGENT_BASE}/engine/pause${qs({ conta })}`, {
+export function pauseEngine(motivo: string): Promise<unknown> {
+  return call<unknown>(`${AGENT_BASE}/engine/pause`, {
     method: 'POST',
     body: JSON.stringify({ motivo }),
   });
 }
 
-export function resumeEngine(conta: AgentConta): Promise<unknown> {
-  return call<unknown>(`${AGENT_BASE}/engine/resume${qs({ conta })}`, { method: 'POST', body: '{}' });
+export function resumeEngine(): Promise<unknown> {
+  return call<unknown>(`${AGENT_BASE}/engine/resume`, { method: 'POST', body: '{}' });
 }
 
 /** Encerra as posições do sistema e cancela as ordens dele. Exige o texto "ZERAR". */
-export function zerarEngine(conta: AgentConta, confirmacao: string): Promise<unknown> {
-  return call<unknown>(`${AGENT_BASE}/engine/zerar${qs({ conta })}`, {
+export function zerarEngine(confirmacao: string): Promise<unknown> {
+  return call<unknown>(`${AGENT_BASE}/engine/zerar`, {
     method: 'POST',
     body: JSON.stringify({ confirmacao }),
   });
 }
 
-export function getDailyReport(conta: AgentConta, data?: string, signal?: AbortSignal): Promise<DailyReport> {
-  return call<DailyReport>(`${AGENT_BASE}/report/daily${qs({ conta, data })}`, { method: 'GET', signal });
+export function getDailyReport(data?: string, signal?: AbortSignal): Promise<DailyReport> {
+  return call<DailyReport>(`${AGENT_BASE}/report/daily${qs({ data })}`, { method: 'GET', signal });
 }

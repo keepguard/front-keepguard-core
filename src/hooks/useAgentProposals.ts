@@ -3,7 +3,6 @@ import {
   getProposals,
   toAgentError,
   type AgentApiError,
-  type AgentConta,
   type ProposalsResponse,
 } from '../services/agentOrdersService';
 
@@ -18,9 +17,8 @@ export interface AgentProposalsState {
 /**
  * Tabela viva do Agent Ordens (GET /proposals). Fica no TradeDayView (não no painel) porque
  * o título da sub-aba mostra os contadores por família mesmo com outra sub-aba aberta.
- * Trocar de conta descarta o dado anterior — nunca mostrar propostas da DEMO com o badge REAL.
  */
-export function useAgentProposals(conta: AgentConta): AgentProposalsState {
+export function useAgentProposals(): AgentProposalsState {
   const [data, setData] = useState<ProposalsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -32,7 +30,7 @@ export function useAgentProposals(conta: AgentConta): AgentProposalsState {
     const ctrl = new AbortController();
     controller.current = ctrl;
     setRefreshing(true);
-    getProposals(conta, ctrl.signal)
+    getProposals(ctrl.signal)
       .then((resp) => {
         if (ctrl.signal.aborted) return;
         setData(resp);
@@ -47,7 +45,7 @@ export function useAgentProposals(conta: AgentConta): AgentProposalsState {
         setLoading(false);
         setRefreshing(false);
       });
-  }, [conta]);
+  }, []);
 
   useEffect(() => {
     setData(null);

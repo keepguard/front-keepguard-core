@@ -3,9 +3,8 @@ import { Link } from 'react-router-dom';
 import { Pause, Play, Power, SlidersHorizontal } from 'lucide-react';
 import { PATHS } from '../../../navigation/routes';
 import type { AgentProposalsState } from '../../../hooks/useAgentProposals';
-import type { AgentCapital, AgentConta, AgentEngine, Proposal, ProposalFamilia } from '../../../services/agentOrdersService';
+import { getEngine, type AgentCapital, type AgentEngine, type Proposal, type ProposalFamilia } from '../../../services/agentOrdersService';
 import { useToast } from '../../../context/ToastContext';
-import { ContaBadge } from './AgentBadges';
 import { AgentProposalsTable } from './AgentProposalsTable';
 import { AgentHistory } from './AgentHistory';
 import { AgentSettingsDrawer } from './AgentSettingsDrawer';
@@ -18,12 +17,10 @@ type FamiliaFilter = 'TODAS' | ProposalFamilia;
 const FLASH_MS = 1800;
 
 interface AgentOrdersPanelProps {
-  conta: AgentConta;
-  onContaChange: (conta: AgentConta) => void;
   state: AgentProposalsState;
 }
 
-export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPanelProps) {
+export function AgentOrdersPanel({ state }: AgentOrdersPanelProps) {
   const { data, loading, error, refresh } = state;
   const { addToast } = useToast();
   const [filter, setFilter] = useState<FamiliaFilter>('TODAS');
@@ -42,10 +39,16 @@ export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPan
     return () => window.clearInterval(id);
   }, []);
 
+  // GET /engine diz se este ambiente executa ordens; false = só acompanhamento.
+  const [execucaoHabilitada, setExecucaoHabilitada] = useState(true);
+  const [engineKey, setEngineKey] = useState(0);
   useEffect(() => {
-    versions.current = null;
-    setFilter('TODAS');
-  }, [conta]);
+    const ctrl = new AbortController();
+    getEngine(ctrl.signal)
+      .then((e) => setExecucaoHabilitada(e.execucaoHabilitada !== false))
+      .catch(() => undefined);
+    return () => ctrl.abort();
+  }, [engineKey]);
 
   // Linha que subiu de versão (§4.1 C) pisca uma vez. Na 1ª carga nada pisca.
   useEffect(() => {
@@ -92,7 +95,6 @@ export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPan
   if (!data && error) {
     return (
       <div className="ao-panel">
-        <ContaSwitch conta={conta} onChange={onContaChange} />
         <div className="trade-state" role="alert">
           <p>{error.message}</p>
           {error.code === 'MT5_ACCOUNT_NOT_FOUND' ? (
@@ -111,11 +113,12 @@ export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPan
 
   return (
     <div className="ao-panel">
-      <section className={`ao-topbar is-${data.conta.toLowerCase()}`} aria-label="Conta, motor e capital">
+      {!execucaoHabilitada ? (
+        <p className="trade-note" role="status">Execução de ordens desligada — propostas só para acompanhamento</p>
+      ) : null}
+      <section className="ao-topbar" aria-label="Motor e capital">
         <div className="ao-topbar-row">
           <div className="ao-topbar-identity">
-            <ContaBadge conta={data.conta} size="lg" />
-            <ContaSwitch conta={conta} onChange={onContaChange} />
             <EngineStatus engine={data.engine} />
           </div>
           <div className="ao-topbar-actions">
@@ -128,7 +131,7 @@ export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPan
                 <Pause size={14} aria-hidden="true" /> Pausar
               </button>
             )}
-            <button type="button" className="btn btn-danger btn-sm" onClick={() => setEngineAction('zerar')}>
+            <button type="button" className="btn btn-danger btn-sm" onClick={() => setEngineAction('zerar')} disabled={!execucaoHabilitada}>
               <Power size={14} aria-hidden="true" /> Zerar tudo
             </button>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSettingsOpen(true)} aria-haspopup="dialog">
@@ -178,6 +181,7 @@ export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPan
         nowMs={nowMs}
         flashIds={flashIds}
         enginePaused={enginePaused}
+        execucaoHabilitada={execucaoHabilitada}
         emptyMessage={
           filter === 'TODAS'
             ? 'Nenhuma proposta agora. O motor roda a cada ciclo e as novas aparecem aqui sozinhas.'
@@ -187,12 +191,12 @@ export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPan
         onCancel={setCancelling}
       />
 
-      <AgentHistory conta={conta} reloadKey={historyKey} />
+      <AgentHistory reloadKey={historyKey} />
 
       <ConfirmProposalModal
         proposal={confirming}
         liveProposal={liveConfirming}
-        enginePaused={enginePaused}
+        enginePaused={enginePaused || !execucaoHabilitada}
         onClose={() => setConfirming(null)}
         onChanged={afterDecision}
       />
@@ -206,10 +210,10 @@ export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPan
       />
       <EngineActionModal
         action={engineAction}
-        conta={conta}
         onClose={() => setEngineAction(null)}
         onDone={(a) => {
           refresh();
+          setEngineKey((k) => k + 1);
           addToast({
             type: a === 'zerar' ? 'warning' : 'success',
             title: a === 'pause' ? 'Motor pausado' : a === 'resume' ? 'Motor retomado' : 'Zerar tudo enviado',
@@ -219,31 +223,11 @@ export function AgentOrdersPanel({ conta, onContaChange, state }: AgentOrdersPan
       />
       <AgentSettingsDrawer
         isOpen={settingsOpen}
-        conta={conta}
         capital={data.capital}
         suggestedTicker={suggestedTicker}
         onClose={() => setSettingsOpen(false)}
         onSaved={refresh}
       />
-    </div>
-  );
-}
-
-function ContaSwitch({ conta, onChange }: { conta: AgentConta; onChange: (c: AgentConta) => void }) {
-  return (
-    <div className="ao-conta-switch" role="radiogroup" aria-label="Conta-alvo">
-      {(['DEMO', 'REAL'] as AgentConta[]).map((c) => (
-        <button
-          key={c}
-          type="button"
-          role="radio"
-          aria-checked={conta === c}
-          className={`ao-conta-option is-${c.toLowerCase()}${conta === c ? ' is-active' : ''}`}
-          onClick={() => onChange(c)}
-        >
-          {c === 'DEMO' ? 'Demo' : 'Real'}
-        </button>
-      ))}
     </div>
   );
 }

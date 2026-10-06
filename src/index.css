@@ -15494,29 +15494,12 @@ textarea.form-input {
   display: flex; flex-direction: column; gap: 0.75rem;
   padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card);
 }
-.ao-topbar.is-real { border-color: var(--danger); box-shadow: inset 4px 0 0 var(--danger); }
 .ao-topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
 .ao-topbar-identity { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 .ao-topbar-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .ao-topbar-actions .btn, .ao-actions .btn { gap: 0.35rem; }
 
-.ao-conta-badge {
-  display: inline-flex; align-items: center; padding: 0.1rem 0.5rem; border-radius: 6px;
-  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em;
-  background: var(--bg-muted); color: var(--text-muted); border: 1px solid var(--border);
-}
-.ao-conta-badge.is-real { background: var(--danger); color: #fff; border-color: var(--danger); }
-.ao-conta-badge.is-lg { font-size: 0.95rem; padding: 0.25rem 0.75rem; }
 
-.ao-conta-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.ao-conta-option {
-  padding: 0.3rem 0.7rem; border: none; background: var(--bg-card); color: var(--text-muted);
-  font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
-}
-.ao-conta-option + .ao-conta-option { border-left: 1px solid var(--border); }
-.ao-conta-option.is-active { background: var(--bg-muted); color: var(--text-main); }
-.ao-conta-option.is-real.is-active { background: var(--danger-light); color: var(--danger); }
-.ao-conta-option:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
 
 .ao-engine { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; flex-wrap: wrap; }
 .ao-engine-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success); }
@@ -15685,7 +15668,6 @@ textarea.form-input {
 .ao-field-hint { font-size: 0.74rem; color: var(--text-muted); line-height: 1.35; }
 .ao-field-hint.is-error { color: var(--danger); font-weight: 600; }
 .ao-check { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.65rem; font-size: 0.85rem; color: var(--text-body); cursor: pointer; }
-.ao-real-ack { padding: 0.6rem 0.75rem; border-radius: 8px; background: var(--danger-light); color: var(--danger); }
 
 /* Histórico */
 .ao-history { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; }

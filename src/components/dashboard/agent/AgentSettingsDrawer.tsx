@@ -6,13 +6,11 @@ import {
   updateSettings,
   type AgentApiError,
   type AgentCapital,
-  type AgentConta,
   type SettingsPreview,
   type SettingsResponse,
   type TradingSettings,
 } from '../../../services/agentOrdersService';
 import { AgentDialog } from './AgentDialog';
-import { ContaBadge } from './AgentBadges';
 import { money, pct, qty } from './agentFormat';
 
 type Unit = 'brl' | 'pct' | 'int' | 'num';
@@ -119,14 +117,13 @@ function parseList(text: string): string[] {
 
 interface AgentSettingsDrawerProps {
   isOpen: boolean;
-  conta: AgentConta;
   capital: AgentCapital | null;
   suggestedTicker?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, onClose, onSaved }: AgentSettingsDrawerProps) {
+export function AgentSettingsDrawer({ isOpen, capital, suggestedTicker, onClose, onSaved }: AgentSettingsDrawerProps) {
   const [resp, setResp] = useState<SettingsResponse | null>(null);
   const [draft, setDraft] = useState<TradingSettings | null>(null);
   const [listDraft, setListDraft] = useState({ permitidos: '', bloqueados: '' });
@@ -135,13 +132,12 @@ export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, o
   const [saveError, setSaveError] = useState<AgentApiError | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [realAck, setRealAck] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
     setLoadError(null);
     setSaveError(null);
-    getSettings(conta)
+    getSettings()
       .then((r) => {
         setResp(r);
         setDraft(structuredClone(r.settings));
@@ -152,12 +148,11 @@ export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, o
       })
       .catch((err) => setLoadError(toAgentError(err)))
       .finally(() => setLoading(false));
-  }, [conta]);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
     setSavedAt(null);
-    setRealAck(false);
     load();
   }, [isOpen, load]);
 
@@ -199,15 +194,14 @@ export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, o
 
   const dirty = Boolean(resp && finalDraft && JSON.stringify(finalDraft) !== JSON.stringify(resp.settings));
   const hasErrors = Object.keys(errors).length > 0;
-  const needsRealAck = conta === 'REAL' && !realAck;
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resp || !finalDraft || hasErrors || needsRealAck) return;
+    if (!resp || !finalDraft || hasErrors) return;
     setSaving(true);
     setSaveError(null);
     try {
-      const next = await updateSettings(conta, resp.version, finalDraft);
+      const next = await updateSettings(resp.version, finalDraft);
       setResp(next);
       setDraft(structuredClone(next.settings));
       setSavedAt(Date.now());
@@ -233,7 +227,7 @@ export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, o
       title="Configurações do agente"
       subtitle={
         <>
-          Conta <ContaBadge conta={conta} /> · você pode apertar os limites do sistema, nunca afrouxar.
+          Você pode apertar os limites do sistema, nunca afrouxar.
           {resp ? <> Versão {resp.version}{resp.updatedBy ? ` · por ${resp.updatedBy}` : ''}.</> : null}
         </>
       }
@@ -243,8 +237,8 @@ export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, o
           <button
             type="submit"
             form="ao-settings-form"
-            className={conta === 'REAL' ? 'btn btn-danger-solid' : 'btn btn-primary'}
-            disabled={!dirty || hasErrors || saving || needsRealAck || !resp}
+            className="btn btn-primary"
+            disabled={!dirty || hasErrors || saving || !resp}
           >
             {saving ? 'Salvando…' : 'Salvar'}
           </button>
@@ -260,7 +254,7 @@ export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, o
         </div>
       ) : draft && resp ? (
         <form id="ao-settings-form" onSubmit={save} noValidate>
-          <SettingsPreviewBox conta={conta} capital={capital} suggestedTicker={suggestedTicker} reloadKey={resp.version} dirty={dirty} />
+          <SettingsPreviewBox capital={capital} suggestedTicker={suggestedTicker} reloadKey={resp.version} dirty={dirty} />
 
           {saveError ? (
             <div className="ao-callout is-danger" role="alert">
@@ -393,12 +387,6 @@ export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, o
             </label>
           </fieldset>
 
-          {conta === 'REAL' ? (
-            <label className="ao-check ao-real-ack">
-              <input type="checkbox" checked={realAck} onChange={(e) => setRealAck(e.target.checked)} />
-              Entendo que estou alterando as regras da conta <strong>REAL</strong>.
-            </label>
-          ) : null}
         </form>
       ) : null}
     </AgentDialog>
@@ -407,13 +395,11 @@ export function AgentSettingsDrawer({ isOpen, conta, capital, suggestedTicker, o
 
 /** Prévia: quantas ações uma compra daria com a configuração SALVA e o saldo atual (GET settings/preview). */
 function SettingsPreviewBox({
-  conta,
   capital,
   suggestedTicker,
   reloadKey,
   dirty,
 }: {
-  conta: AgentConta;
   capital: AgentCapital | null;
   suggestedTicker?: string;
   reloadKey: number;
@@ -436,7 +422,7 @@ function SettingsPreviewBox({
       const c = new AbortController();
       ctrl.current = c;
       setLoading(true);
-      getSettingsPreview(conta, t, c.signal)
+      getSettingsPreview(t, c.signal)
         .then((p) => {
           if (c.signal.aborted) return;
           setPreview(p);
@@ -452,7 +438,7 @@ function SettingsPreviewBox({
         });
     }, 400);
     return () => window.clearTimeout(id);
-  }, [ticker, conta, reloadKey]);
+  }, [ticker, reloadKey]);
 
   useEffect(() => () => ctrl.current?.abort(), []);
 

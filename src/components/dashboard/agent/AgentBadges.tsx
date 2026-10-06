@@ -1,4 +1,4 @@
-import type { AgentConta, ProposalFamilia } from '../../../services/agentOrdersService';
+import type { ProposalFamilia } from '../../../services/agentOrdersService';
 import { FAMILIA_META } from './agentFormat';
 
 /** Família com cor + ícone + rótulo (nunca só cor — daltonismo). */
@@ -14,12 +14,3 @@ export function FamiliaBadge({ familia, muted = false }: { familia: ProposalFami
   );
 }
 
-/** Conta-alvo em destaque: DEMO cinza, REAL vermelho. */
-export function ContaBadge({ conta, size = 'md' }: { conta: AgentConta; size?: 'md' | 'lg' }) {
-  return (
-    <span className={`ao-conta-badge is-${conta.toLowerCase()}${size === 'lg' ? ' is-lg' : ''}`}>
-      <span className="sr-only">Conta </span>
-      {conta}
-    </span>
-  );
-}

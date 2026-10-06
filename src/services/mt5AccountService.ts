@@ -1,6 +1,6 @@
 /**
  * Cliente da integração MT5 (bff-invest): vínculo da conta do usuário logado
- * com o gateway MT5 (ambiente + URL, nunca credencial de corretora) e dados
+ * com o gateway MT5 (só o caminho do gateway, nunca credencial de corretora) e dados
  * ao vivo lidos do terminal (saldo, posições, ordens, histórico).
  */
 import { BFF_INVEST_URL, customFetch } from './api';
@@ -8,10 +8,7 @@ import { getAccessToken } from './tokenStore';
 
 const MT5_BASE = `${BFF_INVEST_URL}/api/v1/invest/trade/mt5`;
 
-export type Mt5Ambiente = 'demo' | 'real';
-
 export interface Mt5Account {
-  ambiente: Mt5Ambiente;
   gatewayUrl: string;
   status: string;
   createdAt: string;
@@ -19,7 +16,6 @@ export interface Mt5Account {
 }
 
 export interface Mt5AccountInput {
-  ambiente: Mt5Ambiente;
   gatewayUrl: string;
 }
 

@@ -164,7 +164,7 @@ export function Mt5AccountView() {
       <div className="table-toolbar">
         <div className="portfolio-add-group">
           <span className="portfolio-add-label">
-            Ambiente: <strong>{account?.ambiente === 'real' ? 'Real' : 'Demo'}</strong> · {account?.gatewayUrl}
+            Caminho do gateway: <strong>{account?.gatewayUrl}</strong>
           </span>
         </div>
         <div className="table-toolbar-push-end portfolio-toolbar-actions">

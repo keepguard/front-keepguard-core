@@ -25,6 +25,7 @@ interface AgentProposalsTableProps {
   nowMs: number;
   flashIds: ReadonlySet<string>;
   enginePaused: boolean;
+  execucaoHabilitada?: boolean;
   emptyMessage: string;
   onConfirm: (p: Proposal) => void;
   onCancel: (p: Proposal) => void;
@@ -93,9 +94,10 @@ function ValidadeCell({ p, nowMs }: { p: Proposal; nowMs: number }) {
   );
 }
 
-function Actions({ p, enginePaused, onConfirm, onCancel, compact = false }: {
+function Actions({ p, enginePaused, execOff = false, onConfirm, onCancel, compact = false }: {
   p: Proposal;
   enginePaused: boolean;
+  execOff?: boolean;
   onConfirm: (p: Proposal) => void;
   onCancel: (p: Proposal) => void;
   compact?: boolean;
@@ -111,8 +113,8 @@ function Actions({ p, enginePaused, onConfirm, onCancel, compact = false }: {
           type="button"
           className="btn btn-primary btn-sm"
           onClick={() => onConfirm(p)}
-          disabled={enginePaused}
-          title={enginePaused ? 'Motor pausado — retome para confirmar' : undefined}
+          disabled={enginePaused || execOff}
+          title={execOff ? 'Execução de ordens desligada neste ambiente' : enginePaused ? 'Motor pausado — retome para confirmar' : undefined}
           aria-label={`Confirmar: ${label}`}
         >
           Confirmar
@@ -139,7 +141,7 @@ function MotivoText({ p }: { p: Proposal }) {
 }
 
 /** Tabela única (desktop) + cards (mobile). A ordem e o filtro chegam prontos do painel. */
-export function AgentProposalsTable({ items, nowMs, flashIds, enginePaused, emptyMessage, onConfirm, onCancel }: AgentProposalsTableProps) {
+export function AgentProposalsTable({ items, nowMs, flashIds, enginePaused, execucaoHabilitada = true, emptyMessage, onConfirm, onCancel }: AgentProposalsTableProps) {
   if (items.length === 0) {
     return <div className="trade-state"><p>{emptyMessage}</p></div>;
   }
@@ -200,7 +202,7 @@ export function AgentProposalsTable({ items, nowMs, flashIds, enginePaused, empt
                 <td><JevCell p={p} /></td>
                 <td><ValidadeCell p={p} nowMs={nowMs} /></td>
                 <td>
-                  <Actions p={p} enginePaused={enginePaused} onConfirm={onConfirm} onCancel={onCancel} />
+                  <Actions p={p} enginePaused={enginePaused} execOff={!execucaoHabilitada} onConfirm={onConfirm} onCancel={onCancel} />
                 </td>
               </tr>
             ))}
@@ -225,7 +227,7 @@ export function AgentProposalsTable({ items, nowMs, flashIds, enginePaused, empt
               {p.pctDisponivel != null ? <span>{pct(p.pctDisponivel)} do disponível</span> : null}
             </div>
             <p className="ao-motivo ao-card-motivo"><MotivoText p={p} /></p>
-            <Actions p={p} enginePaused={enginePaused} onConfirm={onConfirm} onCancel={onCancel} compact />
+            <Actions p={p} enginePaused={enginePaused} execOff={!execucaoHabilitada} onConfirm={onConfirm} onCancel={onCancel} compact />
           </li>
         ))}
       </ul>

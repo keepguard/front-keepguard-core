@@ -5,7 +5,6 @@ import { PATHS } from '../../navigation/routes';
 import { useTradeDay, type TradeDayRow } from '../../hooks/useTradeDay';
 import { usePortfolioPositions } from '../../hooks/usePortfolioPositions';
 import { useAgentProposals } from '../../hooks/useAgentProposals';
-import type { AgentConta } from '../../services/agentOrdersService';
 import { AutoRefreshButton } from '../common/AutoRefreshButton';
 import { Tooltip } from '../common/Tooltip';
 import { TradeDayTable } from './TradeDayTable';
@@ -30,10 +29,6 @@ const AGENT_AUTO_REFRESH_SECONDS = 15;
 // 'ajustar' (antiga "Precisa ajustar") foi substituída por 'agente'; o valor antigo na URL cai em 'geral'.
 type SubTab = 'geral' | 'compra' | 'venda' | 'carteira' | 'agente';
 const SUB_TABS: readonly SubTab[] = ['geral', 'compra', 'venda', 'carteira', 'agente'];
-
-function contaFromSearch(conta: string | null): AgentConta {
-  return conta === 'REAL' ? 'REAL' : 'DEMO';
-}
 
 function subTabFromSearch(subtab: string | null): SubTab {
   return subtab && (SUB_TABS as readonly string[]).includes(subtab) ? (subtab as SubTab) : 'geral';
@@ -60,15 +55,6 @@ export function TradeDayView() {
       return next;
     }, { replace: true });
   };
-  const conta = contaFromSearch(searchParams.get('conta'));
-  const setConta = (c: AgentConta) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (c === 'DEMO') next.delete('conta');
-      else next.set('conta', c);
-      return next;
-    }, { replace: true });
-  };
   // Filtro da aba Carteira é local (client-side): a carteira pode ter ticker fora do
   // universo do plano de Trade, então não reusa o `query` que filtra no backend.
   const [carteiraQuery, setCarteiraQuery] = useState('');
@@ -81,7 +67,7 @@ export function TradeDayView() {
   const { rows, market, asOf, total, loading, refreshing, snapshotError, opportunityError, refresh } =
     useTradeDay(debouncedQuery || undefined);
   const { data: positions, loading: portfolioLoading, refresh: refreshPortfolio } = usePortfolioPositions();
-  const agent = useAgentProposals(conta);
+  const agent = useAgentProposals();
   const agentCounts = agent.data?.contadores ?? null;
   const nowSec = useNowSeconds();
   const limparFiltro = () => setQuery('');
@@ -331,7 +317,7 @@ export function TradeDayView() {
           />
         )
       ) : subTab === 'agente' ? (
-        <AgentOrdersPanel conta={conta} onContaChange={setConta} state={agent} />
+        <AgentOrdersPanel state={agent} />
       ) : (
         <TradeDayTable
           rows={subTab === 'geral' ? rows : subTab === 'compra' ? compraRows : vendaRows}

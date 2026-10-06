@@ -4,7 +4,6 @@ import {
   getHistory,
   toAgentError,
   type AgentApiError,
-  type AgentConta,
   type HistoryItem,
   type Paged,
 } from '../../../services/agentOrdersService';
@@ -32,7 +31,7 @@ function execResumo(item: HistoryItem): string {
 }
 
 /** Decisões e execuções gravadas no Postgres (GET /history), com filtro por dia e ativo. */
-export function AgentHistory({ conta, reloadKey }: { conta: AgentConta; reloadKey: number }) {
+export function AgentHistory({ reloadKey }: { reloadKey: number }) {
   const [day, setDay] = useState('');
   const [ticker, setTicker] = useState('');
   const [applied, setApplied] = useState<{ day: string; ticker: string }>({ day: '', ticker: '' });
@@ -48,7 +47,7 @@ export function AgentHistory({ conta, reloadKey }: { conta: AgentConta; reloadKe
     controller.current = ctrl;
     setLoading(true);
     getHistory(
-      { conta, desde: applied.day || undefined, ate: applied.day || undefined, ticker: applied.ticker || undefined, limit: PAGE_SIZE, offset },
+      { desde: applied.day || undefined, ate: applied.day || undefined, ticker: applied.ticker || undefined, limit: PAGE_SIZE, offset },
       ctrl.signal,
     )
       .then((resp) => {
@@ -63,14 +62,13 @@ export function AgentHistory({ conta, reloadKey }: { conta: AgentConta; reloadKe
       .finally(() => {
         if (!ctrl.signal.aborted) setLoading(false);
       });
-  }, [conta, applied, offset]);
+  }, [applied, offset]);
 
   useEffect(() => {
     load();
     return () => controller.current?.abort();
   }, [load, reloadKey]);
 
-  useEffect(() => setOffset(0), [conta]);
 
   const apply = (e: React.FormEvent) => {
     e.preventDefault();
