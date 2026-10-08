@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Wallet, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { PATHS } from '../../navigation/routes';
 import { useTradeDay, type TradeDayRow } from '../../hooks/useTradeDay';
-import { useMt5Custody } from '../../hooks/useMt5Custody';
-import { custodyBreakdown, type CustodyPosition } from '../../utils/mt5Custody';
 import { useAgentProposals } from '../../hooks/useAgentProposals';
 import { AutoRefreshButton } from '../common/AutoRefreshButton';
 import { Tooltip } from '../common/Tooltip';
 import { TradeDayTable } from './TradeDayTable';
 import { AgentOrdersPanel } from './agent/AgentOrdersPanel';
-import { ageLabel, formatMoney } from './dossierFormat';
+import { ageLabel } from './dossierFormat';
 import type { TradeMarketState } from '../../services/tradeService';
 
 const STATE_LABEL: Record<TradeMarketState, string> = {
@@ -27,9 +25,10 @@ const TRADE_DAY_AUTO_REFRESH_SECONDS = 60;
 // (SPEC-002 §9). Nas outras abas os contadores do título seguem os 60s do Trade Day.
 const AGENT_AUTO_REFRESH_SECONDS = 15;
 
-// 'ajustar' (antiga "Precisa ajustar") foi substituída por 'agente'; o valor antigo na URL cai em 'geral'.
-type SubTab = 'geral' | 'compra' | 'venda' | 'carteira' | 'agente';
-const SUB_TABS: readonly SubTab[] = ['geral', 'compra', 'venda', 'carteira', 'agente'];
+// 'ajustar' (antiga "Precisa ajustar") foi substituída por 'agente', e 'carteira' saiu (repetia a
+// página /carteira, que mostra as mesmas posições do MT5); valor antigo na URL cai em 'geral'.
+type SubTab = 'geral' | 'compra' | 'venda' | 'agente';
+const SUB_TABS: readonly SubTab[] = ['geral', 'compra', 'venda', 'agente'];
 
 function subTabFromSearch(subtab: string | null): SubTab {
   return subtab && (SUB_TABS as readonly string[]).includes(subtab) ? (subtab as SubTab) : 'geral';
@@ -56,9 +55,6 @@ export function TradeDayView() {
       return next;
     }, { replace: true });
   };
-  // Filtro da aba Carteira é local (client-side): a carteira pode ter ticker fora do
-  // universo do plano de Trade, então não reusa o `query` que filtra no backend.
-  const [carteiraQuery, setCarteiraQuery] = useState('');
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedQuery(query.trim().toUpperCase()), SEARCH_DEBOUNCE_MS);
@@ -67,33 +63,17 @@ export function TradeDayView() {
 
   const { rows, market, asOf, total, loading, refreshing, snapshotError, opportunityError, refresh } =
     useTradeDay(debouncedQuery || undefined);
-  const custody = useMt5Custody();
-  const positions = custody.data;
-  const refreshPortfolio = custody.refresh;
   const agent = useAgentProposals();
   const agentCounts = agent.data?.contadores ?? null;
   const nowSec = useNowSeconds();
   const limparFiltro = () => setQuery('');
 
-  const compraRows = useMemo(() => rows.filter((r) => r.opportunity?.direcao === 'compra'), [rows]);
-  const vendaRows = useMemo(() => rows.filter((r) => r.opportunity?.direcao === 'venda'), [rows]);
+  // Sinal novo primeiro: é o único que o motor transforma em proposta (Agent Ordens).
+  const compraRows = useMemo(() => sinaisDoLado(rows, 'compra'), [rows]);
+  const vendaRows = useMemo(() => sinaisDoLado(rows, 'venda'), [rows]);
+  const comprasNovas = useMemo(() => compraRows.filter((r) => sinalNovo(r)).length, [compraRows]);
+  const vendasNovas = useMemo(() => vendaRows.filter((r) => sinalNovo(r)).length, [vendaRows]);
   const missingTickers = useMemo(() => rows.filter((r) => !r.item.quote).map((r) => r.ticker), [rows]);
-
-  // Cruza a custódia real (posições do MT5 vinculado, SPEC-003) com o Trade Day: pra cada
-  // posição, acha a linha do mesmo ticker-base (se está no universo do plano) pra saber se
-  // tem oportunidade de compra/venda ativa AGORA sobre um ativo que o usuário já possui.
-  const rowByTicker = useMemo(() => new Map(rows.map((r) => [r.ticker, r])), [rows]);
-  const carteiraRows = useMemo(
-    () => (positions ?? []).map((pos) => ({ position: pos, tradeRow: rowByTicker.get(pos.ticker) })),
-    [positions, rowByTicker],
-  );
-  const carteiraFiltered = useMemo(() => {
-    const term = carteiraQuery.trim().toUpperCase();
-    if (!term) return carteiraRows;
-    return carteiraRows.filter((r) => r.position.ticker.includes(term));
-  }, [carteiraRows, carteiraQuery]);
-  const carteiraComCompra = useMemo(() => carteiraRows.filter((r) => r.tradeRow?.opportunity?.direcao === 'compra').length, [carteiraRows]);
-  const carteiraComVenda = useMemo(() => carteiraRows.filter((r) => r.tradeRow?.opportunity?.direcao === 'venda').length, [carteiraRows]);
 
   if (loading && rows.length === 0) {
     return (
@@ -165,7 +145,6 @@ export function TradeDayView() {
               key="trade"
               onRefresh={() => {
                 refresh();
-                refreshPortfolio();
                 agent.refresh();
               }}
               intervalSeconds={TRADE_DAY_AUTO_REFRESH_SECONDS}
@@ -222,17 +201,6 @@ export function TradeDayView() {
         <button
           type="button"
           role="tab"
-          aria-selected={subTab === 'carteira'}
-          className={`llm-panel-tab${subTab === 'carteira' ? ' is-active' : ''}`}
-          onClick={() => setSubTab('carteira')}
-        >
-          Carteira <span className="trade-day-tab-count">{carteiraRows.length}</span>
-          {carteiraComCompra > 0 ? <span className="trade-day-tab-count is-buy">{carteiraComCompra}</span> : null}
-          {carteiraComVenda > 0 ? <span className="trade-day-tab-count is-sell">{carteiraComVenda}</span> : null}
-        </button>
-        <button
-          type="button"
-          role="tab"
           aria-selected={subTab === 'agente'}
           className={`llm-panel-tab${subTab === 'agente' ? ' is-active' : ''}`}
           onClick={() => setSubTab('agente')}
@@ -266,77 +234,23 @@ export function TradeDayView() {
           withOpportunity={compraRows.length + vendaRows.length}
         />
       ) : subTab === 'compra' ? (
-        <TradeDaySummary label="Oportunidades de compra" total={compraRows.length} confidence={averageConfidence(compraRows)} />
+        <>
+          <TradeDaySummary label="Oportunidades de compra" total={compraRows.length} today={comprasNovas} />
+          <p className="trade-note">
+            Só o sinal novo (disparado no último pregão fechado) vira proposta no Agent Ordens. Os demais são operações do setup que começaram em pregões
+            anteriores — entrar agora não é o mesmo trade.
+          </p>
+        </>
       ) : subTab === 'venda' ? (
-        <TradeDaySummary label="Oportunidades de venda" total={vendaRows.length} confidence={averageConfidence(vendaRows)} />
-      ) : subTab === 'carteira' ? (
-        <div className="portfolio-summary-row trade-day-summary-row">
-          <div className="portfolio-summary-card">
-            <span className="table-cell-muted">Ativos na carteira</span>
-            <strong>{carteiraRows.length}</strong>
-          </div>
-          <div className="portfolio-summary-card">
-            <span className="table-cell-muted">Com sinal de compra agora</span>
-            <strong className="portfolio-pl-positive">{carteiraComCompra}</strong>
-          </div>
-          <div className="portfolio-summary-card">
-            <span className="table-cell-muted">Com sinal de venda agora</span>
-            <strong className="portfolio-pl-negative">{carteiraComVenda}</strong>
-          </div>
-        </div>
+        <>
+          <TradeDaySummary label="Oportunidades de venda" total={vendaRows.length} today={vendasNovas} />
+          <p className="trade-note">
+            Venda aqui é venda a descoberto (aposta na queda). O Agent Ordens só opera compra: estes sinais não viram
+            proposta. Saída de posição comprada aparece no Agent Ordens como Venda.
+          </p>
+        </>
       ) : null}
-
-      {subTab === 'carteira' && custody.error && carteiraRows.length > 0 ? (
-        <p className="trade-note is-warn" role="alert">
-          Corretora indisponível no momento. Mostrando a última leitura
-          {custody.lastOkAt ? ` (${new Date(custody.lastOkAt).toLocaleTimeString('pt-BR')})` : ''}.
-        </p>
-      ) : null}
-
-      {subTab === 'carteira' ? (
-        <div className="search-input-wrapper trade-day-carteira-search">
-          <Search size={16} className="search-icon" />
-          <input
-            type="search"
-            className="search-input"
-            value={carteiraQuery}
-            onChange={(e) => setCarteiraQuery(e.target.value)}
-            placeholder="Filtrar ticker da carteira"
-            aria-label="Filtrar por ticker na carteira"
-          />
-          {carteiraQuery ? (
-            <button type="button" className="trade-search-clear" onClick={() => setCarteiraQuery('')} aria-label="Limpar filtro">
-              <X size={14} />
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {subTab === 'carteira' ? (
-        custody.loading && carteiraRows.length === 0 ? (
-          <div className="hpanel-table-card desktop-table-view"><div className="portfolio-skeleton" /></div>
-        ) : custody.noAccount ? (
-          <div className="trade-state">
-            <p>Vincule sua corretora para ver aqui as posições que você tem.</p>
-            <Link to={PATHS.carteira} className="btn btn-primary">Vincular corretora</Link>
-          </div>
-        ) : custody.error && carteiraRows.length === 0 ? (
-          <div className="trade-state" role="alert">
-            <p>Corretora indisponível no momento.</p>
-            <button type="button" className="btn btn-secondary" onClick={custody.refresh}>Tentar de novo</button>
-          </div>
-        ) : carteiraRows.length === 0 ? (
-          <div className="trade-state">
-            <p>Nenhuma posição aberta na corretora.</p>
-            <Link to={PATHS.carteira} className="btn btn-primary">Ir para a Carteira</Link>
-          </div>
-        ) : (
-          <TradeDayCarteiraTable
-            rows={carteiraFiltered}
-            emptyMessage={`Nenhum ativo da carteira corresponde a "${carteiraQuery}".`}
-          />
-        )
-      ) : subTab === 'agente' ? (
+      {subTab === 'agente' ? (
         <AgentOrdersPanel state={agent} />
       ) : (
         <TradeDayTable
@@ -354,191 +268,26 @@ export function TradeDayView() {
   );
 }
 
-interface CarteiraRow {
-  position: CustodyPosition;
-  tradeRow?: TradeDayRow;
+function sinalNovo(r: TradeDayRow): boolean {
+  return (r.opportunity?.diasAberta ?? 0) === 0;
 }
 
-/**
- * Tabela da aba Carteira: cruza a posição real (quantidade/preço médio) com o sinal do
- * Trade Day do mesmo ticker — é o que responde "tenho que comprar mais" (sinal de compra
- * num ticker que já tenho) ou "tenho que vender algo que tenho" (sinal de venda).
- */
-function TradeDayCarteiraTable({ rows, emptyMessage }: { rows: CarteiraRow[]; emptyMessage: string }) {
-  if (rows.length === 0) {
-    return <div className="trade-state"><p>{emptyMessage}</p></div>;
-  }
-
-  return (
-    <>
-      <div className="hpanel-table-card desktop-table-view">
-        <table className="hpanel-table">
-          <thead>
-            <tr>
-              <th>Ticker</th>
-              <th>Quantidade</th>
-              <th>Preço médio</th>
-              <th>Último preço</th>
-              <th>Sinal agora</th>
-              <th>
-                Stop (Disparo / Limite){' '}
-                <Tooltip label="O que é Disparo/Limite" description="São os dois preços que a ordem Stop/Loss da corretora pede. Disparo = nível calculado pelo Turtle Soup (atualiza todo dia). Limite = um pouco além do disparo, pra aumentar a chance de execução.">
-                  <button type="button" className="trade-day-stop-info" aria-label="O que são Disparo e Limite? São os dois preços que a ordem Stop/Loss da corretora pede. Disparo é o nível calculado pelo Turtle Soup, atualizado todo dia. Limite é um pouco além do disparo, pra aumentar a chance de execução.">
-                    ?
-                  </button>
-                </Tooltip>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ position, tradeRow }) => {
-              const opportunity = tradeRow?.opportunity;
-              const lastPrice = tradeRow?.item.quote?.last ?? (position.priceCurrent || undefined);
-              return (
-                <tr key={`${position.ticker}-${position.side}`}>
-                  <td>
-                    <div className="table-cell-title">
-                      <Link to={`${PATHS.market}?ticker=${encodeURIComponent(position.ticker)}`}>{position.ticker}</Link>
-                    </div>
-                  </td>
-                  <td>
-                    {position.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}
-                    {position.side === 'Venda' ? <span className="table-cell-muted"> (vendido)</span> : null}
-                    {custodyBreakdown(position) ? <div className="table-cell-muted">{custodyBreakdown(position)}</div> : null}
-                  </td>
-                  <td>{formatMoney(position.averagePrice)}</td>
-                  <td>{lastPrice != null ? formatMoney(lastPrice) : '—'}</td>
-                  <td>
-                    {opportunity ? (
-                      <span className={`portfolio-tx-badge is-${opportunity.direcao === 'compra' ? 'buy' : 'sell'}`}>
-                        {opportunity.direcao === 'compra' ? 'Comprar mais' : 'Considerar vender'}
-                      </span>
-                    ) : (
-                      <span className="table-cell-muted">Sem sinal agora</span>
-                    )}
-                  </td>
-                  <td>
-                    <StopCell opportunity={opportunity} lastPrice={lastPrice} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mobile-cards-container">
-        {rows.map(({ position, tradeRow }) => {
-          const opportunity = tradeRow?.opportunity;
-          const lastPrice = tradeRow?.item.quote?.last ?? (position.priceCurrent || undefined);
-          return (
-            <div key={`${position.ticker}-${position.side}`} className="mobile-domain-card">
-              <div className="mobile-card-top">
-                <div className="mobile-card-identity">
-                  <Wallet size={15} />
-                  <span className="mobile-domain-name">{position.ticker}</span>
-                </div>
-              </div>
-              <div className="mobile-card-subinfo">
-                {position.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} un. · PM {formatMoney(position.averagePrice)}
-                {custodyBreakdown(position) ? ` · ${custodyBreakdown(position)}` : ''}
-              </div>
-              <div className="mobile-card-meta">
-                {opportunity ? (
-                  <span className={`portfolio-tx-badge is-${opportunity.direcao === 'compra' ? 'buy' : 'sell'}`}>
-                    {opportunity.direcao === 'compra' ? 'Comprar mais' : 'Considerar vender'}
-                  </span>
-                ) : (
-                  <span className="table-cell-muted">Sem sinal agora</span>
-                )}
-                <StopCell opportunity={opportunity} lastPrice={lastPrice} compact />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </>
-  );
-}
-
-/**
- * Mostra o Stop do setup ativo pra esse ticker, com alerta quando o preço ao vivo já passou
- * do nível na direção errada (ex.: compra com preço abaixo do stop) — sinal de que a proteção
- * cadastrada na corretora já deveria ter sido acionada hoje, mesmo que o app (cálculo diário)
- * ainda não tenha atualizado o número. Achado em operação real: ver PROGRESS.md 2026-10-02.
- */
-/**
- * Mostra Disparo + Limite no mesmo formato da ordem Stop/Loss da corretora — não só o
- * número de Stop isolado. A proteção de uma posição de COMPRA é uma ordem de VENDA
- * (dispara abaixo do preço, executa um pouco mais abaixo ainda); a proteção de uma posição
- * de VENDA é uma ordem de COMPRA (espelho). Ver setup.PrecoLimiteProtecao no backend.
- */
-function StopCell({
-  opportunity,
-  lastPrice,
-  compact,
-}: {
-  opportunity?: { direcao: string; stop: number; stopLimite: number };
-  lastPrice?: number;
-  compact?: boolean;
-}) {
-  if (!opportunity) {
-    return compact ? null : <span className="table-cell-muted">—</span>;
-  }
-  const ladoProtecao = opportunity.direcao === 'compra' ? 'Venda' : 'Compra';
-  const stopJaPassado =
-    lastPrice != null &&
-    (opportunity.direcao === 'compra' ? lastPrice < opportunity.stop : lastPrice > opportunity.stop);
-
-  const disparo = formatMoney(opportunity.stop);
-  const limite = formatMoney(opportunity.stopLimite);
-  const linhas = (
-    <>
-      <span className="trade-day-stop-linha">Disparo {disparo}</span>
-      <span className="trade-day-stop-linha table-cell-muted">Limite {limite}</span>
-    </>
-  );
-
-  if (!stopJaPassado) {
-    return (
-      <div className={`trade-day-stop-values${compact ? ' is-compact' : ''}`}>
-        {compact ? <span className="table-cell-muted trade-day-stop-side">{ladoProtecao} ·</span> : null}
-        {linhas}
-      </div>
-    );
-  }
-  return (
-    <Tooltip
-      label="Stop já ultrapassado"
-      description="O preço atual já passou do disparo calculado — se você já comprou/vendeu este ativo, considere agir agora em vez de programar a ordem, pois o número só atualiza amanhã."
-    >
-      <button
-        type="button"
-        className="trade-day-stop-alert"
-        aria-label={`${ladoProtecao}: disparo ${disparo}, limite ${limite}, já ultrapassado pelo preço atual — considere agir agora`}
-      >
-        <span className="trade-day-stop-values">{linhas}</span> ⚠
-      </button>
-    </Tooltip>
-  );
-}
-
-function averageConfidence(rows: { opportunity?: { confiancaEscolha: number } }[]): number | null {
-  const withConf = rows.filter((r) => r.opportunity).map((r) => r.opportunity!.confiancaEscolha);
-  if (withConf.length === 0) return null;
-  return withConf.reduce((acc, v) => acc + v, 0) / withConf.length;
+function sinaisDoLado(rows: TradeDayRow[], direcao: 'compra' | 'venda'): TradeDayRow[] {
+  return rows
+    .filter((r) => r.opportunity?.direcao === direcao)
+    .sort((a, b) => (a.opportunity?.diasAberta ?? 0) - (b.opportunity?.diasAberta ?? 0));
 }
 
 function TradeDaySummary({
   label,
   total,
   withOpportunity,
-  confidence,
+  today,
 }: {
   label: string;
   total: number;
   withOpportunity?: number;
-  confidence?: number | null;
+  today?: number;
 }) {
   return (
     <div className="portfolio-summary-row trade-day-summary-row">
@@ -552,10 +301,10 @@ function TradeDaySummary({
           <strong>{withOpportunity}</strong>
         </div>
       ) : null}
-      {confidence != null ? (
+      {today != null ? (
         <div className="portfolio-summary-card">
-          <span className="table-cell-muted">Confiança média da escolha</span>
-          <strong>{(confidence * 100).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%</strong>
+          <span className="table-cell-muted">Sinal novo (último pregão)</span>
+          <strong>{today}</strong>
         </div>
       ) : null}
     </div>

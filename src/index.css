@@ -15379,28 +15379,6 @@ textarea.form-input {
 .trade-day-stop-info:hover,
 .trade-day-stop-info:focus-visible { border-color: var(--text-sub); color: var(--text-body); }
 
-.trade-day-stop-values { display: flex; flex-direction: column; gap: 0.05rem; font-size: 0.82rem; }
-.trade-day-stop-values.is-compact { flex-direction: row; align-items: baseline; gap: 0.3rem; flex-wrap: wrap; font-size: 0.78rem; }
-.trade-day-stop-linha { white-space: nowrap; }
-.trade-day-stop-side { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; }
-
-.trade-day-stop-alert {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--warning-border);
-  background: var(--warning-light);
-  color: var(--warning);
-  font-weight: 700;
-  cursor: pointer;
-  text-align: left;
-}
-.trade-day-stop-alert .trade-day-stop-values { color: var(--warning); }
-.trade-day-stop-alert .trade-day-stop-linha.table-cell-muted { color: var(--warning); opacity: 0.8; }
-.trade-day-stop-alert:focus-visible { outline: 2px solid var(--warning); outline-offset: 2px; }
-
 @media (max-width: 768px) {
   .portfolio-toolbar-actions { width: 100%; flex-direction: column; align-items: stretch; }
   .portfolio-add-group { width: 100%; }
@@ -15419,7 +15397,8 @@ textarea.form-input {
 .trade-day-view .hpanel-table th,
 .trade-day-view .hpanel-table td { white-space: nowrap; }
 .trade-day-view .hpanel-table td.trade-day-wrap { white-space: normal; }
-.trade-day-carteira-search { max-width: 320px; }
+.trade-day-setup-cell { display: flex; align-items: center; gap: 0.4rem; }
+.trade-day-signal-age { font-size: 0.75rem; }
 
 .trade-day-tab-count {
   display: inline-flex;

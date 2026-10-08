@@ -55,6 +55,22 @@ function timeLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 }
 
+/**
+ * Idade do sinal em pregões. 0 = disparou no último pregão fechado: é o único que o
+ * ms-mt5-operations transforma em proposta; o resto é operação do setup já em andamento.
+ */
+function SignalAge({ diasAberta }: { diasAberta?: number }) {
+  if (diasAberta == null) return null;
+  if (diasAberta === 0) {
+    return <span className="trade-chip is-open" title="Disparou no último pregão fechado — vira proposta no Agent Ordens">Novo</span>;
+  }
+  return (
+    <span className="table-cell-muted trade-day-signal-age" title="Operação do setup aberta em pregão anterior — não vira proposta">
+      há {diasAberta} {diasAberta === 1 ? 'pregão' : 'pregões'}
+    </span>
+  );
+}
+
 interface TradeDayTableProps {
   rows: TradeDayRow[];
   emptyMessage: string;
@@ -137,9 +153,12 @@ export function TradeDayTable({ rows, emptyMessage }: TradeDayTableProps) {
                   </td>
                   <td>
                     {opportunity ? (
-                      <span className={`portfolio-tx-badge is-${opportunity.direcao === 'compra' ? 'buy' : 'sell'}`}>
-                        {SETUP_LABEL[opportunity.setup] ?? opportunity.setup}
-                      </span>
+                      <div className="trade-day-setup-cell">
+                        <span className={`portfolio-tx-badge is-${opportunity.direcao === 'compra' ? 'buy' : 'sell'}`}>
+                          {SETUP_LABEL[opportunity.setup] ?? opportunity.setup}
+                        </span>
+                        <SignalAge diasAberta={opportunity.diasAberta} />
+                      </div>
                     ) : (
                       <span className="table-cell-muted">—</span>
                     )}
@@ -209,6 +228,7 @@ export function TradeDayTable({ rows, emptyMessage }: TradeDayTableProps) {
               {opportunity ? (
                 <div className="mobile-card-meta">
                   <span>{SETUP_LABEL[opportunity.setup] ?? opportunity.setup} · Entrada {formatMoney(opportunity.entrada)}</span>
+                  <SignalAge diasAberta={opportunity.diasAberta} />
                   <span>Stop atual {formatMoney(opportunity.stop)}</span>
                   {r ? (
                     <span className={r.valor >= 0 ? 'portfolio-pl-positive' : 'portfolio-pl-negative'}>

@@ -217,7 +217,7 @@ export function AgentOrdersPanel({ state }: AgentOrdersPanelProps) {
           addToast({
             type: a === 'zerar' ? 'warning' : 'success',
             title: a === 'pause' ? 'Motor pausado' : a === 'resume' ? 'Motor retomado' : 'Zerar tudo enviado',
-            description: a === 'zerar' ? 'Confira as posições na aba Corretora.' : undefined,
+            description: a === 'zerar' ? 'Confira as posições na página Carteira.' : undefined,
           });
         }}
       />
