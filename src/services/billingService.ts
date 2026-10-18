@@ -94,6 +94,7 @@ export interface BillingInvoice {
   status: string;
   paymentMethod?: string | null;
   bankSlipUrl?: string | null;
+  invoiceUrl?: string | null;
   pixPayload?: string | null;
   nfId?: string | null;
   nfUrl?: string | null;

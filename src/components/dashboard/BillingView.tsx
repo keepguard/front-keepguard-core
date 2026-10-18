@@ -383,14 +383,18 @@ const SubscriberCheckout: React.FC<{
     return null;
   }
   const pix = invoice.paymentMethod === 'pix';
+  const isCreditCard = invoice.paymentMethod === 'credit_card';
   const overdue = invoice.status === 'overdue';
+
+  const methodKicker = pix ? 'PIX' : isCreditCard ? 'Cartão de crédito' : 'Boleto';
+  const methodHeading = pix ? 'Pague com PIX' : isCreditCard ? 'Pague com cartão' : 'Pague o boleto';
 
   return (
     <section className="hpanel-table-card billing-card billing-checkout">
       <header className="billing-checkout-head">
         <div>
-          <p className="billing-kicker">{pix ? 'PIX' : 'Boleto'}{planName ? ` · ${planName}` : ''}</p>
-          <h2>{pix ? 'Pague com PIX' : 'Pague o boleto'}</h2>
+          <p className="billing-kicker">{methodKicker}{planName ? ` · ${planName}` : ''}</p>
+          <h2>{methodHeading}</h2>
         </div>
         <span className={`billing-status-pill ${overdue ? 'is-overdue' : 'is-pending'}`}>
           {invoiceStatusLabel(invoice.status)}
@@ -433,6 +437,20 @@ const SubscriberCheckout: React.FC<{
               <ExternalLink size={16} />
               Abrir boleto
             </a>
+          ) : null}
+          {invoice.invoiceUrl ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+              <a
+                className="btn btn-primary btn-pill billing-checkout-cta"
+                href={invoice.invoiceUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <CreditCard size={16} />
+                Pagar com cartão
+              </a>
+              <p className="billing-checkout-hint">Você digita o cartão na página segura do Asaas</p>
+            </div>
           ) : null}
           <p className="billing-checkout-footnote">Esta tela atualiza sozinha quando o pagamento for confirmado.</p>
         </div>
@@ -587,7 +605,7 @@ export const BillingPlansView: React.FC = () => {
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [planCode, setPlanCode] = useState('');
   const [interval, setInterval] = useState('month');
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'boleto'>('pix');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('pix');
   const [detailInvoice, setDetailInvoice] = useState<BillingInvoice | null>(null);
   const [quotas, setQuotas] = useState<Record<string, PlanQuotaDTO>>({});
   const [changeInterval, setChangeInterval] = useState('month');
@@ -725,7 +743,7 @@ export const BillingPlansView: React.FC = () => {
     return open.sort((a, b) => Date.parse(b.issuedAt || '') - Date.parse(a.issuedAt || ''))[0] ?? null;
   }, [invoices]);
 
-  const hasInstrument = Boolean(pendingInvoice?.pixPayload || pendingInvoice?.bankSlipUrl);
+  const hasInstrument = Boolean(pendingInvoice?.pixPayload || pendingInvoice?.bankSlipUrl || pendingInvoice?.invoiceUrl);
 
   useEffect(() => {
     if (hasInstrument) setJustSubscribed(false);
@@ -882,7 +900,11 @@ export const BillingPlansView: React.FC = () => {
         title: pendingGateway ? 'Gateway pendente' : 'Assinatura criada',
         description: pendingGateway
           ? 'A assinatura será reenviada ao Asaas. O produto só libera após o pagamento confirmado.'
-          : 'Abra o QR ou copie o código PIX. Gerar a cobrança não confirma o pagamento.',
+          : paymentMethod === 'credit_card'
+          ? 'Clique em "Pagar com cartão" para preencher seus dados no Asaas.'
+          : paymentMethod === 'pix'
+          ? 'Abra o QR ou copie o código PIX. Gerar a cobrança não confirma o pagamento.'
+          : 'Abra o boleto para pagamento. Gerar a cobrança não confirma o pagamento.',
       });
       await load({ silent: true });
     } catch (error) {
@@ -1028,7 +1050,7 @@ export const BillingPlansView: React.FC = () => {
                     <div className="billing-field-block">
                       <span className="billing-label-title" id="billing-method-label">Pagamento</span>
                       <div className="billing-method-switch" role="group" aria-labelledby="billing-method-label">
-                        {(['pix', 'boleto'] as const).map((method) => (
+                        {(['pix', 'credit_card', 'boleto'] as const).map((method) => (
                           <button
                             key={method}
                             type="button"
@@ -1037,7 +1059,7 @@ export const BillingPlansView: React.FC = () => {
                             disabled={busy}
                             onClick={() => setPaymentMethod(method)}
                           >
-                            {method === 'pix' ? 'PIX' : 'Boleto'}
+                            {method === 'pix' ? 'PIX' : method === 'credit_card' ? 'Cartão de crédito' : 'Boleto'}
                           </button>
                         ))}
                       </div>
@@ -1229,6 +1251,18 @@ export const BillingPlansView: React.FC = () => {
                             aria-label="Abrir boleto"
                           >
                             <ExternalLink size={15} />
+                          </a>
+                        ) : null}
+                        {invoice.invoiceUrl && (invoice.status === 'pending' || invoice.status === 'overdue') ? (
+                          <a
+                            className="btn-table-icon"
+                            href={invoice.invoiceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Pagar com cartão"
+                            aria-label="Pagar com cartão"
+                          >
+                            <CreditCard size={15} />
                           </a>
                         ) : null}
                         {invoice.nfUrl ? (

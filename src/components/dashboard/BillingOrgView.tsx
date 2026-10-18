@@ -380,6 +380,7 @@ function TransactionsPanel() {
             <option value="">Todos os métodos</option>
             <option value="pix">PIX</option>
             <option value="boleto">Boleto</option>
+            <option value="credit_card">Cartão de crédito</option>
           </select>
           <input className="form-input" value={draft.q} onChange={(e) => setDraft((f) => ({ ...f, q: e.target.value }))} placeholder="Usuário (UUID ou e-mail)" aria-label="Usuário" />
           <input className="form-input" type="datetime-local" value={draft.from} onChange={(e) => setDraft((f) => ({ ...f, from: e.target.value }))} aria-label="De" />

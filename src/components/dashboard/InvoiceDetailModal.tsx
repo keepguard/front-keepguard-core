@@ -169,6 +169,29 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           </section>
         ) : null}
 
+        {/* Bloco de Ações Imediatas: Cartão de Crédito */}
+        {invoice.invoiceUrl ? (
+          <section className="billing-detail-card" aria-label="Cartão de Crédito">
+            <div className="billing-detail-card-header">
+              <CreditCard size={18} className="billing-detail-icon" />
+              <strong>Cartão de Crédito</strong>
+            </div>
+            <div className="billing-detail-row" style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <span className="billing-detail-label">Página segura de pagamento Asaas:</span>
+              <a
+                href={invoice.invoiceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-primary btn-pill"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <ExternalLink size={15} />
+                <span>Pagar com cartão</span>
+              </a>
+            </div>
+          </section>
+        ) : null}
+
         {/* Bloco de Ações Imediatas: Boleto */}
         {invoice.bankSlipUrl ? (
           <section className="billing-detail-card" aria-label="Boleto Bancário">
