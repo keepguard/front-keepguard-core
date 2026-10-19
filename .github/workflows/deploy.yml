@@ -41,6 +41,8 @@ jobs:
             type=raw,value=latest
             type=raw,value=main-latest
             type=sha,format=short,prefix=main-
+          labels: |
+            org.opencontainers.image.source=https://github.com/keepguard/front-keepguard-core
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
