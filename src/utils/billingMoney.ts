@@ -36,11 +36,11 @@ export function isCreditActive(settings: BillingSettings | null): boolean {
 }
 
 /**
- * A escrita nasce desligada (§3): a lista do bff-core começa vazia e o contrato não expõe esse estado.
- * Só com a variável de build a tela destrava; ainda assim, um `403 CORE_WRITE_DISABLED` trava de novo.
+ * A escrita nasce desligada (§3): só `coreWriteEnabled === true` em `GET /billing-settings` destrava.
+ * Campo ausente vale desligado; ainda assim, um `403 CORE_WRITE_DISABLED` trava de novo.
  */
-export function coreWriteConfigured(env: Record<string, unknown> = import.meta.env): boolean {
-  return env.VITE_BILLING_CORE_WRITE_ENABLED === 'true';
+export function isCoreWriteEnabled(settings: BillingSettings | null): boolean {
+  return settings?.coreWriteEnabled === true;
 }
 
 const ENTRY_LABELS: Record<string, string> = {

@@ -15759,7 +15759,6 @@ textarea.form-input {
 
 .bm-footer { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
 .bm-footer-note { margin-right: auto; align-self: center; font-size: 0.8rem; }
-.bm-invoice .billing-detail-card, .bm-invoice .billing-method-badge { background: var(--bg-card); }
 .bm-invoice-sections { display: flex; flex-direction: column; gap: 0.8rem; }
 .bm-invoice-sections .bm-notice { margin-bottom: 0; }
 .bm-section { padding: 0.9rem 1.05rem; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
@@ -15772,7 +15771,7 @@ textarea.form-input {
 .bm-facts span { display: block; color: var(--text-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 .bm-facts strong { color: var(--text-main); font-size: 0.88rem; font-weight: 500; overflow-wrap: anywhere; }
 .bm-refunds { list-style: none; padding: 0; }
-.bm-refunds li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid var(--border-subtle); color: var(--text-main); font-size: 0.86rem; overflow-wrap: anywhere; }
+.bm-refunds li { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.25rem 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid var(--border-subtle); color: var(--text-main); font-size: 0.86rem; overflow-wrap: anywhere; }
 .bm-refunds li:last-child { border: 0; }
 .bm-after-list { margin-top: 0.4rem; }
 
@@ -15784,9 +15783,16 @@ textarea.form-input {
   .bm-stat-value { font-size: 1.08rem; white-space: nowrap; }
   .bm-footer .btn { flex: 1 1 40%; }
 }
-.bm-invoice .billing-status-badge.is-paid { color: var(--bm-ok-text); }
 .modal-actions.bm-footer { flex-direction: row; }
 .modal-actions.bm-footer .btn { width: auto; }
 @media (max-width: 640px) {
   .bm-footer-note { flex: 1 1 100%; margin-right: 0; }
 }
+
+/* Modal de fatura no tema escuro: --bg-surface nunca foi definida, e os cartões saíam brancos. Só neste modal, só no escuro. */
+[data-theme="dark"] .billing-detail-content { --bg-surface: var(--bg-card); }
+[data-theme="dark"] .billing-detail-content .billing-status-badge.is-paid { color: var(--success-hover); }
+[data-theme="dark"] .billing-detail-content .billing-status-badge.is-pending { color: var(--warning); }
+[data-theme="dark"] .billing-detail-content .billing-status-badge.is-overdue { color: var(--danger-hover); }
+[data-theme="dark"] .billing-detail-content .billing-status-badge.is-refunded { color: var(--text-main); }
+[data-theme="dark"] .billing-detail-content .billing-status-badge.is-canceled { color: var(--text-muted); }

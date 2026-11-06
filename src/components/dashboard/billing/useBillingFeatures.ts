@@ -4,7 +4,7 @@ import { getBillingSettings, type BillingSettings } from '../../../services/bill
 import { generateUUID } from '../../../services/api';
 import {
   classifyMoneyError,
-  coreWriteConfigured,
+  isCoreWriteEnabled,
   isCreditActive,
   isFinancialActive,
   type MoneyError,
@@ -69,7 +69,7 @@ export function useLoadBillingFeatures(): BillingFeatures {
     settings,
     creditOn: isCreditActive(settings),
     financialOn: isFinancialActive(settings),
-    writeOpen: coreWriteConfigured() && !disabledByServer,
+    writeOpen: isCoreWriteEnabled(settings) && !disabledByServer,
     markWriteDisabled,
   }), [disabledByServer, loading, markWriteDisabled, settings]);
 }

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   classifyMoneyError,
-  coreWriteConfigured,
   dateInputToExpiry,
   isCreditActive,
+  isCoreWriteEnabled,
   isFinancialActive,
   paidCents,
   parseBrlToCents,
@@ -68,10 +68,11 @@ describe('liga por company', () => {
     expect(isCreditActive(s)).toBe(true);
   });
 
-  it('a escrita nasce desligada', () => {
-    expect(coreWriteConfigured({})).toBe(false);
-    expect(coreWriteConfigured({ VITE_BILLING_CORE_WRITE_ENABLED: 'false' })).toBe(false);
-    expect(coreWriteConfigured({ VITE_BILLING_CORE_WRITE_ENABLED: 'true' })).toBe(true);
+  it('a escrita nasce desligada: campo ausente, falso ou sem configuração', () => {
+    expect(isCoreWriteEnabled(null)).toBe(false);
+    expect(isCoreWriteEnabled(settings({ financialMode: 'ON', creditEnabled: true }))).toBe(false);
+    expect(isCoreWriteEnabled(settings({ financialMode: 'ON', coreWriteEnabled: false }))).toBe(false);
+    expect(isCoreWriteEnabled(settings({ financialMode: 'ON', coreWriteEnabled: true }))).toBe(true);
   });
 });
 

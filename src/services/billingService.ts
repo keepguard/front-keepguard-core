@@ -431,6 +431,8 @@ export interface BillingSettings {
   referralEnabled: boolean;
   catalogEnabled: boolean;
   reportsEnabled: boolean;
+  /** Lista de escrita do bff-core inclui esta company. Ausente = desligado. */
+  coreWriteEnabled?: boolean;
 }
 
 export function getBillingSettings(token: string): Promise<BillingSettings> {

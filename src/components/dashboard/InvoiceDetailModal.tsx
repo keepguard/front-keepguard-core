@@ -303,7 +303,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             <div className="billing-detail-item">
               <span className="billing-detail-label">Data de Pagamento</span>
               <span className="billing-detail-value">
-                {invoice.status === 'paid' ? formatDate(invoice.paidAt) : 'Aguardando liquidação'}
+                {invoice.status === 'paid' || (operator && invoice.paidAt) ? formatDate(invoice.paidAt) : 'Aguardando liquidação'}
               </span>
             </div>
             <div className="billing-detail-item">

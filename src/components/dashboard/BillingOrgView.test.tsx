@@ -116,6 +116,12 @@ describe('company ligada', () => {
     expect(screen.queryByText('Sem lançamentos de crédito')).toBeNull();
   });
 
+  it('coreWriteEnabled falso também trava', async () => {
+    billingMock.getBillingSettings.mockResolvedValue(settingsOf({ coreWriteEnabled: false }));
+    renderView(`/admin/billing?assinante=${PERSON}`);
+    expect(await screen.findByText('Escrita desligada nesta fase')).toBeTruthy();
+  });
+
   it('nasce com a escrita desligada', async () => {
     renderView(`/admin/billing?assinante=${PERSON}`);
     expect(await screen.findByText('Escrita desligada nesta fase')).toBeTruthy();
@@ -132,8 +138,8 @@ describe('company ligada', () => {
     expect(screen.queryByText('Abrir assinante')).toBeNull();
   });
 
-  it('com a variável de build, a escrita abre; o servidor ainda pode travar', async () => {
-    vi.stubEnv('VITE_BILLING_CORE_WRITE_ENABLED', 'true');
+  it('com coreWriteEnabled, a escrita abre; o servidor ainda pode travar', async () => {
+    billingMock.getBillingSettings.mockResolvedValue(settingsOf({ coreWriteEnabled: true }));
     billingMock.grantBillingCredit.mockRejectedValue(httpError(403, 'CORE_WRITE_DISABLED'));
     renderView(`/admin/billing?assinante=${PERSON}`);
     await screen.findByText('Sem lançamentos de crédito');
@@ -147,6 +153,5 @@ describe('company ligada', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
     expect(await screen.findByText('Escrita desligada nesta fase')).toBeTruthy();
     screen.getAllByRole('button', { name: 'Lançar crédito' }).forEach((b) => expect((b as HTMLButtonElement).disabled).toBe(true));
-    vi.unstubAllEnvs();
   });
 });

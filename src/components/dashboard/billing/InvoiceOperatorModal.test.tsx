@@ -123,6 +123,13 @@ describe('detalhe da fatura', () => {
     expect((await estornarDetail()).disabled).toBe(true);
   });
 
+  it('fatura estornada mantém a data do pagamento', async () => {
+    renderModal({ ...paidCard, status: 'refunded' });
+    await screen.findByRole('table', { name: 'Conta da fatura' });
+    expect(screen.queryByText('Aguardando liquidação')).toBeNull();
+    expect(await screen.findByText('Fatura já estornada.')).toBeTruthy();
+  });
+
   it('fatura não paga não estorna', async () => {
     renderModal({ ...paidCard, status: 'pending', paidAt: null, paidAmountCents: null });
     expect(await screen.findByText('Só fatura paga pode ser estornada.')).toBeTruthy();
