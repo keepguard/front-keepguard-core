@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -26,6 +27,14 @@ import {
 import { ListPager } from '../common/ListPager';
 import { Modal } from '../common/Modal';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
+import { InvoiceOperatorModal } from './billing/InvoiceOperatorModal';
+import { Pill, type Tone } from './billing/BillingMoneyUi';
+import { SubscriberPage } from './billing/SubscriberPage';
+import {
+  BillingFeaturesContext,
+  useBillingFeatures,
+  useLoadBillingFeatures,
+} from './billing/useBillingFeatures';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -73,6 +82,9 @@ const INTERVAL_CONFIGS = [
 const INTERVALS = INTERVAL_CONFIGS;
 
 const PAGE_SIZE = 20;
+
+const SUBSCRIBER_PARAM = 'assinante';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Panel = 'transacoes' | 'assinantes' | 'planos' | 'configuracoes';
 
@@ -209,6 +221,26 @@ function invoiceStatusLabel(status?: string): string {
   }
 }
 
+function invoiceTone(status?: string): Tone {
+  switch ((status || '').toLowerCase()) {
+    case 'paid': return 'ok';
+    case 'pending': return 'warn';
+    case 'overdue': return 'bad';
+    case 'refunded': return 'info';
+    default: return 'neutral';
+  }
+}
+
+function entitlementTone(status?: string): Tone {
+  switch ((status || '').toLowerCase()) {
+    case 'active': return 'ok';
+    case 'trial': return 'info';
+    case 'grace': return 'warn';
+    case 'restricted': return 'bad';
+    default: return 'neutral';
+  }
+}
+
 function formatDate(value?: string | null): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -243,11 +275,21 @@ function toIso(localValue: string): string | undefined {
 export const BillingOrgView: React.FC = () => {
   const { getAccessToken, user } = useAuth();
   const writable = canWriteBilling(getAccessToken(), user?.roles);
+  const features = useLoadBillingFeatures();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [panel, setPanel] = useState<Panel>('transacoes');
+  const [selectedPanel, setPanel] = useState<Panel>('transacoes');
+  const subscriberParam = searchParams.get(SUBSCRIBER_PARAM) ?? '';
+  const onSubscriberPage = UUID_PATTERN.test(subscriberParam) && (features.loading || features.creditOn);
+  const panel: Panel = onSubscriberPage ? 'assinantes' : selectedPanel;
 
   const selectPanel = (id: Panel, focus = false) => {
     setPanel(id);
+    if (searchParams.has(SUBSCRIBER_PARAM)) {
+      const next = new URLSearchParams(searchParams);
+      next.delete(SUBSCRIBER_PARAM);
+      setSearchParams(next);
+    }
     if (!focus) return;
     const index = TABS.findIndex((tab) => tab.id === id);
     if (index >= 0) tabRefs.current[index]?.focus();
@@ -267,6 +309,7 @@ export const BillingOrgView: React.FC = () => {
   const activeTab = TABS.find((tab) => tab.id === panel) ?? TABS[0];
 
   return (
+    <BillingFeaturesContext.Provider value={features}>
     <div className="billing-org">
       <div className="dashboard-header">
         <div className="dashboard-title-group">
@@ -315,12 +358,14 @@ export const BillingOrgView: React.FC = () => {
         {panel === 'configuracoes' ? <GatewaysPanel writable={writable} /> : null}
       </div>
     </div>
+    </BillingFeaturesContext.Provider>
   );
 };
 
 function TransactionsPanel() {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
+  const { financialOn } = useBillingFeatures();
   const [draft, setDraft] = useState({ status: '', paymentMethod: '', q: '', from: '', to: '' });
   const [applied, setApplied] = useState(draft);
   const [page, setPage] = useState(0);
@@ -413,13 +458,14 @@ function TransactionsPanel() {
               <th>Pagamento</th>
               <th>NF</th>
               <th>Id</th>
+              {financialOn ? <th><span className="bm-sr-only">Ações</span></th> : null}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="table-cell-muted">Carregando…</td></tr>
+              <tr><td colSpan={financialOn ? 9 : 8} className="table-cell-muted">Carregando…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={8} className="table-cell-muted">Nenhuma transação.</td></tr>
+              <tr><td colSpan={financialOn ? 9 : 8} className="table-cell-muted">Nenhuma transação.</td></tr>
             ) : items.map((invoice) => (
               <tr
                 key={invoice.id}
@@ -435,7 +481,7 @@ function TransactionsPanel() {
                   }
                 }}
               >
-                <td>{invoiceStatusLabel(invoice.status)}</td>
+                <td>{financialOn ? <span className="bm-scope"><Pill tone={invoiceTone(invoice.status)}>{invoiceStatusLabel(invoice.status)}</Pill></span> : invoiceStatusLabel(invoice.status)}</td>
                 <td>{formatMoney(invoice.amountCents, invoice.currency)}</td>
                 <td>{(invoice.paymentMethod || '—').toUpperCase()}</td>
                 <td>{payerLabel(invoice.payerName, invoice.payerEmail, invoice.payerUserId)}</td>
@@ -454,22 +500,110 @@ function TransactionsPanel() {
                   ) : '—'}
                 </td>
                 <td title={invoice.id}>{compactId(invoice.id)}</td>
+                {financialOn ? (
+                  <td>
+                    <button
+                      type="button"
+                      className="bm-link"
+                      onClick={(e) => { e.stopPropagation(); setSelectedInvoice(invoice); }}
+                    >
+                      Ver detalhes
+                    </button>
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <InvoiceDetailModal
-        isOpen={selectedInvoice !== null}
-        onClose={() => setSelectedInvoice(null)}
-        invoice={selectedInvoice}
-      />
+      {financialOn && !loading && items.length > 0 ? (
+        <ul className="mobile-cards-container bm-cards bm-scope" aria-label="Transações">
+          {items.map((invoice) => (
+            <li className="bm-card" key={invoice.id}>
+              <dl>
+                <dt>Status</dt>
+                <dd><Pill tone={invoiceTone(invoice.status)}>{invoiceStatusLabel(invoice.status)}</Pill></dd>
+                <dt>Valor</dt>
+                <dd>{formatMoney(invoice.amountCents, invoice.currency)}</dd>
+                <dt>Método</dt>
+                <dd>{(invoice.paymentMethod || '—').toUpperCase()}</dd>
+                <dt>Pagador</dt>
+                <dd>{payerLabel(invoice.payerName, invoice.payerEmail, invoice.payerUserId)}</dd>
+                <dt>Vencimento</dt>
+                <dd>{formatDate(invoice.dueAt)}</dd>
+              </dl>
+              <div className="bm-card-actions">
+                <button type="button" className="bm-link" onClick={() => setSelectedInvoice(invoice)}>Ver detalhes</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {financialOn && !loading && items.length === 0 ? (
+        <p className="mobile-cards-container table-cell-muted">Nenhuma transação.</p>
+      ) : null}
+      {financialOn ? (
+        <InvoiceOperatorModal
+          invoice={selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          onChanged={() => void load(page, applied)}
+        />
+      ) : (
+        <InvoiceDetailModal
+          isOpen={selectedInvoice !== null}
+          onClose={() => setSelectedInvoice(null)}
+          invoice={selectedInvoice}
+        />
+      )}
     </div>
   );
 }
 
 function SubscribersPanel({ writable }: { writable: boolean }) {
-  return <EntitlementTable hasPlan qPlaceholder="Usuário, e-mail ou UUID" emptyLabel="Nenhum assinante." writable={writable} />;
+  const { creditOn, loading } = useBillingFeatures();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [openedRow, setOpenedRow] = useState<BillingEntitlement | null>(null);
+  const param = searchParams.get(SUBSCRIBER_PARAM) ?? '';
+  const subscriberId = UUID_PATTERN.test(param) ? param : null;
+
+  const openSubscriber = (row: BillingEntitlement) => {
+    setOpenedRow(row);
+    const next = new URLSearchParams(searchParams);
+    next.set(SUBSCRIBER_PARAM, row.userId);
+    setSearchParams(next);
+  };
+
+  const closeSubscriber = () => {
+    setOpenedRow(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete(SUBSCRIBER_PARAM);
+    setSearchParams(next);
+  };
+
+  const table = (
+    <EntitlementTable
+      hasPlan
+      qPlaceholder="Usuário, e-mail ou UUID"
+      emptyLabel="Nenhum assinante."
+      writable={writable}
+      onOpenSubscriber={creditOn ? openSubscriber : undefined}
+    />
+  );
+
+  if (!subscriberId) return table;
+  if (loading) return <p role="status" className="table-cell-muted">Carregando…</p>;
+  if (!creditOn) return table;
+  return (
+    <>
+      <div hidden>{table}</div>
+      <SubscriberPage
+        key={subscriberId}
+        userId={subscriberId}
+        row={openedRow?.userId === subscriberId ? openedRow : null}
+        onBack={closeSubscriber}
+      />
+    </>
+  );
 }
 
 const LINKED_GATEWAYS = [
@@ -825,11 +959,14 @@ function EntitlementTable({
   qPlaceholder,
   emptyLabel,
   writable,
+  onOpenSubscriber,
 }: {
   hasPlan?: boolean;
   qPlaceholder: string;
   emptyLabel: string;
   writable?: boolean;
+  /** Só com `credit_enabled`: sem isto, a lista é a de sempre. */
+  onOpenSubscriber?: (row: BillingEntitlement) => void;
 }) {
   const { isAuthenticated, getAccessToken } = useAuth();
   const { addToast } = useToast();
@@ -1024,13 +1161,14 @@ function EntitlementTable({
               <th>Intervalo</th>
               <th>Status</th>
               <th>Período</th>
+              {onOpenSubscriber ? <th><span className="bm-sr-only">Ações</span></th> : null}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="table-cell-muted">Carregando…</td></tr>
+              <tr><td colSpan={onOpenSubscriber ? 6 : 5} className="table-cell-muted">Carregando…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={5} className="table-cell-muted">{emptyLabel}</td></tr>
+              <tr><td colSpan={onOpenSubscriber ? 6 : 5} className="table-cell-muted">{emptyLabel}</td></tr>
             ) : items.map((row) => (
               <tr key={`${row.companyId}-${row.userId}`}>
                 <td>{payerLabel(row.payerName, row.payerEmail, row.userId)}</td>
@@ -1045,7 +1183,7 @@ function EntitlementTable({
                     intervalLabel(row.interval)
                   )}
                 </td>
-                <td>{entitlementLabel(row.status)}</td>
+                <td>{onOpenSubscriber ? <span className="bm-scope"><Pill tone={entitlementTone(row.status)}>{entitlementLabel(row.status)}</Pill></span> : entitlementLabel(row.status)}</td>
                 <td>
                   {row.interval === 'lifetime' || (!row.currentPeriodEnd && row.planCode?.toUpperCase() === 'VIP') ? (
                     <span style={{ color: 'var(--success, #00b090)', fontWeight: 600 }}>
@@ -1055,11 +1193,42 @@ function EntitlementTable({
                     formatDate(row.currentPeriodEnd)
                   )}
                 </td>
+                {onOpenSubscriber ? (
+                  <td>
+                    <button type="button" className="bm-link" onClick={() => onOpenSubscriber(row)}>Abrir assinante</button>
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {onOpenSubscriber && !loading && items.length > 0 ? (
+        <ul className="mobile-cards-container bm-cards bm-scope" aria-label="Assinantes">
+          {items.map((row) => (
+            <li className="bm-card" key={`${row.companyId}-${row.userId}`}>
+              <dl>
+                <dt>Usuário</dt>
+                <dd>{payerLabel(row.payerName, row.payerEmail, row.userId)}</dd>
+                <dt>Plano</dt>
+                <dd>{row.planCode || '—'}</dd>
+                <dt>Intervalo</dt>
+                <dd>{intervalLabel(row.interval)}</dd>
+                <dt>Status</dt>
+                <dd><Pill tone={entitlementTone(row.status)}>{entitlementLabel(row.status)}</Pill></dd>
+                <dt>Período</dt>
+                <dd>{row.interval === 'lifetime' ? 'Vitalício' : formatDate(row.currentPeriodEnd)}</dd>
+              </dl>
+              <div className="bm-card-actions">
+                <button type="button" className="bm-link" onClick={() => onOpenSubscriber(row)}>Abrir assinante</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {onOpenSubscriber && !loading && items.length === 0 ? (
+        <p className="mobile-cards-container table-cell-muted">{emptyLabel}</p>
+      ) : null}
 
       <Modal
         isOpen={assignModalOpen}

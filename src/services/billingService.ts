@@ -102,6 +102,27 @@ export interface BillingInvoice {
   dueAt?: string | null;
   paidAt?: string | null;
   graceEndsAt?: string | null;
+  /** §6.12: faturas antigas e companies em OFF trazem estes campos nulos. */
+  paidAmountCents?: number | null;
+  refundedCents?: number | null;
+  cardLast4?: string | null;
+  cardBrand?: string | null;
+  disputeStatus?: 'OPEN' | 'WON' | 'LOST' | null;
+  disputeOpenedAt?: string | null;
+  breakdown?: BillingInvoiceBreakdown | null;
+}
+
+export interface BillingInvoiceBreakdownLine {
+  kind: string;
+  amountCents: number;
+  description: string;
+}
+
+export interface BillingInvoiceBreakdown {
+  baseCents: number;
+  lines: BillingInvoiceBreakdownLine[];
+  chargedCents: number;
+  adjustmentStatus?: string | null;
 }
 
 export interface BillingPage<T> {
@@ -397,3 +418,169 @@ export function lookupBillingUser(query: string, token: string): Promise<Billing
   );
 }
 
+/* ===== Plano Cobrança, C3 (contrato §3, §6.10, §6.12, §14.3) ===== */
+
+export type BillingFinancialMode = 'OFF' | 'ON' | 'DRAINING';
+
+/** Só os campos que as telas usam. Sem linha na company, o billing responde tudo desligado. */
+export interface BillingSettings {
+  companyId: string;
+  financialMode: BillingFinancialMode;
+  creditEnabled: boolean;
+  couponEnabled: boolean;
+  referralEnabled: boolean;
+  catalogEnabled: boolean;
+  reportsEnabled: boolean;
+}
+
+export function getBillingSettings(token: string): Promise<BillingSettings> {
+  return customFetch<BillingSettings>(`${BILLING_BASE}/billing-settings`, { method: 'GET' }, token);
+}
+
+export interface BillingCreditItem {
+  id: string;
+  type: string;
+  amountCents: number;
+  reference?: { type: string; id: string } | null;
+  expiresAt?: string | null;
+  publicText?: string | null;
+  createdAt: string;
+  /** Só saem para operador e serviço. */
+  reason?: string | null;
+  actor?: string | null;
+  /** §14.3: só em lote (lançamento positivo). */
+  remainingCents?: number | null;
+  reversedCents?: number | null;
+  blocked?: boolean | null;
+}
+
+export interface BillingCreditStatement {
+  balanceCents: number;
+  reservedCents: number;
+  availableCents: number;
+  nextExpiry?: { amountCents: number; expiresAt: string } | null;
+  items: BillingCreditItem[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+export function getBillingCredits(
+  params: { userId: string; page?: number; size?: number },
+  token: string,
+): Promise<BillingCreditStatement> {
+  return customFetch<BillingCreditStatement>(
+    `${BILLING_BASE}/credits${toQuery({ userId: params.userId, page: params.page ?? 0, size: params.size ?? 20 })}`,
+    { method: 'GET' },
+    token,
+  );
+}
+
+export function grantBillingCredit(
+  body: { userId: string; amountCents: number; reason: string; publicText?: string; expiresAt?: string },
+  idempotencyKey: string,
+  token: string,
+): Promise<BillingCreditItem> {
+  return customFetch<BillingCreditItem>(`${BILLING_BASE}/credits`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(body),
+  }, token);
+}
+
+export function reverseBillingCredit(
+  id: string,
+  body: { reason: string },
+  idempotencyKey: string,
+  token: string,
+): Promise<BillingCreditItem> {
+  return customFetch<BillingCreditItem>(`${BILLING_BASE}/credits/${encodeURIComponent(id)}/reverse`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(body),
+  }, token);
+}
+
+export interface BillingAccount {
+  entitlement?: BillingEntitlement | null;
+  subscription?: BillingSubscription | null;
+  availableCents?: number;
+  reservedCents?: number;
+  openDisputes?: Array<{ invoiceId: string; openedAt: string }>;
+}
+
+export function getBillingAccount(userId: string, token: string): Promise<BillingAccount> {
+  return customFetch<BillingAccount>(`${BILLING_BASE}/billing-accounts/${encodeURIComponent(userId)}`, { method: 'GET' }, token);
+}
+
+export function getBillingInvoice(id: string, token: string): Promise<BillingInvoice> {
+  return customFetch<BillingInvoice>(`${BILLING_BASE}/invoices/${encodeURIComponent(id)}`, { method: 'GET' }, token);
+}
+
+export type BillingRefundMethod = 'GATEWAY' | 'CREDIT';
+export type BillingRefundStatus = 'REQUESTED' | 'AWAITING_AUTHORIZATION' | 'PROCESSING' | 'DONE' | 'REJECTED';
+
+export interface BillingRefund {
+  id: string;
+  invoiceId?: string;
+  amountCents: number;
+  method: BillingRefundMethod;
+  origin?: 'OPERATOR' | 'GATEWAY_PANEL';
+  status: BillingRefundStatus;
+  reason?: string | null;
+  restoreCredit?: boolean;
+  requestedBy?: string | null;
+  createdAt?: string | null;
+  doneAt?: string | null;
+}
+
+/** A forma da lista não está fixada no contrato (§6.10): aceita vetor ou `{items}`. */
+export async function listBillingInvoiceRefunds(invoiceId: string, token: string): Promise<BillingRefund[]> {
+  const data = await customFetch<BillingRefund[] | { items?: BillingRefund[] }>(
+    `${BILLING_BASE}/invoices/${encodeURIComponent(invoiceId)}/refunds`,
+    { method: 'GET' },
+    token,
+  );
+  return Array.isArray(data) ? data : data?.items ?? [];
+}
+
+export interface BillingRefundPreview {
+  refundableCents: number;
+  clawbackCents: number;
+  derivedLots?: Array<{ entryId: string; type: string; remainingCents: number }>;
+  usedNotRecoverableCents?: number;
+  creditRestoredCents?: number;
+  fundedUpgradeLimitCents?: number | null;
+  requiresAcknowledge?: boolean;
+}
+
+export function previewBillingRefund(
+  invoiceId: string,
+  params: { amountCents: number; method: BillingRefundMethod },
+  token: string,
+): Promise<BillingRefundPreview> {
+  return customFetch<BillingRefundPreview>(
+    `${BILLING_BASE}/invoices/${encodeURIComponent(invoiceId)}/refund-preview${toQuery(params)}`,
+    { method: 'GET' },
+    token,
+  );
+}
+
+export function createBillingRefund(
+  invoiceId: string,
+  body: {
+    amountCents: number;
+    method: BillingRefundMethod;
+    reason: string;
+    restoreCredit: boolean;
+    acknowledgeUpgradeFunding?: boolean;
+  },
+  idempotencyKey: string,
+  token: string,
+): Promise<BillingRefund> {
+  return customFetch<BillingRefund>(`${BILLING_BASE}/invoices/${encodeURIComponent(invoiceId)}/refunds`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(body),
+  }, token);
+}

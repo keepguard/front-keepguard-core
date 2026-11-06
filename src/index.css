@@ -15662,3 +15662,131 @@ textarea.form-input {
   .ao-topbar-actions { width: 100%; }
   .ao-topbar-actions .btn { flex: 1; }
 }
+
+/* ===== Billing: dinheiro no backoffice (Plano Cobrança, C3). Só tokens do tema. ===== */
+.bm-scope, .bm-invoice {
+  --bm-ok-text: #1e7e34; /* o mesmo de .billing-status-badge.is-paid */
+  --bm-primary-on-light: var(--primary);
+}
+[data-theme="dark"] .bm-scope, [data-theme="dark"] .bm-invoice {
+  --bm-ok-text: var(--success-hover);
+  --bm-primary-on-light: var(--text-main);
+}
+.bm-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.bm-strong { font-weight: 600; color: var(--text-main); }
+.bm-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bm-positive { color: var(--bm-ok-text); font-weight: 600; }
+.bm-negative { color: var(--danger-hover); font-weight: 600; }
+.bm-link {
+  display: inline-flex; align-items: center; min-height: 24px; padding: 0.2rem 0; border: 0; background: none;
+  color: var(--primary); font: inherit; font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+[data-theme="dark"] .bm-link { color: var(--secondary-hover); }
+.bm-link:focus-visible, .bm-scope :focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.bm-btn:disabled { background: var(--bg-muted); color: var(--text-muted); border: 1px solid var(--text-sub); opacity: 1; box-shadow: none; }
+.bm-btn-sm { min-height: 32px; padding: 0.32rem 0.75rem; font-size: 0.8rem; }
+.bm-breadcrumb { margin-bottom: 0.75rem; color: var(--text-muted); font-size: 0.84rem; overflow-wrap: anywhere; }
+.bm-title { font-size: 1rem; font-weight: 700; color: var(--text-main); overflow-wrap: anywhere; }
+.bm-title:focus { outline: none; }
+.bm-subline { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.35rem; }
+
+.bm-pill {
+  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 999px; border: 1px solid var(--text-sub);
+  background: var(--bg-muted); color: var(--text-muted); font-size: 0.75rem; font-weight: 600; line-height: 1.25; white-space: nowrap;
+}
+.bm-pill.is-ok { background: var(--success-light); color: var(--bm-ok-text); border-color: var(--success-border); }
+.bm-pill.is-warn { background: var(--warning-light); color: var(--text-main); border-color: var(--warning); }
+.bm-pill.is-bad { background: var(--danger-light); color: var(--text-main); border-color: var(--danger-border); }
+.bm-pill.is-info { background: var(--primary-light); color: var(--bm-primary-on-light); border-color: var(--primary-border); }
+
+.bm-notice { display: block; margin-bottom: 1rem; padding: 0.75rem 0.95rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-muted); color: var(--text-main); font-size: 0.86rem; overflow-wrap: anywhere; }
+.bm-notice > strong { display: block; margin-bottom: 0.1rem; }
+.bm-notice code { font-size: 0.84em; overflow-wrap: anywhere; }
+.bm-notice.is-ok { background: var(--success-light); border-color: var(--success-border); }
+.bm-notice.is-warn { background: var(--warning-light); border-color: var(--warning); }
+.bm-notice.is-bad { background: var(--danger-light); border-color: var(--danger-border); }
+.bm-notice.is-info { background: var(--primary-light); border-color: var(--primary-border); }
+.bm-notice-action { margin-top: 0.6rem; }
+.bm-focus-target:focus { outline: none; }
+
+.bm-block { margin-bottom: 1.25rem; padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); box-shadow: var(--shadow-sm); }
+.bm-block-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.bm-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+.bm-stat { min-width: 0; padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-muted); }
+.bm-stat-label { color: var(--text-muted); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.bm-stat-value { margin-top: 0.1rem; color: var(--text-main); font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bm-stat-detail { margin-top: 0.15rem; color: var(--text-muted); font-size: 0.76rem; }
+.bm-empty { padding: 2.25rem 1.25rem; text-align: center; }
+.bm-empty h3 { margin-bottom: 0.25rem; color: var(--text-main); font-size: 1.02rem; }
+.bm-empty p { margin-bottom: 0.9rem; color: var(--text-muted); font-size: 0.88rem; }
+.bm-skeleton { display: block; height: 0.8rem; margin-bottom: 0.6rem; border-radius: 6px; background: var(--border); animation: bm-pulse 1.4s ease-in-out infinite; }
+.bm-skeleton.is-large { height: 1.6rem; margin-bottom: 0; }
+@keyframes bm-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .bm-skeleton { animation: none; } }
+.bm-lot-facts { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; margin-top: 0.2rem; color: var(--text-muted); font-size: 0.76rem; font-weight: 500; white-space: nowrap; }
+
+.bm-cards { list-style: none; padding: 0; }
+.bm-card { padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); box-shadow: var(--shadow-sm); }
+.bm-card dl { display: grid; grid-template-columns: minmax(84px, auto) 1fr; gap: 0.35rem 0.75rem; }
+.bm-card dt { color: var(--text-muted); font-size: 0.76rem; font-weight: 600; }
+.bm-card dd { min-width: 0; color: var(--text-main); font-size: 0.86rem; overflow-wrap: anywhere; }
+.bm-card .bm-lot-facts { align-items: flex-start; white-space: normal; }
+.bm-card-actions { margin-top: 0.6rem; }
+
+.bm-field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; margin-bottom: 0.9rem; }
+.bm-field > label { color: var(--text-main); font-size: 0.85rem; font-weight: 600; }
+.bm-field .form-input[aria-invalid="true"] { border: 2px solid var(--danger-hover); }
+.bm-required { color: var(--danger-hover); font-weight: 700; }
+.bm-hint { color: var(--text-muted); font-size: 0.78rem; }
+.bm-block-hint { display: block; margin-bottom: 0.9rem; }
+.bm-field-error { display: block; color: var(--danger-hover); font-size: 0.8rem; font-weight: 600; }
+.bm-textarea { min-height: 72px; resize: vertical; }
+.bm-choices { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin-bottom: 0.9rem; border: 0; }
+.bm-choices legend { margin-bottom: 0.35rem; color: var(--text-main); font-size: 0.85rem; font-weight: 600; }
+.bm-choices label, .bm-check { display: inline-flex; align-items: flex-start; gap: 0.4rem; min-height: 24px; color: var(--text-main); font-size: 0.86rem; cursor: pointer; }
+.bm-choices input, .bm-check input { flex: none; width: 16px; height: 16px; margin-top: 0.2rem; accent-color: var(--primary); }
+.bm-check { display: flex; margin-bottom: 0.9rem; }
+.bm-check-inline { margin: 0.5rem 0 0; }
+.bm-preview { margin: 0.25rem 0 0.9rem; padding: 0.75rem 0.9rem; border: 1px solid var(--primary-border); border-radius: 10px; background: var(--primary-light); color: var(--text-main); font-size: 0.86rem; }
+.bm-preview h4 { margin-bottom: 0.35rem; color: var(--bm-primary-on-light); font-size: 0.8rem; font-weight: 700; }
+.bm-preview dl { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 0.75rem; }
+.bm-preview dd { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.bm-preview dl.is-long { grid-template-columns: minmax(90px, auto) 1fr; margin-top: 0.45rem; }
+.bm-preview dl.is-long dd { font-weight: 500; text-align: left; }
+.bm-preview-note { margin-top: 0.4rem; font-size: 0.78rem; }
+.bm-preview .bm-notice { margin-bottom: 0; }
+
+.bm-footer { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+.bm-footer-note { margin-right: auto; align-self: center; font-size: 0.8rem; }
+.bm-invoice .billing-detail-card, .bm-invoice .billing-method-badge { background: var(--bg-card); }
+.bm-invoice-sections { display: flex; flex-direction: column; gap: 0.8rem; }
+.bm-invoice-sections .bm-notice { margin-bottom: 0; }
+.bm-section { padding: 0.9rem 1.05rem; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
+.bm-section h4 { margin-bottom: 0.6rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-main); font-size: 0.88rem; font-weight: 600; }
+.bm-bill { width: 100%; border-collapse: collapse; }
+.bm-bill th, .bm-bill td { padding: 0.3rem 0; border: 0; background: none; color: var(--text-main); font-size: 0.88rem; font-weight: 400; text-align: left; }
+.bm-bill td { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bm-bill .is-total th, .bm-bill .is-total td { padding-top: 0.5rem; border-top: 1px solid var(--border); font-weight: 700; }
+.bm-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem 1rem; margin-top: 0.7rem; }
+.bm-facts span { display: block; color: var(--text-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.bm-facts strong { color: var(--text-main); font-size: 0.88rem; font-weight: 500; overflow-wrap: anywhere; }
+.bm-refunds { list-style: none; padding: 0; }
+.bm-refunds li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid var(--border-subtle); color: var(--text-main); font-size: 0.86rem; overflow-wrap: anywhere; }
+.bm-refunds li:last-child { border: 0; }
+.bm-after-list { margin-top: 0.4rem; }
+
+@media (max-width: 760px) {
+  .bm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .bm-stat { padding: 0.7rem 0.75rem; }
+  .bm-stat-value { font-size: 1.08rem; white-space: nowrap; }
+  .bm-footer .btn { flex: 1 1 40%; }
+}
+.bm-invoice .billing-status-badge.is-paid { color: var(--bm-ok-text); }
+.modal-actions.bm-footer { flex-direction: row; }
+.modal-actions.bm-footer .btn { width: auto; }
+@media (max-width: 640px) {
+  .bm-footer-note { flex: 1 1 100%; margin-right: 0; }
+}

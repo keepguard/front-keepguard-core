@@ -20,6 +20,12 @@ interface InvoiceDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoice: BillingInvoice | null;
+  /** Só do operador em company ligada (C3). Sem isto, o modal é o de sempre. */
+  operator?: {
+    badges: React.ReactNode;
+    sections: React.ReactNode;
+    footer: React.ReactNode;
+  };
 }
 
 function formatMoney(cents: number, currency = 'BRL'): string {
@@ -80,6 +86,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   isOpen,
   onClose,
   invoice,
+  operator,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -106,7 +113,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
       title="Detalhes da transação"
       subtitle={`Fatura ${compactId(invoice.id)}`}
       maxWidth="620px"
-      footer={(
+      trapFocus={Boolean(operator)}
+      footer={operator ? operator.footer : (
         <div className="modal-actions" style={{ justifyContent: 'flex-end', width: '100%' }}>
           <button type="button" className="btn btn-primary btn-pill" onClick={onClose}>
             Fechar
@@ -114,7 +122,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
         </div>
       )}
     >
-      <div className="billing-detail-content">
+      <div className={`billing-detail-content${operator ? ' bm-invoice' : ''}`}>
         {/* Card Destaque: Valor, Status e Método */}
         <div className="billing-detail-hero">
           <div className="billing-detail-hero-main">
@@ -130,9 +138,12 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 <CreditCard size={14} />
                 {paymentMethodLabel(invoice.paymentMethod)}
               </span>
+              {operator ? <span className="bm-scope">{operator.badges}</span> : null}
             </div>
           </div>
         </div>
+
+        {operator ? operator.sections : null}
 
         {/* Bloco de Ações Imediatas: PIX (quando pendente) */}
         {isPix && invoice.pixPayload && isPending ? (
