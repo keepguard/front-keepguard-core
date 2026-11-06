@@ -550,6 +550,7 @@ export interface BillingRefundPreview {
   derivedLots?: Array<{ entryId: string; type: string; remainingCents: number }>;
   usedNotRecoverableCents?: number;
   creditRestoredCents?: number;
+  /** 0 quando a fatura não bancou upgrade. */
   fundedUpgradeLimitCents?: number | null;
   requiresAcknowledge?: boolean;
 }

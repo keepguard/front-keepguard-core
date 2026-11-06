@@ -73,10 +73,11 @@ export const RefundModal: React.FC<{
     return () => window.clearTimeout(timer);
   }, [amount, getAccessToken, invoice.id, method, previewAttempt, previewKey]);
 
-  const fundedLimit = preview?.fundedUpgradeLimitCents ?? null;
-  const usedByUpgrade = fundedLimit === null
-    ? 0
-    : Math.max(0, paid - (invoice.refundedCents ?? 0) - fundedLimit);
+  // O billing manda 0 (nunca nulo) quando a fatura não bancou upgrade: 0 só vale com a confirmação exigida.
+  const rawFunded = preview?.fundedUpgradeLimitCents ?? 0;
+  const paidLeft = paid - (invoice.refundedCents ?? 0);
+  const fundedLimit = preview?.requiresAcknowledge || (rawFunded > 0 && rawFunded < paidLeft) ? rawFunded : null;
+  const usedByUpgrade = fundedLimit === null ? 0 : Math.max(0, paidLeft - fundedLimit);
   const total = amountValid && amount >= limit;
   const restoreCredit = total && usedCredit > 0 && restore;
   const afterThis = amountValid ? limit - amount : null;

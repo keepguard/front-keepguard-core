@@ -285,6 +285,13 @@ describe('Estornar', () => {
     expect(billingMock.createBillingRefund.mock.calls[0][1].acknowledgeUpgradeFunding).toBe(true);
   });
 
+  it('limite de upgrade zerado pelo billing não vira aviso em fatura comum', async () => {
+    billingMock.previewBillingRefund.mockResolvedValue({ ...PREVIEW, fundedUpgradeLimitCents: 0, requiresAcknowledge: false });
+    const dialog = await openForm();
+    await previewReady(dialog);
+    expect(within(dialog).queryByText('Esta fatura pagou um upgrade')).toBeNull();
+  });
+
   it('prévia atrasada de outro valor não vale para o valor atual', async () => {
     const dialog = await openForm();
     await previewReady(dialog);
