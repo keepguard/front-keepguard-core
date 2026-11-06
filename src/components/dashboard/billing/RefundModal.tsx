@@ -9,7 +9,7 @@ import {
   type BillingRefundMethod,
   type BillingRefundPreview,
 } from '../../../services/billingService';
-import { brl, paidCents, parseBrlToCents, requestedRefundsCents } from '../../../utils/billingMoney';
+import { brl, paidCents, parseBrlToCents, refundErrorNeedsReload, requestedRefundsCents } from '../../../utils/billingMoney';
 import { Field, MoneyErrorNotice, Notice, REASON_HINT } from './BillingMoneyUi';
 import { useMoneyWrite } from './useBillingFeatures';
 
@@ -27,9 +27,9 @@ export const RefundModal: React.FC<{
   isSelf: boolean;
   onBack: () => void;
   onDone: (refund: BillingRefund) => void;
-  /** Pedido registrado sem resposta do gateway: a lista precisa mostrar a linha. */
-  onRegistered: () => void;
-}> = ({ invoice, refunds, isSelf, onBack, onDone, onRegistered }) => {
+  /** O estado no billing pode ter mudado (linha nova, contestação): a fatura e a lista são relidas. */
+  onStateChanged: () => void;
+}> = ({ invoice, refunds, isSelf, onBack, onDone, onStateChanged }) => {
   const { getAccessToken } = useAuth();
   const write = useMoneyWrite();
   const baseId = useId();
@@ -76,6 +76,9 @@ export const RefundModal: React.FC<{
   // O billing manda 0 (nunca nulo) quando a fatura não bancou upgrade: 0 só vale com a confirmação exigida.
   const rawFunded = preview?.fundedUpgradeLimitCents ?? 0;
   const paidLeft = paid - (invoice.refundedCents ?? 0);
+  // Vale a última prévia lida, para o aviso não piscar enquanto outro valor é calculado.
+  const upgradePending = loaded?.data.upgradePending === true;
+  const disputeOpen = invoice.disputeStatus === 'OPEN';
   const fundedLimit = preview?.requiresAcknowledge || (rawFunded > 0 && rawFunded < paidLeft) ? rawFunded : null;
   const usedByUpgrade = fundedLimit === null ? 0 : Math.max(0, paidLeft - fundedLimit);
   const total = amountValid && amount >= limit;
@@ -99,6 +102,7 @@ export const RefundModal: React.FC<{
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (upgradePending || disputeOpen) return;
     const next: typeof errors = {};
     if (!amountValid) {
       next.amount = amount !== null && amount > limit
@@ -122,8 +126,7 @@ export const RefundModal: React.FC<{
     if (result) onDone(result);
   };
 
-  const registered = write.error?.kind === 'registered';
-  useEffect(() => { if (registered) onRegistered(); }, [onRegistered, registered]);
+  useEffect(() => { if (refundErrorNeedsReload(write.error)) onStateChanged(); }, [onStateChanged, write.error]);
 
   const formId = `${baseId}-form`;
   const locked = write.frozen || write.busy;
@@ -142,7 +145,7 @@ export const RefundModal: React.FC<{
             type="submit"
             form={formId}
             className="btn btn-danger btn-pill bm-btn"
-            disabled={isSelf || write.busy || write.blocked}
+            disabled={isSelf || upgradePending || disputeOpen || write.busy || write.blocked}
           >
             {write.busy ? 'Enviando…' : write.canRetrySame ? 'Tentar de novo' : 'Estornar'}
           </button>
@@ -156,6 +159,11 @@ export const RefundModal: React.FC<{
           </Notice>
         ) : null}
         {write.error ? <MoneyErrorNotice error={write.error} /> : null}
+        {upgradePending ? (
+          <Notice tone="warn" title="Esta fatura paga um upgrade em aberto.">
+            Estornar fica travado. Cancele o upgrade, ou espere ele ser pago ou vencer, e abra o estorno de novo.
+          </Notice>
+        ) : null}
 
         <fieldset className="bm-choices" disabled={locked}>
           <legend>Quanto estornar</legend>

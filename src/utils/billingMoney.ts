@@ -169,8 +169,16 @@ const KNOWN: Record<string, Omit<MoneyError, 'code' | 'status' | 'kind'> & { kin
     field: 'amount',
   },
   REFUND_IN_PROGRESS: {
-    title: 'Já existe estorno em andamento no Asaas.',
-    text: 'Não precisa pedir de novo. Acompanhe na lista de estornos.',
+    title: 'O Asaas já tem um estorno em andamento nesta cobrança.',
+    text: 'Este pedido não foi feito e fica como recusado na lista. Espere o estorno em andamento terminar e peça de novo só se ainda faltar valor.',
+  },
+  REFUND_UPGRADE_PENDING: {
+    title: 'Esta fatura paga um upgrade em aberto.',
+    text: 'Nada foi gravado. Cancele o upgrade, ou espere ele ser pago ou vencer, e peça o estorno de novo.',
+  },
+  DISPUTE_OPEN: {
+    title: 'Há contestação aberta.',
+    text: 'Nada foi gravado. Espere a contestação fechar e tente de novo.',
   },
   REFUND_REASON_REQUIRED: { title: 'Falta o motivo.', text: 'Escreva o motivo do estorno.', field: 'reason' },
   GATEWAY_UNAVAILABLE: {
@@ -192,6 +200,21 @@ const KNOWN: Record<string, Omit<MoneyError, 'code' | 'status' | 'kind'> & { kin
     text: 'Nada foi gravado. Entre de novo e repita.',
   },
 };
+
+/** Depois destes erros, o estado no billing pode ter mudado: a fatura e os estornos precisam ser relidos. */
+const REFUND_RELOAD_CODES = new Set([
+  'GATEWAY_UNAVAILABLE',
+  'REFUND_IN_PROGRESS',
+  'REFUND_REJECTED_BY_GATEWAY',
+  'GATEWAY_REJECTED',
+  'REFUND_EXCEEDS_PAID',
+  'INVOICE_NOT_REFUNDABLE',
+  'DISPUTE_OPEN',
+]);
+
+export function refundErrorNeedsReload(error: MoneyError | null): boolean {
+  return error !== null && REFUND_RELOAD_CODES.has(error.code);
+}
 
 /** Traduz o erro de uma escrita. `error` no corpo é o código estável (§3). */
 export function classifyMoneyError(error: unknown): MoneyError {

@@ -98,7 +98,7 @@ export const InvoiceOperatorModal: React.FC<{
     else requestRef.current += 1;
   }, [invoiceId, load]);
 
-  const reloadAfterRegistered = useCallback(() => {
+  const reloadAfterChange = useCallback(() => {
     if (invoiceId) void load(invoiceId);
     onChanged?.();
   }, [invoiceId, load, onChanged]);
@@ -149,7 +149,7 @@ export const InvoiceOperatorModal: React.FC<{
         refunds={refunds}
         isSelf={isSelf}
         onBack={() => setRefunding(false)}
-        onRegistered={reloadAfterRegistered}
+        onStateChanged={reloadAfterChange}
         onDone={(refund) => {
           setRefunding(false);
           setFlash(refundFlash(refund));

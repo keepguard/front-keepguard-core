@@ -555,6 +555,8 @@ export interface BillingRefundPreview {
   /** 0 quando a fatura não bancou upgrade. */
   fundedUpgradeLimitCents?: number | null;
   requiresAcknowledge?: boolean;
+  /** Fatura presente em orçamento de upgrade aguardando pagamento: o estorno é recusado. */
+  upgradePending?: boolean;
 }
 
 export function previewBillingRefund(

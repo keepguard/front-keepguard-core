@@ -299,6 +299,61 @@ describe('Estornar', () => {
     expect(within(dialog).queryByText('Esta fatura pagou um upgrade')).toBeNull();
   });
 
+  it('prévia com upgradePending: avisa o que fazer e trava o envio', async () => {
+    billingMock.previewBillingRefund.mockResolvedValue({ ...PREVIEW, upgradePending: true });
+    const dialog = await openForm();
+    expect(await within(dialog).findByText('Esta fatura paga um upgrade em aberto.', {}, { timeout: 2000 })).toBeTruthy();
+    expect(dialog.textContent).toContain('Cancele o upgrade');
+    const submit = within(dialog).getByRole('button', { name: 'Estornar' }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    await userEvent.type(within(dialog).getByLabelText(/Motivo/), 'x');
+    fireEvent.submit(dialog.querySelector('form') as HTMLFormElement);
+    await act(async () => {});
+    expect(billingMock.createBillingRefund).not.toHaveBeenCalled();
+  });
+
+  it('409 REFUND_UPGRADE_PENDING: mensagem clara, com o que fazer', async () => {
+    billingMock.createBillingRefund.mockRejectedValue(httpError(409, 'REFUND_UPGRADE_PENDING', 'texto do servidor'));
+    const dialog = await openForm();
+    await previewReady(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Motivo/), 'x');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Estornar' }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).toContain('Cancele o upgrade');
+    expect(alert.textContent).toContain('409 REFUND_UPGRADE_PENDING');
+  });
+
+  it('409 DISPUTE_OPEN: avisa, relê a fatura e trava', async () => {
+    billingMock.createBillingRefund.mockRejectedValue(httpError(409, 'DISPUTE_OPEN'));
+    const dialog = await openForm();
+    await previewReady(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Motivo/), 'x');
+    billingMock.getBillingInvoice.mockClear();
+    billingMock.getBillingInvoice.mockResolvedValue({ ...paidCard, disputeStatus: 'OPEN', disputeOpenedAt: '2026-11-03T12:00:00Z' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Estornar' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Espere a contestação fechar');
+    await waitFor(() => expect(billingMock.getBillingInvoice).toHaveBeenCalled());
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Estornar' }) as HTMLButtonElement).disabled).toBe(true));
+    expect(screen.getByRole('alert').textContent).toContain('Espere a contestação fechar');
+  });
+
+  it('409 REFUND_IN_PROGRESS: diz para esperar, relê a lista e a nova tentativa usa chave nova', async () => {
+    billingMock.createBillingRefund.mockRejectedValueOnce(httpError(409, 'REFUND_IN_PROGRESS'));
+    const dialog = await openForm();
+    await previewReady(dialog);
+    await userEvent.type(within(dialog).getByLabelText(/Motivo/), 'x');
+    billingMock.listBillingInvoiceRefunds.mockClear();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Estornar' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Espere o estorno em andamento terminar');
+    await waitFor(() => expect(billingMock.listBillingInvoiceRefunds).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole('button', { name: 'Estornar' }));
+    await waitFor(() => expect(billingMock.createBillingRefund).toHaveBeenCalledTimes(2));
+    const [first, second] = billingMock.createBillingRefund.mock.calls;
+    expect(second[2]).not.toBe(first[2]);
+  });
+
   it('prévia atrasada de outro valor não vale para o valor atual', async () => {
     const dialog = await openForm();
     await previewReady(dialog);
