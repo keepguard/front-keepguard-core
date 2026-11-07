@@ -84,6 +84,33 @@ type CustomFetchOptions = RequestInit & {
  * - Em 401: tenta refresh single-flight e repete a request uma vez.
  * - Só encerra a sessão se o refresh falhar.
  */
+// --- InvestBot indisponivel: trava curta para nao martelar um servico desligado ---
+const INVEST_PAUSA_KEY = 'kg_invest_indisponivel_ate';
+const INVEST_PAUSA_MS = 5 * 60 * 1000;
+export const INVESTBOT_INDISPONIVEL = 'investbot_indisponivel';
+
+function isInvestUrl(url: string): boolean {
+  return url.startsWith(BFF_INVEST_URL) || url.includes('/bff-invest');
+}
+function investPausadoAte(): number {
+  try { return Number(sessionStorage.getItem(INVEST_PAUSA_KEY)) || 0; } catch { return 0; }
+}
+function marcarInvestIndisponivel(): void {
+  try { sessionStorage.setItem(INVEST_PAUSA_KEY, String(Date.now() + INVEST_PAUSA_MS)); } catch { /* sem storage */ }
+}
+function limparInvestIndisponivel(): void {
+  try { sessionStorage.removeItem(INVEST_PAUSA_KEY); } catch { /* sem storage */ }
+}
+export function isInvestIndisponivel(err: unknown): boolean {
+  return (err as any)?.code === INVESTBOT_INDISPONIVEL;
+}
+function erroInvestIndisponivel(): Error {
+  const e = new Error('InvestBot indisponível no momento.') as any;
+  e.status = 503;
+  e.code = INVESTBOT_INDISPONIVEL;
+  return e;
+}
+
 export async function customFetch<T>(
   url: string,
   options: CustomFetchOptions = {},
@@ -108,7 +135,9 @@ export async function customFetch<T>(
     'X-Session-Id': getOrCreateSessionId(),
     ...(fetchOptions.headers as Record<string, string>),
   };
-  if (url.startsWith(BFF_INVEST_URL) || url.includes('/bff-invest')) {
+  const ehInvest = isInvestUrl(url);
+  if (ehInvest) {
+    if (Date.now() < investPausadoAte()) throw erroInvestIndisponivel();
     headers['X-Company-Id'] = tenantId;
   }
 
@@ -125,11 +154,21 @@ export async function customFetch<T>(
     headers['Authorization'] = `Bearer ${bearer}`;
   }
 
-  const response = await fetch(url, {
-    credentials: 'include',
-    ...fetchOptions,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      credentials: 'include',
+      ...fetchOptions,
+      headers,
+    });
+  } catch (e) {
+    if (ehInvest) { marcarInvestIndisponivel(); throw erroInvestIndisponivel(); }
+    throw e;
+  }
+  if (ehInvest) {
+    if ([502, 503, 504].includes(response.status)) { marcarInvestIndisponivel(); throw erroInvestIndisponivel(); }
+    limparInvestIndisponivel();
+  }
 
   const contentType = response.headers.get('content-type');
   let data: any = null;

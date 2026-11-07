@@ -1,3 +1,4 @@
+import { isInvestIndisponivel } from '../../services/api';
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowUpDown, Clock, Code2, FileText, LineChart, Lock, Plus, Scale, Search, Sparkles, Star } from 'lucide-react';
@@ -64,6 +65,7 @@ function tickerFromQuery(raw: string | null): string | null {
 }
 
 function mapAnalystError(err: unknown, fallback: string): string {
+  if (isInvestIndisponivel(err)) return 'O InvestBot está indisponível no momento. Tente novamente mais tarde.';
   const status = (err as { status?: number }).status;
   const data = (err as { data?: { error?: string; message?: string } }).data;
   if (data?.error === 'WATCHLIST_TOO_LARGE') {

@@ -1,3 +1,4 @@
+import { isInvestIndisponivel } from '../../services/api';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Modal } from '../common/Modal';
@@ -16,6 +17,7 @@ import { NarrativeText } from './NarrativeText';
 const DISCLAIMER = 'Análise, não recomendação de investimento.';
 
 function mapAnalystError(err: unknown): string {
+  if (isInvestIndisponivel(err)) return 'O InvestBot está indisponível no momento. Tente novamente mais tarde.';
   const status = (err as { status?: number }).status;
   const data = (err as { data?: { error?: string; message?: string } }).data;
   if (data?.error === 'NO_MARKET_DATA' || status === 404) {
