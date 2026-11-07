@@ -112,3 +112,8 @@ export function unblockOAuthClient(id: string, token: string): Promise<OAuthClie
 export function deleteOAuthClient(id: string, token: string): Promise<void> {
   return customFetch<void>(`${base}/${id}`, { method: 'DELETE' }, token);
 }
+
+// Troca o secret e devolve o novo em claro, só nesta resposta.
+export function rotateOAuthClientSecret(id: string, token: string): Promise<OAuthClient> {
+  return customFetch<OAuthClient>(`${base}/${id}/rotate-secret`, { method: 'POST' }, token);
+}

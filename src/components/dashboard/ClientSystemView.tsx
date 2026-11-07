@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Ban,
-  Copy,
   KeyRound,
   LockOpen,
   Pencil,
@@ -20,6 +19,7 @@ import {
   getOAuthClient,
   listOAuthServiceRoles,
   searchOAuthClients,
+  rotateOAuthClientSecret,
   unblockOAuthClient,
   updateOAuthClient,
   type OAuthClient,
@@ -168,6 +168,23 @@ export const ClientSystemView: React.FC = () => {
       });
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleRotateSecret = async (item: OAuthClient) => {
+    const token = getAccessToken();
+    if (!token) return;
+    if (!window.confirm(`Rotacionar o secret de ${item.clientId}? O secret atual deixa de valer na hora e quem usa precisa do novo.`)) return;
+    try {
+      const rotated = await rotateOAuthClientSecret(item.id, token);
+      setDetail(null);
+      setCreatedSecret({ ...rotated, rotated: true } as OAuthClient & { rotated?: boolean });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Não foi possível rotacionar o secret',
+        description: err?.message || 'Tente novamente.',
+      });
     }
   };
 
@@ -488,7 +505,6 @@ export const ClientSystemView: React.FC = () => {
           <thead>
             <tr>
               <th>Client ID</th>
-              <th>Secret</th>
               <th>Status</th>
               <th>Perfil / Authorities</th>
               <th>TTL</th>
@@ -499,13 +515,13 @@ export const ClientSystemView: React.FC = () => {
           <tbody>
             {loading && items.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   Carregando OAuth clients...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: '#5f6368' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <KeyRound size={22} />
                     <span>Nenhum OAuth client para os filtros atuais.</span>
@@ -522,21 +538,6 @@ export const ClientSystemView: React.FC = () => {
                         {item.description}
                       </div>
                     ) : null}
-                  </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    {item.clientSecret ? (
-                      <button
-                        type="button"
-                        className="btn-table-icon"
-                        title="Copiar secret"
-                        aria-label={`Copiar secret de ${item.clientId}`}
-                        onClick={() => copySecret(item.clientSecret)}
-                      >
-                        <Copy size={15} />
-                      </button>
-                    ) : (
-                      <span className="table-cell-muted">—</span>
-                    )}
                   </td>
                   <td>
                     <span className="badge-role" style={statusStyle(item.status)}>
@@ -613,16 +614,11 @@ export const ClientSystemView: React.FC = () => {
             </div>
             <div className="oauth-detail-field">
               <span className="oauth-detail-label">Secret</span>
-              <span className="oauth-detail-value text-mono" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {detail.clientSecret || '—'}
-                {detail.clientSecret ? (
-                  <button
-                    type="button"
-                    className="btn-table-icon"
-                    title="Copiar secret"
-                    onClick={() => copySecret(detail.clientSecret)}
-                  >
-                    <Copy size={15} />
+              <span className="oauth-detail-value" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Não é exibido depois da criação.
+                {writable ? (
+                  <button type="button" className="btn btn-outline" onClick={() => handleRotateSecret(detail)}>
+                    Rotacionar secret
                   </button>
                 ) : null}
               </span>
@@ -872,8 +868,8 @@ export const ClientSystemView: React.FC = () => {
       <Modal
         isOpen={!!createdSecret}
         onClose={() => setCreatedSecret(null)}
-        title="Client criado"
-        subtitle="O secret também permanece visível na listagem para ADMIN/SYSTEM."
+        title={(createdSecret as { rotated?: boolean } | null)?.rotated ? 'Secret rotacionado' : 'Client criado'}
+        subtitle="Copie agora: o secret aparece só desta vez e não pode ser lido depois."
       >
         {createdSecret ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
