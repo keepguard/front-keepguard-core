@@ -143,6 +143,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       onSuccess({
         email: email.trim(),
         phone: phoneE164,
+        password, // só em memória: o login logo após a confirmação usa (sem código de aparelho no mesmo aparelho)
         sessionId: response.registrationSessionId,
         requiredChannels: response.requiredChannels && response.requiredChannels.length > 0 ? response.requiredChannels : ['EMAIL'],
       });

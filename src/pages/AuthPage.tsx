@@ -5,11 +5,14 @@ import { ForgotPasswordModal } from '../components/auth/ForgotPasswordModal';
 import { ResetPasswordModal } from '../components/auth/ResetPasswordModal';
 import { RegisterTokenModal } from '../components/register/RegisterTokenModal';
 import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/authService';
+import { useToast } from '../context/ToastContext';
 import type { RegisterConfirmResponse } from '../types/register';
 
 export const AuthPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const { login } = useAuth();
+  const { addToast } = useToast();
 
   // Modais de recuperação de senha
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
@@ -23,6 +26,7 @@ export const AuthPage: React.FC = () => {
     phone: string;
     sessionId: string;
     requiredChannels: string[];
+    password?: string;
   } | null>(null);
 
   const handleForgotPasswordSuccess = (email: string) => {
@@ -30,24 +34,32 @@ export const AuthPage: React.FC = () => {
     setIsResetModalOpen(true);
   };
 
-  const handleRegisterSuccess = (data: { email: string; phone: string; sessionId: string; requiredChannels: string[] }) => {
+  const handleRegisterSuccess = (data: { email: string; phone: string; sessionId: string; requiredChannels: string[]; password?: string }) => {
     setRegisterSessionData(data);
     setIsRegisterTokenModalOpen(true);
   };
 
-  const handleRegisterConfirmSuccess = (response: RegisterConfirmResponse) => {
-    if (response.token && registerSessionData?.email) {
-      login(
-        {
-          accessToken: response.token,
-          refreshToken: response.token,
-          token: response.token,
-          email: registerSessionData.email,
-          username: registerSessionData.email,
-        },
-        registerSessionData.email
-      );
-    } else {
+  // Depois de confirmar o cadastro, entra pelo bff-auth (sessão completa, com refresh em cookie). No mesmo aparelho e com
+  // só e-mail de canal de MFA, o ms-auth não pede o código de aparelho: o código do cadastro já provou o e-mail.
+  // Antes, o token da confirmação ia como access e refresh ao mesmo tempo, e a sessão caía quando ele vencia.
+  const handleRegisterConfirmSuccess = async (_response: RegisterConfirmResponse) => {
+    const email = registerSessionData?.email;
+    const password = registerSessionData?.password;
+    setRegisterSessionData((d) => (d ? { ...d, password: undefined } : d));
+    if (!email || !password) {
+      setActiveTab('login');
+      return;
+    }
+    try {
+      const auth = await authService.login({ username: email, password });
+      if (auth.status === 'MFA_REQUIRED') {
+        addToast({ type: 'info', title: 'Conta criada!', description: 'Entre com seu e-mail e senha para confirmar este aparelho.' });
+        setActiveTab('login');
+        return;
+      }
+      login(auth, email);
+    } catch {
+      addToast({ type: 'info', title: 'Conta criada!', description: 'Entre com seu e-mail e senha.' });
       setActiveTab('login');
     }
   };
