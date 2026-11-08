@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ChangePasswordModal } from '../components/auth/ChangePasswordModal';
 import { DeviceSessionsCard } from '../components/dashboard/DeviceSessionsCard';
 import { MyDeviceBlacklistCard } from '../components/dashboard/MyDeviceBlacklistCard';
@@ -20,14 +20,9 @@ import { ClientSystemView } from '../components/dashboard/ClientSystemView';
 import { AgentsHubView } from '../components/dashboard/AgentsHubView';
 import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
-import { TradeDayView } from '../components/dashboard/TradeDayView';
-import { TradeMonitorView } from '../components/dashboard/TradeMonitorView';
-import { SetupsView } from '../components/dashboard/SetupsView';
-import { Mt5AccountView } from '../components/dashboard/Mt5AccountView';
 import { useAuth, useTokenMeta } from '../context/AuthContext';
 import { PATHS } from '../navigation/routes';
 import {
-  CandlestickChart,
   User,
   CheckCircle,
   Activity,
@@ -45,7 +40,6 @@ import {
   BookOpen,
   Sparkles,
   CreditCard,
-  Wallet,
 } from 'lucide-react';
 
 const tenantDevicesVisibilityFailures = assertTenantDevicesVisibility();
@@ -363,85 +357,6 @@ export const KnowledgePage: React.FC = () => (
       </div>
     </div>
     <KnowledgeView />
-  </DashboardShell>
-);
-
-const TRADE_TABS = [
-  { id: 'day', label: 'Trade Day', tabId: 'trade-tab-day', panelId: 'trade-panel-day' },
-  { id: 'monitor', label: 'Monitor', tabId: 'trade-tab-monitor', panelId: 'trade-panel-monitor' },
-  { id: 'setups', label: 'Setups', tabId: 'trade-tab-setups', panelId: 'trade-panel-setups' },
-] as const;
-
-type TradeTabId = (typeof TRADE_TABS)[number]['id'];
-
-function tradeTabFromSearch(tab: string | null): TradeTabId {
-  return tab && TRADE_TABS.some((t) => t.id === tab) ? (tab as TradeTabId) : 'day';
-}
-
-export const TradePage: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tab = tradeTabFromSearch(searchParams.get('tab'));
-  const active = TRADE_TABS.find((t) => t.id === tab) ?? TRADE_TABS[0];
-
-  const selectTab = (id: TradeTabId) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('tab', id);
-      return next;
-    }, { replace: true });
-  };
-
-  return (
-    <DashboardShell>
-      <div className="dashboard-header">
-        <div className="dashboard-title-group">
-          <h1 className="dashboard-title">
-            <CandlestickChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-            Trade
-          </h1>
-        </div>
-      </div>
-      <div className="llm-panel-tabs" role="tablist" aria-label="Seções de Trade">
-        {TRADE_TABS.map((t) => {
-          const selected = t.id === tab;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              id={t.tabId}
-              role="tab"
-              aria-selected={selected}
-              aria-controls={t.panelId}
-              tabIndex={selected ? 0 : -1}
-              className={`llm-panel-tab${selected ? ' is-active' : ''}`}
-              onClick={() => selectTab(t.id)}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-      <div id={active.panelId} role="tabpanel" aria-labelledby={active.tabId} className="llm-panel-tabpanel">
-        {tab === 'day' ? <TradeDayView /> : tab === 'monitor' ? <TradeMonitorView /> : <SetupsView />}
-      </div>
-    </DashboardShell>
-  );
-};
-
-export const CarteiraPage: React.FC = () => (
-  <DashboardShell>
-    <div className="dashboard-header">
-      <div className="dashboard-title-group">
-        <h1 className="dashboard-title">
-          <Wallet size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Carteira
-        </h1>
-        <p className="dashboard-subtitle">
-          O que você tem na corretora, em tempo real: saldo, posições, ordens e histórico (MetaTrader 5).
-        </p>
-      </div>
-    </div>
-    <Mt5AccountView />
   </DashboardShell>
 );
 

@@ -11,8 +11,6 @@ export type AppTab =
   | 'agent-incidents'
   | 'data-sources'
   | 'knowledge'
-  | 'trade'
-  | 'carteira'
   | 'audits'
   | 'llm'
   | 'billing'
@@ -44,10 +42,6 @@ export const PATHS = {
   home: '/sessoes',
   /** Legado: /mercado e o que vem abaixo redirecionam para a inicial. */
   mercadoLegado: '/mercado',
-  trade: '/trade',
-  carteira: '/carteira',
-  /** Legado: a antiga tela Corretora virou a Carteira (SPEC-003) — redireciona. */
-  mt5Account: '/corretora',
   audits: '/auditoria',
   llm: '/llm',
   billing: '/planos',
@@ -60,8 +54,6 @@ export const PATHS = {
 } as const;
 
 export const ROUTES: RouteMeta[] = [
-  { path: PATHS.trade, tab: 'trade', title: 'Trade' },
-  { path: PATHS.carteira, tab: 'carteira', title: 'Carteira' },
   { path: PATHS.sessions, tab: 'sessions', title: 'Minhas sessões' },
   { path: PATHS.blacklist, tab: 'blacklist', title: 'Meus bloqueios' },
   { path: PATHS.tenantSessions, tab: 'tenant-sessions', title: 'Sessões da organização' },

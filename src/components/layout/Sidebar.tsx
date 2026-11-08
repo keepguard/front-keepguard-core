@@ -14,8 +14,6 @@ import {
   CreditCard,
   X,
   BookOpen,
-  CandlestickChart,
-  Wallet,
   Sparkles,
   PanelLeftClose,
   PanelLeft,
@@ -114,20 +112,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
               </button>
             </div>
-
-            <SidebarLink
-              to={PATHS.trade}
-              label="Trade"
-              icon={<CandlestickChart size={18} className="sidebar-icon" />}
-              onCloseMobile={onCloseMobile}
-            />
-
-            <SidebarLink
-              to={PATHS.carteira}
-              label="Carteira"
-              icon={<Wallet size={18} className="sidebar-icon" />}
-              onCloseMobile={onCloseMobile}
-            />
 
             <SidebarLink
               to={PATHS.sessions}

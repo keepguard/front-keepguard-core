@@ -1940,30 +1940,13 @@ function PlansPanel({ writable }: { writable: boolean }) {
         await saveBillingPlan(payload, access);
       }
 
-      // Persiste cotas de mercado no bff-invest (VIP recebe acesso total irrestrito / sem limites)
-      const quotaSlots = planModal.isLifetime ? -1 : planModal.quotaSlots;
-      const quotaPicks = planModal.isLifetime ? -1 : planModal.quotaPicks;
-      const quotaFixed = planModal.isLifetime ? [] : planModal.quotaFixedTickers;
-
-      const otherQuotas = allQuotas.filter((q) => q.planCode !== payload.code);
-      const newQuotaList = [
-        ...otherQuotas,
-        {
-          planCode: payload.code,
-          watchlistSlots: quotaSlots,
-          watchlistPicks: quotaPicks,
-          fixedTickers: quotaFixed,
-        },
-      ];
-      await savePlanQuotas({ quotas: newQuotaList });
-
       setPlanModal(null);
       setEditingCode(null);
       setPlanStep('general');
       addToast({
         type: 'success',
         title: editingCode ? 'Plano atualizado' : 'Plano criado',
-        description: `O plano "${payload.name}" e seus limites de mercado foram salvos com sucesso.`,
+        description: `O plano "${payload.name}" foi salvo com sucesso.`,
       });
       await load();
     } catch (err: any) {

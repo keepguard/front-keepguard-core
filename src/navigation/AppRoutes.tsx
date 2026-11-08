@@ -11,7 +11,6 @@ import {
   LlmPage,
   BillingOrgPage,
   BillingPage,
-  CarteiraPage,
   ClientSystemPage,
   ConnectionsPage,
   GuardianPage,
@@ -20,7 +19,6 @@ import {
   SettingsPage,
   TemplatesPage,
   TenantSessionsPage,
-  TradePage,
   UserBlacklistPage,
 } from '../pages/DashboardPage';
 import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canSeeBillingOrg, canSeeBillingStorefront, hasAdminRole } from '../utils/roles';
@@ -58,9 +56,9 @@ export const AppRoutes: React.FC = () => {
       <Route element={<AppLayout />}>
         <Route path={PATHS.overview} element={<Navigate to={PATHS.home} replace />} />
         <Route path={`${PATHS.mercadoLegado}/*`} element={<Navigate to={PATHS.home} replace />} />
-        <Route path={PATHS.trade} element={<TradePage />} />
-        <Route path={PATHS.carteira} element={<CarteiraPage />} />
-        <Route path={PATHS.mt5Account} element={<Navigate to={PATHS.carteira} replace />} />
+        <Route path="/trade/*" element={<Navigate to={PATHS.home} replace />} />
+        <Route path="/carteira" element={<Navigate to={PATHS.home} replace />} />
+        <Route path="/corretora" element={<Navigate to={PATHS.home} replace />} />
         <Route path={PATHS.sessions} element={<SessionsPage />} />
         <Route path={PATHS.blacklist} element={<UserBlacklistPage />} />
         <Route
