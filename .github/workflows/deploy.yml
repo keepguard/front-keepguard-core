@@ -1,3 +1,5 @@
+# Só builda e publica a imagem no GHCR. O rollout é do script-deploy-github-front-keepguard-core.sh (prod), por ssh da
+# máquina de quem faz o deploy, como nos ms-*-go: nenhuma chave SSH fica no GitHub (08/11/2026).
 name: CI/CD Build and Deploy to Production
 
 on:
@@ -57,21 +59,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Deploy to Kubernetes Production via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 31.97.175.92
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
-
-            echo "🚀 Atualizando deployment/front-keepguard-core para ${IMAGE_TAG}..."
-            kubectl set image deployment/front-keepguard-core front-keepguard-core=${IMAGE_TAG} -n keepguard
-
-            echo "⏳ Aguardando rollout concluir..."
-            kubectl rollout status deployment/front-keepguard-core -n keepguard --timeout=300s
-
-            echo "✅ Deploy de front-keepguard-core concluído com sucesso!"

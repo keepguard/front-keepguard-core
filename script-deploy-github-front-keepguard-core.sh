@@ -125,13 +125,40 @@ if [ "$DEPLOY_DOCKER" = true ]; then
 fi
 
 if [ "$TRIGGER_PROD" = true ]; then
-    log_step "3/3 Pipeline de Produção disparado no GitHub Actions!"
-    log_info "O build Docker e o deploy no Kubernetes estão rodando na nuvem."
-    if command -v gh >/dev/null 2>&1; then
-        log_info "Acompanhe o workflow com: gh run watch -R keepguard/${SERVICE_NAME}"
-    else
-        log_info "Veja o status em: https://github.com/keepguard/${SERVICE_NAME}/actions"
+    # O push na main dispara o build no GitHub (só imagem). Aqui: espera o build do commit, aplica a imagem no cluster
+    # por ssh e grava a tag no helm/values.yaml. Build falhou ou não apareceu = para com erro, nada vai para produção.
+    command -v gh >/dev/null 2>&1 || { log_error "gh (GitHub CLI) é necessário para acompanhar o build."; exit 1; }
+    GITHUB_REPO="keepguard/${SERVICE_NAME}"
+    FULL_SHA=$(git rev-parse "${MERGE_TARGET:-main}")
+    SHORT_SHA="${FULL_SHA:0:7}"
+    log_step "3/3 Aguardando o build da imagem ${SHORT_SHA} no GitHub Actions..."
+    RUN_ID=""
+    for _ in $(seq 1 45); do
+        RUN_ID=$(gh run list -R "${GITHUB_REPO}" --branch main --limit 5 --json databaseId,headSha \
+            --jq ".[] | select(.headSha == \"${FULL_SHA}\") | .databaseId" | head -1)
+        [ -n "${RUN_ID}" ] && break
+        sleep 2
+    done
+    [ -n "${RUN_ID}" ] || { log_error "Não achei o build de ${SHORT_SHA}: https://github.com/${GITHUB_REPO}/actions"; exit 1; }
+    if ! gh run watch "${RUN_ID}" -R "${GITHUB_REPO}" --exit-status --interval 15; then
+        log_error "O build FALHOU. Nada foi para produção."
+        gh run view "${RUN_ID}" -R "${GITHUB_REPO}" --log-failed | tail -30 || true
+        exit 1
     fi
+    IMAGEM="${REGISTRY}/${SERVICE_NAME}:${SHORT_SHA}"
+    log_info "Aplicando ${IMAGEM} no cluster..."
+    ssh -o BatchMode=yes root@31.97.175.92 "kubectl -n keepguard set image deployment/${SERVICE_NAME} ${SERVICE_NAME}=${IMAGEM} && kubectl -n keepguard rollout status deployment/${SERVICE_NAME} --timeout=300s" || {
+        log_error "Rollout falhou. Desfazendo..."
+        ssh -o BatchMode=yes root@31.97.175.92 "kubectl -n keepguard rollout undo deployment/${SERVICE_NAME} && kubectl -n keepguard rollout status deployment/${SERVICE_NAME} --timeout=300s" || true
+        exit 1
+    }
+    git checkout -q "${CURRENT_BRANCH}"
+    sed -i '' -E "s|^([[:space:]]*tag:).*|\1 \"${SHORT_SHA}\"|" helm/values.yaml
+    if ! git diff --quiet -- helm/values.yaml; then
+        git commit -q -m "chore(helm): ${SERVICE_NAME} ${SHORT_SHA}" -- helm/values.yaml
+        git push -q origin "${CURRENT_BRANCH}"
+    fi
+    log_success "Produção rodando ${IMAGEM}."
 fi
 
 log_success "============================================"
