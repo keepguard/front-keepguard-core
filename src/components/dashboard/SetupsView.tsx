@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CrosshairMode, LineStyle, type IChartApi, type ISeriesApi, type SeriesMarker, type Time } from 'lightweight-charts';
-import { Link } from 'react-router-dom';
-import { PATHS } from '../../navigation/routes';
 import { useTradeSnapshot } from '../../hooks/useTradeSnapshot';
 import {
   getTradeCandleHistory,
@@ -249,8 +247,7 @@ export function SetupsView() {
   if (tickers.length === 0) {
     return (
       <div className="trade-state">
-        <p>Você ainda não tem ativos no seu plano. Escolha os ativos que quer acompanhar no Mercado.</p>
-        <Link to={PATHS.market} className="btn btn-primary">Escolher ativos</Link>
+        <p>Você ainda não tem ativos no seu plano.</p>
       </div>
     );
   }

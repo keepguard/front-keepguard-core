@@ -1,6 +1,4 @@
-import { Link } from 'react-router-dom';
 import { CalendarClock, Hourglass, Newspaper } from 'lucide-react';
-import { PATHS } from '../../../navigation/routes';
 import type { Proposal } from '../../../services/agentOrdersService';
 import { Tooltip } from '../../common/Tooltip';
 import { FamiliaBadge } from './AgentBadges';
@@ -177,7 +175,7 @@ export function AgentProposalsTable({ items, nowMs, flashIds, enginePaused, exec
                 </td>
                 <td>
                   <div className="table-cell-title">
-                    <Link to={`${PATHS.market}?ticker=${encodeURIComponent(p.ticker)}`}>{p.ticker}</Link>
+                    <span>{p.ticker}</span>
                   </div>
                   {p.nivelPiramide ? <span className="table-cell-muted ao-sub">nível {p.nivelPiramide}</span> : null}
                 </td>

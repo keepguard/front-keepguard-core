@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   AccountPage,
@@ -16,8 +16,6 @@ import {
   ConnectionsPage,
   GuardianPage,
   KnowledgePage,
-  MarketAnalyzePage,
-  MarketDeskPage,
   SessionsPage,
   SettingsPage,
   TemplatesPage,
@@ -38,16 +36,7 @@ function BillingLegacyRedirect() {
   if (canSeeBillingStorefront(accessToken, user?.roles)) {
     return <Navigate to={PATHS.billing} replace />;
   }
-  return <Navigate to={PATHS.market} replace />;
-}
-
-function MarketWatchlistRedirect() {
-  const [params] = useSearchParams();
-  const ticker = params.get('ticker')?.trim();
-  const to = ticker
-    ? `${PATHS.market}?ticker=${encodeURIComponent(ticker)}`
-    : PATHS.market;
-  return <Navigate to={to} replace />;
+  return <Navigate to={PATHS.home} replace />;
 }
 
 export const AppRoutes: React.FC = () => {
@@ -67,9 +56,8 @@ export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path={PATHS.overview} element={<Navigate to={PATHS.market} replace />} />
-        <Route path={PATHS.market} element={<MarketDeskPage />} />
-        <Route path={PATHS.marketCompare} element={<MarketDeskPage defaultTab="compare" />} />
+        <Route path={PATHS.overview} element={<Navigate to={PATHS.home} replace />} />
+        <Route path={`${PATHS.mercadoLegado}/*`} element={<Navigate to={PATHS.home} replace />} />
         <Route path={PATHS.trade} element={<TradePage />} />
         <Route path={PATHS.carteira} element={<CarteiraPage />} />
         <Route path={PATHS.mt5Account} element={<Navigate to={PATHS.carteira} replace />} />
@@ -148,15 +136,6 @@ export const AppRoutes: React.FC = () => {
           )}
         />
         <Route
-          path={PATHS.marketAnalyze}
-          element={(
-            <RequireAccess allowed={canSeeAdmin} description="Somente ADMIN ou SYSTEM gerenciam o catálogo e os jobs do analista.">
-              <MarketAnalyzePage />
-            </RequireAccess>
-          )}
-        />
-        <Route path={PATHS.marketWatchlist} element={<MarketWatchlistRedirect />} />
-        <Route
           path={PATHS.audits}
           element={(
             <RequireAccess allowed={canSeeAudits} description="Somente ADMIN, SYSTEM ou quem tiver audit:read consultam a auditoria.">
@@ -200,7 +179,7 @@ export const AppRoutes: React.FC = () => {
             </RequireAccess>
           )}
         />
-        <Route path="*" element={<Navigate to={PATHS.market} replace />} />
+        <Route path="*" element={<Navigate to={PATHS.home} replace />} />
       </Route>
     </Routes>
   );

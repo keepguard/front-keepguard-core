@@ -20,8 +20,6 @@ import { ClientSystemView } from '../components/dashboard/ClientSystemView';
 import { AgentsHubView } from '../components/dashboard/AgentsHubView';
 import { DataSourcesView } from '../components/dashboard/DataSourcesView';
 import { KnowledgeView } from '../components/dashboard/KnowledgeView';
-import { MarketOpsHubView } from '../components/dashboard/MarketOpsHubView';
-import { MarketHubView } from '../components/dashboard/MarketHubView';
 import { TradeDayView } from '../components/dashboard/TradeDayView';
 import { TradeMonitorView } from '../components/dashboard/TradeMonitorView';
 import { SetupsView } from '../components/dashboard/SetupsView';
@@ -45,7 +43,6 @@ import {
   Database,
   Users,
   BookOpen,
-  LineChart,
   Sparkles,
   CreditCard,
   Wallet,
@@ -369,23 +366,6 @@ export const KnowledgePage: React.FC = () => (
   </DashboardShell>
 );
 
-export const MarketDeskPage: React.FC<{ defaultTab?: 'desk' | 'magic' | 'sectors' | 'compare' | 'digest' }> = ({ defaultTab }) => (
-  <DashboardShell>
-    <div className="dashboard-header">
-      <div className="dashboard-title-group">
-        <h1 className="dashboard-title">
-          <LineChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Mercado
-        </h1>
-        <p className="dashboard-subtitle">
-          Dossiê do ativo, ranking da Fórmula Mágica e comparador lado a lado. Análise, não recomendação de investimento.
-        </p>
-      </div>
-    </div>
-    <MarketHubView defaultTab={defaultTab} />
-  </DashboardShell>
-);
-
 const TRADE_TABS = [
   { id: 'day', label: 'Trade Day', tabId: 'trade-tab-day', panelId: 'trade-panel-day' },
   { id: 'monitor', label: 'Monitor', tabId: 'trade-tab-monitor', panelId: 'trade-panel-monitor' },
@@ -462,23 +442,6 @@ export const CarteiraPage: React.FC = () => (
       </div>
     </div>
     <Mt5AccountView />
-  </DashboardShell>
-);
-
-export const MarketAnalyzePage: React.FC = () => (
-  <DashboardShell>
-    <div className="dashboard-header">
-      <div className="dashboard-title-group">
-        <h1 className="dashboard-title">
-          <LineChart size={22} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Catálogo e lote
-        </h1>
-        <p className="dashboard-subtitle">
-          Cadastro de ativos, análise sob demanda e jobs do analista. Análise, não recomendação de investimento.
-        </p>
-      </div>
-    </div>
-    <MarketOpsHubView />
   </DashboardShell>
 );
 

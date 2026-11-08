@@ -11,8 +11,6 @@ export type AppTab =
   | 'agent-incidents'
   | 'data-sources'
   | 'knowledge'
-  | 'market'
-  | 'market-analyze'
   | 'trade'
   | 'carteira'
   | 'audits'
@@ -42,10 +40,10 @@ export const PATHS = {
   agentIncidents: '/agents/incidentes',
   dataSources: '/fontes',
   knowledge: '/conhecimento',
-  market: '/mercado',
-  marketCompare: '/mercado/comparador',
-  marketAnalyze: '/mercado/analisar',
-  marketWatchlist: '/mercado/watchlist',
+  /** Página inicial depois que o Mercado (InvestBot) saiu do ar. */
+  home: '/sessoes',
+  /** Legado: /mercado e o que vem abaixo redirecionam para a inicial. */
+  mercadoLegado: '/mercado',
   trade: '/trade',
   carteira: '/carteira',
   /** Legado: a antiga tela Corretora virou a Carteira (SPEC-003) — redireciona. */
@@ -62,8 +60,6 @@ export const PATHS = {
 } as const;
 
 export const ROUTES: RouteMeta[] = [
-  { path: PATHS.market, tab: 'market', title: 'Mercado' },
-  { path: PATHS.marketCompare, tab: 'market', title: 'Comparador de Ativos' },
   { path: PATHS.trade, tab: 'trade', title: 'Trade' },
   { path: PATHS.carteira, tab: 'carteira', title: 'Carteira' },
   { path: PATHS.sessions, tab: 'sessions', title: 'Minhas sessões' },
@@ -77,7 +73,6 @@ export const ROUTES: RouteMeta[] = [
   { path: PATHS.agentIncidents, tab: 'agent-incidents', title: 'Incidentes' },
   { path: PATHS.dataSources, tab: 'data-sources', title: 'Fontes de dados' },
   { path: PATHS.knowledge, tab: 'knowledge', title: 'Conhecimento' },
-  { path: PATHS.marketAnalyze, tab: 'market-analyze', title: 'Catálogo e lote' },
   { path: PATHS.audits, tab: 'audits', title: 'Auditoria' },
   { path: PATHS.llm, tab: 'llm', title: 'LLM' },
   { path: PATHS.billing, tab: 'billing', title: 'Planos' },
@@ -92,8 +87,8 @@ const META_BY_PATH = new Map<string, RouteMeta>(ROUTES.map((route) => [route.pat
 
 const TAB_ALIASES: Record<string, AppTab> = {
   identity: 'account',
-  security: 'market',
-  overview: 'market',
+  security: 'sessions',
+  overview: 'sessions',
 };
 
 /** Só abas de rota legada (`?tab=sessions` etc.). Painéis internos (`desk`, `analyze`, `jobs`) não entram. */
@@ -104,13 +99,13 @@ export function isLegacyAppTab(tab: string | null | undefined): boolean {
 }
 
 export function pathFromTab(tab: string | null | undefined): string {
-  if (!tab) return PATHS.market;
+  if (!tab) return PATHS.home;
   const canonical = TAB_ALIASES[tab] || (tab as AppTab);
-  return PATH_BY_TAB.get(canonical) || PATHS.market;
+  return PATH_BY_TAB.get(canonical) || PATHS.home;
 }
 
 export function tabFromPath(pathname: string): AppTab {
-  return META_BY_PATH.get(pathname)?.tab || 'market';
+  return META_BY_PATH.get(pathname)?.tab || 'sessions';
 }
 
 export function routeMetaFromPath(pathname: string): RouteMeta | undefined {

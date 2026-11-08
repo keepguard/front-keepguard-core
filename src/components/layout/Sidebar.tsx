@@ -14,7 +14,6 @@ import {
   CreditCard,
   X,
   BookOpen,
-  LineChart,
   CandlestickChart,
   Wallet,
   Sparkles,
@@ -22,7 +21,7 @@ import {
   PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canSeeBillingOrg, canSeeBillingStorefront, hasAdminRole } from '../../utils/roles';
+import { canReadAudits, canReadLlm, canReadSession, canReadCollector, canReadGuardian, canReadOAuth, canReadOps, canReadKnowledge, canSeeBillingOrg, canSeeBillingStorefront } from '../../utils/roles';
 import { PATHS } from '../../navigation/routes';
 
 interface SidebarProps {
@@ -74,12 +73,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const canSeeAgentIncidents = canSeeAgents;
   const canSeeDataSources = canSeeAgents;
   const canSeeKnowledge = canReadKnowledge(accessToken, user?.roles);
-  const canSeeMarketOps = hasAdminRole(user?.roles);
   const canSeeAudits = canReadAudits(accessToken, user?.roles);
   const canSeeLlm = canReadLlm(accessToken, user?.roles);
   const canSeeBillingStorefrontNav = canSeeBillingStorefront(accessToken, user?.roles);
   const canSeeBillingOrgNav = canSeeBillingOrg(accessToken, user?.roles);
-  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeMarketOps || canSeeBillingOrgNav;
+  const showAdminSection = canAccessTenantDevicesTab || canSeeConnections || canSeeAudits || canSeeLlm || canSeeGuardian || canSeeClientSystem || canSeeAgents || canSeeAgentIncidents || canSeeDataSources || canSeeKnowledge || canSeeBillingOrgNav;
 
   return (
     <>
@@ -116,14 +114,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
               </button>
             </div>
-
-            <SidebarLink
-              to={PATHS.market}
-              end
-              label="Mercado"
-              icon={<LineChart size={18} className="sidebar-icon" />}
-              onCloseMobile={onCloseMobile}
-            />
 
             <SidebarLink
               to={PATHS.trade}
@@ -165,14 +155,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {showAdminSection && (
             <nav className="sidebar-section" aria-label="Administração">
               <span className="sidebar-heading">Administração</span>
-              {canSeeMarketOps && (
-                <SidebarLink
-                  to={PATHS.marketAnalyze}
-                  label="Catálogo e lote"
-                  icon={<LineChart size={18} className="sidebar-icon" />}
-                  onCloseMobile={onCloseMobile}
-                />
-              )}
               {canAccessTenantDevicesTab && (
                 <SidebarLink
                   to={PATHS.tenantSessions}

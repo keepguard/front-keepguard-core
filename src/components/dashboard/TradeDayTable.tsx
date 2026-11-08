@@ -1,6 +1,4 @@
-import { Link } from 'react-router-dom';
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
-import { PATHS } from '../../navigation/routes';
 import type { TradeDayRow } from '../../hooks/useTradeDay';
 import { ageLabel, formatMoney, formatSignedPct } from './dossierFormat';
 
@@ -116,9 +114,7 @@ export function TradeDayTable({ rows, emptyMessage }: TradeDayTableProps) {
                 <tr key={ticker} className={stale ? 'is-stale' : undefined}>
                   <td>
                     <div className="table-cell-title">
-                      <Link to={`${PATHS.market}?ticker=${encodeURIComponent(ticker)}`} title="Abrir o dossiê no Mercado">
-                        {ticker}
-                      </Link>
+                      <span>{ticker}</span>
                       {stale ? <span className="trade-chip is-warn">Defasado</span> : null}
                     </div>
                   </td>

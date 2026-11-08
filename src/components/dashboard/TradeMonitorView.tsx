@@ -26,8 +26,7 @@ export function TradeMonitorView() {
   if (data.total === 0) {
     return (
       <div className="trade-state">
-        <p>Você ainda não tem ativos no seu plano. Escolha os ativos que quer acompanhar no Mercado.</p>
-        <Link to={PATHS.market} className="btn btn-primary">Escolher ativos</Link>
+        <p>Você ainda não tem ativos no seu plano.</p>
       </div>
     );
   }
