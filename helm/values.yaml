@@ -3,7 +3,7 @@ replicaCount: 2
 image:
   repository: ghcr.io/keepguard/front-keepguard-core
   pullPolicy: IfNotPresent
-  tag: "f7abc22"
+  tag: "a559be4"
 
 service:
   type: ClusterIP
